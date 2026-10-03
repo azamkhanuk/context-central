@@ -65,6 +65,8 @@ Show the draft in this shape and wait for a yes. Omit a key that has no value.
 }
 ```
 
+When the file that will be the hub is already longer than the hub budget of 200 lines (`instructionFiles` gives its length), add `"budgets": { "hubLines": <its length plus 30> }` to the draft's config and tell the person the hub is over the recommended size. Otherwise the first `lint` fails on a file they have not touched.
+
 ## 4. Write the map
 
 1. Save the approved draft as an answers file in a temporary directory outside the estate.

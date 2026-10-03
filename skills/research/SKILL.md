@@ -38,7 +38,7 @@ Done when every claim in the answer carries one mark and its source.
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
 
-The note holds the question, the answer in a few lines, the claims with their marks and sources, and what is still unknown.
+The note holds the question, the answer in a few lines, the claims with their marks and sources, and what is still unknown. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
 With an item, add the note's path to "Where the detail lives" in the state file.
 
