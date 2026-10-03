@@ -1,0 +1,6 @@
+{
+  "name": "context-central",
+  "description": "The context-central plugin: a context map for Claude Code.",
+  "owner": { "name": "Azam Khan" },
+  "plugins": [{ "name": "context-central", "source": "./" }]
+}

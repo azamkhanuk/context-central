@@ -1,0 +1,96 @@
+---
+name: onboard
+description: Set up a context map for this estate. Detects what is on disk, asks only what is unsettled, writes the config and the map, then checks it.
+disable-model-invocation: true
+allowed-tools: Bash(context-central *)
+---
+
+Set up the map in the directory named here, or the working directory when none is named: $ARGUMENTS
+
+Names only throughout: tokens and the content of env files are never read, shown or written.
+
+## 1. Detect
+
+Run `context-central detect --json` (add the directory when one was named).
+
+If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
+
+Show what was found as a short list: each repo with its remote and default branch, the instruction files with their sizes, key candidates, MCP server names, which tools are installed, the `gh` accounts.
+
+## 2. Ask once
+
+Send every unsettled question in one message, numbered, each with the answer you recommend from the detection, so the person can reply "yes" or correct by number. Leave out a question the detection settles beyond doubt and state that value instead.
+
+1. Estate name (short, lower case) and title.
+2. Layout: `root` (the map sits at the estate root with the repos beneath it) or `inner` (the map sits inside one repo). Recommend `root` when repos were found one level down. And whether the map itself is kept in git.
+3. The repos to register and the role of each in a phrase.
+4. Folders the plugin leaves alone (scratch space, archives, other people's checkouts).
+5. Tracker: type (`jira`, `github`, `azure-devops`, `none`), site, project keys, and the key patterns as regular expressions. Recommend patterns from `keyCandidates`.
+6. Tracker route: how a session reaches the tracker (an MCP server from `mcpServers`, `gh`, another CLI) and the exact tool or command for each of read issue, search, comment and transition.
+7. Per repo: the base branch (recommend `defaultBranch`), where the key goes (branch name, commit subject, PR title) and the commit style.
+8. Code host: type, organisation (recommend the detected `org`) and which `gh` account to pin (from `ghAccounts`).
+9. Meeting and chat sources, and how each is reached.
+10. Write rules: what may be posted outside the map (tracker comments, transitions, PR comments, pushes) and which of those need approval each time.
+11. Whether implement writes tests, and whether it runs a review.
+12. Estate skills the plugin should defer to for implementing.
+
+Done when every question has an answer or an explicit "none".
+
+## 3. Draft the config
+
+Show the draft in this shape and wait for a yes. Omit a key that has no value.
+
+```json
+{
+  "layout": "root",
+  "git": true,
+  "config": {
+    "contextCentral": 1,
+    "name": "acme",
+    "title": "Acme estate",
+    "repos": [{ "name": "web", "path": "web", "role": "front end", "baseBranch": "main", "keyPlacement": "branch name and PR title", "commitStyle": "conventional" }],
+    "leftAlone": ["scratch"],
+    "tracker": {
+      "type": "jira",
+      "site": "https://tracker.acme.example",
+      "projects": ["PROJ"],
+      "keyPatterns": ["PROJ-\\d+"],
+      "route": { "via": "the server or CLI", "tools": { "readIssue": "", "search": "", "comment": "", "transition": "" } }
+    },
+    "codeHost": { "type": "github", "org": "acme", "ghUser": "the pinned account" },
+    "sources": { "meetings": "", "chat": "" },
+    "writeRules": ["one rule per line, as the person worded it"],
+    "implement": { "tests": true, "review": true, "deferTo": "" }
+  }
+}
+```
+
+## 4. Write the map
+
+1. Save the approved draft as an answers file in a temporary directory outside the estate.
+2. Run `context-central init <dir> --from <answers file> --dry-run` and show what it would create.
+3. Run it again without `--dry-run`. It never overwrites: a `kept` line means the file was already there.
+
+The commands in the steps below find the map from the working directory, so run them from `<dir>`.
+
+## 5. Terminal launcher
+
+Offer `context-central wrapper --write`, which lets the person run the CLI from an ordinary terminal. Run it on a yes.
+
+## 6. Settings
+
+Run `context-central init --print-settings` and show the JSON. Ask where it goes: `.claude/settings.json` (shared with everyone who uses the map) or `.claude/settings.local.json` (this machine only). Either sits in the folder sessions start from: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.
+
+## 7. Settings a map-root session will not load
+
+Layout `root` only. A session started at the estate root loads none of the repos' own settings. Read each registered repo's `.claude/settings.json`, `.claude/settings.local.json` and `.mcp.json`, and list every `permissions.deny` rule, `permissions.ask` rule and MCP server name found, by repo. Offer to copy them up into the map's settings and `.mcp.json`; copy only what the person picks.
+
+## 8. Glossary
+
+Seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
+
+## 9. Check
+
+Run `context-central doctor`. Fix each `FIX` line you can and report the rest with what the person has to do.
+
+Finish by telling the person to restart the session or run `/clear`, so the hub loads.
