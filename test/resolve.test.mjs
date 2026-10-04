@@ -150,7 +150,7 @@ test('a link that leads out of the map is not listed', () => {
 test('an item name shorter than five characters is never matched as a word', () => {
   const root = tree(acme({ 'work/next/STATE.md': '# next: What comes next\n' }))
 
-  assert.equal(resolved(root, 'what', 'comes', 'next'), null)
+  assert.equal(resolved(root, 'what', 'is', 'next'), null)
 })
 
 test('a query that is exactly an item name resolves to it however short the name', () => {
@@ -363,6 +363,28 @@ test('a PR link no work item mentions resolves to the note of its repo', () => {
       ['repos/api.md', 'linked from the repo note'],
     ],
   )
+})
+
+function oneItemMap() {
+  const root = smallMap({})
+  run(['work', 'new', 'order-export-rework', '--title', 'Rebuild the order export'], { cwd: root })
+  return root
+}
+
+test('an item name written with spaces resolves to the item, alone or inside a sentence', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'order', 'export', 'rework').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.equal(resolved(root, 'carry', 'on', 'with', 'the', 'order', 'export', 'rework').key, 'item:order-export-rework')
+})
+
+test('an item title word for word resolves to the item, whatever its case, hyphens or punctuation', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'Rebuild', 'the', 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.equal(resolved(root, 'where', 'are', 'we', 'on', 'rebuild', 'the', 'order', 'export?').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'REBUILD', 'the', 'order-export!').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'rebuild', 'the', 'big', 'order', 'export').by, 'text')
 })
 
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
