@@ -461,3 +461,29 @@ test('an inner map is asked about its evidence too, and the ignore file init wri
   assert.match(evidenceLine(before), new RegExp(`^FIX  evidence: evidence is set to stay out of git and git does not ignore ${SHOT.replaceAll('.', '\\.')}; `))
   assert.equal(evidenceLine(after), 'ok   evidence')
 })
+
+test('evidence that git already tracks is a fix that says to take it out of the index, not to ignore it again', () => {
+  const { root, env } = repository({ [SHOT]: 'x', [TRACE]: 'x', '.gitignore': '/work/*/evidence/\n' })
+  spawnSync('git', ['-C', root, 'add', '-f', SHOT], { env })
+
+  const result = doctor(root, env)
+
+  assert.equal(
+    evidenceLine(result),
+    `FIX  evidence: evidence is set to stay out of git and git already tracks ${SHOT}; run git rm --cached on it, or set "evidence.commit" to true in estate.json`,
+  )
+  assert.equal(result.code, 1)
+})
+
+test('tracked evidence with no ignore rule is first told to ignore the folder, and several tracked files are counted', () => {
+  const unruled = repository({ [SHOT]: 'x' })
+  const ruled = repository({ [SHOT]: 'x', [TRACE]: 'x', '.gitignore': '/work/*/evidence/\n' })
+  spawnSync('git', ['-C', unruled.root, 'add', '-f', SHOT], { env: unruled.env })
+  spawnSync('git', ['-C', ruled.root, 'add', '-f', SHOT, TRACE], { env: ruled.env })
+
+  assert.match(evidenceLine(doctor(unruled.root, unruled.env)), /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore work\/\*\/evidence\/ in the map's \.gitignore/)
+  assert.equal(
+    evidenceLine(doctor(ruled.root, ruled.env)),
+    `FIX  evidence: evidence is set to stay out of git and git already tracks ${SHOT} and 1 more; run git rm --cached on each, or set "evidence.commit" to true in estate.json`,
+  )
+})
