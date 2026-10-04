@@ -223,3 +223,32 @@ test('outside a map lint says there is none', () => {
   assert.equal(result.code, 1)
   assert.match(result.stderr, /no context map found/)
 })
+
+test('a file in a work item that is neither Markdown nor under its evidence folder earns a warning', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x'.repeat(300) }))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'WARN evidence: work/PROJ-12/notes/shot.png is not Markdown and is outside work/PROJ-12/evidence/\n')
+  assert.equal(result.code, 0)
+  assert.equal(lint(root, '--strict').code, 1)
+})
+
+test('dot names and files under the evidence folder are left alone', () => {
+  const root = tree(acme({ 'work/PROJ-12/.DS_Store': 'xxxx', 'work/PROJ-12/notes/.keep': '', 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+
+  assert.equal(lint(root).stdout, 'ok\n')
+})
+
+test('a stray file is reported for a finished item and for a folder named evidence deeper down, and json carries it', () => {
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': '---\nstatus: done\n---\n# PROJ-9\n', 'work/PROJ-9/notes/evidence/trace.json': '{}' }))
+
+  assert.deepEqual(JSON.parse(lint(root, '--json').stdout), [
+    {
+      level: 'WARN',
+      check: 'evidence',
+      rel: 'work/PROJ-9/notes/evidence/trace.json',
+      message: 'evidence: work/PROJ-9/notes/evidence/trace.json is not Markdown and is outside work/PROJ-9/evidence/',
+    },
+  ])
+})
