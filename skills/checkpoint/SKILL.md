@@ -18,6 +18,8 @@ Take them from git and files: `git status`, `git log <base branch>..HEAD --oneli
 
 Any ticket, PR thread, meeting record or long output that this session holds and the map does not is saved in full to `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` before any brief of it is written, where `NN` is one more than the highest number in that folder. The brief then names the file.
 
+A file that is not text and shows what this session saw (a screenshot, a recording, an export) goes to `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes for spaces; a copy anywhere else is only a copy. `notes/<YYYY-MM-DD>-evidence.md` lists each by file name, with what it shows and the commit it was taken at.
+
 ## 4. Rewrite the state file
 
 Its six parts, each replaced with what is true now:
@@ -27,7 +29,7 @@ Its six parts, each replaced with what is true now:
 - **Next**: the next action, concrete enough to start cold.
 - **Blocked**: what is waiting, and on whom or what.
 - **Standing traps**: what would catch out someone new to this item.
-- **Where the detail lives**: paths to the spec, the notes and the saved sources.
+- **Where the detail lives**: paths to the spec, the notes, the saved sources and the evidence note.
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 

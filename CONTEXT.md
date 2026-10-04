@@ -24,6 +24,9 @@ _Avoid_: start file, landing file, index file
 **Deep tier**: The full text saved behind the short files: everything under a `sources/` folder and any file named `*-full-text.md`. It is counted and pointed to as a whole, never listed one by one.
 _Avoid_: archive, raw notes, attachments
 
+**Evidence**: A file that is not text and shows what was seen: a screenshot, a recording, an export. It sits in a work item's `evidence/` folder, is counted and never opened by the commands, and is named in a note.
+_Avoid_: attachments, assets, artefacts
+
 **Live index**: The list of work items in flight, one line each, that the session-start hook puts in context. It is built fresh each time, so it holds nothing that can go stale.
 _Avoid_: status board, in-flight table, dashboard
 

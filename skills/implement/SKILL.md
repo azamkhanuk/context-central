@@ -30,7 +30,7 @@ A slice that shows the spec to be wrong stops the build: say what was found and 
 
 ## 4. Verify
 
-Run the tests, the typecheck, the build and the behaviour itself, and read the output. Done when every requirement in the spec is either shown working by output from this session or listed as not done.
+Run the tests, the typecheck, the build and the behaviour itself, and read the output. Evidence that is not text (a screenshot, a recording, an export) is saved to `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>` and named in the report. Done when every requirement in the spec is either shown working by output from this session or listed as not done.
 
 ## 5. Review
 

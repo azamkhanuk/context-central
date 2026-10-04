@@ -23,16 +23,17 @@ Send every unsettled question in one message, numbered, each with the answer you
 
 1. Estate name (short, lower case) and title.
 2. Layout: `root` (the map sits at the estate root with the repos beneath it) or `inner` (the map sits inside one repo). Recommend `root` when repos were found one level down. And whether the map itself is kept in git.
-3. The repos to register and the role of each in a phrase.
-4. Folders the plugin leaves alone (scratch space, archives, other people's checkouts).
-5. Tracker: type (`jira`, `github`, `azure-devops`, `none`), site, project keys, and the key patterns as regular expressions. Recommend patterns from `keyCandidates`.
-6. Tracker route: how a session reaches the tracker (an MCP server from `mcpServers`, `gh`, another CLI) and the exact tool or command for each of read issue, search, comment and transition.
-7. Per repo: the base branch (recommend `defaultBranch`), where the key goes (branch name, commit subject, PR title) and the commit style.
-8. Code host: type, organisation (recommend the detected `org`) and which `gh` account to pin (from `ghAccounts`).
-9. Meeting and chat sources, and how each is reached.
-10. Write rules: what may be posted outside the map (tracker comments, transitions, PR comments, pushes) and which of those need approval each time.
-11. Whether implement writes tests, and whether it runs a review.
-12. Estate skills the plugin should defer to for implementing.
+3. Whether evidence that is not text (screenshots, recordings, exports) is committed. Recommend yes exactly when the map is kept in git, and say that `lint` then warns on any file over `budgets.evidenceBytes` (1 MB unless set). A project might answer no because a screenshot can show personal data, and no text check reads an image.
+4. The repos to register and the role of each in a phrase.
+5. Folders the plugin leaves alone (scratch space, archives, other people's checkouts).
+6. Tracker: type (`jira`, `github`, `azure-devops`, `none`), site, project keys, and the key patterns as regular expressions. Recommend patterns from `keyCandidates`.
+7. Tracker route: how a session reaches the tracker (an MCP server from `mcpServers`, `gh`, another CLI) and the exact tool or command for each of read issue, search, comment and transition.
+8. Per repo: the base branch (recommend `defaultBranch`), where the key goes (branch name, commit subject, PR title) and the commit style.
+9. Code host: type, organisation (recommend the detected `org`) and which `gh` account to pin (from `ghAccounts`).
+10. Meeting and chat sources, and how each is reached.
+11. Write rules: what may be posted outside the map (tracker comments, transitions, PR comments, pushes) and which of those need approval each time.
+12. Whether implement writes tests, and whether it runs a review.
+13. Estate skills the plugin should defer to for implementing.
 
 Done when every question has an answer or an explicit "none".
 
@@ -50,6 +51,7 @@ Show the draft in this shape and wait for a yes. Omit a key that has no value.
     "title": "Acme estate",
     "repos": [{ "name": "web", "path": "web", "role": "front end", "baseBranch": "main", "keyPlacement": "branch name and PR title", "commitStyle": "conventional" }],
     "leftAlone": ["scratch"],
+    "evidence": { "commit": true },
     "tracker": {
       "type": "jira",
       "site": "https://tracker.acme.example",
