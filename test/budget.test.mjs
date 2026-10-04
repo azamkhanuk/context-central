@@ -99,6 +99,20 @@ test('rules without paths load at launch; path-scoped rules are only counted', (
   assert.match(budget(root, 'estate').stdout, /\nNot loaded until used: 2 path-scoped rules\n$/)
 })
 
+test('a path-scoped rule with Windows line endings or a byte-order mark is still not loaded at launch', () => {
+  const root = tree(
+    makeTree({
+      'estate/.claude/rules/routes.md': SCOPED_RULE.replaceAll('\n', '\r\n'),
+      'estate/.claude/rules/models.md': `\uFEFF${SCOPED_RULE}`,
+    }),
+  )
+
+  const report = budgetJson(root, 'estate')
+
+  assert.deepEqual(sources(report), [])
+  assert.deepEqual(report.notLoaded, { pathScopedRules: 2 })
+})
+
 test('one path-scoped rule is counted in the singular', () => {
   const root = tree(makeTree({ 'estate/.claude/rules/routes.md': SCOPED_RULE }))
 
