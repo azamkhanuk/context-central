@@ -12,7 +12,7 @@ function entriesOfTestFolder() {
 }
 
 const files = entriesOfTestFolder()
-  .filter(entry => entry.isFile() && entry.name.endsWith('.test.mjs'))
+  .filter(entry => !entry.isDirectory() && entry.name.endsWith('.test.mjs'))
   .map(entry => join('test', entry.name))
   .sort()
 

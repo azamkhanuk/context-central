@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, disposable, makeTree } from './helpers.mjs'
@@ -8,6 +8,8 @@ import { REPO, disposable, makeTree } from './helpers.mjs'
 const LISTER = join(REPO, 'scripts', 'test.mjs')
 
 const tree = disposable()
+
+const NO_LINKS = process.platform === 'win32' ? 'making a symbolic link can need a privilege on Windows' : false
 
 const marking = name => `import { mkdirSync, writeFileSync } from 'node:fs'\nmkdirSync('marks', { recursive: true })\nwriteFileSync('marks/${name}', '')\n`
 const marks = root => (existsSync(join(root, 'marks')) ? readdirSync(join(root, 'marks')).sort() : [])
@@ -63,4 +65,24 @@ test('with no test folder the run fails, says so, and starts nothing', () => {
   assert.equal(result.stdout, '')
   assert.equal(result.stderr, 'no test files found: nothing in test/ ends in .test.mjs\n')
   assert.deepEqual(marks(root), [])
+})
+
+test('a test file that is a symbolic link is run', { skip: NO_LINKS }, () => {
+  const root = tree(makeTree({ 'test/plain.test.mjs': marking('plain'), 'kept/linked.mjs': marking('linked') }))
+  symlinkSync(join(root, 'kept/linked.mjs'), join(root, 'test/linked.test.mjs'))
+
+  const result = list(root)
+
+  assert.equal(result.code, 0, result.stderr)
+  assert.deepEqual(marks(root), ['linked', 'plain'])
+})
+
+test('a linked test file whose target is gone fails the run, and the files beside it still run', { skip: NO_LINKS }, () => {
+  const root = tree(makeTree({ 'test/plain.test.mjs': marking('plain') }))
+  symlinkSync(join(root, 'kept/gone.mjs'), join(root, 'test/gone.test.mjs'))
+
+  const result = list(root)
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(marks(root), ['plain'])
 })
