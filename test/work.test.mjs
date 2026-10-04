@@ -283,6 +283,14 @@ test('a status line added to frontmatter with Windows line endings ends as the o
   assert.equal(readFileSync(join(root, 'work/PROJ-61/STATE.md'), 'utf8'), '---\r\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-61\r\n')
 })
 
+test('a status line added to frontmatter with mixed line endings takes the ending of the line before the closing dashes', () => {
+  const root = tree(acme({ 'work/PROJ-65/STATE.md': '---\ntitle: No status yet\r\n---\r\n# PROJ-65\r\n' }))
+
+  run(['work', 'done', 'PROJ-65'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'work/PROJ-65/STATE.md'), 'utf8'), '---\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-65\r\n')
+})
+
 test('a new frontmatter block takes the line ending the file uses and sits after a byte-order mark', () => {
   const root = tree(
     acme({
