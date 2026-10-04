@@ -271,11 +271,12 @@ function cmdMachine() {
 const cmdLauncher = root => `"${join(root, 'map', 'bin', 'context-central.cmd')}"`
 const withNode = root => [join(root, 'map', 'bin'), dirname(process.execPath), SYSTEM32]
 
-function cmd(root, line, env, path = withNode(root)) {
+function cmd(root, line, env, path = withNode(root), ownConsole = false) {
   const result = spawnSync(process.env.ComSpec, ['/d', '/s', '/c', `"${line}"`], {
     cwd: root,
     encoding: 'utf8',
     windowsVerbatimArguments: true,
+    windowsHide: ownConsole,
     env: { PATH: path.join(delimiter), PATHEXT: process.env.PATHEXT, USERPROFILE: join(root, 'home'), ...env },
   })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
@@ -313,11 +314,11 @@ function installUnderProfile(root, folder) {
   return { profile, cli: join(installPath, 'bin', 'context-central') }
 }
 
-test('the cmd launcher finds a plugin installed under a profile folder with a letter outside ASCII', CMD, () => {
+test('in a console on code page 437 the cmd launcher finds a plugin installed under a profile folder with a letter outside ASCII', CMD, () => {
   const root = cmdMachine()
   const { profile, cli } = installUnderProfile(root, 'café')
 
-  const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile })
+  const result = cmd(root, `chcp 437 >nul && ${cmdLauncher(root)} index`, { USERPROFILE: profile }, withNode(root), true)
 
   assert.equal(result.stderr, '')
   assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
