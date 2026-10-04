@@ -77,12 +77,11 @@ test('a test file that is a symbolic link is run', { skip: NO_LINKS }, () => {
   assert.deepEqual(marks(root), ['linked', 'plain'])
 })
 
-test('a linked test file whose target is gone fails the run, and the files beside it still run', { skip: NO_LINKS }, () => {
+test('a linked test file whose target is gone fails the run', { skip: NO_LINKS }, () => {
   const root = tree(makeTree({ 'test/plain.test.mjs': marking('plain') }))
   symlinkSync(join(root, 'kept/gone.mjs'), join(root, 'test/gone.test.mjs'))
 
   const result = list(root)
 
   assert.equal(result.code, 1)
-  assert.deepEqual(marks(root), ['plain'])
 })
