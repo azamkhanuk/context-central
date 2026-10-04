@@ -333,3 +333,32 @@ test('a long prompt that names a work item is still answered', () => {
 
   assert.match(context(result), /^Context for work item PROJ-12:/)
 })
+
+test('a short prompt that holds an item title word for word is given the item once and makes it the active item', () => {
+  const root = tree(acme())
+  const dir = stateDir()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: dir }
+  const prompt = { session_id: 's1', cwd: root, prompt: 'how far along is rate limit the gateway?' }
+
+  const first = fire('user-prompt-submit', prompt, env)
+  const second = fire('user-prompt-submit', prompt, env)
+
+  assert.equal(context(first), acmePointers(root))
+  silent(second)
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')), { delivered: ['item:PROJ-12'], active: 'PROJ-12' })
+})
+
+test('a long prompt that holds an item title and no key or name is met with silence', () => {
+  const root = tree(acme())
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${'x1 '.repeat(250)}rate limit the gateway` }))
+})
+
+test('a short prompt that only the words of an item name and title would answer is met with silence', () => {
+  const root = tree(acme())
+  const dir = stateDir()
+
+  assert.equal(JSON.parse(run(['resolve', 'rate', 'gateway', '--json'], { cwd: root }).stdout).key, 'item:PROJ-12')
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'rate gateway' }, { CONTEXT_CENTRAL_STATE_DIR: dir }))
+  assert.equal(existsSync(join(dir, 's1.json')), false)
+})

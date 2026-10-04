@@ -91,14 +91,16 @@ Evidence is a file that is not text and shows what was seen: a screenshot, a rec
 
 **When a prompt is submitted**: pointers, when the prompt names something the map knows. First match wins:
 
-1. a work item, by ticket key or by name
+1. a work item, by ticket key or by name, or else by its name written with spaces or its title word for word
 2. a GitHub pull request link recorded in a work item, or whose repository has a note
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
 
+On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
+
 The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
 
-A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys, PR links and repo names, not on its words: a pasted log or diff would match notes by chance.
+A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys and names, PR links and repo names, not on its words, a title or a name written with spaces: a pasted log or diff would match those by chance.
 
 **When a large session resumes with an expired cache**: a notice to the person, not to the model. If Claude Code reports that the prompt cache has likely expired and the session holds at least `budgets.resumeNoticeTokens` (100,000) tokens, the hook shows one line giving the size and saying that a fresh session started from the work item's state file is cheaper.
 
