@@ -31,7 +31,8 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 ## Releases
 
 - A release is one pull request that raises `version` in `.claude-plugin/plugin.json` and adds that version's section, dated, at the top of `CHANGELOG.md`. A test holds the two together.
-- Once it is merged, on `main`: `claude plugin tag --push` makes the tag `context-central--v<version>`, and `gh release create <tag> --verify-tag --title "context-central <version>"` publishes the release with that section of the changelog as its notes.
+- Once it is merged and the checks pass on `main`, `.github/workflows/release.yml` tags that commit `context-central--v<version>` and publishes the GitHub release, with that section of the changelog as its notes. `scripts/release-notes.mjs` prints the tag, the title and the notes. A merge that does not raise the version publishes nothing.
+- By hand, the same is `claude plugin tag --push` on `main`, then `gh release create <tag> --verify-tag`.
 
 ## Tests
 
