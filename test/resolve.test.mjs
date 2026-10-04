@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, acme, disposable, makeTree, run } from './helpers.mjs'
@@ -10,6 +11,36 @@ const resolve = (root, ...args) => run(['resolve', ...args], { cwd: root })
 const resolved = (root, ...args) => JSON.parse(resolve(root, ...args, '--json').stdout)
 const rels = resolution => resolution.pointers.map(pointer => pointer.rel)
 const smallMap = files => makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, ...files })
+
+function proj12Answer(root) {
+  return {
+    by: 'item',
+    key: 'item:PROJ-12',
+    item: 'PROJ-12',
+    name: 'PROJ-12',
+    label: 'work item PROJ-12',
+    pointers: [
+      { rel: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md'), bytes: sizeOf('work/PROJ-12/STATE.md'), why: 'state file: where the work stands and what is next' },
+      { rel: 'work/PROJ-12/SPEC.md', path: join(root, 'work/PROJ-12/SPEC.md'), bytes: sizeOf('work/PROJ-12/SPEC.md'), why: 'spec of the work item' },
+      { rel: 'concepts/gateway.md', path: join(root, 'concepts/gateway.md'), bytes: sizeOf('concepts/gateway.md'), why: 'linked from the work item' },
+      { rel: 'repos/api.md', path: join(root, 'repos/api.md'), bytes: sizeOf('repos/api.md'), why: 'linked from the work item' },
+    ],
+    more: 0,
+    notes: {
+      count: 1,
+      bytes: sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md'),
+      rel: 'work/PROJ-12',
+      path: join(root, 'work/PROJ-12'),
+    },
+    deep: {
+      count: 1,
+      bytes: sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md'),
+      rel: 'work/PROJ-12/sources',
+      path: join(root, 'work/PROJ-12/sources'),
+    },
+    evidence: null,
+  }
+}
 
 const RANKED_FILES = {
   'work/PROJ-20/STATE.md': [
@@ -52,33 +83,7 @@ test('a ticket key resolves to its state file, the notes it links to and its dee
 test('the answer as JSON carries both paths, the reason and a key to tell answers apart', () => {
   const root = tree(acme())
 
-  assert.deepEqual(resolved(root, 'PROJ-12'), {
-    by: 'item',
-    key: 'item:PROJ-12',
-    item: 'PROJ-12',
-    name: 'PROJ-12',
-    label: 'work item PROJ-12',
-    pointers: [
-      { rel: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md'), bytes: sizeOf('work/PROJ-12/STATE.md'), why: 'state file: where the work stands and what is next' },
-      { rel: 'work/PROJ-12/SPEC.md', path: join(root, 'work/PROJ-12/SPEC.md'), bytes: sizeOf('work/PROJ-12/SPEC.md'), why: 'spec of the work item' },
-      { rel: 'concepts/gateway.md', path: join(root, 'concepts/gateway.md'), bytes: sizeOf('concepts/gateway.md'), why: 'linked from the work item' },
-      { rel: 'repos/api.md', path: join(root, 'repos/api.md'), bytes: sizeOf('repos/api.md'), why: 'linked from the work item' },
-    ],
-    more: 0,
-    notes: {
-      count: 1,
-      bytes: sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md'),
-      rel: 'work/PROJ-12',
-      path: join(root, 'work/PROJ-12'),
-    },
-    deep: {
-      count: 1,
-      bytes: sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md'),
-      rel: 'work/PROJ-12/sources',
-      path: join(root, 'work/PROJ-12/sources'),
-    },
-    evidence: null,
-  })
+  assert.deepEqual(resolved(root, 'PROJ-12'), proj12Answer(root))
 })
 
 test('absolute paths are printed on request', () => {
@@ -464,16 +469,32 @@ test('an item with no entry file is not an answer by its name with spaces', () =
 test('the answer by title is the answer the name gives, field for field', () => {
   const root = tree(acme())
 
-  assert.deepEqual(resolved(root, 'rate', 'limit', 'the', 'gateway'), resolved(root, 'PROJ-12'))
-  assert.equal(resolved(root, 'rate', 'limit', 'the', 'gateway').key, 'item:PROJ-12')
+  assert.deepEqual(resolved(root, 'rate', 'limit', 'the', 'gateway'), proj12Answer(root))
 })
 
 test('words that all sit in one item name and title resolve to the item when nothing else answers', () => {
   const root = tree(oneItemMap())
 
   assert.equal(resolve(root, 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
-  assert.deepEqual(resolved(root, 'rebuild', 'export'), resolved(root, 'order-export-rework'))
-  assert.equal(resolved(root, 'rebuild', 'export').key, 'item:order-export-rework')
+  assert.deepEqual(resolved(root, 'rebuild', 'export'), {
+    by: 'item',
+    key: 'item:order-export-rework',
+    item: 'order-export-rework',
+    name: 'order-export-rework',
+    label: 'work item order-export-rework',
+    pointers: [
+      {
+        rel: 'work/order-export-rework/STATE.md',
+        path: join(root, 'work/order-export-rework/STATE.md'),
+        bytes: statSync(join(root, 'work/order-export-rework/STATE.md')).size,
+        why: 'state file: where the work stands and what is next',
+      },
+    ],
+    more: 0,
+    notes: null,
+    deep: null,
+    evidence: null,
+  })
 })
 
 test('one counted word is not enough to resolve to an item by its words', () => {
