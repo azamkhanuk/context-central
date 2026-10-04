@@ -387,6 +387,15 @@ test('an item title word for word resolves to the item, whatever its case, hyphe
   assert.equal(resolved(root, 'rebuild', 'the', 'big', 'order', 'export').by, 'text')
 })
 
+test('a query that is exactly a one-word title resolves to the item, and the word inside a sentence does not', () => {
+  const root = tree(smallMap({}))
+  run(['work', 'new', 'PROJ-14', '--title', 'Checkout'], { cwd: root })
+
+  assert.equal(resolved(root, 'checkout').key, 'item:PROJ-14')
+  assert.equal(resolved(root, ' Checkout! ').key, 'item:PROJ-14')
+  assert.equal(resolved(root, 'mend', 'the', 'checkout'), null)
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
