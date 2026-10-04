@@ -378,6 +378,15 @@ test('an item name written with spaces resolves to the item, alone or inside a s
   assert.equal(resolved(root, 'carry', 'on', 'with', 'the', 'order', 'export', 'rework').key, 'item:order-export-rework')
 })
 
+test('an item name inside a longer hyphenated word or a path resolves to the item, as it does written with spaces', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'the', 'order', 'export', 'rework', 'v2', 'idea').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order-export-rework-v2', 'idea').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'open', 'src/order/export/rework/index.js').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order-export-reworking', 'idea'), null)
+})
+
 test('an item title word for word resolves to the item, whatever its case, hyphens or punctuation', () => {
   const root = tree(oneItemMap())
 
@@ -463,6 +472,7 @@ test('words that all sit in one item name and title resolve to the item when not
 
   assert.equal(resolve(root, 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
   assert.deepEqual(resolved(root, 'rebuild', 'export'), resolved(root, 'order-export-rework'))
+  assert.equal(resolved(root, 'rebuild', 'export').key, 'item:order-export-rework')
 })
 
 test('one counted word is not enough to resolve to an item by its words', () => {
