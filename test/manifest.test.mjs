@@ -56,3 +56,13 @@ test('no lockfile is tracked, so installing the plugin runs no package install',
   assert.equal(tracked.status, 0)
   assert.equal(tracked.stdout, '')
 })
+
+test('git checks out no tracked file with Windows line endings', () => {
+  const listed = spawnSync('git', ['-C', REPO, 'ls-files', '--eol'], { encoding: 'utf8' })
+
+  assert.equal(listed.status, 0)
+  assert.deepEqual(
+    listed.stdout.split('\n').filter(line => /\bw\/(crlf|mixed)\b/.test(line)),
+    [],
+  )
+})
