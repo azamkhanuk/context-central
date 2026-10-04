@@ -6,7 +6,7 @@ A Claude Code plugin: a CLI in `lib/`, two hooks, five skills and three agents. 
 
 - One test file: `node --test test/<name>.test.mjs`. All of them: `npm test`.
 - Types: `npm run typecheck`. It must stay clean.
-- Manifests: `claude plugin validate .` (a missing `version` warning is expected).
+- Manifests: `claude plugin validate .`. It must pass.
 - Before any push: `node scripts/scan-names.mjs <names-file>`. It must exit 0.
 
 ## Public-safety rule
@@ -25,8 +25,13 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub).
 - Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
-- `plugin.json` carries no `version`, so every commit is an update.
+- `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release.
 - No lockfile is committed. With a `package.json` and a lockfile at the plugin root, Claude Code runs an npm install in every user's plugin cache, and the plugin has no runtime dependencies.
+
+## Releases
+
+- A release is one pull request that raises `version` in `.claude-plugin/plugin.json` and adds that version's section, dated, at the top of `CHANGELOG.md`. A test holds the two together.
+- Once it is merged, on `main`: `claude plugin tag --push` makes the tag `context-central--v<version>`, and `gh release create <tag> --verify-tag --title "context-central <version>"` publishes the release with that section of the changelog as its notes.
 
 ## Tests
 
