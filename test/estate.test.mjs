@@ -168,8 +168,10 @@ test('the size limit for one evidence file is a megabyte unless set', () => {
 test('an answer on committing evidence that is not true or false is refused', () => {
   const word = tree(acme({}, { evidence: { commit: 'yes' } }))
   const bare = tree(acme({}, { evidence: true }))
+  const empty = tree(acme({}, { evidence: { commit: null } }))
+  const nothing = tree(acme({}, { evidence: null }))
 
-  for (const root of [word, bare]) {
+  for (const root of [word, bare, empty, nothing]) {
     const result = run(['config'], { cwd: root })
 
     assert.equal(result.code, 1)
