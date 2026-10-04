@@ -396,6 +396,25 @@ test('a query that is exactly a one-word title resolves to the item, and the wor
   assert.equal(resolved(root, 'mend', 'the', 'checkout'), null)
 })
 
+const TWO_ITEMS = {
+  'work/order-export-rework/STATE.md': '---\nitem: order-export-rework\ntitle: Rebuild the order export\nstatus: active\n---\n# order-export-rework: Rebuild the order export\n',
+  'work/PROJ-13/STATE.md': '---\nitem: PROJ-13\ntitle: Cache the gateway\nstatus: active\n---\n# PROJ-13: Cache the gateway\n',
+}
+
+test('a key or a name beats a title wherever it stands in the query', () => {
+  const root = tree(acme(TWO_ITEMS))
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'order', 'export', 'after', 'PROJ-13').key, 'item:PROJ-13')
+  assert.equal(resolved(root, 'cache', 'the', 'gateway', 'before', 'order-export-rework').key, 'item:order-export-rework')
+})
+
+test('when a query holds two items by name with spaces or title the one that starts first is the answer', () => {
+  const root = tree(acme(TWO_ITEMS))
+
+  assert.equal(resolved(root, 'cache', 'the', 'gateway', 'then', 'rebuild', 'the', 'order', 'export').key, 'item:PROJ-13')
+  assert.equal(resolved(root, 'order', 'export', 'rework', 'then', 'cache', 'the', 'gateway').key, 'item:order-export-rework')
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
