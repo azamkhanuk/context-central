@@ -172,10 +172,10 @@ Outside a session the CLI is not on your `PATH`, so the map can hold a small lau
 Three files are saved in the map's `bin/` folder, on every system, and a file already there is kept; with a map inside a repository the folder is `.context-central/bin/`:
 
 - `context-central`, the launcher: a `sh` script for macOS, Linux and Git Bash
-- `context-central.cmd`, the cmd launcher: the same for cmd and PowerShell on Windows
+- `context-central.cmd`, the cmd launcher: the same for cmd and Windows PowerShell
 - `.gitattributes`, which keeps the first at LF and the second at CRLF when the map is kept in git, whatever a machine's line-ending setting
 
-Each launcher finds the installed plugin through Claude Code's install record and passes every argument and the exit code through:
+Each launcher finds the installed plugin through Claude Code's install record and passes the arguments it is given and the exit code through:
 
 ```sh
 ./bin/context-central work list
@@ -184,7 +184,7 @@ Each launcher finds the installed plugin through Claude Code's install record an
 
 When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
 
-With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and PowerShell, and the launcher in Git Bash. The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
+With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash. PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried. The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
 
 ### On Windows
 
@@ -195,8 +195,9 @@ What the checks have shown on GitHub's Windows machines, with Node 20, 22 and 24
 - the commands, run as a process
 - both hooks answering when started as the hooks manifest declares them
 - a tool found on the `PATH` under a name ending in `.exe` or `.com` and started by its bare name: real `git` for `detect` and `doctor`, and a stand-in named `gh.exe` for `gh`; a tool installed only as a `.cmd` or a `.bat` reads as missing
-- the bare command and the launcher, typed in Git Bash
-- the cmd launcher run through cmd, and found by its bare name in cmd and in Windows PowerShell with its exit code coming back
+- the bare command and the launcher, typed in Git Bash, and the launcher found there by its bare name in a folder that also holds the cmd launcher
+- the cmd launcher run through cmd, with arguments that hold a space, nothing, `*` and an apostrophe arriving unchanged
+- the cmd launcher found by its bare name in cmd and in Windows PowerShell, with two plain arguments and its exit code coming back
 - a map whose files have Windows line endings or a byte-order mark: frontmatter and `estate.json` are read, and `work done` changes one line and keeps the rest as it found it
 
 What has not been shown there is under "What it does not do".
@@ -227,7 +228,7 @@ The map is plain Markdown and stays readable without the plugin.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
 - It does not ingest meetings, ship workflows, or include evals.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
-- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. These are untested on Windows, not known to fail.
+- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell. These are untested on Windows, not known to fail.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 
