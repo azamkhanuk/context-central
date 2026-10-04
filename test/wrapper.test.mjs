@@ -271,8 +271,8 @@ function cmdMachine() {
 const cmdLauncher = root => `"${join(root, 'map', 'bin', 'context-central.cmd')}"`
 const withNode = root => [join(root, 'map', 'bin'), dirname(process.execPath), SYSTEM32]
 
-function cmd(root, line, env, path = withNode(root), ownConsole = false) {
-  const result = spawnSync(process.env.ComSpec, ['/d', '/s', '/c', `"${line}"`], {
+function cmd(root, line, env, { path = withNode(root), ownConsole = false, delayedExpansion = false } = {}) {
+  const result = spawnSync(process.env.ComSpec, [...(delayedExpansion ? ['/v:on'] : []), '/d', '/s', '/c', `"${line}"`], {
     cwd: root,
     encoding: 'utf8',
     windowsVerbatimArguments: true,
@@ -318,7 +318,7 @@ test('in a console on code page 437 the cmd launcher finds a plugin installed un
   const root = cmdMachine()
   const { profile, cli } = installUnderProfile(root, 'café')
 
-  const result = cmd(root, `chcp 437 >nul && ${cmdLauncher(root)} index`, { USERPROFILE: profile }, withNode(root), true)
+  const result = cmd(root, `chcp 437 >nul && ${cmdLauncher(root)} index`, { USERPROFILE: profile }, { ownConsole: true })
 
   assert.equal(result.stderr, '')
   assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
@@ -329,6 +329,16 @@ test('the cmd launcher finds a plugin installed under a profile folder with a sp
   const { profile, cli } = installUnderProfile(root, 'two words')
 
   const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile })
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
+})
+
+test('with delayed expansion on in cmd, the cmd launcher finds a plugin installed under a profile folder with an exclamation mark', CMD, () => {
+  const root = cmdMachine()
+  const { profile, cli } = installUnderProfile(root, 'wow!')
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile }, { delayedExpansion: true })
 
   assert.equal(result.stderr, '')
   assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
@@ -381,7 +391,7 @@ test('the cmd launcher counts an install record it cannot use as nothing install
 test('without node on the PATH the cmd launcher says so and exits 1', CMD, () => {
   const root = cmdMachine()
 
-  const result = cmd(root, `${cmdLauncher(root)} index`, { CONTEXT_CENTRAL_CLI: join(root, 'elsewhere/bin/context-central') }, [SYSTEM32])
+  const result = cmd(root, `${cmdLauncher(root)} index`, { CONTEXT_CENTRAL_CLI: join(root, 'elsewhere/bin/context-central') }, { path: [SYSTEM32] })
 
   assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central: node was not found on the PATH. Install Node 20 or later.\r\n' })
 })
