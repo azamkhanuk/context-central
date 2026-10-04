@@ -67,7 +67,10 @@ jobs:
             failed=1
           fi
 
-          node bin/context-central wrapper > launcher
+          if ! node bin/context-central wrapper > launcher; then
+            echo "The launcher could not be printed."
+            failed=1
+          fi
           printf '%s\n' 'console.log(JSON.stringify(process.argv.slice(2)))' > stand-in.js
           expected='["two words","","*","it'"'"'s"]'
           reported=$(CONTEXT_CENTRAL_CLI="$PWD/stand-in.js" sh launcher 'two words' '' '*' "it's") || true
