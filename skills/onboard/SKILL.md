@@ -23,7 +23,7 @@ Send every unsettled question in one message, numbered, each with the answer you
 
 1. Estate name (short, lower case) and title.
 2. Layout: `root` (the map sits at the estate root with the repos beneath it) or `inner` (the map sits inside one repo). Recommend `root` when repos were found one level down. And whether the map itself is kept in git.
-3. Whether evidence that is not text (screenshots, recordings, exports) is committed. Recommend yes exactly when the map is kept in git, and say that `lint` then warns on any file over `budgets.evidenceBytes` (1 MB unless set). A project might answer no because a screenshot can show personal data, and no text check reads an image.
+3. Whether evidence that is not text (screenshots, recordings, exports) is committed. Recommend yes exactly when the map is kept in git, and say that `lint` then warns on any file over `budgets.evidenceBytes` (1 MB unless set). The answer may be no because a screenshot can show personal data, and no text check reads an image.
 4. The repos to register and the role of each in a phrase.
 5. Folders the plugin leaves alone (scratch space, archives, other people's checkouts).
 6. Tracker: type (`jira`, `github`, `azure-devops`, `none`), site, project keys, and the key patterns as regular expressions. Recommend patterns from `keyCandidates`.
