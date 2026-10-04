@@ -427,6 +427,17 @@ test("when one item's name with spaces is the start of another's, the longer nam
   assert.equal(resolved(root, 'the', 'order', 'export', 'again').key, 'item:order-export')
 })
 
+test('a title that two items share does not resolve to either', () => {
+  const root = tree(
+    acme({
+      'work/PROJ-13/STATE.md': '---\ntitle: Cache the gateway\n---\n# PROJ-13: Cache the gateway\n',
+      'work/PROJ-14/STATE.md': '---\ntitle: Cache the gateway\n---\n# PROJ-14: Cache the gateway\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'cache', 'the', 'gateway'), null)
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
