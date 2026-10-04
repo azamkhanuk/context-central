@@ -512,3 +512,9 @@ test('the evidence line carries an absolute path on request', () => {
 
   assert.equal(result.stdout.split('\n').at(-2), `Evidence: 2 files (350 B) under ${join(root, 'work/PROJ-12/evidence')}, not listed one by one.`)
 })
+
+test('evidence is never matched on words', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/billing-retries.md': BILLING_NOTE }))
+
+  assert.equal(resolve(root, 'how', 'do', 'billing', 'retries', 'behave').stdout, 'No confident match for "how do billing retries behave".\n')
+})
