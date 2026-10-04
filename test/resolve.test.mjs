@@ -458,6 +458,57 @@ test('the answer by title is the answer the name gives, field for field', () => 
   assert.equal(resolved(root, 'rate', 'limit', 'the', 'gateway').key, 'item:PROJ-12')
 })
 
+test('words that all sit in one item name and title resolve to the item when nothing else answers', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.deepEqual(resolved(root, 'rebuild', 'export'), resolved(root, 'order-export-rework'))
+})
+
+test('one counted word is not enough to resolve to an item by its words', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'the', 'export'), null)
+})
+
+test('a query with one word outside the item name and title does not resolve to the item', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'server'), null)
+})
+
+test('words that sit in the names or titles of two items resolve to neither', () => {
+  const root = tree(
+    acme({
+      'work/order-export-rework/STATE.md': '# order-export-rework: Rebuild the order export\n',
+      'work/order-import/STATE.md': '# order-import: Rebuild the order import\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'rebuild', 'order'), null)
+  assert.equal(resolved(root, 'rebuild', 'import').key, 'item:order-import')
+})
+
+test('an item with no entry file is not an answer by its words', () => {
+  const root = tree(acme({ 'work/order-export-rework/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(resolved(root, 'export', 'rework'), null)
+})
+
+test('a query that free text answers keeps that answer though its words all sit in one item title', () => {
+  const root = tree(
+    acme({
+      'work/order-export-rework/STATE.md': '---\ntitle: Rebuild the order export\n---\n# order-export-rework\n',
+      'concepts/order-export.md': '# Order export\n\nA nightly file of orders.\n',
+    }),
+  )
+
+  const resolution = resolved(root, 'order', 'export')
+
+  assert.equal(resolution.by, 'text')
+  assert.deepEqual(rels(resolution), ['concepts/order-export.md'])
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
