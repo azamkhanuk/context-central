@@ -78,6 +78,33 @@ test('an existing hub keeps its text and gains one map block', () => {
   assert.match(hub, /context-central resolve/)
 })
 
+const RESOLVE_LINE =
+  "`context-central resolve <item or words>` lists the notes behind a task. A work item's name or title always answers. Other words answer when they single out one item or note; otherwise it says there is no confident match."
+
+test('a new hub says what resolve answers to', () => {
+  const root = answers()
+  init(root)
+
+  assert.ok(lines(read(root, 'CLAUDE.md')).includes(RESOLVE_LINE))
+})
+
+test('the map block added to an existing hub says what resolve answers to', () => {
+  const root = answers({}, { 'CLAUDE.md': '# Our rules\n' })
+  init(root)
+
+  assert.ok(lines(read(root, 'CLAUDE.md')).some(line => line.endsWith(` ${RESOLVE_LINE}`)))
+})
+
+test('a hub that already holds the map block is kept as it is', () => {
+  const hub = '# Our rules\n\n<!-- context-central:start -->\n## Context map\n\n`context-central resolve <item or words>` lists the notes behind a task.\n<!-- context-central:end -->\n'
+  const root = answers({}, { 'CLAUDE.md': hub })
+
+  const result = init(root)
+
+  assert.match(result.stdout, /^kept CLAUDE\.md$/m)
+  assert.equal(read(root, 'CLAUDE.md'), hub)
+})
+
 test('the glossary starts with a heading and the entry format', () => {
   const root = answers()
   init(root)
