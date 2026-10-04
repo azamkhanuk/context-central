@@ -19,6 +19,18 @@ test('a file is copied into the item\'s evidence folder under the day and a clea
   assert.equal(existsSync(join(root, 'scratch/Limit Reached (2).PNG')), true)
 })
 
+test('what follows the last dot is an extension only when it is letters and digits', () => {
+  const root = tree(acme({ 'scratch/a.My Ext': 'x', 'scratch/notes v1.2 final': 'x', 'scratch/Trace.JSON5': 'x' }))
+
+  const spaced = add(root, 'scratch/a.My Ext', '--item', 'PROJ-12')
+  const versioned = add(root, 'scratch/notes v1.2 final', '--item', 'PROJ-12')
+  const plain = add(root, 'scratch/Trace.JSON5', '--item', 'PROJ-12')
+
+  assert.equal(spaced.stdout, 'saved: work/PROJ-12/evidence/2026-01-15-a-my-ext (1 B)\n')
+  assert.equal(versioned.stdout, 'saved: work/PROJ-12/evidence/2026-01-15-notes-v1-2-final (1 B)\n')
+  assert.equal(plain.stdout, 'saved: work/PROJ-12/evidence/2026-01-15-trace.json5 (1 B)\n')
+})
+
 test('the words of the name can be given', () => {
   const root = tree(acme({ 'scratch/IMG_0042.png': 'x' }))
 
