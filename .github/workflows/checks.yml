@@ -80,6 +80,27 @@ jobs:
             failed=1
           fi
 
+          map=$(mktemp -d)
+          printf '%s\n' '{ "contextCentral": 1, "name": "acme" }' > "$map/estate.json"
+          if ! (cd "$map" && context-central wrapper --write); then
+            echo "The launchers could not be saved."
+            failed=1
+          fi
+          cli="$PWD/stand-in.js"
+          export PATH="$map/bin:$PATH"
+          found=$(command -v context-central) || true
+          echo "Beside the cmd launcher, the bare name is: $found"
+          if [ "$found" != "$map/bin/context-central" ]; then
+            echo "Expected:                                  $map/bin/context-central"
+            failed=1
+          fi
+          reported=$(CONTEXT_CENTRAL_CLI="$cli" context-central 'two words' '' '*' "it's") || true
+          echo "By its bare name the launcher passed on: $reported"
+          if [ "$reported" != "$expected" ]; then
+            echo "Expected:                                $expected"
+            failed=1
+          fi
+
           exit "$failed"
 
   line-endings:
