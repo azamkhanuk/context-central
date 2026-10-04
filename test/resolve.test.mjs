@@ -438,6 +438,26 @@ test('a title that two items share does not resolve to either', () => {
   assert.equal(resolved(root, 'cache', 'the', 'gateway'), null)
 })
 
+test('a done item resolves by its title', () => {
+  const root = tree(oneItemMap())
+  run(['work', 'done', 'order-export-rework'], { cwd: root })
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'order', 'export').key, 'item:order-export-rework')
+})
+
+test('an item with no entry file is not an answer by its name with spaces', () => {
+  const root = tree(acme({ 'work/order-export-rework/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(resolved(root, 'order', 'export', 'rework'), null)
+})
+
+test('the answer by title is the answer the name gives, field for field', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(resolved(root, 'rate', 'limit', 'the', 'gateway'), resolved(root, 'PROJ-12'))
+  assert.equal(resolved(root, 'rate', 'limit', 'the', 'gateway').key, 'item:PROJ-12')
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
