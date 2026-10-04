@@ -22,12 +22,12 @@ function machine() {
   return root
 }
 
-function install(root, configDir) {
+function install(root, configDir, installPath = join(root, 'installed/context-central')) {
   const installed = {
     version: 2,
     plugins: {
       'other-plugin@some-market': [{ scope: 'user', installPath: join(root, 'installed/other-plugin'), version: '1.0.0' }],
-      'context-central@context-central': [{ scope: 'user', installPath: join(root, 'installed/context-central'), version: 'abc123' }],
+      'context-central@context-central': [{ scope: 'user', installPath, version: 'abc123' }],
     },
   }
   mkdirSync(join(configDir, 'plugins'), { recursive: true })
@@ -302,6 +302,35 @@ test('the cmd launcher looks in .claude under the profile folder when no config 
   const result = cmd(root, `${cmdLauncher(root)} index`, {})
 
   assert.deepEqual(JSON.parse(result.stdout), { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+function installUnderProfile(root, folder) {
+  const profile = join(root, folder)
+  const installPath = join(profile, '.claude', 'plugins', 'cache', 'context-central')
+  mkdirSync(join(installPath, 'bin'), { recursive: true })
+  writeFileSync(join(installPath, 'bin', 'context-central'), STUB_CLI)
+  install(root, join(profile, '.claude'), installPath)
+  return { profile, cli: join(installPath, 'bin', 'context-central') }
+}
+
+test('the cmd launcher finds a plugin installed under a profile folder with a letter outside ASCII', CMD, () => {
+  const root = cmdMachine()
+  const { profile, cli } = installUnderProfile(root, 'café')
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile })
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
+})
+
+test('the cmd launcher finds a plugin installed under a profile folder with a space in its name', CMD, () => {
+  const root = cmdMachine()
+  const { profile, cli } = installUnderProfile(root, 'two words')
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile })
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
 })
 
 test('CONTEXT_CENTRAL_CLI wins over the installed plugin in the cmd launcher too', CMD, () => {
