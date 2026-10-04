@@ -287,3 +287,9 @@ test('a stray file is reported whether or not evidence is committed', () => {
 
   assert.equal(lint(root).stdout, 'WARN evidence: work/PROJ-12/notes/shot.png is not Markdown and is outside work/PROJ-12/evidence/\n')
 })
+
+test('a folder that holds only evidence earns the warning of an item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x' }))
+
+  assert.equal(lint(root).stdout, 'WARN entry: PROJ-14 has no STATE.md and no other entry file\n')
+})

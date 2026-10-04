@@ -151,3 +151,9 @@ test("a map inside a repo has the repo's own instruction file as its hub", () =>
     'No work in flight.',
   ])
 })
+
+test('a folder that holds only evidence is listed as an item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x' }))
+
+  assert.equal(index(root).stdout.split('\n')[4], '- PROJ-14 | PROJ-14 | no entry file')
+})

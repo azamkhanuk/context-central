@@ -238,3 +238,11 @@ test('the plain list says nothing of evidence for an item with none', () => {
 
   assert.equal(result.stdout, 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B)\n')
 })
+
+test('a folder that holds only evidence is a work item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x'.repeat(300) }))
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout.split('\n')[1], 'PROJ-14 | PROJ-14 | no entry file | 0 notes, 0 deep files (0 B), 1 evidence file (300 B)')
+})
