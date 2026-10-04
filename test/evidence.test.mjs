@@ -49,6 +49,16 @@ test('a name that already starts with a date keeps that date', () => {
   assert.equal(fromWords.stdout, 'saved: work/PROJ-12/evidence/2026-01-10-after.png (1 B)\n')
 })
 
+test('a leading date that is not a day of the calendar is kept as words under today', () => {
+  const root = tree(acme({ 'scratch/2025-13-45-old.mov': 'x', 'scratch/2025-02-30 Late.png': 'x' }))
+
+  const noSuchMonth = add(root, 'scratch/2025-13-45-old.mov', '--item', 'PROJ-12')
+  const noSuchDay = add(root, 'scratch/2025-02-30 Late.png', '--item', 'PROJ-12')
+
+  assert.equal(noSuchMonth.stdout, 'saved: work/PROJ-12/evidence/2026-01-15-2025-13-45-old.mov (1 B)\n')
+  assert.equal(noSuchDay.stdout, 'saved: work/PROJ-12/evidence/2026-01-15-2025-02-30-late.png (1 B)\n')
+})
+
 test('the folder is made when it is missing, and work list then counts the file', () => {
   const root = tree(acme({ 'scratch/trace.json': 'x'.repeat(50) }))
   run(['work', 'new', 'PROJ-13'], { cwd: root })
