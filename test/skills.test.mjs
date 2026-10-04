@@ -7,7 +7,7 @@ import { REPO, acme, disposable, makeTree, run } from './helpers.mjs'
 const SKILLS = ['onboard', 'research', 'prep', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'research', 'prep', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -33,6 +33,7 @@ const FLAGS = {
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
   fetch: ['item', 'repo'],
+  evidence: ['item', 'as'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 
@@ -257,4 +258,8 @@ test('the state file, both hub blocks and checkpoint agree on the name of the ev
   assert.ok(readFileSync(join(fresh, 'CLAUDE.md'), 'utf8').includes('`evidence/`'))
   assert.ok(readFileSync(join(lived, 'CLAUDE.md'), 'utf8').includes('`work/<item>/evidence/`'))
   assert.ok(skillText('checkpoint').includes('`work/<item>/evidence/'))
+})
+
+test('implement and checkpoint save evidence with the command that puts it in place', () => {
+  for (const name of ['implement', 'checkpoint']) assert.ok(skillText(name).includes('`context-central evidence add <file> --item <item>`'), name)
 })

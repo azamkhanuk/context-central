@@ -83,7 +83,7 @@ Two more budgets shape what the hooks do:
 
 Two rules keep it honest. Every brief names the full-text file behind it. Status goes in state files, never in the hub.
 
-Evidence is a file that is not text and shows what was seen: a screenshot, a recording, an export. It sits in `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
+Evidence is a file that is not text and shows what was seen: a screenshot, a recording, an export. It sits in `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
 
 ## What the hooks put in context
 
@@ -131,6 +131,7 @@ Inside a session the plugin puts `context-central` on the Bash tool's `PATH`. Ex
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch pr\|issue <ref> --item <item> [--repo <owner/name>]` | Save the full text of a GitHub PR or issue under the item's `sources/`, then print a digest |
+| `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
 | `init --print-settings` | Print the settings that enable the plugin for a map |
