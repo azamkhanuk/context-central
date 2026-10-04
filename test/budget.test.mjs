@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from './helpers.mjs'
+import { INDEX_CLOSING_LINE, acme, acmeIndex, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -180,13 +180,7 @@ test('the user file is read from CLAUDE_CONFIG_DIR when that is set', () => {
 
 test('where a map covers the folder, the size of the session-start index is added', () => {
   const root = tree(acme())
-  const index = [
-    `Context map "Acme estate": ${root}`,
-    `Hub: ${root}/CLAUDE.md`,
-    'Work in flight (1):',
-    `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
-    INDEX_CLOSING_LINE,
-  ].join('\n')
+  const index = acmeIndex(root)
 
   const result = budget(root, '.')
 
@@ -199,9 +193,9 @@ test('the index is measured with the mark it carries when the hub is missing', (
   rmSync(join(root, 'CLAUDE.md'))
   const index = [
     `Context map "Acme estate": ${root}`,
-    `Hub: ${root}/CLAUDE.md (missing)`,
+    `Hub: ${join(root, 'CLAUDE.md')} (missing)`,
     'Work in flight (1):',
-    `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
+    `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`,
     INDEX_CLOSING_LINE,
   ].join('\n')
 
@@ -210,7 +204,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
 
 test('the index is measured as cut when its budget shortens the list', () => {
   const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Split the portal\n', 'work/PROJ-14/STATE.md': '# PROJ-14: Retire the old gateway\n' }, { budgets: { indexChars: 120 } }))
-  const index = [`Context map "Acme estate": ${root}`, `Hub: ${root}/CLAUDE.md`, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
+  const index = [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
 
   assert.deepEqual(budgetJson(root, 'web').plugin, { indexChars: index.length })
 })
