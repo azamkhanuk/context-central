@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mjs'
@@ -107,6 +108,27 @@ test('help lists the commands', () => {
 
   assert.equal(result.code, 0)
   assert.match(result.stdout, /config\s+\S/)
+})
+
+test('a command asked for --help answers with its own line of the help and does nothing else', () => {
+  const root = tree(acme())
+
+  const result = run(['note', '--help'], { cwd: root })
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.match(result.stdout, /^Usage: context-central <command> \[options\]\n\n  note +Log a line: note <text>\. [^\n]+\n$/)
+  assert.equal(existsSync(join(root, 'log')), false)
+})
+
+test('-h is --help, and needs no map', () => {
+  const root = tree(makeTree({}))
+
+  const result = run(['resolve', '-h'], { cwd: root })
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.match(result.stdout, /^Usage: context-central <command> \[options\]\n\n  resolve +\S[^\n]+\n$/)
 })
 
 test('an unknown flag is a usage error, not a crash', () => {
