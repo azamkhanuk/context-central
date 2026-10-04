@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -660,7 +660,7 @@ test('a link whose letter case differs from the file is not followed', () => {
   assert.deepEqual(rels(resolved(root, 'PROJ-31')), ['work/PROJ-31/STATE.md'])
 })
 
-const EVIDENCE = { 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }
+const EVIDENCE = { [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }
 
 test('an item with evidence gets one line for it after the deep tier', () => {
   const root = tree(acme(EVIDENCE))

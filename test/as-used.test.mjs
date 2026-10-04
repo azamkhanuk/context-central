@@ -1,19 +1,15 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree } from './helpers.mjs'
+import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, spawned } from './helpers.mjs'
 
 const tree = disposable()
 
 const { contextCentral, ...ACME_ANSWERS } = ACME_CONFIG
 const PATH = [join(REPO, 'bin'), dirname(process.execPath), process.env.PATH].join(delimiter)
 
-function bare(root, line) {
-  const result = spawnSync('sh', ['-c', line], { cwd: root, encoding: 'utf8', env: { PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z' } })
-  return { code: result.status, stdout: result.stdout, stderr: result.stderr }
-}
+const bare = (root, line) => spawned('sh', ['-c', line], { cwd: root, env: { PATH } })
 
 function freshMap() {
   const root = tree(makeTree({ 'answers.json': { layout: 'root', git: false, config: ACME_ANSWERS } }))
@@ -67,16 +63,11 @@ test('the bare command lints and graphs the map it made', () => {
 function declared(event, input) {
   const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8'))
   const [{ command, args }] = hooks[event][0].hooks
-  const result = spawnSync(
+  return spawned(
     command,
     args.map(arg => arg.replaceAll('${CLAUDE_PLUGIN_ROOT}', REPO)),
-    {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-      env: { PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z', CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) },
-    },
+    { input: JSON.stringify(input), env: { PATH, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } },
   )
-  return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
 test('the session-start hook, started as the manifest declares it, answers with the live index', () => {

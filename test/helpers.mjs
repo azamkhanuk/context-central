@@ -38,14 +38,18 @@ export function disposable() {
   return root => (trees.push(root), root)
 }
 
-export function run(args, { cwd = undefined, env = {}, stdin = '' } = {}) {
-  const result = spawnSync(process.execPath, [BIN, ...args], {
+export function spawned(command, args, { cwd = undefined, env = {}, input = undefined } = {}) {
+  const result = spawnSync(command, args, {
     cwd,
-    input: stdin,
+    input,
     encoding: 'utf8',
     env: { PATH: process.env.PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z', ...env },
   })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
+}
+
+export function run(args, { cwd = undefined, env = {}, stdin = '' } = {}) {
+  return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env })
 }
 
 export function hook(event, input, options = {}) {
@@ -91,6 +95,9 @@ export function acme(extraFiles = {}, configOverrides = {}) {
   return makeTree({ 'estate.json': { ...ACME_CONFIG, ...configOverrides }, ...ACME_FILES, ...extraFiles })
 }
 
+export const ACME_SHOT = 'work/PROJ-12/evidence/2026-01-14-limit-reached.png'
+export const INDEX_CLOSING_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
+
 const ACME_STATE = 'work/PROJ-12/STATE.md'
 const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
 
@@ -100,7 +107,7 @@ export function acmeIndex(root) {
     `Hub: ${join(root, 'CLAUDE.md')}`,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${join(root, ACME_STATE)}`,
-    "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note.",
+    INDEX_CLOSING_LINE,
   ].join('\n')
 }
 

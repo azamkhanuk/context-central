@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -140,7 +140,7 @@ test('a prompt that names a work item is given its pointers with absolute paths'
 })
 
 test('a prompt that names an item with evidence is told where it is, by absolute path', () => {
-  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300) }))
 
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -14,7 +14,6 @@ const SCOPED_RULE = '---\npaths:\n  - "src/**/*.ts"\n---\n# Only for source\n'
 const budget = (root, dir, env = {}, flags = []) => run(['budget', ...flags], { cwd: join(root, dir), env: { HOME: join(root, 'home'), ...env } })
 const budgetJson = (root, dir, env) => JSON.parse(budget(root, dir, env, ['--json']).stdout)
 const sources = report => report.files.map(file => [file.path, file.source])
-const LAST_INDEX_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 
 test('the user file, each ancestor file and their imports are listed with a total', () => {
   const root = tree(
@@ -186,7 +185,7 @@ test('where a map covers the folder, the size of the session-start index is adde
     `Hub: ${root}/CLAUDE.md`,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
-    LAST_INDEX_LINE,
+    INDEX_CLOSING_LINE,
   ].join('\n')
 
   const result = budget(root, '.')
@@ -203,7 +202,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
     `Hub: ${root}/CLAUDE.md (missing)`,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
-    LAST_INDEX_LINE,
+    INDEX_CLOSING_LINE,
   ].join('\n')
 
   assert.deepEqual(budgetJson(root, '.').plugin, { indexChars: index.length })
@@ -211,7 +210,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
 
 test('the index is measured as cut when its budget shortens the list', () => {
   const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Split the portal\n', 'work/PROJ-14/STATE.md': '# PROJ-14: Retire the old gateway\n' }, { budgets: { indexChars: 120 } }))
-  const index = [`Context map "Acme estate": ${root}`, `Hub: ${root}/CLAUDE.md`, 'Work in flight (3):', '- and 3 more: context-central work list', LAST_INDEX_LINE].join('\n')
+  const index = [`Context map "Acme estate": ${root}`, `Hub: ${root}/CLAUDE.md`, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
 
   assert.deepEqual(budgetJson(root, 'web').plugin, { indexChars: index.length })
 })

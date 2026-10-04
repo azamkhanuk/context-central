@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, acme, disposable, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -189,7 +189,7 @@ test('one note and several deep files are counted in plain English', () => {
 })
 
 test('files of any type under an item\'s evidence folder are counted as its evidence', () => {
-  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
 
   const item = list(root)[0]
 
@@ -199,7 +199,7 @@ test('files of any type under an item\'s evidence folder are counted as its evid
 })
 
 test('a dot name under the evidence folder is not counted', () => {
-  const root = tree(acme({ 'work/PROJ-12/evidence/.DS_Store': 'xxxx', 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+  const root = tree(acme({ 'work/PROJ-12/evidence/.DS_Store': 'xxxx', [ACME_SHOT]: 'x'.repeat(300) }))
 
   assert.deepEqual(list(root)[0].evidence, { count: 1, bytes: 300 })
 })
@@ -224,7 +224,7 @@ test('a file that is not Markdown outside the evidence folder is neither a note 
 })
 
 test('the plain list adds the evidence of an item that has some', () => {
-  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
 
   const result = run(['work', 'list'], { cwd: root })
 

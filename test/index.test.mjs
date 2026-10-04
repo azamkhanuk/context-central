@@ -2,13 +2,12 @@ import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
 const index = (root, ...flags) => run(['index', ...flags], { cwd: root })
 const PORTAL = { 'work/portal-split/STATE.md': '---\ntitle: Split the portal\n---\n# portal-split\n' }
-const LAST_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 
 test('the index names the map, the hub and each item in flight with its state file', () => {
   const root = tree(acme(PORTAL))
@@ -24,7 +23,7 @@ test('the index names the map, the hub and each item in flight with its state fi
       'Work in flight (2):',
       '- portal-split | Split the portal | work/portal-split/STATE.md',
       '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
-      LAST_LINE,
+      INDEX_CLOSING_LINE,
       '',
     ].join('\n'),
   )
@@ -67,7 +66,7 @@ test('an index over its budget lists what fits and counts the rest', () => {
     'Work in flight (4):',
     '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
     '- and 3 more: context-central work list',
-    LAST_LINE,
+    INDEX_CLOSING_LINE,
   ].join('\n')
   writeFileSync(join(root, 'estate.json'), JSON.stringify({ ...ACME_CONFIG, budgets: { indexChars: expected.length + 10 } }))
 
@@ -84,7 +83,7 @@ test('two hundred items in flight stay within the default budget and the rest ar
   assert.equal(lines[2], 'Work in flight (200):')
   assert.equal(lines[3], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
   assert.match(lines.at(-2), /^- and 1\d\d more: context-central work list$/)
-  assert.equal(lines.at(-1), LAST_LINE)
+  assert.equal(lines.at(-1), INDEX_CLOSING_LINE)
 })
 
 test('with two hundred items in flight, the count of the rest is two hundred less the rows shown', () => {
@@ -98,7 +97,7 @@ test('with two hundred items in flight, the count of the rest is two hundred les
     '- PROJ-100 | One of a great many items | work/PROJ-100/STATE.md',
     '- PROJ-101 | One of a great many items | work/PROJ-101/STATE.md',
     '- and 197 more: context-central work list',
-    LAST_LINE,
+    INDEX_CLOSING_LINE,
   ].join('\n')
   writeFileSync(join(root, 'estate.json'), JSON.stringify({ ...ACME_CONFIG, budgets: { indexChars: expected.length + 10 } }))
 

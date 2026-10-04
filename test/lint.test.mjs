@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -235,7 +235,7 @@ test('a file in a work item that is neither Markdown nor under its evidence fold
 })
 
 test('dot names and files under the evidence folder are left alone', () => {
-  const root = tree(acme({ 'work/PROJ-12/.DS_Store': 'xxxx', 'work/PROJ-12/notes/.keep': '', 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+  const root = tree(acme({ 'work/PROJ-12/.DS_Store': 'xxxx', 'work/PROJ-12/notes/.keep': '', [ACME_SHOT]: 'x'.repeat(300) }))
 
   assert.equal(lint(root).stdout, 'ok\n')
 })

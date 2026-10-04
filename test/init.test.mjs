@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, ACME_SHOT, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -201,9 +201,8 @@ test('a map kept in git ignores everything at the root except the map itself', (
   for (const rel of [...tracked, ...NODE_DIRS.map(dir => `${dir}/note.md`)]) assert.equal(ignored(root, rel), false, rel)
 })
 
-const SHOT = 'work/PROJ-12/evidence/2026-01-14-limit-reached.png'
 const BESIDE = ['work/PROJ-12/STATE.md', 'work/PROJ-12/notes/2026-01-14-evidence.md', 'work/PROJ-12/sources/01-ticket.md']
-const ITEM = Object.fromEntries([SHOT, ...BESIDE].map(rel => [rel, 'x']))
+const ITEM = Object.fromEntries([ACME_SHOT, ...BESIDE].map(rel => [rel, 'x']))
 
 test('a root map kept in git with evidence not committed ignores each item\'s evidence and nothing beside it', () => {
   const root = answers({ git: true }, ITEM)
@@ -211,7 +210,7 @@ test('a root map kept in git with evidence not committed ignores each item\'s ev
 
   init(root)
 
-  assert.equal(ignored(root, SHOT), true)
+  assert.equal(ignored(root, ACME_SHOT), true)
   for (const rel of BESIDE) assert.equal(ignored(root, rel), false, rel)
 })
 
@@ -221,7 +220,7 @@ test('a root map kept in git with evidence committed ignores none of it', () => 
 
   init(root)
 
-  for (const rel of [SHOT, ...BESIDE]) assert.equal(ignored(root, rel), false, rel)
+  for (const rel of [ACME_SHOT, ...BESIDE]) assert.equal(ignored(root, rel), false, rel)
 })
 
 const inMap = rel => `.context-central/${rel}`
@@ -236,7 +235,7 @@ test('an inner map kept in git with evidence not committed gets an ignore file i
   assert.equal(lines(result.stdout).at(-1), 'created .context-central/.gitignore')
   assert.equal(read(root, '.context-central/.gitignore'), '/work/*/evidence/\n')
   assert.equal(read(root, '.gitignore'), 'node_modules\n')
-  assert.equal(ignored(root, inMap(SHOT)), true)
+  assert.equal(ignored(root, inMap(ACME_SHOT)), true)
   for (const rel of [...BESIDE.map(inMap), 'work/PROJ-12/evidence/fixture.png']) assert.equal(ignored(root, rel), false, rel)
 })
 
