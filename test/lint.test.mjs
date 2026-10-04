@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mjs'
 
@@ -213,6 +214,14 @@ test('json is an empty list when there is nothing to report', () => {
   const root = tree(acme())
 
   assert.deepEqual(JSON.parse(lint(root, '--json').stdout), [])
+})
+
+test('lint run from inside the map folder of a map kept in a repository finds the hub at the repository root', () => {
+  const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, 'CLAUDE.md': '# Solo\n' }))
+
+  const result = lint(join(root, '.context-central'))
+
+  assert.deepEqual(result, { code: 0, stdout: 'ok\n', stderr: '' })
 })
 
 test('outside a map lint says there is none', () => {
