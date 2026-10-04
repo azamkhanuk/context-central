@@ -275,6 +275,14 @@ for (const [how, state] of Object.entries(AS_FOUND)) {
   })
 }
 
+test('a state file with a byte-order mark and no frontmatter is listed with the title of its heading', () => {
+  const root = tree(acme({ 'work/PROJ-66/STATE.md': `${BOM}# PROJ-66: Cache the gateway\n` }))
+
+  const [item] = list(root).filter(listed => listed.id === 'PROJ-66')
+
+  assert.equal(item.title, 'Cache the gateway')
+})
+
 test('a status line added to frontmatter with Windows line endings ends as the others do', () => {
   const root = tree(acme({ 'work/PROJ-61/STATE.md': '---\r\ntitle: No status yet\r\n---\r\n# PROJ-61\r\n' }))
 
