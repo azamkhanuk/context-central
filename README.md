@@ -23,7 +23,7 @@ Or both at once from inside a session (Claude Code v2.1.275 or later):
 
 The repository is its own marketplace. To try a local clone, give `claude plugin marketplace add` the path of the clone: the plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
 
-The manifest sets no `version`, so every commit is an update. `claude plugin update context-central@context-central` fetches the latest; auto-update is off by default for a marketplace you add yourself.
+The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it; auto-update is off by default for a marketplace you add yourself. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
 ## First run
 
