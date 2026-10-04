@@ -252,3 +252,38 @@ test('a stray file is reported for a finished item and for a folder named eviden
     },
   ])
 })
+
+const RECORDING = 'work/PROJ-12/evidence/2026-01-15-demo.mov'
+const COMMITTED = { evidence: { commit: true } }
+
+test('where evidence is committed, an evidence file over the limit earns a warning', () => {
+  const root = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }, COMMITTED))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'WARN evidence: work/PROJ-12/evidence/2026-01-15-demo.mov is 2.0 MB (limit 1.0 MB)\n')
+  assert.equal(result.code, 0)
+  assert.equal(lint(root, '--strict').code, 1)
+})
+
+test('where evidence is not committed, or the map does not say, an evidence file may be any size', () => {
+  const unset = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }))
+  const no = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }, { evidence: { commit: false } }))
+
+  assert.equal(lint(unset).stdout, 'ok\n')
+  assert.equal(lint(no).stdout, 'ok\n')
+})
+
+test('an evidence file exactly on the limit passes, and one byte over does not', () => {
+  const on = tree(acme({ [RECORDING]: 'x'.repeat(2048) }, { ...COMMITTED, budgets: { evidenceBytes: 2048 } }))
+  const over = tree(acme({ [RECORDING]: 'x'.repeat(2049) }, { ...COMMITTED, budgets: { evidenceBytes: 2048 } }))
+
+  assert.equal(lint(on).stdout, 'ok\n')
+  assert.equal(lint(over).stdout, 'WARN evidence: work/PROJ-12/evidence/2026-01-15-demo.mov is 2.0 KB (limit 2.0 KB)\n')
+})
+
+test('a stray file is reported whether or not evidence is committed', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x' }, COMMITTED))
+
+  assert.equal(lint(root).stdout, 'WARN evidence: work/PROJ-12/notes/shot.png is not Markdown and is outside work/PROJ-12/evidence/\n')
+})
