@@ -14,7 +14,7 @@ const SCOPED_RULE = '---\npaths:\n  - "src/**/*.ts"\n---\n# Only for source\n'
 const budget = (root, dir, env = {}, flags = []) => run(['budget', ...flags], { cwd: join(root, dir), env: { HOME: join(root, 'home'), ...env } })
 const budgetJson = (root, dir, env) => JSON.parse(budget(root, dir, env, ['--json']).stdout)
 const sources = report => report.files.map(file => [file.path, file.source])
-const LAST_INDEX_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it."
+const LAST_INDEX_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 
 test('the user file, each ancestor file and their imports are listed with a total', () => {
   const root = tree(

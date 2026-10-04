@@ -19,7 +19,7 @@ const indexOf = root =>
     `Hub: ${join(root, 'CLAUDE.md')}`,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${join(root, STATE)}`,
-    "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it.",
+    "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note.",
   ].join('\n')
 
 const pointersOf = root =>

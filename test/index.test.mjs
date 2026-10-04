@@ -8,7 +8,7 @@ const tree = disposable()
 
 const index = (root, ...flags) => run(['index', ...flags], { cwd: root })
 const PORTAL = { 'work/portal-split/STATE.md': '---\ntitle: Split the portal\n---\n# portal-split\n' }
-const LAST_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it."
+const LAST_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 
 test('the index names the map, the hub and each item in flight with its state file', () => {
   const root = tree(acme(PORTAL))
