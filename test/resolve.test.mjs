@@ -415,6 +415,18 @@ test('when a query holds two items by name with spaces or title the one that sta
   assert.equal(resolved(root, 'order', 'export', 'rework', 'then', 'cache', 'the', 'gateway').key, 'item:order-export-rework')
 })
 
+test("when one item's name with spaces is the start of another's, the longer name answers with its own item", () => {
+  const root = tree(
+    acme({
+      'work/order-export/STATE.md': '# order-export: Send orders out\n',
+      'work/order-export-rework/STATE.md': '# order-export-rework: Rebuild it\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'the', 'order', 'export', 'rework').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order', 'export', 'again').key, 'item:order-export')
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
