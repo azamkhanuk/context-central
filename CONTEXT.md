@@ -27,7 +27,7 @@ _Avoid_: archive, raw notes, attachments
 **Live index**: The list of work items in flight, one line each, that the session-start hook puts in context. It is built fresh each time, so it holds nothing that can go stale.
 _Avoid_: status board, in-flight table, dashboard
 
-**Resolver**: The part of the plugin that turns a prompt or query into pointers. It answers for a work item, a pull request link, a repo name or free text, and says nothing when it is not confident. On the command line it has a last route, item words: when every counted word of a query is in one work item's name and title and in no other's, the answer is that item.
+**Resolver**: The part of the plugin that turns a prompt or query into pointers. It answers for a work item, a pull request link, a repo name or free text, and says nothing when it is not confident. On the command line it has a last route, item words: when a query has two or more words of three letters or more that are not stop words, and all of them are in one work item's name and title and in no other's, the answer is that item.
 _Avoid_: router, search, retriever
 
 **Pointer**: One line the resolver returns: a file's path, its size, and why it is listed. A pointer is a fact about where something is, never an instruction to read it.
