@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
@@ -21,6 +21,23 @@ test('a new work item gets a state file with its six parts', () => {
   for (const part of ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']) {
     assert.match(state, new RegExp(`^## ${part}$`, 'm'))
   }
+})
+
+test('a new work item gets folders for its notes, its sources and its evidence', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  for (const folder of ['notes', 'sources', 'evidence']) assert.equal(existsSync(join(root, 'work/PROJ-13', folder)), true, folder)
+})
+
+test('a new state file says where evidence that is not text goes', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  const state = readFileSync(join(root, 'work/PROJ-13/STATE.md'), 'utf8')
+  assert.match(state, /^- Evidence that is not text \(screenshots, recordings, exports\): `evidence\/`, each file named in a note\.$/m)
 })
 
 test('creating an item that already exists is refused', () => {
