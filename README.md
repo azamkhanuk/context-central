@@ -83,7 +83,7 @@ Two more budgets shape what the hooks do:
 
 Two rules keep it honest. Every brief names the full-text file behind it. Status goes in state files, never in the hub.
 
-Evidence is a file that is not text and shows what was seen: a screenshot, a recording, an export. It sits in `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
+Evidence is any file under a work item's `evidence/` folder. The folder is for what was seen and is not text: a screenshot, a recording, an export. The commands count every file there, whatever its kind, and never open one. A file sits at `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
 
 ## What the hooks put in context
 
