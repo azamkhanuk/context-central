@@ -141,6 +141,17 @@ test('a map inside a repo is described in the hub by paths from the repo root', 
   assert.match(updated, /recorded in `\.context-central\/work\/<item>\/STATE\.md` and the estate's terms in `\.context-central\/glossary\.md`/)
 })
 
+test('both hub blocks say where files that are not text go', () => {
+  const fresh = answers()
+  const lived = answers({}, { 'CLAUDE.md': '# Our rules\n' })
+  const inner = answers({ layout: 'inner' }, { 'CLAUDE.md': '# Our rules\n' })
+  for (const root of [fresh, lived, inner]) init(root)
+
+  assert.match(read(fresh, 'CLAUDE.md'), /^- `work\/<item>\/STATE\.md`: where a piece of work stands and what is next\. Files that are not text sit in `evidence\/` beside it\.$/m)
+  assert.match(read(lived, 'CLAUDE.md'), / Evidence that is not text sits in `work\/<item>\/evidence\/`\. /)
+  assert.match(read(inner, 'CLAUDE.md'), / Evidence that is not text sits in `\.context-central\/work\/<item>\/evidence\/`\. /)
+})
+
 test('configured node folders and hub name are honoured', () => {
   const root = answers({ config: { ...CONFIG, nodeDirs: ['repos', 'work'], hub: 'AGENTS.md' } })
 
