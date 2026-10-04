@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, spawned } from './helpers.mjs'
+import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, notOnWindows, spawned } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -17,6 +17,12 @@ function freshMap() {
   assert.equal(result.code, 0, result.stderr)
   return root
 }
+
+test('the name a shell finds is the bin script of this repository', notOnWindows('a file on Windows has no executable bit for a second file on the PATH to stand in for'), () => {
+  const found = bare(REPO, 'command -v context-central')
+
+  assert.deepEqual(found, { code: 0, stdout: `${join(REPO, 'bin', 'context-central')}\n`, stderr: '' })
+})
 
 test('a shell that calls the bare command makes a map', () => {
   const root = freshMap()
