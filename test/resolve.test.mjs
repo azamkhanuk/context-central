@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
+import { ACME_FILES, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -9,6 +9,7 @@ const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
 const resolve = (root, ...args) => run(['resolve', ...args], { cwd: root })
 const resolved = (root, ...args) => JSON.parse(resolve(root, ...args, '--json').stdout)
 const rels = resolution => resolution.pointers.map(pointer => pointer.rel)
+const smallMap = files => makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, ...files })
 
 const RANKED_FILES = {
   'work/PROJ-20/STATE.md': [
@@ -405,6 +406,12 @@ test('a word that more than four notes in ten share does not count', () => {
   const root = tree(acme({ 'concepts/billing-retries.md': BILLING_NOTE }))
 
   assert.equal(resolved(root, 'billing', 'gateway'), null)
+})
+
+test('a word that only one or two notes carry counts however small the map', () => {
+  const root = tree(smallMap({ 'concepts/billing-retries.md': BILLING_NOTE, 'concepts/gateway.md': '# The gateway\n\nEvery call goes through it.\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'billing', 'retries')), ['concepts/billing-retries.md'])
 })
 
 test('short words and stop words do not count', () => {
