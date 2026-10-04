@@ -53,3 +53,14 @@ test('with no test files the run fails, says so, and starts nothing', () => {
   assert.equal(result.stderr, 'no test files found: nothing in test/ ends in .test.mjs\n')
   assert.deepEqual(marks(root), [])
 })
+
+test('with no test folder the run fails, says so, and starts nothing', () => {
+  const root = tree(makeTree({ 'elsewhere/fourth.test.mjs': marking('fourth') }))
+
+  const result = list(root)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, 'no test files found: nothing in test/ ends in .test.mjs\n')
+  assert.deepEqual(marks(root), [])
+})

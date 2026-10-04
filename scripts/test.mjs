@@ -2,7 +2,16 @@ import { spawnSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const files = readdirSync('test', { withFileTypes: true })
+function entriesOfTestFolder() {
+  try {
+    return readdirSync('test', { withFileTypes: true })
+  } catch (error) {
+    if (error.code === 'ENOENT') return []
+    throw error
+  }
+}
+
+const files = entriesOfTestFolder()
   .filter(entry => entry.isFile() && entry.name.endsWith('.test.mjs'))
   .map(entry => join('test', entry.name))
   .sort()
