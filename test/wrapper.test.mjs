@@ -51,7 +51,7 @@ test('--write saves the launcher in the map', () => {
 
   const result = run(['wrapper', '--write'], { cwd: join(root, 'work') })
 
-  assert.equal(result.stdout, 'created bin/context-central\n')
+  assert.equal(result.stdout, 'created bin/context-central\ncreated bin/context-central.cmd\ncreated bin/.gitattributes\n')
   const launcher = readFileSync(join(root, 'bin/context-central'), 'utf8')
   assert.match(launcher, /^#!\/bin\/sh\n/)
   assert.ok(launcher.endsWith('\nexec node "$cli" "$@"\n'))
@@ -70,8 +70,73 @@ test('--write never overwrites a launcher that is already there', () => {
 
   const result = run(['wrapper', '--write'], { cwd: root })
 
-  assert.equal(result.stdout, 'kept bin/context-central\n')
+  assert.equal(result.stdout, 'kept bin/context-central\ncreated bin/context-central.cmd\ncreated bin/.gitattributes\n')
   assert.equal(readFileSync(join(root, 'bin/context-central'), 'utf8'), '#!/bin/sh\necho mine\n')
+})
+
+test('--write a second time keeps all three files', () => {
+  const root = tree(acme())
+  run(['wrapper', '--write'], { cwd: root })
+  const saved = () => ['bin/context-central', 'bin/context-central.cmd', 'bin/.gitattributes'].map(rel => readFileSync(join(root, rel), 'utf8'))
+  const first = saved()
+
+  const result = run(['wrapper', '--write'], { cwd: root })
+
+  assert.equal(result.stdout, 'kept bin/context-central\nkept bin/context-central.cmd\nkept bin/.gitattributes\n')
+  assert.deepEqual(saved(), first)
+})
+
+test('a cmd launcher or an attributes file already there is kept while the rest is created', () => {
+  const root = tree(acme({ 'bin/context-central.cmd': '@echo mine\r\n', 'bin/.gitattributes': '* text\n' }))
+
+  const result = run(['wrapper', '--write'], { cwd: root })
+
+  assert.equal(result.stdout, 'created bin/context-central\nkept bin/context-central.cmd\nkept bin/.gitattributes\n')
+  assert.equal(readFileSync(join(root, 'bin/context-central.cmd'), 'utf8'), '@echo mine\r\n')
+  assert.equal(readFileSync(join(root, 'bin/.gitattributes'), 'utf8'), '* text\n')
+})
+
+test('every line of the saved cmd launcher ends in a carriage return and a line feed', () => {
+  const root = tree(acme())
+
+  run(['wrapper', '--write'], { cwd: root })
+
+  const launcher = readFileSync(join(root, 'bin/context-central.cmd'), 'utf8')
+  assert.match(launcher, /^@echo off\r\n/)
+  assert.ok(launcher.endsWith('\r\n'))
+  assert.doesNotMatch(launcher, /[^\r]\n/)
+})
+
+test('the saved attributes file keeps the launcher at LF and the cmd launcher at CRLF', () => {
+  const root = tree(acme())
+
+  run(['wrapper', '--write'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'bin/.gitattributes'), 'utf8'), 'context-central text eol=lf\ncontext-central.cmd text eol=crlf\n')
+})
+
+test('launchers committed to git keep their line endings in a clone that converts them', () => {
+  const root = tree(acme())
+  const home = tree(makeTree({ gitconfig: '' }))
+  const clone = join(tree(makeTree({})), 'clone')
+  const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+  const git = (...args) => {
+    const result = spawnSync('git', args, { encoding: 'utf8', env })
+    assert.equal(result.status, 0, result.stderr)
+  }
+  run(['wrapper', '--write'], { cwd: root })
+
+  git('-C', root, 'init', '-q')
+  git('-C', root, 'add', 'bin')
+  git('-C', root, '-c', 'user.name=Test Person', '-c', 'user.email=test@acme.example', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'launchers')
+  git('clone', '-q', '-c', 'core.autocrlf=true', root, clone)
+
+  const launcher = readFileSync(join(clone, 'bin/context-central'), 'utf8')
+  const cmdLauncher = readFileSync(join(clone, 'bin/context-central.cmd'), 'utf8')
+  assert.match(launcher, /^#!\/bin\/sh\n/)
+  assert.doesNotMatch(launcher, /\r/)
+  assert.match(cmdLauncher, /^@echo off\r\n/)
+  assert.doesNotMatch(cmdLauncher, /[^\r]\n/)
 })
 
 test('--write needs a map', () => {
