@@ -317,7 +317,7 @@ test('a short prompt is matched on its words', () => {
 
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'how does the billing cycle work' })
 
-  assert.match(context(result), /concepts\/billing-cycle\.md/)
+  assert.ok(context(result).includes(join(root, 'concepts/billing-cycle.md')), context(result))
 })
 
 test('a long pasted prompt is not matched on its words', () => {

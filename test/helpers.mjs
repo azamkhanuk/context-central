@@ -8,6 +8,12 @@ import { fileURLToPath } from 'node:url'
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = join(REPO, 'bin', 'context-central')
 
+export const WINDOWS = process.platform === 'win32'
+export const onlyOnWindows = reason => (WINDOWS ? {} : { skip: reason })
+export const notOnWindows = reason => (WINDOWS ? { skip: reason } : {})
+export const NEEDS_STAND_IN = notOnWindows('the stand-in for the tool is a shell script, which Windows cannot start')
+export const EXE_NAMES = onlyOnWindows('only Windows finds a tool under a name ending in .exe or .com')
+
 export function makeTree(files) {
   const root = withoutSymlinks(mkdtempSync(join(tmpdir(), 'context-central-test-')))
   for (const [path, content] of Object.entries(files)) {

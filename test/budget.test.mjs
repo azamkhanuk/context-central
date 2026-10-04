@@ -33,11 +33,11 @@ test('the user file, each ancestor file and their imports are listed with a tota
   assert.equal(
     result.stdout,
     [
-      `Loaded at launch for a session started in ${root}/estate/web:`,
-      '     21 B    3 lines  ~/.claude/CLAUDE.md (user)',
-      `     41 B    3 lines  ${root}/estate/CLAUDE.md (ancestor)`,
-      `   1.0 KB  210 lines  ${root}/estate/repos/web.md (import of ${root}/estate/CLAUDE.md) over 200 lines`,
-      `      6 B    1 line  ${root}/estate/web/CLAUDE.md (ancestor)`,
+      `Loaded at launch for a session started in ${join(root, 'estate/web')}:`,
+      `     21 B    3 lines  ${join('~', '.claude/CLAUDE.md')} (user)`,
+      `     41 B    3 lines  ${join(root, 'estate/CLAUDE.md')} (ancestor)`,
+      `   1.0 KB  210 lines  ${join(root, 'estate/repos/web.md')} (import of ${join(root, 'estate/CLAUDE.md')}) over 200 lines`,
+      `      6 B    1 line  ${join(root, 'estate/web/CLAUDE.md')} (ancestor)`,
       'Total: 1.1 KB in 4 files, about 300 to 400 tokens',
       '',
     ].join('\n'),
@@ -49,7 +49,7 @@ test('a folder can be named instead of starting there', () => {
 
   const result = run(['budget', 'estate/web'], { cwd: root, env: { HOME: join(root, 'home') } })
 
-  assert.match(result.stdout, new RegExp(`^Loaded at launch for a session started in ${root}/estate/web:\n {6}6 B`))
+  assert.ok(result.stdout.startsWith(`Loaded at launch for a session started in ${join(root, 'estate/web')}:\n      6 B`), result.stdout)
 })
 
 test('local files and a .claude/CLAUDE.md count as well', () => {
@@ -104,7 +104,7 @@ test('one path-scoped rule is counted in the singular', () => {
 
   assert.equal(
     budget(root, 'estate').stdout,
-    [`Loaded at launch for a session started in ${root}/estate:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', 'Not loaded until used: 1 path-scoped rule', ''].join('\n'),
+    [`Loaded at launch for a session started in ${join(root, 'estate')}:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', 'Not loaded until used: 1 path-scoped rule', ''].join('\n'),
   )
 })
 
@@ -147,10 +147,10 @@ test('paths under the home folder print with a tilde', () => {
   assert.equal(
     budget(root, 'home/project').stdout,
     [
-      'Loaded at launch for a session started in ~/project:',
-      '     15 B    1 line  ~/.claude/CLAUDE.md (user)',
-      '      9 B    1 line  ~/.claude/shared.md (import of ~/.claude/CLAUDE.md)',
-      '     10 B    1 line  ~/project/CLAUDE.md (ancestor)',
+      `Loaded at launch for a session started in ${join('~', 'project')}:`,
+      `     15 B    1 line  ${join('~', '.claude/CLAUDE.md')} (user)`,
+      `      9 B    1 line  ${join('~', '.claude/shared.md')} (import of ${join('~', '.claude/CLAUDE.md')})`,
+      `     10 B    1 line  ${join('~', 'project/CLAUDE.md')} (ancestor)`,
       'Total: 34 B in 3 files, about 0 to 0 tokens',
       '',
     ].join('\n'),
@@ -205,7 +205,7 @@ test('the index is measured as cut when its budget shortens the list', () => {
 test('a folder with no instruction files reports an empty total', () => {
   const root = tree(makeTree({ 'estate/readme.txt': 'x\n' }))
 
-  assert.equal(budget(root, 'estate').stdout, [`Loaded at launch for a session started in ${root}/estate:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', ''].join('\n'))
+  assert.equal(budget(root, 'estate').stdout, [`Loaded at launch for a session started in ${join(root, 'estate')}:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', ''].join('\n'))
 })
 
 test('the token range is the bytes over 4 and over 2.7, to the nearest hundred', () => {
@@ -241,7 +241,7 @@ test('rules reached through a link are counted like any other', () => {
 test('a file is marked against the hub budget the map sets', () => {
   const root = tree(acme({}, { budgets: { hubLines: 5 } }))
 
-  assert.match(budget(root, '.').stdout, /\/CLAUDE\.md \(ancestor\) over 5 lines\n/)
+  assert.ok(budget(root, '.').stdout.includes(`${join(root, 'CLAUDE.md')} (ancestor) over 5 lines\n`))
 })
 
 test('where the hooks stay silent, no plugin line is printed', () => {

@@ -86,8 +86,8 @@ test('absolute paths are printed on request', () => {
 
   const result = resolve(root, 'PROJ-12', '--absolute')
 
-  assert.match(result.stdout, new RegExp(`^- ${join(root, 'work/PROJ-12/STATE.md')} \\(`, 'm'))
-  assert.match(result.stdout, new RegExp(` under ${join(root, 'work/PROJ-12/sources')}, not listed one by one`))
+  assert.ok(result.stdout.includes(`\n- ${join(root, 'work/PROJ-12/STATE.md')} (`), result.stdout)
+  assert.ok(result.stdout.includes(` under ${join(root, 'work/PROJ-12/sources')}, not listed one by one`), result.stdout)
 })
 
 test('a key is found whatever its case', () => {
