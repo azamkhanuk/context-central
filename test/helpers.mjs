@@ -84,3 +84,28 @@ export const ACME_FILES = {
 export function acme(extraFiles = {}, configOverrides = {}) {
   return makeTree({ 'estate.json': { ...ACME_CONFIG, ...configOverrides }, ...ACME_FILES, ...extraFiles })
 }
+
+const ACME_STATE = 'work/PROJ-12/STATE.md'
+const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
+
+export function acmeIndex(root) {
+  return [
+    `Context map "Acme estate": ${root}`,
+    `Hub: ${join(root, 'CLAUDE.md')}`,
+    'Work in flight (1):',
+    `- PROJ-12 | Rate limit the gateway | ${join(root, ACME_STATE)}`,
+    "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it.",
+  ].join('\n')
+}
+
+export function acmePointers(root) {
+  return [
+    'Context for work item PROJ-12:',
+    `- ${join(root, ACME_STATE)} (${sizeOf(ACME_STATE)} B) state file: where the work stands and what is next`,
+    `- ${join(root, 'work/PROJ-12/SPEC.md')} (${sizeOf('work/PROJ-12/SPEC.md')} B) spec of the work item`,
+    `- ${join(root, 'concepts/gateway.md')} (${sizeOf('concepts/gateway.md')} B) linked from the work item`,
+    `- ${join(root, 'repos/api.md')} (${sizeOf('repos/api.md')} B) linked from the work item`,
+    `Other notes of this item: 1 file (${sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md')} B) under ${join(root, 'work/PROJ-12')}.`,
+    `Deep tier: 1 file (${sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md')} B) under ${join(root, 'work/PROJ-12/sources')}, not listed one by one.`,
+  ].join('\n')
+}
