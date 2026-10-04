@@ -15,6 +15,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 
 ## Conventions
 
+- Every tracked text file is LF, pinned in `.gitattributes`.
 - ESM `.mjs`, Node 20 or later, Node built-ins only. Flags are parsed with `parseArgs` from `node:util`.
 - A command is `lib/commands/<name>.mjs` exporting `summary` and `run(args, io)`. The router finds it by file name; nothing registers it.
 - `io` is `{ cwd, env, nodeVersion, out, err, readStdin }`. Commands never touch `process` directly.
@@ -32,6 +33,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - Work test-first, one behaviour at a time.
 - Test through the CLI as a process: `run()` and `hook()` in `test/helpers.mjs`, against a tree made with `acme()` or `makeTree()`. Never import a module under test.
 - Expected values are literals or come from the fixture, never from re-running the code's own logic.
+- The checks run on Linux, macOS and Windows. Build an expected path with `join`. A test that cannot run on a system is skipped there with its reason, through `notOnWindows` or `onlyOnWindows` in `test/helpers.mjs`.
 
 ## Writing
 

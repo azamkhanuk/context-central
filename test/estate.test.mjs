@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -177,4 +177,12 @@ test('an answer on committing evidence that is not true or false is refused', ()
     assert.equal(result.code, 1)
     assert.equal(result.stderr, `context-central config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
   }
+})
+
+test('a byte-order mark at the start of the config is ignored', () => {
+  const root = tree(makeTree({ 'estate.json': `\uFEFF${JSON.stringify(ACME_CONFIG)}\n` }))
+
+  const result = run(['config', '--get', 'name'], { cwd: root })
+
+  assert.deepEqual(result, { code: 0, stdout: 'acme\n', stderr: '' })
 })

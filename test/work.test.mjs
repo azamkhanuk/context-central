@@ -246,3 +246,65 @@ test('a folder that holds only evidence is a work item with no entry file', () =
 
   assert.equal(result.stdout.split('\n')[1], 'PROJ-14 | PROJ-14 | no entry file | 0 notes, 0 deep files (0 B), 1 evidence file (300 B)')
 })
+
+const BOM = '\uFEFF'
+const crlf = text => text.replaceAll('\n', '\r\n')
+const CACHE_STATE = '---\nitem: PROJ-60\ntitle: Cache the gateway\nstatus: active\n---\n# PROJ-60: a heading that is not the title\n\n## Next\n\nMeasure first.\n'
+const AS_FOUND = { 'Windows line endings': crlf(CACHE_STATE), 'a byte-order mark': BOM + CACHE_STATE, both: BOM + crlf(CACHE_STATE) }
+
+for (const [how, state] of Object.entries(AS_FOUND)) {
+  test(`a state file with ${how} is listed with the title and status of its frontmatter`, () => {
+    const root = tree(acme({ 'work/PROJ-60/STATE.md': state.replace('status: active', 'status: done') }))
+
+    const [item] = list(root, '--all').filter(listed => listed.id === 'PROJ-60')
+
+    assert.equal(item.title, 'Cache the gateway')
+    assert.equal(item.status, 'done')
+  })
+
+  test(`marking an item done and reopening it changes one line of a state file with ${how}`, () => {
+    const root = tree(acme({ 'work/PROJ-60/STATE.md': state }))
+    const held = () => readFileSync(join(root, 'work/PROJ-60/STATE.md'), 'utf8')
+
+    run(['work', 'done', 'PROJ-60'], { cwd: root })
+    const done = held()
+    run(['work', 'reopen', 'PROJ-60'], { cwd: root })
+
+    assert.equal(done, state.replace('status: active', 'status: done'))
+    assert.equal(held(), state)
+  })
+}
+
+test('a status line added to frontmatter with Windows line endings ends as the others do', () => {
+  const root = tree(acme({ 'work/PROJ-61/STATE.md': '---\r\ntitle: No status yet\r\n---\r\n# PROJ-61\r\n' }))
+
+  run(['work', 'done', 'PROJ-61'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'work/PROJ-61/STATE.md'), 'utf8'), '---\r\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-61\r\n')
+})
+
+test('a status line added to frontmatter with mixed line endings takes the ending of the line before the closing dashes', () => {
+  const root = tree(acme({ 'work/PROJ-65/STATE.md': '---\ntitle: No status yet\r\n---\r\n# PROJ-65\r\n' }))
+
+  run(['work', 'done', 'PROJ-65'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'work/PROJ-65/STATE.md'), 'utf8'), '---\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-65\r\n')
+})
+
+test('a new frontmatter block takes the line ending the file uses and sits after a byte-order mark', () => {
+  const root = tree(
+    acme({
+      'work/PROJ-62/STATE.md': '# PROJ-62\r\n\r\nMeasure first.\r\n',
+      'work/PROJ-63/STATE.md': `${BOM}# PROJ-63\n`,
+      'work/PROJ-64/STATE.md': '# PROJ-64',
+    }),
+  )
+  const after = item => {
+    run(['work', 'done', item], { cwd: root })
+    return readFileSync(join(root, 'work', item, 'STATE.md'), 'utf8')
+  }
+
+  assert.equal(after('PROJ-62'), '---\r\nstatus: done\r\n---\r\n# PROJ-62\r\n\r\nMeasure first.\r\n')
+  assert.equal(after('PROJ-63'), `${BOM}---\nstatus: done\n---\n# PROJ-63\n`)
+  assert.equal(after('PROJ-64'), '---\nstatus: done\n---\n# PROJ-64')
+})

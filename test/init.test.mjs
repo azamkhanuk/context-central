@@ -415,3 +415,22 @@ test('a new map starts with no broken links and no orphans', () => {
   assert.equal(result.code, 0)
   assert.equal(result.stdout, '0 nodes, 0 links\n')
 })
+
+test('a byte-order mark at the start of the answers file is ignored', () => {
+  const root = tree(makeTree({ 'answers.json': `\uFEFF${JSON.stringify({ layout: 'root', git: false, config: CONFIG })}\n` }))
+
+  const result = init(root)
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')), { contextCentral: 1, ...CONFIG })
+})
+
+test('a config already there with a byte-order mark is read, and the rest of the map is written round it', () => {
+  const root = answers({}, { 'estate.json': `\uFEFF${JSON.stringify({ contextCentral: 1, ...CONFIG })}\n` })
+
+  const result = init(root)
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(lines(result.stdout).slice(0, 2), ['kept estate.json', 'created repos/'])
+})

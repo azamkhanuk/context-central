@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { chmodSync, existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -134,12 +134,12 @@ function stubGh(pr = PR, issue = ISSUE) {
   return dir
 }
 
-const fetch = (root, gh, args, env = {}) => run(['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: `${gh}:/usr/bin:/bin`, ...env } })
+const fetch = (root, gh, args, env = {}) => run(['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [gh, '/usr/bin', '/bin'].join(delimiter), ...env } })
 const read = (root, rel) => readFileSync(join(root, rel), 'utf8')
 const ghArgs = gh => readFileSync(join(gh, 'args'), 'utf8').trimEnd().split('\n')
 const sources = (root, item = 'PROJ-12') => readdirSync(join(root, 'work', item, 'sources'))
 
-test('a fetched pull request is saved in full and answered with a digest', () => {
+test('a fetched pull request is saved in full and answered with a digest', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-12'])
@@ -152,7 +152,7 @@ test('a fetched pull request is saved in full and answered with a digest', () =>
   assert.equal(read(root, 'work/PROJ-12/sources/02-2026-01-15-pr-88-full-text.md'), PR_FULL_TEXT)
 })
 
-test('the pull request is asked for with every field the full text needs', () => {
+test('the pull request is asked for with every field the full text needs', NEEDS_STAND_IN, () => {
   const root = tree(acme())
   const gh = stubGh()
 
@@ -161,7 +161,7 @@ test('the pull request is asked for with every field the full text needs', () =>
   assert.deepEqual(ghArgs(gh), ['pr', 'view', '88', '--json', 'number,title,state,author,baseRefName,headRefName,url,body,files,comments,reviews'])
 })
 
-test('a named repository is passed on to gh', () => {
+test('a named repository is passed on to gh', NEEDS_STAND_IN, () => {
   const root = tree(acme())
   const gh = stubGh()
 
@@ -170,7 +170,7 @@ test('a named repository is passed on to gh', () => {
   assert.deepEqual(ghArgs(gh), ['issue', 'view', '41', '--json', 'number,title,state,author,url,body,comments,labels', '--repo', 'acme/api'])
 })
 
-test('a fetched issue is saved in full and answered with a digest', () => {
+test('a fetched issue is saved in full and answered with a digest', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = fetch(root, stubGh(), ['issue', '41', '--item', 'PROJ-12'])
@@ -183,7 +183,7 @@ test('a fetched issue is saved in full and answered with a digest', () => {
   assert.equal(read(root, 'work/PROJ-12/sources/02-2026-01-15-issue-41-full-text.md'), ISSUE_FULL_TEXT)
 })
 
-test('a pull request with nothing said on it still saves cleanly', () => {
+test('a pull request with nothing said on it still saves cleanly', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = fetch(root, stubGh(BARE_PR), ['pr', '90', '--item', 'PROJ-12'])
@@ -195,7 +195,7 @@ test('a pull request with nothing said on it still saves cleanly', () => {
   )
 })
 
-test('the first source of an item is numbered 01', () => {
+test('the first source of an item is numbered 01', NEEDS_STAND_IN, () => {
   const root = tree(acme({ 'work/PROJ-9/STATE.md': '# PROJ-9: Split the portal\n' }))
 
   const result = fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-9'])
@@ -204,7 +204,7 @@ test('the first source of an item is numbered 01', () => {
   assert.deepEqual(sources(root, 'PROJ-9'), ['01-2026-01-15-pr-88-full-text.md'])
 })
 
-test('a source is numbered one past the highest in the folder', () => {
+test('a source is numbered one past the highest in the folder', NEEDS_STAND_IN, () => {
   const root = tree(acme({ 'work/PROJ-12/sources/09-2026-01-12-thread-full-text.md': '# A thread\n' }))
 
   const result = fetch(root, stubGh(), ['issue', '41', '--item', 'PROJ-12'])
@@ -223,7 +223,7 @@ test('fetching for an item that does not exist is refused before gh is asked', (
   assert.equal(existsSync(join(gh, 'args')), false)
 })
 
-test('a failing gh is reported by the first line it wrote, and nothing is saved', () => {
+test('a failing gh is reported by the first line it wrote, and nothing is saved', NEEDS_STAND_IN, () => {
   const root = tree(acme())
   const failure = 'GraphQL: Could not resolve to a PullRequest with the number of 99.\nTry again later.'
 
@@ -244,6 +244,17 @@ test('a machine without gh is told so', () => {
   assert.equal(result.stderr, 'context-central fetch: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"\n')
 })
 
+test('gh is started by its bare name where the file is gh.exe', EXE_NAMES, () => {
+  const root = tree(acme())
+  const dir = tree(makeTree({}))
+  copyFileSync(process.execPath, join(dir, 'gh.exe'))
+
+  const result = run(['fetch', 'pr', '88', '--item', 'PROJ-12'], { cwd: root, env: { PATH: dir } })
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /^context-central fetch: gh failed: /)
+})
+
 test('a fetch needs a kind, a reference and an item', () => {
   const root = tree(acme())
   const gh = stubGh()
@@ -254,7 +265,7 @@ test('a fetch needs a kind, a reference and an item', () => {
   assert.equal(existsSync(join(gh, 'args')), false)
 })
 
-test('a file in sources named by its date does not count as a number', () => {
+test('a file in sources named by its date does not count as a number', NEEDS_STAND_IN, () => {
   const root = tree(
     acme({
       'work/PROJ-12/sources/07-2026-01-12-thread-full-text.md': '# A thread\n',
@@ -267,7 +278,7 @@ test('a file in sources named by its date does not count as a number', () => {
   assert.match(result.stdout, /saved: work\/PROJ-12\/sources\/08-2026-01-15-pr-88-full-text\.md/)
 })
 
-test('headings, code fences and indentation in what people wrote are saved as written', () => {
+test('headings, code fences and indentation in what people wrote are saved as written', NEEDS_STAND_IN, () => {
   const root = tree(acme())
   const body = '    npm test\n\n# Why\n\n```sh\n## not a heading\n```\n'
   const comment = { author: { login: 'dev-two' }, body: '  - an indented point\n  - another', createdAt: '2026-01-12T09:30:00Z' }
@@ -290,7 +301,7 @@ test('a flag fetch does not know is wrong usage, said in one line', () => {
   assert.equal(existsSync(join(gh, 'args')), false)
 })
 
-test('an item kept as a single note gets a sources folder beside it', () => {
+test('an item kept as a single note gets a sources folder beside it', NEEDS_STAND_IN, () => {
   const root = tree(acme({ 'work/PROJ-7.md': '# PROJ-7: Retire the old portal\n' }))
 
   const result = fetch(root, stubGh(), ['issue', '41', '--item', 'PROJ-7'])

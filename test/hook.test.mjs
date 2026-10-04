@@ -317,7 +317,7 @@ test('a short prompt is matched on its words', () => {
 
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'how does the billing cycle work' })
 
-  assert.match(context(result), /concepts\/billing-cycle\.md/)
+  assert.ok(context(result).includes(join(root, 'concepts/billing-cycle.md')), context(result))
 })
 
 test('a long pasted prompt is not matched on its words', () => {
@@ -361,4 +361,22 @@ test('a short prompt that only the words of an item name and title would answer 
   assert.equal(JSON.parse(run(['resolve', 'rate', 'gateway', '--json'], { cwd: root }).stdout).key, 'item:PROJ-12')
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'rate gateway' }, { CONTEXT_CENTRAL_STATE_DIR: dir }))
   assert.equal(existsSync(join(dir, 's1.json')), false)
+})
+
+test('a state file with Windows line endings gives the index the title from its frontmatter', () => {
+  const state = '---\r\nitem: PROJ-60\r\ntitle: Cache the gateway\r\nstatus: active\r\n---\r\n# PROJ-60: a heading that is not the title\r\n'
+  const root = tree(acme({ 'work/PROJ-60/STATE.md': state }))
+
+  const index = context(fire('session-start', { session_id: 's1', cwd: root, source: 'startup' }))
+
+  assert.ok(index.includes(`\n- PROJ-60 | Cache the gateway | ${join(root, 'work/PROJ-60/STATE.md')}\n`), index)
+})
+
+test('a config with a byte-order mark gives the index and no message about its JSON', () => {
+  const root = tree(acme())
+  writeFileSync(join(root, 'estate.json'), `\uFEFF${readFileSync(join(root, 'estate.json'), 'utf8')}`)
+
+  const result = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
+
+  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })

@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, onlyOnWindows, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -44,6 +44,7 @@ const LEGACY = { legacyHooks: ['old-resolver.mjs'] }
 const commandHook = command => ({ hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command }] }] } })
 const LEGACY_HOOK = commandHook('node ~/tools/old-resolver.mjs resolve')
 const legacyHookOf = root => commandHook(`node ${root}/bin/old-resolver.mjs --hook`)
+const BACKSLASHES = onlyOnWindows('only Windows reads a backslash in a hook command as a separator')
 const hooksLine = result => result.stdout.split('\n').find(line => line.includes('hooks'))
 const olderHookIn = file => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
@@ -130,7 +131,7 @@ test('a registered repo with no folder is a fix', () => {
   assert.equal(result.code, 1)
 })
 
-test('a checkout the map repository does not ignore is a fix', () => {
+test('a checkout the map repository does not ignore is a fix', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = doctor(root, sandbox({ git: GIT_IGNORING_WEB_ONLY }))
@@ -139,7 +140,7 @@ test('a checkout the map repository does not ignore is a fix', () => {
   assert.equal(result.code, 1)
 })
 
-test('checkouts the map repository ignores are fine', () => {
+test('checkouts the map repository ignores are fine', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = doctor(root, sandbox({ git: GIT_IGNORING_BOTH }))
@@ -148,7 +149,7 @@ test('checkouts the map repository ignores are fine', () => {
   assert.equal(result.code, 0)
 })
 
-test('a map inside a repository is not asked whether git ignores its repos', () => {
+test('a map inside a repository is not asked whether git ignores its repos', NEEDS_STAND_IN, () => {
   const root = tree(
     makeTree({
       '.context-central/estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'api', path: 'packages/api' }] },
@@ -163,7 +164,7 @@ test('a map inside a repository is not asked whether git ignores its repos', () 
   assert.equal(result.code, 0)
 })
 
-test('a repo that is the estate root itself is not expected to be ignored', () => {
+test('a repo that is the estate root itself is not expected to be ignored', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, { repos: [{ name: 'web' }, { name: 'estate', path: '.' }] }))
 
   const result = doctor(root, sandbox({ git: GIT_IGNORING_WEB_ONLY }))
@@ -172,12 +173,26 @@ test('a repo that is the estate root itself is not expected to be ignored', () =
   assert.equal(result.code, 0)
 })
 
-test('a repo folder that is not there is not asked about in git', () => {
+test('a repo folder that is not there is not asked about in git', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, { repos: [...ACME_CONFIG.repos, { name: 'mobile' }] }))
 
   const result = doctor(root, sandbox({ git: GIT_IGNORING_WEB_ONLY }))
 
   assert.match(result.stdout, /^FIX {2}git: api is not ignored;/m)
+})
+
+test('real git is started by its bare name and asked which checkouts it ignores', () => {
+  const root = tree(acme())
+  const env = realGit()
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+
+  const result = doctor(root, env)
+
+  assert.equal(
+    result.stdout.split('\n').find(line => line.includes(' git')),
+    'FIX  git: web, api are not ignored; git add there could stage a checkout; add an allowlist .gitignore',
+  )
+  assert.equal(result.code, 1)
 })
 
 test('with no legacy hooks listed, the hooks check passes whatever the settings hold', () => {
@@ -247,6 +262,29 @@ test('a legacy hook that names this estate through $HOME is a fix', () => {
   assert.equal(hooksLine(result), olderHookIn(join(home, '.claude/settings.json')))
 })
 
+test('a legacy hook that names this estate with backslashes all the way is a fix', BACKSLASHES, () => {
+  const root = tree(acme({}, LEGACY))
+  const env = sandbox({}, { '.claude/settings.json': commandHook(`node ${root}\\bin\\old-resolver.mjs --hook`) })
+
+  assert.equal(hooksLine(doctor(root, env)), olderHookIn(join(env.HOME, '.claude/settings.json')))
+})
+
+test('a legacy hook that names this estate with forward slashes all the way is a fix', BACKSLASHES, () => {
+  const root = tree(acme({}, LEGACY))
+  const env = sandbox({}, { '.claude/settings.json': commandHook(`node ${root.replaceAll('\\', '/')}/bin/old-resolver.mjs --hook`) })
+
+  assert.equal(hooksLine(doctor(root, env)), olderHookIn(join(env.HOME, '.claude/settings.json')))
+})
+
+test('a sibling folder is left alone whichever separator the hook command uses', BACKSLASHES, () => {
+  const root = tree(acme({}, LEGACY))
+  const written = [`node ${root}-archive\\bin\\old-resolver.mjs --hook`, `node ${root.replaceAll('\\', '/')}-archive/bin/old-resolver.mjs --hook`]
+
+  for (const command of written) {
+    assert.equal(hooksLine(doctor(root, sandbox({}, { '.claude/settings.json': commandHook(command) }))), 'ok   hooks')
+  }
+})
+
 test('hooks that are not legacy hooks, and legacy names outside a hook command, are fine', () => {
   const root = tree(acme({ '.claude/settings.json': OTHER_HOOK }, LEGACY))
 
@@ -271,7 +309,7 @@ test('a GitHub tracker needs gh as well', () => {
   assert.match(doctor(root).stdout, /^FIX {2}gh: gh is not on PATH;/m)
 })
 
-test('a GitHub estate with gh on the path is fine', () => {
+test('a GitHub estate with gh on the path is fine', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox({ gh: GH_PRESENT }))
@@ -280,7 +318,16 @@ test('a GitHub estate with gh on the path is fine', () => {
   assert.equal(result.code, 0)
 })
 
-test('the configured gh account being the active one is fine', () => {
+test('a GitHub estate with gh.exe on the path is fine', EXE_NAMES, () => {
+  const root = tree(acme({}, GITHUB))
+
+  const result = doctor(root, { ...sandbox(), PATH: tree(makeTree({ 'gh.exe': '' })) })
+
+  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.equal(result.code, 0)
+})
+
+test('the configured gh account being the active one is fine', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, GITHUB_AS_BOT))
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_ACME_BOT }))
@@ -289,7 +336,7 @@ test('the configured gh account being the active one is fine', () => {
   assert.equal(result.code, 0)
 })
 
-test('a different active gh account is a fix that gives the token prefix', () => {
+test('a different active gh account is a fix that gives the token prefix', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, GITHUB_AS_BOT))
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_SOMEONE_ELSE }))
@@ -301,7 +348,7 @@ test('a different active gh account is a fix that gives the token prefix', () =>
   assert.equal(result.code, 1)
 })
 
-test('the gh account matches whatever its letter case', () => {
+test('the gh account matches whatever its letter case', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, { codeHost: { type: 'github', ghUser: 'Acme-Bot' } }))
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_ACME_BOT }))
@@ -309,7 +356,7 @@ test('the gh account matches whatever its letter case', () => {
   assert.match(result.stdout, /^ok {3}gh$/m)
 })
 
-test('a gh from before account switching, logged in as the configured account, is fine', () => {
+test('a gh from before account switching, logged in as the configured account, is fine', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, GITHUB_AS_BOT))
 
   const result = doctor(root, sandbox({ gh: GH_BEFORE_ACCOUNT_SWITCHING }))
@@ -317,7 +364,7 @@ test('a gh from before account switching, logged in as the configured account, i
   assert.match(result.stdout, /^ok {3}gh$/m)
 })
 
-test('a gh from before account switching, logged in as someone else, is a fix', () => {
+test('a gh from before account switching, logged in as someone else, is a fix', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, { codeHost: { type: 'github', ghUser: 'acme-deploy' } }))
 
   const result = doctor(root, sandbox({ gh: GH_BEFORE_ACCOUNT_SWITCHING }))
@@ -342,7 +389,7 @@ test('a registered repo path that holds a file, not a folder, is a fix', () => {
   assert.match(result.stdout, /^FIX {2}repos: no folder at mobile;/m)
 })
 
-test('an estate that is not a git repository passes the git check', () => {
+test('an estate that is not a git repository passes the git check', NEEDS_STAND_IN, () => {
   const root = tree(acme())
 
   const result = doctor(root, sandbox({ git: GIT_OUTSIDE_A_REPOSITORY }))
