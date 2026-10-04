@@ -150,3 +150,29 @@ test('an empty entry in a list setting is refused', () => {
   assert.equal(result.code, 1)
   assert.match(result.stderr, /"legacyHooks" must be a list of non-empty strings/)
 })
+
+test('whether evidence is committed answers false on a map that does not say, and true where it says so', () => {
+  const unset = tree(acme())
+  const set = tree(acme({}, { evidence: { commit: true } }))
+
+  assert.equal(run(['config', '--get', 'evidence.commit'], { cwd: unset }).stdout, 'false\n')
+  assert.equal(run(['config', '--get', 'evidence.commit'], { cwd: set }).stdout, 'true\n')
+})
+
+test('the size limit for one evidence file is a megabyte unless set', () => {
+  const root = tree(acme())
+
+  assert.equal(run(['config', '--get', 'budgets.evidenceBytes'], { cwd: root }).stdout, '1048576\n')
+})
+
+test('an answer on committing evidence that is not true or false is refused', () => {
+  const word = tree(acme({}, { evidence: { commit: 'yes' } }))
+  const bare = tree(acme({}, { evidence: true }))
+
+  for (const root of [word, bare]) {
+    const result = run(['config'], { cwd: root })
+
+    assert.equal(result.code, 1)
+    assert.equal(result.stderr, `context-central config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
+  }
+})

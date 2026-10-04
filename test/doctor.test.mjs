@@ -65,6 +65,15 @@ test('a config this version cannot read is the fix, and the checks that need it 
   assert.equal(result.code, 1)
 })
 
+test('an answer on committing evidence that is not true or false is the config fix', () => {
+  const root = tree(acme({}, { evidence: { commit: 'yes' } }))
+
+  const result = doctor(root)
+
+  assert.equal(result.stdout, `ok   node\nFIX  config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
+  assert.equal(result.code, 1)
+})
+
 test('a folder with no map is told how to make one', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 
