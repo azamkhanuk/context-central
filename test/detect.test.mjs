@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, symlinkSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { EXE_NAMES, NEEDS_STAND_IN, WINDOWS, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
 const REAL_GIT = process.env.PATH.split(delimiter)
-  .map(dir => join(dir, 'git'))
+  .map(dir => join(dir, WINDOWS ? 'git.exe' : 'git'))
   .find(existsSync)
 
 const GH_TWO_ACCOUNTS = `#!/bin/sh
@@ -25,6 +25,7 @@ echo '  - Token: gho_fedcba9876543210'
 function toolsDir(scripts = {}) {
   const dir = tree(makeTree(scripts))
   for (const name of Object.keys(scripts)) chmodSync(join(dir, name), 0o755)
+  if (WINDOWS) return [dir, dirname(REAL_GIT)].join(delimiter)
   symlinkSync(REAL_GIT, join(dir, 'git'))
   return dir
 }
@@ -220,7 +221,7 @@ test('the content of an env file is never printed', () => {
   assert.doesNotMatch(detect(root, { args: ['--json'] }).stdout, /tok_secret/)
 })
 
-test('gh accounts are listed with the active one marked, and no token', () => {
+test('gh accounts are listed with the active one marked, and no token', NEEDS_STAND_IN, () => {
   const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
   const result = detect(root, { tools: toolsDir({ gh: GH_TWO_ACCOUNTS }), args: ['--json'] })
@@ -232,6 +233,24 @@ test('gh accounts are listed with the active one marked, and no token', () => {
   ])
   assert.equal(facts.tools.gh, true)
   assert.doesNotMatch(result.stdout, /gho_/)
+})
+
+test('a tool is found under its name ending in .exe', EXE_NAMES, () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.exe': '' }) }).tools, { git: true, gh: true, acli: false })
+})
+
+test('a tool is found under its name ending in .com', EXE_NAMES, () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'acli.com': '' }) }).tools, { git: true, gh: false, acli: true })
+})
+
+test('a tool that is only a .cmd, a .bat or a file with no extension reads as missing', EXE_NAMES, () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.cmd': '', 'gh.bat': '', gh: '', acli: '' }) }).tools, { git: true, gh: false, acli: false })
 })
 
 test('a glossary already on disk is offered as a candidate', () => {
@@ -254,7 +273,7 @@ test('the config dir follows CLAUDE_CONFIG_DIR', () => {
   assert.equal(JSON.parse(result.stdout).configDir, join(root, 'other-config'))
 })
 
-test('without --json the same facts are short lines', () => {
+test('without --json the same facts are short lines', NEEDS_STAND_IN, () => {
   const root = tree(makeTree({ 'CLAUDE.md': '# Acme\n\nNotes.\n', 'work/PROJ-12/STATE.md': '# PROJ-12\n', 'web/README.md': '# web\n' }))
   makeRepo(root, 'web', { remote: 'git@github.com:acme/web.git', originHead: 'main' })
 

@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, ACME_SHOT, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -78,6 +78,33 @@ test('an existing hub keeps its text and gains one map block', () => {
   assert.match(hub, /context-central resolve/)
 })
 
+const RESOLVE_LINE =
+  "`context-central resolve <item or words>` lists the notes behind a task. A work item's name or title always answers. Other words answer when they single out one item or note; otherwise it says there is no confident match."
+
+test('a new hub says what resolve answers to', () => {
+  const root = answers()
+  init(root)
+
+  assert.ok(lines(read(root, 'CLAUDE.md')).includes(RESOLVE_LINE))
+})
+
+test('the map block added to an existing hub says what resolve answers to', () => {
+  const root = answers({}, { 'CLAUDE.md': '# Our rules\n' })
+  init(root)
+
+  assert.ok(lines(read(root, 'CLAUDE.md')).some(line => line.endsWith(` ${RESOLVE_LINE}`)))
+})
+
+test('a hub that already holds the map block is kept as it is', () => {
+  const hub = '# Our rules\n\n<!-- context-central:start -->\n## Context map\n\n`context-central resolve <item or words>` lists the notes behind a task.\n<!-- context-central:end -->\n'
+  const root = answers({}, { 'CLAUDE.md': hub })
+
+  const result = init(root)
+
+  assert.match(result.stdout, /^kept CLAUDE\.md$/m)
+  assert.equal(read(root, 'CLAUDE.md'), hub)
+})
+
 test('the glossary starts with a heading and the entry format', () => {
   const root = answers()
   init(root)
@@ -99,6 +126,7 @@ test('a map inside a repo lives under .context-central', () => {
     ...NODE_DIRS.map(dir => `created .context-central/${dir}/`),
     'created CLAUDE.md',
     'created .context-central/glossary.md',
+    'created .context-central/.gitignore',
   ])
   assert.equal(run(['where', '--json'], { cwd: root }).stdout.includes('"layout": "inner"'), true)
   assert.equal(read(root, '.gitignore'), 'node_modules\n')
@@ -141,6 +169,17 @@ test('a map inside a repo is described in the hub by paths from the repo root', 
   assert.match(updated, /recorded in `\.context-central\/work\/<item>\/STATE\.md` and the estate's terms in `\.context-central\/glossary\.md`/)
 })
 
+test('both hub blocks say where files that are not text go', () => {
+  const fresh = answers()
+  const lived = answers({}, { 'CLAUDE.md': '# Our rules\n' })
+  const inner = answers({ layout: 'inner' }, { 'CLAUDE.md': '# Our rules\n' })
+  for (const root of [fresh, lived, inner]) init(root)
+
+  assert.match(read(fresh, 'CLAUDE.md'), /^- `work\/<item>\/STATE\.md`: where a piece of work stands and what is next\. Files that are not text sit in `evidence\/` beside it\.$/m)
+  assert.match(read(lived, 'CLAUDE.md'), / Evidence that is not text sits in `work\/<item>\/evidence\/`\. /)
+  assert.match(read(inner, 'CLAUDE.md'), / Evidence that is not text sits in `\.context-central\/work\/<item>\/evidence\/`\. /)
+})
+
 test('configured node folders and hub name are honoured', () => {
   const root = answers({ config: { ...CONFIG, nodeDirs: ['repos', 'work'], hub: 'AGENTS.md' } })
 
@@ -160,6 +199,88 @@ test('a map kept in git ignores everything at the root except the map itself', (
   for (const kept of ['web', 'web/README.md', 'answers.json', 'scratch']) assert.equal(ignored(root, kept), true, kept)
   const tracked = ['estate.json', 'CLAUDE.md', 'glossary.md', '.gitignore', '.gitattributes', 'package.json', '.claude/settings.json', 'bin/context-central']
   for (const rel of [...tracked, ...NODE_DIRS.map(dir => `${dir}/note.md`)]) assert.equal(ignored(root, rel), false, rel)
+})
+
+const BESIDE = ['work/PROJ-12/STATE.md', 'work/PROJ-12/notes/2026-01-14-evidence.md', 'work/PROJ-12/sources/01-ticket.md']
+const ITEM = Object.fromEntries([ACME_SHOT, ...BESIDE].map(rel => [rel, 'x']))
+
+test('a root map kept in git with evidence not committed ignores each item\'s evidence and nothing beside it', () => {
+  const root = answers({ git: true }, ITEM)
+  spawnSync('git', ['-C', root, 'init', '-q'])
+
+  init(root)
+
+  assert.equal(ignored(root, ACME_SHOT), true)
+  for (const rel of BESIDE) assert.equal(ignored(root, rel), false, rel)
+})
+
+test('a root map kept in git with evidence committed ignores none of it', () => {
+  const root = answers({ git: true, config: { ...CONFIG, evidence: { commit: true } } }, ITEM)
+  spawnSync('git', ['-C', root, 'init', '-q'])
+
+  init(root)
+
+  for (const rel of [ACME_SHOT, ...BESIDE]) assert.equal(ignored(root, rel), false, rel)
+})
+
+const inMap = rel => `.context-central/${rel}`
+const INNER_ITEM = Object.fromEntries(Object.entries(ITEM).map(([rel, content]) => [inMap(rel), content]))
+
+test('an inner map kept in git with evidence not committed gets an ignore file inside the map folder', () => {
+  const root = answers({ layout: 'inner', git: true }, { ...INNER_ITEM, '.gitignore': 'node_modules\n', 'work/PROJ-12/evidence/fixture.png': 'x' })
+  spawnSync('git', ['-C', root, 'init', '-q'])
+
+  const result = init(root)
+
+  assert.equal(lines(result.stdout).at(-1), 'created .context-central/.gitignore')
+  assert.equal(read(root, '.context-central/.gitignore'), '/work/*/evidence/\n')
+  assert.equal(read(root, '.gitignore'), 'node_modules\n')
+  assert.equal(ignored(root, inMap(ACME_SHOT)), true)
+  for (const rel of [...BESIDE.map(inMap), 'work/PROJ-12/evidence/fixture.png']) assert.equal(ignored(root, rel), false, rel)
+})
+
+test('an inner map gets no ignore file when evidence is committed or the map is not kept in git', () => {
+  const committed = answers({ layout: 'inner', git: true, config: { ...CONFIG, evidence: { commit: true } } })
+  const outOfGit = answers({ layout: 'inner', git: false })
+
+  for (const root of [committed, outOfGit]) {
+    init(root)
+
+    assert.equal(existsSync(join(root, '.context-central/.gitignore')), false)
+  }
+})
+
+test('an ignore file already inside the map folder is kept as it is', () => {
+  const root = answers({ layout: 'inner', git: true }, { '.context-central/.gitignore': 'drafts/\n' })
+
+  const result = init(root)
+
+  assert.equal(lines(result.stdout).at(-1), 'kept .context-central/.gitignore')
+  assert.equal(read(root, '.context-central/.gitignore'), 'drafts/\n')
+})
+
+test('a dry run for an inner map says it would create the ignore file and writes none', () => {
+  const root = answers({ layout: 'inner', git: true })
+
+  const result = init(root, '--dry-run')
+
+  assert.equal(lines(result.stdout).at(-1), 'would create .context-central/.gitignore')
+  assert.equal(existsSync(join(root, '.context-central')), false)
+})
+
+test('the ignore rule uses the work folder named in the settings', () => {
+  const config = { ...CONFIG, workDir: 'items', nodeDirs: ['repos', 'items'] }
+  const root = answers({ git: true, config }, { 'items/PROJ-12/evidence/shot.png': 'x', 'items/PROJ-12/STATE.md': 'x', 'work/PROJ-12/evidence/shot.png': 'x' })
+  const inner = answers({ layout: 'inner', git: true, config })
+  spawnSync('git', ['-C', root, 'init', '-q'])
+
+  init(root)
+  init(inner)
+
+  assert.equal(lines(read(root, '.gitignore')).at(-1), '/items/*/evidence/')
+  assert.equal(ignored(root, 'items/PROJ-12/evidence/shot.png'), true)
+  assert.equal(ignored(root, 'items/PROJ-12/STATE.md'), false)
+  assert.equal(read(inner, '.context-central/.gitignore'), '/items/*/evidence/\n')
 })
 
 test('git files already there are kept as they are', () => {
@@ -292,4 +413,23 @@ test('a new map starts with no broken links and no orphans', () => {
 
   assert.equal(result.code, 0)
   assert.equal(result.stdout, '0 nodes, 0 links\n')
+})
+
+test('a byte-order mark at the start of the answers file is ignored', () => {
+  const root = tree(makeTree({ 'answers.json': `\uFEFF${JSON.stringify({ layout: 'root', git: false, config: CONFIG })}\n` }))
+
+  const result = init(root)
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')), { contextCentral: 1, ...CONFIG })
+})
+
+test('a config already there with a byte-order mark is read, and the rest of the map is written round it', () => {
+  const root = answers({}, { 'estate.json': `\uFEFF${JSON.stringify({ contextCentral: 1, ...CONFIG })}\n` })
+
+  const result = init(root)
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(lines(result.stdout).slice(0, 2), ['kept estate.json', 'created repos/'])
 })

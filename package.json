@@ -10,7 +10,7 @@
     "context-central": "bin/context-central"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs",
+    "test": "node scripts/test.mjs",
     "typecheck": "tsc -p jsconfig.json"
   },
   "devDependencies": {

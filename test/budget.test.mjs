@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { INDEX_CLOSING_LINE, acme, acmeIndex, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -14,7 +14,6 @@ const SCOPED_RULE = '---\npaths:\n  - "src/**/*.ts"\n---\n# Only for source\n'
 const budget = (root, dir, env = {}, flags = []) => run(['budget', ...flags], { cwd: join(root, dir), env: { HOME: join(root, 'home'), ...env } })
 const budgetJson = (root, dir, env) => JSON.parse(budget(root, dir, env, ['--json']).stdout)
 const sources = report => report.files.map(file => [file.path, file.source])
-const LAST_INDEX_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it."
 
 test('the user file, each ancestor file and their imports are listed with a total', () => {
   const root = tree(
@@ -33,11 +32,11 @@ test('the user file, each ancestor file and their imports are listed with a tota
   assert.equal(
     result.stdout,
     [
-      `Loaded at launch for a session started in ${root}/estate/web:`,
-      '     21 B    3 lines  ~/.claude/CLAUDE.md (user)',
-      `     41 B    3 lines  ${root}/estate/CLAUDE.md (ancestor)`,
-      `   1.0 KB  210 lines  ${root}/estate/repos/web.md (import of ${root}/estate/CLAUDE.md) over 200 lines`,
-      `      6 B    1 line  ${root}/estate/web/CLAUDE.md (ancestor)`,
+      `Loaded at launch for a session started in ${join(root, 'estate/web')}:`,
+      `     21 B    3 lines  ${join('~', '.claude/CLAUDE.md')} (user)`,
+      `     41 B    3 lines  ${join(root, 'estate/CLAUDE.md')} (ancestor)`,
+      `   1.0 KB  210 lines  ${join(root, 'estate/repos/web.md')} (import of ${join(root, 'estate/CLAUDE.md')}) over 200 lines`,
+      `      6 B    1 line  ${join(root, 'estate/web/CLAUDE.md')} (ancestor)`,
       'Total: 1.1 KB in 4 files, about 300 to 400 tokens',
       '',
     ].join('\n'),
@@ -49,7 +48,7 @@ test('a folder can be named instead of starting there', () => {
 
   const result = run(['budget', 'estate/web'], { cwd: root, env: { HOME: join(root, 'home') } })
 
-  assert.match(result.stdout, new RegExp(`^Loaded at launch for a session started in ${root}/estate/web:\n {6}6 B`))
+  assert.ok(result.stdout.startsWith(`Loaded at launch for a session started in ${join(root, 'estate/web')}:\n      6 B`), result.stdout)
 })
 
 test('local files and a .claude/CLAUDE.md count as well', () => {
@@ -99,12 +98,26 @@ test('rules without paths load at launch; path-scoped rules are only counted', (
   assert.match(budget(root, 'estate').stdout, /\nNot loaded until used: 2 path-scoped rules\n$/)
 })
 
+test('a path-scoped rule with Windows line endings or a byte-order mark is still not loaded at launch', () => {
+  const root = tree(
+    makeTree({
+      'estate/.claude/rules/routes.md': SCOPED_RULE.replaceAll('\n', '\r\n'),
+      'estate/.claude/rules/models.md': `\uFEFF${SCOPED_RULE}`,
+    }),
+  )
+
+  const report = budgetJson(root, 'estate')
+
+  assert.deepEqual(sources(report), [])
+  assert.deepEqual(report.notLoaded, { pathScopedRules: 2 })
+})
+
 test('one path-scoped rule is counted in the singular', () => {
   const root = tree(makeTree({ 'estate/.claude/rules/routes.md': SCOPED_RULE }))
 
   assert.equal(
     budget(root, 'estate').stdout,
-    [`Loaded at launch for a session started in ${root}/estate:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', 'Not loaded until used: 1 path-scoped rule', ''].join('\n'),
+    [`Loaded at launch for a session started in ${join(root, 'estate')}:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', 'Not loaded until used: 1 path-scoped rule', ''].join('\n'),
   )
 })
 
@@ -147,10 +160,10 @@ test('paths under the home folder print with a tilde', () => {
   assert.equal(
     budget(root, 'home/project').stdout,
     [
-      'Loaded at launch for a session started in ~/project:',
-      '     15 B    1 line  ~/.claude/CLAUDE.md (user)',
-      '      9 B    1 line  ~/.claude/shared.md (import of ~/.claude/CLAUDE.md)',
-      '     10 B    1 line  ~/project/CLAUDE.md (ancestor)',
+      `Loaded at launch for a session started in ${join('~', 'project')}:`,
+      `     15 B    1 line  ${join('~', '.claude/CLAUDE.md')} (user)`,
+      `      9 B    1 line  ${join('~', '.claude/shared.md')} (import of ${join('~', '.claude/CLAUDE.md')})`,
+      `     10 B    1 line  ${join('~', 'project/CLAUDE.md')} (ancestor)`,
       'Total: 34 B in 3 files, about 0 to 0 tokens',
       '',
     ].join('\n'),
@@ -167,13 +180,7 @@ test('the user file is read from CLAUDE_CONFIG_DIR when that is set', () => {
 
 test('where a map covers the folder, the size of the session-start index is added', () => {
   const root = tree(acme())
-  const index = [
-    `Context map "Acme estate": ${root}`,
-    `Hub: ${root}/CLAUDE.md`,
-    'Work in flight (1):',
-    `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
-    LAST_INDEX_LINE,
-  ].join('\n')
+  const index = acmeIndex(root)
 
   const result = budget(root, '.')
 
@@ -186,10 +193,10 @@ test('the index is measured with the mark it carries when the hub is missing', (
   rmSync(join(root, 'CLAUDE.md'))
   const index = [
     `Context map "Acme estate": ${root}`,
-    `Hub: ${root}/CLAUDE.md (missing)`,
+    `Hub: ${join(root, 'CLAUDE.md')} (missing)`,
     'Work in flight (1):',
-    `- PROJ-12 | Rate limit the gateway | ${root}/work/PROJ-12/STATE.md`,
-    LAST_INDEX_LINE,
+    `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`,
+    INDEX_CLOSING_LINE,
   ].join('\n')
 
   assert.deepEqual(budgetJson(root, '.').plugin, { indexChars: index.length })
@@ -197,7 +204,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
 
 test('the index is measured as cut when its budget shortens the list', () => {
   const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Split the portal\n', 'work/PROJ-14/STATE.md': '# PROJ-14: Retire the old gateway\n' }, { budgets: { indexChars: 120 } }))
-  const index = [`Context map "Acme estate": ${root}`, `Hub: ${root}/CLAUDE.md`, 'Work in flight (3):', '- and 3 more: context-central work list', LAST_INDEX_LINE].join('\n')
+  const index = [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
 
   assert.deepEqual(budgetJson(root, 'web').plugin, { indexChars: index.length })
 })
@@ -205,7 +212,7 @@ test('the index is measured as cut when its budget shortens the list', () => {
 test('a folder with no instruction files reports an empty total', () => {
   const root = tree(makeTree({ 'estate/readme.txt': 'x\n' }))
 
-  assert.equal(budget(root, 'estate').stdout, [`Loaded at launch for a session started in ${root}/estate:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', ''].join('\n'))
+  assert.equal(budget(root, 'estate').stdout, [`Loaded at launch for a session started in ${join(root, 'estate')}:`, 'Total: 0 B in 0 files, about 0 to 0 tokens', ''].join('\n'))
 })
 
 test('the token range is the bytes over 4 and over 2.7, to the nearest hundred', () => {
@@ -241,7 +248,7 @@ test('rules reached through a link are counted like any other', () => {
 test('a file is marked against the hub budget the map sets', () => {
   const root = tree(acme({}, { budgets: { hubLines: 5 } }))
 
-  assert.match(budget(root, '.').stdout, /\/CLAUDE\.md \(ancestor\) over 5 lines\n/)
+  assert.ok(budget(root, '.').stdout.includes(`${join(root, 'CLAUDE.md')} (ancestor) over 5 lines\n`))
 })
 
 test('where the hooks stay silent, no plugin line is printed', () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -244,4 +244,56 @@ test("the notes in a work item's folder are not orphans", () => {
   const result = graph(root)
 
   assert.doesNotMatch(result.stdout, /ORPHAN work\/PROJ-12\//)
+})
+
+
+test('an evidence file that nothing names is unreferenced', () => {
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300) }))
+
+  const result = graph(root)
+
+  assert.equal(result.stdout, ['7 nodes, 5 links', 'ORPHAN repos/web.md', `UNREFERENCED ${DEEP}`, `UNREFERENCED ${ACME_SHOT}`, ''].join('\n'))
+  assert.equal(result.code, 0)
+})
+
+test('an evidence file named in a note, in the state file or in the hub is referenced', () => {
+  const inNote = tree(acme({ [ACME_SHOT]: 'x', 'work/PROJ-12/notes/2026-01-14-evidence.md': '# Evidence\n\n- `2026-01-14-limit-reached.png`: the limit reached, at abc1234.\n' }))
+  const inState = tree(acme({ [ACME_SHOT]: 'x', 'work/PROJ-12/STATE.md': `${ACME_FILES['work/PROJ-12/STATE.md']}\nSee evidence/2026-01-14-limit-reached.png.\n` }))
+  const inHub = tree(acme({ [ACME_SHOT]: 'x', 'CLAUDE.md': '# Acme estate\n\nThe shot is 2026-01-14-limit-reached.png.\n' }))
+
+  for (const root of [inNote, inState, inHub]) assert.doesNotMatch(graph(root).stdout, /UNREFERENCED work\/PROJ-12\/evidence/)
+})
+
+test('an evidence file named only by a deep file or by another evidence file is unreferenced', () => {
+  const root = tree(
+    acme({
+      [ACME_SHOT]: 'x',
+      'work/PROJ-12/sources/02-thread.md': '# Thread\n\nShown in 2026-01-14-limit-reached.png.\n',
+      'work/PROJ-12/evidence/2026-01-14-list.md': '# List\n\n2026-01-14-limit-reached.png and 2026-01-14-list.md, see [[concepts/missing]].\n',
+    }),
+  )
+
+  const result = graph(root)
+
+  assert.match(result.stdout, new RegExp(`^UNREFERENCED ${ACME_SHOT}$`, 'm'))
+  assert.match(result.stdout, /^UNREFERENCED work\/PROJ-12\/evidence\/2026-01-14-list\.md$/m)
+})
+
+test('evidence is never a node and is never read for a link', () => {
+  const root = tree(acme({ [ACME_SHOT]: 'x', 'work/PROJ-12/evidence/2026-01-14-list.md': '# List\n\nSee [[concepts/missing]] and [[repos/web]].\n' }))
+
+  const result = graph(root)
+
+  assert.equal(result.stdout.split('\n')[0], '7 nodes, 5 links')
+  assert.doesNotMatch(result.stdout, /BROKEN/)
+  assert.match(result.stdout, /^ORPHAN repos\/web\.md$/m)
+  assert.equal(result.code, 0)
+})
+
+test('strict fails the run on an evidence file nothing names, in an item that is done too', () => {
+  const root = tree(makeTree({ ...TIDY, 'work/PROJ-12/STATE.md': '---\nstatus: done\n---\n# PROJ-12\n', [ACME_SHOT]: 'x' }))
+
+  assert.equal(graph(root).code, 0)
+  assert.equal(graph(root, '--strict').code, 1)
+  assert.deepEqual(JSON.parse(graph(root, '--json').stdout), { nodes: 3, links: 1, broken: [], orphans: [], unreferenced: [ACME_SHOT] })
 })

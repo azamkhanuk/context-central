@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mjs'
+import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -48,6 +49,15 @@ test('the map can live in a folder inside a repository', () => {
 
   assert.equal(run(['config', '--get', 'name'], { cwd: join(root, 'src') }).stdout, 'solo\n')
   assert.equal(JSON.parse(run(['where', '--json'], { cwd: join(root, 'src') }).stdout).mapDir, join(root, '.context-central'))
+})
+
+test('from inside the map folder of a map kept in a repository, the estate root is still the repository', () => {
+  const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, '.context-central/work/PROJ-1/STATE.md': '# PROJ-1\n' }))
+  const where = dir => JSON.parse(run(['where', '--json'], { cwd: join(root, dir) }).stdout)
+  const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside' }
+
+  assert.deepEqual(where('.context-central'), inRepository)
+  assert.deepEqual(where('.context-central/work/PROJ-1'), inRepository)
 })
 
 test('a config for a newer plugin is refused with its path', () => {
@@ -100,6 +110,27 @@ test('help lists the commands', () => {
   assert.match(result.stdout, /config\s+\S/)
 })
 
+test('a command asked for --help answers with its own line of the help and does nothing else', () => {
+  const root = tree(acme())
+
+  const result = run(['note', '--help'], { cwd: root })
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.match(result.stdout, /^Usage: context-central <command> \[options\]\n\n  note +Log a line: note <text>\. [^\n]+\n$/)
+  assert.equal(existsSync(join(root, 'log')), false)
+})
+
+test('-h is --help, and needs no map', () => {
+  const root = tree(makeTree({}))
+
+  const result = run(['resolve', '-h'], { cwd: root })
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.match(result.stdout, /^Usage: context-central <command> \[options\]\n\n  resolve +\S[^\n]+\n$/)
+})
+
 test('an unknown flag is a usage error, not a crash', () => {
   const root = tree(acme())
 
@@ -149,4 +180,40 @@ test('an empty entry in a list setting is refused', () => {
 
   assert.equal(result.code, 1)
   assert.match(result.stderr, /"legacyHooks" must be a list of non-empty strings/)
+})
+
+test('whether evidence is committed answers false on a map that does not say, and true where it says so', () => {
+  const unset = tree(acme())
+  const set = tree(acme({}, { evidence: { commit: true } }))
+
+  assert.equal(run(['config', '--get', 'evidence.commit'], { cwd: unset }).stdout, 'false\n')
+  assert.equal(run(['config', '--get', 'evidence.commit'], { cwd: set }).stdout, 'true\n')
+})
+
+test('the size limit for one evidence file is a megabyte unless set', () => {
+  const root = tree(acme())
+
+  assert.equal(run(['config', '--get', 'budgets.evidenceBytes'], { cwd: root }).stdout, '1048576\n')
+})
+
+test('an answer on committing evidence that is not true or false is refused', () => {
+  const word = tree(acme({}, { evidence: { commit: 'yes' } }))
+  const bare = tree(acme({}, { evidence: true }))
+  const empty = tree(acme({}, { evidence: { commit: null } }))
+  const nothing = tree(acme({}, { evidence: null }))
+
+  for (const root of [word, bare, empty, nothing]) {
+    const result = run(['config'], { cwd: root })
+
+    assert.equal(result.code, 1)
+    assert.equal(result.stderr, `context-central config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
+  }
+})
+
+test('a byte-order mark at the start of the config is ignored', () => {
+  const root = tree(makeTree({ 'estate.json': `\uFEFF${JSON.stringify(ACME_CONFIG)}\n` }))
+
+  const result = run(['config', '--get', 'name'], { cwd: root })
+
+  assert.deepEqual(result, { code: 0, stdout: 'acme\n', stderr: '' })
 })

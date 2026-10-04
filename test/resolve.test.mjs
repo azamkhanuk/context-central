@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
+import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -9,6 +10,37 @@ const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
 const resolve = (root, ...args) => run(['resolve', ...args], { cwd: root })
 const resolved = (root, ...args) => JSON.parse(resolve(root, ...args, '--json').stdout)
 const rels = resolution => resolution.pointers.map(pointer => pointer.rel)
+const smallMap = files => makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, ...files })
+
+function proj12Answer(root) {
+  return {
+    by: 'item',
+    key: 'item:PROJ-12',
+    item: 'PROJ-12',
+    name: 'PROJ-12',
+    label: 'work item PROJ-12',
+    pointers: [
+      { rel: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md'), bytes: sizeOf('work/PROJ-12/STATE.md'), why: 'state file: where the work stands and what is next' },
+      { rel: 'work/PROJ-12/SPEC.md', path: join(root, 'work/PROJ-12/SPEC.md'), bytes: sizeOf('work/PROJ-12/SPEC.md'), why: 'spec of the work item' },
+      { rel: 'concepts/gateway.md', path: join(root, 'concepts/gateway.md'), bytes: sizeOf('concepts/gateway.md'), why: 'linked from the work item' },
+      { rel: 'repos/api.md', path: join(root, 'repos/api.md'), bytes: sizeOf('repos/api.md'), why: 'linked from the work item' },
+    ],
+    more: 0,
+    notes: {
+      count: 1,
+      bytes: sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md'),
+      rel: 'work/PROJ-12',
+      path: join(root, 'work/PROJ-12'),
+    },
+    deep: {
+      count: 1,
+      bytes: sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md'),
+      rel: 'work/PROJ-12/sources',
+      path: join(root, 'work/PROJ-12/sources'),
+    },
+    evidence: null,
+  }
+}
 
 const RANKED_FILES = {
   'work/PROJ-20/STATE.md': [
@@ -51,32 +83,7 @@ test('a ticket key resolves to its state file, the notes it links to and its dee
 test('the answer as JSON carries both paths, the reason and a key to tell answers apart', () => {
   const root = tree(acme())
 
-  assert.deepEqual(resolved(root, 'PROJ-12'), {
-    by: 'item',
-    key: 'item:PROJ-12',
-    item: 'PROJ-12',
-    name: 'PROJ-12',
-    label: 'work item PROJ-12',
-    pointers: [
-      { rel: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md'), bytes: sizeOf('work/PROJ-12/STATE.md'), why: 'state file: where the work stands and what is next' },
-      { rel: 'work/PROJ-12/SPEC.md', path: join(root, 'work/PROJ-12/SPEC.md'), bytes: sizeOf('work/PROJ-12/SPEC.md'), why: 'spec of the work item' },
-      { rel: 'concepts/gateway.md', path: join(root, 'concepts/gateway.md'), bytes: sizeOf('concepts/gateway.md'), why: 'linked from the work item' },
-      { rel: 'repos/api.md', path: join(root, 'repos/api.md'), bytes: sizeOf('repos/api.md'), why: 'linked from the work item' },
-    ],
-    more: 0,
-    notes: {
-      count: 1,
-      bytes: sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md'),
-      rel: 'work/PROJ-12',
-      path: join(root, 'work/PROJ-12'),
-    },
-    deep: {
-      count: 1,
-      bytes: sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md'),
-      rel: 'work/PROJ-12/sources',
-      path: join(root, 'work/PROJ-12/sources'),
-    },
-  })
+  assert.deepEqual(resolved(root, 'PROJ-12'), proj12Answer(root))
 })
 
 test('absolute paths are printed on request', () => {
@@ -84,8 +91,8 @@ test('absolute paths are printed on request', () => {
 
   const result = resolve(root, 'PROJ-12', '--absolute')
 
-  assert.match(result.stdout, new RegExp(`^- ${join(root, 'work/PROJ-12/STATE.md')} \\(`, 'm'))
-  assert.match(result.stdout, new RegExp(` under ${join(root, 'work/PROJ-12/sources')}, not listed one by one`))
+  assert.ok(result.stdout.includes(`\n- ${join(root, 'work/PROJ-12/STATE.md')} (`), result.stdout)
+  assert.ok(result.stdout.includes(` under ${join(root, 'work/PROJ-12/sources')}, not listed one by one`), result.stdout)
 })
 
 test('a key is found whatever its case', () => {
@@ -149,7 +156,7 @@ test('a link that leads out of the map is not listed', () => {
 test('an item name shorter than five characters is never matched as a word', () => {
   const root = tree(acme({ 'work/next/STATE.md': '# next: What comes next\n' }))
 
-  assert.equal(resolved(root, 'what', 'comes', 'next'), null)
+  assert.equal(resolved(root, 'what', 'is', 'next'), null)
 })
 
 test('a query that is exactly an item name resolves to it however short the name', () => {
@@ -364,6 +371,176 @@ test('a PR link no work item mentions resolves to the note of its repo', () => {
   )
 })
 
+function oneItemMap() {
+  const root = smallMap({})
+  run(['work', 'new', 'order-export-rework', '--title', 'Rebuild the order export'], { cwd: root })
+  return root
+}
+
+test('an item name written with spaces resolves to the item, alone or inside a sentence', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'order', 'export', 'rework').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.equal(resolved(root, 'carry', 'on', 'with', 'the', 'order', 'export', 'rework').key, 'item:order-export-rework')
+})
+
+test('an item name inside a longer hyphenated word or a path resolves to the item, as it does written with spaces', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'the', 'order', 'export', 'rework', 'v2', 'idea').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order-export-rework-v2', 'idea').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'open', 'src/order/export/rework/index.js').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order-export-reworking', 'idea'), null)
+})
+
+test('an item title word for word resolves to the item, whatever its case, hyphens or punctuation', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'Rebuild', 'the', 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.equal(resolved(root, 'where', 'are', 'we', 'on', 'rebuild', 'the', 'order', 'export?').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'REBUILD', 'the', 'order-export!').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'rebuild', 'the', 'big', 'order', 'export').by, 'text')
+})
+
+test('a query that is exactly a one-word title resolves to the item, and the word inside a sentence does not', () => {
+  const root = tree(smallMap({}))
+  run(['work', 'new', 'PROJ-14', '--title', 'Checkout'], { cwd: root })
+
+  assert.equal(resolved(root, 'checkout').key, 'item:PROJ-14')
+  assert.equal(resolved(root, ' Checkout! ').key, 'item:PROJ-14')
+  assert.equal(resolved(root, 'mend', 'the', 'checkout'), null)
+})
+
+const TWO_ITEMS = {
+  'work/order-export-rework/STATE.md': '---\nitem: order-export-rework\ntitle: Rebuild the order export\nstatus: active\n---\n# order-export-rework: Rebuild the order export\n',
+  'work/PROJ-13/STATE.md': '---\nitem: PROJ-13\ntitle: Cache the gateway\nstatus: active\n---\n# PROJ-13: Cache the gateway\n',
+}
+
+test('a key or a name beats a title wherever it stands in the query', () => {
+  const root = tree(acme(TWO_ITEMS))
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'order', 'export', 'after', 'PROJ-13').key, 'item:PROJ-13')
+  assert.equal(resolved(root, 'cache', 'the', 'gateway', 'before', 'order-export-rework').key, 'item:order-export-rework')
+})
+
+test('when a query holds two items by name with spaces or title the one that starts first is the answer', () => {
+  const root = tree(acme(TWO_ITEMS))
+
+  assert.equal(resolved(root, 'cache', 'the', 'gateway', 'then', 'rebuild', 'the', 'order', 'export').key, 'item:PROJ-13')
+  assert.equal(resolved(root, 'order', 'export', 'rework', 'then', 'cache', 'the', 'gateway').key, 'item:order-export-rework')
+})
+
+test("when one item's name with spaces is the start of another's, the longer name answers with its own item", () => {
+  const root = tree(
+    acme({
+      'work/order-export/STATE.md': '# order-export: Send orders out\n',
+      'work/order-export-rework/STATE.md': '# order-export-rework: Rebuild it\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'the', 'order', 'export', 'rework').key, 'item:order-export-rework')
+  assert.equal(resolved(root, 'the', 'order', 'export', 'again').key, 'item:order-export')
+})
+
+test('a title that two items share does not resolve to either', () => {
+  const root = tree(
+    acme({
+      'work/PROJ-13/STATE.md': '---\ntitle: Cache the gateway\n---\n# PROJ-13: Cache the gateway\n',
+      'work/PROJ-14/STATE.md': '---\ntitle: Cache the gateway\n---\n# PROJ-14: Cache the gateway\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'cache', 'the', 'gateway'), null)
+})
+
+test('a done item resolves by its title', () => {
+  const root = tree(oneItemMap())
+  run(['work', 'done', 'order-export-rework'], { cwd: root })
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'order', 'export').key, 'item:order-export-rework')
+})
+
+test('an item with no entry file is not an answer by its name with spaces', () => {
+  const root = tree(acme({ 'work/order-export-rework/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(resolved(root, 'order', 'export', 'rework'), null)
+})
+
+test('the answer by title is the answer the name gives, field for field', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(resolved(root, 'rate', 'limit', 'the', 'gateway'), proj12Answer(root))
+})
+
+test('words that all sit in one item name and title resolve to the item when nothing else answers', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolve(root, 'order', 'export').stdout.split('\n')[0], 'Context for work item order-export-rework:')
+  assert.deepEqual(resolved(root, 'rebuild', 'export'), {
+    by: 'item',
+    key: 'item:order-export-rework',
+    item: 'order-export-rework',
+    name: 'order-export-rework',
+    label: 'work item order-export-rework',
+    pointers: [
+      {
+        rel: 'work/order-export-rework/STATE.md',
+        path: join(root, 'work/order-export-rework/STATE.md'),
+        bytes: statSync(join(root, 'work/order-export-rework/STATE.md')).size,
+        why: 'state file: where the work stands and what is next',
+      },
+    ],
+    more: 0,
+    notes: null,
+    deep: null,
+    evidence: null,
+  })
+})
+
+test('one counted word is not enough to resolve to an item by its words', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'the', 'export'), null)
+})
+
+test('a query with one word outside the item name and title does not resolve to the item', () => {
+  const root = tree(oneItemMap())
+
+  assert.equal(resolved(root, 'rebuild', 'the', 'server'), null)
+})
+
+test('words that sit in the names or titles of two items resolve to neither', () => {
+  const root = tree(
+    acme({
+      'work/order-export-rework/STATE.md': '# order-export-rework: Rebuild the order export\n',
+      'work/order-import/STATE.md': '# order-import: Rebuild the order import\n',
+    }),
+  )
+
+  assert.equal(resolved(root, 'rebuild', 'order'), null)
+  assert.equal(resolved(root, 'rebuild', 'import').key, 'item:order-import')
+})
+
+test('an item with no entry file is not an answer by its words', () => {
+  const root = tree(acme({ 'work/order-export-rework/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(resolved(root, 'export', 'rework'), null)
+})
+
+test('a query that free text answers keeps that answer though its words all sit in one item title', () => {
+  const root = tree(
+    acme({
+      'work/order-export-rework/STATE.md': '---\ntitle: Rebuild the order export\n---\n# order-export-rework\n',
+      'concepts/order-export.md': '# Order export\n\nA nightly file of orders.\n',
+    }),
+  )
+
+  const resolution = resolved(root, 'order', 'export')
+
+  assert.equal(resolution.by, 'text')
+  assert.deepEqual(rels(resolution), ['concepts/order-export.md'])
+})
+
 const BILLING_NOTE = '# Billing retries\n\nFailed card payments are retried through the gateway.\n'
 const BILLING_RUNBOOK = '# Runbook for billing\n\nRetries are logged.\n'
 
@@ -405,6 +582,12 @@ test('a word that more than four notes in ten share does not count', () => {
   const root = tree(acme({ 'concepts/billing-retries.md': BILLING_NOTE }))
 
   assert.equal(resolved(root, 'billing', 'gateway'), null)
+})
+
+test('a word that only one or two notes carry counts however small the map', () => {
+  const root = tree(smallMap({ 'concepts/billing-retries.md': BILLING_NOTE, 'concepts/gateway.md': '# The gateway\n\nEvery call goes through it.\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'billing', 'retries')), ['concepts/billing-retries.md'])
 })
 
 test('short words and stop words do not count', () => {
@@ -475,4 +658,45 @@ test('a link whose letter case differs from the file is not followed', () => {
   const root = tree(acme({ 'work/PROJ-31/STATE.md': '# PROJ-31\n\nSee [[Concepts/Gateway]].\n' }))
 
   assert.deepEqual(rels(resolved(root, 'PROJ-31')), ['work/PROJ-31/STATE.md'])
+})
+
+const EVIDENCE = { [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }
+
+test('an item with evidence gets one line for it after the deep tier', () => {
+  const root = tree(acme(EVIDENCE))
+
+  const lines = resolve(root, 'PROJ-12').stdout.split('\n')
+
+  assert.match(lines.at(-3), /^Deep tier: /)
+  assert.equal(lines.at(-2), 'Evidence: 2 files (350 B) under work/PROJ-12/evidence, not listed one by one.')
+})
+
+test('the answer as JSON carries the evidence group with both paths', () => {
+  const root = tree(acme(EVIDENCE))
+
+  assert.deepEqual(resolved(root, 'PROJ-12').evidence, { count: 2, bytes: 350, rel: 'work/PROJ-12/evidence', path: join(root, 'work/PROJ-12/evidence') })
+})
+
+test('an item without evidence, a repo and free text all answer with no evidence and no line for it', () => {
+  const root = tree(acme({ 'concepts/billing-retries.md': BILLING_NOTE }))
+
+  for (const query of ['PROJ-12', 'web', 'billing retries']) {
+    assert.equal(resolve(root, query).stdout.startsWith('Context for '), true, query)
+    assert.equal(resolved(root, query).evidence, null, query)
+    assert.doesNotMatch(resolve(root, query).stdout, /Evidence/, query)
+  }
+})
+
+test('the evidence line carries an absolute path on request', () => {
+  const root = tree(acme(EVIDENCE))
+
+  const result = resolve(root, 'PROJ-12', '--absolute')
+
+  assert.equal(result.stdout.split('\n').at(-2), `Evidence: 2 files (350 B) under ${join(root, 'work/PROJ-12/evidence')}, not listed one by one.`)
+})
+
+test('evidence is never matched on words', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/billing-retries.md': BILLING_NOTE }))
+
+  assert.equal(resolve(root, 'how', 'do', 'billing', 'retries', 'behave').stdout, 'No confident match for "how do billing retries behave".\n')
 })

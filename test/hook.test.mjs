@@ -2,36 +2,15 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, REPO, acme, disposable, hook, makeTree, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mjs'
 
 const tree = disposable()
 
 const STATE = 'work/PROJ-12/STATE.md'
-const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
 const stateDir = () => tree(makeTree({}))
 const fire = (event, input, env = {}) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: stateDir(), ...env } })
 const context = result => JSON.parse(result.stdout).hookSpecificOutput.additionalContext
 const silent = result => assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
-
-const indexOf = root =>
-  [
-    `Context map "Acme estate": ${root}`,
-    `Hub: ${join(root, 'CLAUDE.md')}`,
-    'Work in flight (1):',
-    `- PROJ-12 | Rate limit the gateway | ${join(root, STATE)}`,
-    "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it.",
-  ].join('\n')
-
-const pointersOf = root =>
-  [
-    'Context for work item PROJ-12:',
-    `- ${join(root, STATE)} (${sizeOf(STATE)} B) state file: where the work stands and what is next`,
-    `- ${join(root, 'work/PROJ-12/SPEC.md')} (${sizeOf('work/PROJ-12/SPEC.md')} B) spec of the work item`,
-    `- ${join(root, 'concepts/gateway.md')} (${sizeOf('concepts/gateway.md')} B) linked from the work item`,
-    `- ${join(root, 'repos/api.md')} (${sizeOf('repos/api.md')} B) linked from the work item`,
-    `Other notes of this item: 1 file (${sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md')} B) under ${join(root, 'work/PROJ-12')}.`,
-    `Deep tier: 1 file (${sizeOf('work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md')} B) under ${join(root, 'work/PROJ-12/sources')}, not listed one by one.`,
-  ].join('\n')
 
 test('a new session is given the index with absolute paths', () => {
   const root = tree(acme())
@@ -40,19 +19,19 @@ test('a new session is given the index with absolute paths', () => {
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: indexOf(root) } })
+  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
 
 test('a forked session is given the index', () => {
   const root = tree(acme())
 
-  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'fork' })), indexOf(root))
+  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'fork' })), acmeIndex(root))
 })
 
 test('a session in a registered repo is covered', () => {
   const root = tree(acme())
 
-  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })), indexOf(root))
+  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })), acmeIndex(root))
 })
 
 test('outside any map the hooks say nothing', () => {
@@ -75,7 +54,7 @@ test('the project folder decides the map, wherever the session has wandered', ()
 
   const result = fire('session-start', { cwd: join(root, 'scratch'), source: 'startup' }, { CLAUDE_PROJECT_DIR: root })
 
-  assert.equal(context(result), indexOf(root))
+  assert.equal(context(result), acmeIndex(root))
 })
 
 test('a session that has moved into a different map is left to that map', () => {
@@ -157,7 +136,15 @@ test('a prompt that names a work item is given its pointers with absolute paths'
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: pointersOf(root) } })
+  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: acmePointers(root) } })
+})
+
+test('a prompt that names an item with evidence is told where it is, by absolute path', () => {
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300) }))
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
+
+  assert.equal(context(result), `${acmePointers(root)}\nEvidence: 1 file (300 B) under ${join(root, 'work/PROJ-12/evidence')}, not listed one by one.`)
 })
 
 test('a prompt that matches nothing is met with silence', () => {
@@ -175,9 +162,9 @@ test('the same answer is given once in a session, and again in another session',
   const second = fire('user-prompt-submit', { ...prompt, session_id: 's1' }, env)
   const other = fire('user-prompt-submit', { ...prompt, session_id: 's2' }, env)
 
-  assert.equal(context(first), pointersOf(root))
+  assert.equal(context(first), acmePointers(root))
   silent(second)
-  assert.equal(context(other), pointersOf(root))
+  assert.equal(context(other), acmePointers(root))
 })
 
 test('the session record holds what was delivered and the active item', () => {
@@ -199,7 +186,7 @@ test('with no session id nothing is recorded and nothing is held back', () => {
   fire('user-prompt-submit', { cwd: root, prompt: 'PROJ-12' }, env)
   const second = fire('user-prompt-submit', { cwd: root, prompt: 'PROJ-12' }, env)
 
-  assert.equal(context(second), pointersOf(root))
+  assert.equal(context(second), acmePointers(root))
   assert.deepEqual(readdirSync(dir), [])
 })
 
@@ -218,7 +205,7 @@ test('a record that cannot be written does not cost the answer', () => {
 
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { CONTEXT_CENTRAL_STATE_DIR: blocked })
 
-  assert.equal(context(result), pointersOf(root))
+  assert.equal(context(result), acmePointers(root))
   assert.equal(result.stderr, '')
 })
 
@@ -231,8 +218,8 @@ test('after a clear the session starts from nothing', () => {
   const cleared = fire('session-start', { session_id: 's1', cwd: root, source: 'clear' }, env)
   const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
 
-  assert.equal(context(cleared), indexOf(root))
-  assert.equal(context(again), pointersOf(root))
+  assert.equal(context(cleared), acmeIndex(root))
+  assert.equal(context(again), acmePointers(root))
 })
 
 for (const source of ['compact', 'resume']) {
@@ -243,7 +230,7 @@ for (const source of ['compact', 'resume']) {
 
     const result = fire('session-start', { session_id: 's1', cwd: root, source }, env)
 
-    assert.equal(context(result), `${indexOf(root)}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}`)
+    assert.equal(context(result), `${acmeIndex(root)}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}`)
   })
 }
 
@@ -252,13 +239,13 @@ test('a new session does not carry the state file even when an item is active', 
   const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
   fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
 
-  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'startup' }, env)), indexOf(root))
+  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'startup' }, env)), acmeIndex(root))
 })
 
 test('a resumed session with no active item is given the index alone', () => {
   const root = tree(acme())
 
-  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'resume' })), indexOf(root))
+  assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'resume' })), acmeIndex(root))
 })
 
 test('a long state file is cut so the whole text stays under the hook limit', () => {
@@ -283,7 +270,7 @@ test('resuming a large session whose cache has lapsed tells the person what it c
   const output = JSON.parse(fire('session-start', { ...RESUMED, cwd: root }).stdout)
 
   assert.equal(output.systemMessage, NOTICE)
-  assert.equal(output.hookSpecificOutput.additionalContext, indexOf(root))
+  assert.equal(output.hookSpecificOutput.additionalContext, acmeIndex(root))
 })
 
 test('a small session, or one whose cache is still warm, resumes without the notice', () => {
@@ -330,7 +317,7 @@ test('a short prompt is matched on its words', () => {
 
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'how does the billing cycle work' })
 
-  assert.match(context(result), /concepts\/billing-cycle\.md/)
+  assert.ok(context(result).includes(join(root, 'concepts/billing-cycle.md')), context(result))
 })
 
 test('a long pasted prompt is not matched on its words', () => {
@@ -345,4 +332,51 @@ test('a long prompt that names a work item is still answered', () => {
   const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${PASTED} for PROJ-12` })
 
   assert.match(context(result), /^Context for work item PROJ-12:/)
+})
+
+test('a short prompt that holds an item title word for word is given the item once and makes it the active item', () => {
+  const root = tree(acme())
+  const dir = stateDir()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: dir }
+  const prompt = { session_id: 's1', cwd: root, prompt: 'how far along is rate limit the gateway?' }
+
+  const first = fire('user-prompt-submit', prompt, env)
+  const second = fire('user-prompt-submit', prompt, env)
+
+  assert.equal(context(first), acmePointers(root))
+  silent(second)
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')), { delivered: ['item:PROJ-12'], active: 'PROJ-12' })
+})
+
+test('a long prompt that holds an item title and no key or name is met with silence', () => {
+  const root = tree(acme())
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${'x1 '.repeat(250)}rate limit the gateway` }))
+})
+
+test('a short prompt that only the words of an item name and title would answer is met with silence', () => {
+  const root = tree(acme())
+  const dir = stateDir()
+
+  assert.equal(JSON.parse(run(['resolve', 'rate', 'gateway', '--json'], { cwd: root }).stdout).key, 'item:PROJ-12')
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'rate gateway' }, { CONTEXT_CENTRAL_STATE_DIR: dir }))
+  assert.equal(existsSync(join(dir, 's1.json')), false)
+})
+
+test('a state file with Windows line endings gives the index the title from its frontmatter', () => {
+  const state = '---\r\nitem: PROJ-60\r\ntitle: Cache the gateway\r\nstatus: active\r\n---\r\n# PROJ-60: a heading that is not the title\r\n'
+  const root = tree(acme({ 'work/PROJ-60/STATE.md': state }))
+
+  const index = context(fire('session-start', { session_id: 's1', cwd: root, source: 'startup' }))
+
+  assert.ok(index.includes(`\n- PROJ-60 | Cache the gateway | ${join(root, 'work/PROJ-60/STATE.md')}\n`), index)
+})
+
+test('a config with a byte-order mark gives the index and no message about its JSON', () => {
+  const root = tree(acme())
+  writeFileSync(join(root, 'estate.json'), `\uFEFF${readFileSync(join(root, 'estate.json'), 'utf8')}`)
+
+  const result = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
+
+  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })

@@ -1,0 +1,142 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [20, 22, 24]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: npm test
+
+  test-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+      - run: npm test
+      - name: The bare command and the launcher, typed in Git Bash
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          failed=0
+          export PATH="$PWD/bin:$PATH"
+
+          echo "First line of the bin script, byte by byte:"
+          head -n 1 bin/context-central | od -c
+
+          if context-central help > /dev/null; then
+            echo "The bare command started."
+          else
+            echo "The bare command did not start."
+            failed=1
+          fi
+
+          if ! node bin/context-central wrapper > launcher; then
+            echo "The launcher could not be printed."
+            failed=1
+          fi
+          printf '%s\n' 'console.log(JSON.stringify(process.argv.slice(2)))' > stand-in.js
+          expected='["two words","","*","it'"'"'s"]'
+          reported=$(CONTEXT_CENTRAL_CLI="$PWD/stand-in.js" sh launcher 'two words' '' '*' "it's") || true
+          echo "The launcher passed on: $reported"
+          if [ "$reported" != "$expected" ]; then
+            echo "Expected:               $expected"
+            failed=1
+          fi
+
+          map=$(mktemp -d)
+          printf '%s\n' '{ "contextCentral": 1, "name": "acme" }' > "$map/estate.json"
+          if ! (cd "$map" && context-central wrapper --write); then
+            echo "The launchers could not be saved."
+            failed=1
+          fi
+          cli="$PWD/stand-in.js"
+          export PATH="$map/bin:$PATH"
+          found=$(command -v context-central) || true
+          echo "Beside the cmd launcher, the bare name is: $found"
+          if [ "$found" != "$map/bin/context-central" ]; then
+            echo "Expected:                                  $map/bin/context-central"
+            failed=1
+          fi
+          reported=$(CONTEXT_CENTRAL_CLI="$cli" context-central 'two words' '' '*' "it's") || true
+          echo "By its bare name the launcher passed on: $reported"
+          if [ "$reported" != "$expected" ]; then
+            echo "Expected:                                $expected"
+            failed=1
+          fi
+
+          exit "$failed"
+
+  line-endings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Write the tree again under core.autocrlf=true
+        run: |
+          git config core.autocrlf true
+          git rm --cached -r -q .
+          git reset --hard -q
+          test "$(git config --get core.autocrlf)" = true
+          git ls-files --eol
+      - run: npm test
+
+  gate:
+    if: ${{ always() }}
+    needs:
+      - typecheck
+      - test
+      - test-windows
+      - line-endings
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Every job listed under needs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
+import { ACME_FILES, ACME_SHOT, acme, disposable, run } from './helpers.mjs'
 
 const tree = disposable()
 
@@ -21,6 +21,23 @@ test('a new work item gets a state file with its six parts', () => {
   for (const part of ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']) {
     assert.match(state, new RegExp(`^## ${part}$`, 'm'))
   }
+})
+
+test('a new work item gets folders for its notes, its sources and its evidence', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  for (const folder of ['notes', 'sources', 'evidence']) assert.equal(existsSync(join(root, 'work/PROJ-13', folder)), true, folder)
+})
+
+test('a new state file says where evidence that is not text goes', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  const state = readFileSync(join(root, 'work/PROJ-13/STATE.md'), 'utf8')
+  assert.match(state, /^- Evidence that is not text \(screenshots, recordings, exports\): `evidence\/`, each file named in a note\.$/m)
 })
 
 test('creating an item that already exists is refused', () => {
@@ -49,6 +66,7 @@ test('the list shows what is in flight, with its state file and what lies behind
       entry: { rel: 'work/PROJ-12/STATE.md', kind: 'state', bytes: sizeOf(ACME_FILES['work/PROJ-12/STATE.md']) },
       notes: 2,
       deep: { count: 1, bytes: sizeOf(ACME_FILES['work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md']) },
+      evidence: { count: 0, bytes: 0 },
     },
   ])
 })
@@ -168,4 +186,133 @@ test('one note and several deep files are counted in plain English', () => {
   const result = run(['work', 'list'], { cwd: root })
 
   assert.match(result.stdout, /^PROJ-9 \| .* \| 1 note, 2 deep files \(4 B\)$/m)
+})
+
+test('files of any type under an item\'s evidence folder are counted as its evidence', () => {
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 2, bytes: 350 })
+  assert.equal(item.notes, 2)
+  assert.equal(item.deep.count, 1)
+})
+
+test('a dot name under the evidence folder is not counted', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/.DS_Store': 'xxxx', [ACME_SHOT]: 'x'.repeat(300) }))
+
+  assert.deepEqual(list(root)[0].evidence, { count: 1, bytes: 300 })
+})
+
+test('a Markdown file under the evidence folder is evidence and not a note', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-export.md': 'x'.repeat(40), 'work/PROJ-12/evidence/sources/2026-01-14-inner-full-text.md': 'x'.repeat(60) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 2, bytes: 100 })
+  assert.equal(item.notes, 2)
+  assert.equal(item.deep.count, 1)
+})
+
+test('a file that is not Markdown outside the evidence folder is neither a note nor evidence', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x'.repeat(300), 'work/PROJ-12/notes/evidence/deeper.png': 'x'.repeat(300) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 0, bytes: 0 })
+  assert.equal(item.notes, 2)
+})
+
+test('the plain list adds the evidence of an item that has some', () => {
+  const root = tree(acme({ [ACME_SHOT]: 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout, 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B), 2 evidence files (350 B)\n')
+})
+
+test('the plain list says nothing of evidence for an item with none', () => {
+  const root = tree(acme())
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout, 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B)\n')
+})
+
+test('a folder that holds only evidence is a work item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x'.repeat(300) }))
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout.split('\n')[1], 'PROJ-14 | PROJ-14 | no entry file | 0 notes, 0 deep files (0 B), 1 evidence file (300 B)')
+})
+
+const BOM = '\uFEFF'
+const crlf = text => text.replaceAll('\n', '\r\n')
+const CACHE_STATE = '---\nitem: PROJ-60\ntitle: Cache the gateway\nstatus: active\n---\n# PROJ-60: a heading that is not the title\n\n## Next\n\nMeasure first.\n'
+const AS_FOUND = { 'Windows line endings': crlf(CACHE_STATE), 'a byte-order mark': BOM + CACHE_STATE, both: BOM + crlf(CACHE_STATE) }
+
+for (const [how, state] of Object.entries(AS_FOUND)) {
+  test(`a state file with ${how} is listed with the title and status of its frontmatter`, () => {
+    const root = tree(acme({ 'work/PROJ-60/STATE.md': state.replace('status: active', 'status: done') }))
+
+    const [item] = list(root, '--all').filter(listed => listed.id === 'PROJ-60')
+
+    assert.equal(item.title, 'Cache the gateway')
+    assert.equal(item.status, 'done')
+  })
+
+  test(`marking an item done and reopening it changes one line of a state file with ${how}`, () => {
+    const root = tree(acme({ 'work/PROJ-60/STATE.md': state }))
+    const held = () => readFileSync(join(root, 'work/PROJ-60/STATE.md'), 'utf8')
+
+    run(['work', 'done', 'PROJ-60'], { cwd: root })
+    const done = held()
+    run(['work', 'reopen', 'PROJ-60'], { cwd: root })
+
+    assert.equal(done, state.replace('status: active', 'status: done'))
+    assert.equal(held(), state)
+  })
+}
+
+test('a state file with a byte-order mark and no frontmatter is listed with the title of its heading', () => {
+  const root = tree(acme({ 'work/PROJ-66/STATE.md': `${BOM}# PROJ-66: Cache the gateway\n` }))
+
+  const [item] = list(root).filter(listed => listed.id === 'PROJ-66')
+
+  assert.equal(item.title, 'Cache the gateway')
+})
+
+test('a status line added to frontmatter with Windows line endings ends as the others do', () => {
+  const root = tree(acme({ 'work/PROJ-61/STATE.md': '---\r\ntitle: No status yet\r\n---\r\n# PROJ-61\r\n' }))
+
+  run(['work', 'done', 'PROJ-61'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'work/PROJ-61/STATE.md'), 'utf8'), '---\r\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-61\r\n')
+})
+
+test('a status line added to frontmatter with mixed line endings takes the ending of the line before the closing dashes', () => {
+  const root = tree(acme({ 'work/PROJ-65/STATE.md': '---\ntitle: No status yet\r\n---\r\n# PROJ-65\r\n' }))
+
+  run(['work', 'done', 'PROJ-65'], { cwd: root })
+
+  assert.equal(readFileSync(join(root, 'work/PROJ-65/STATE.md'), 'utf8'), '---\ntitle: No status yet\r\nstatus: done\r\n---\r\n# PROJ-65\r\n')
+})
+
+test('a new frontmatter block takes the line ending the file uses and sits after a byte-order mark', () => {
+  const root = tree(
+    acme({
+      'work/PROJ-62/STATE.md': '# PROJ-62\r\n\r\nMeasure first.\r\n',
+      'work/PROJ-63/STATE.md': `${BOM}# PROJ-63\n`,
+      'work/PROJ-64/STATE.md': '# PROJ-64',
+    }),
+  )
+  const after = item => {
+    run(['work', 'done', item], { cwd: root })
+    return readFileSync(join(root, 'work', item, 'STATE.md'), 'utf8')
+  }
+
+  assert.equal(after('PROJ-62'), '---\r\nstatus: done\r\n---\r\n# PROJ-62\r\n\r\nMeasure first.\r\n')
+  assert.equal(after('PROJ-63'), `${BOM}---\nstatus: done\n---\n# PROJ-63\n`)
+  assert.equal(after('PROJ-64'), '---\nstatus: done\n---\n# PROJ-64')
 })

@@ -4,7 +4,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 It routes each task to the few notes that matter and keeps work in flight in small state files.
 Long text (tickets, pull requests, threads) is saved in full behind those files and read only on request.
 
-Needs Node 20 or later, on macOS or Linux (WSL included). No runtime dependencies.
+Needs Node 20 or later, on macOS, Linux (WSL included) or Windows. On Windows it also needs Git for Windows, and it has been tried only on GitHub's Windows machines, not in a live Claude Code session: "Working from a terminal" lists what was shown there and "What it does not do" lists what was not. No runtime dependencies.
 
 ## Install
 
@@ -54,7 +54,8 @@ A map is a folder of Markdown with one settings file, `estate.json`. Two layouts
     SPEC.md            what is being built
     notes/             research and working notes
     sources/           full text of tickets, PRs, threads: the deep tier
-  bin/context-central   optional launcher for use outside a session
+    evidence/          files that are not text: screenshots, recordings, exports
+  bin/context-central   optional launcher for use outside a session, with context-central.cmd beside it
   web/ api/ ...        the checkouts, registered in estate.json
 ```
 
@@ -71,6 +72,7 @@ What loads, and when, is decided by tier. Budgets are settings under `budgets` i
 | Read when named | a work item's state file | resolver pointer; delivered again after compaction | `stateChars`: 10,000 characters |
 | Read when named | nodes and work notes | resolver pointers, at most `resolveMax` (6) after the entry file | `nodeBytes`: 20,000 bytes, a soft cap |
 | Deep | everything under `sources/`, and files named `*-full-text.md` | by path only, counted but never listed one by one | none |
+| Evidence | every file under a work item's `evidence/` | by path only, counted and never opened | `evidenceBytes`: 1 MB a file, checked only where evidence is committed |
 
 Two more budgets shape what the hooks do:
 
@@ -81,20 +83,24 @@ Two more budgets shape what the hooks do:
 
 Two rules keep it honest. Every brief names the full-text file behind it. Status goes in state files, never in the hub.
 
+Evidence is any file under a work item's `evidence/` folder. The folder is for what was seen and is not text: a screenshot, a recording, an export. The commands count every file there, whatever its kind, and never open one. A file sits at `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
+
 ## What the hooks put in context
 
 **At session start** (startup, resume, clear, compaction, fork): the live index. It names the map, the hub, and each work item in flight with its title and state file. After compaction or on resume, the state file of the item the session was working on follows the index. The whole text is cut at 9,500 characters.
 
 **When a prompt is submitted**: pointers, when the prompt names something the map knows. First match wins:
 
-1. a work item, by ticket key or by name
+1. a work item, by ticket key or by name, or else by its name written with spaces or its title word for word
 2. a GitHub pull request link recorded in a work item, or whose repository has a note
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files behind the item. They are facts, never instructions. Each answer is delivered once per session.
+On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
 
-A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys, PR links and repo names, not on its words: a pasted log or diff would match notes by chance.
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
+
+A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys and names, PR links and repo names, not on its words, a title or a name written with spaces: a pasted log or diff would match those by chance.
 
 **When a large session resumes with an expired cache**: a notice to the person, not to the model. If Claude Code reports that the prompt cache has likely expired and the session holds at least `budgets.resumeNoticeTokens` (100,000) tokens, the hook shows one line giving the size and saying that a fresh session started from the work item's state file is cheaper.
 
@@ -120,17 +126,18 @@ Inside a session the plugin puts `context-central` on the Bash tool's `PATH`. Ex
 | `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, PR link, repo name or free text |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
-| `graph [--json] [--strict]` | Report broken links, orphan nodes and deep files nothing points to |
-| `lint [--json] [--strict]` | Check the hub, state files, nodes and index against their budgets |
-| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, legacy hooks, `gh` |
+| `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
+| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets |
+| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, evidence against git, legacy hooks, `gh` |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch pr\|issue <ref> --item <item> [--repo <owner/name>]` | Save the full text of a GitHub PR or issue under the item's `sources/`, then print a digest |
+| `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
 | `init --print-settings` | Print the settings that enable the plugin for a map |
-| `wrapper [--write]` | Print or save a launcher for running the CLI from a terminal |
+| `wrapper [--write]` | Print a launcher for running the CLI from a terminal, or save it in the map with one for cmd |
 | `budget [dir] [--json]` | Show what a session started in a folder loads at launch from instruction files |
 
 `doctor` prints one line per check, `ok` or `FIX` with what to do, and exits 1 if anything needs fixing. Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time. Name them in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`; the list is empty by default and the check then passes. A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
@@ -157,19 +164,43 @@ Typed with the plugin prefix. The first four run only when you invoke them; `che
 
 ## Working from a terminal
 
-Outside a session the CLI is not on your `PATH`, so the map can hold a small `sh` launcher. Write it once, in either of two ways:
+Outside a session the CLI is not on your `PATH`, so the map can hold a small launcher. Write it once, in either of two ways:
 
 - from inside a Claude Code session in the map, ask Claude to run `context-central wrapper --write`
 - from a terminal in the map, run `node <plugin folder>/bin/context-central wrapper --write`
 
-The launcher is saved as `bin/context-central` in the map; with a map inside a repository that is `.context-central/bin/context-central`. It finds the installed plugin through Claude Code's install record and passes every argument through:
+Three files are saved in the map's `bin/` folder, on every system, and a file already there is kept; with a map inside a repository the folder is `.context-central/bin/`:
+
+- `context-central`, the launcher: a `sh` script for macOS, Linux and Git Bash
+- `context-central.cmd`, the cmd launcher: the same for cmd and Windows PowerShell
+- `.gitattributes`, which keeps the first at LF and the second at CRLF when the map is kept in git, whatever a machine's line-ending setting
+
+Each launcher finds the installed plugin through Claude Code's install record and passes the arguments it is given and the exit code through:
 
 ```sh
 ./bin/context-central work list
 ./bin/context-central doctor
 ```
 
-When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and the launcher uses that.
+When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+
+With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash. PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried. The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
+
+### On Windows
+
+Windows needs Node 20 or later and Git for Windows. A session's Bash tool there is Git Bash, and that is where the skills call `context-central`.
+
+What the checks have shown on GitHub's Windows machines, with Node 20, 22 and 24:
+
+- the commands, run as a process
+- both hooks answering when started as the hooks manifest declares them
+- a tool found on the `PATH` under a name ending in `.exe` or `.com` and started by its bare name: real `git` for `detect` and `doctor`, and a stand-in named `gh.exe` for `gh`; a tool installed only as a `.cmd` or a `.bat` reads as missing
+- the bare command and the launcher, typed in Git Bash, and the launcher found there by its bare name in a folder that also holds the cmd launcher
+- the cmd launcher run through cmd, with arguments that hold a space, nothing, `*` and an apostrophe arriving unchanged
+- the cmd launcher found by its bare name in cmd and in Windows PowerShell, with two plain arguments and its exit code coming back
+- a map whose files have Windows line endings or a byte-order mark: frontmatter and `estate.json` are read, and `work done` changes one line and keeps the rest as it found it
+
+What has not been shown there is under "What it does not do".
 
 ## Two accounts on one machine
 
@@ -197,7 +228,8 @@ The map is plain Markdown and stays readable without the plugin.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
 - It does not ingest meetings, ship workflows, or include evals.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
-- It does not run on Windows outside WSL.
+- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore. PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell. These are untested on Windows, not known to fail.
+- It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 
 ## Licence
