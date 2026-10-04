@@ -105,6 +105,8 @@ jobs:
     needs:
       - typecheck
       - test
+      - test-windows
+      - line-endings
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
