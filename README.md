@@ -228,7 +228,7 @@ The map is plain Markdown and stays readable without the plugin.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
 - It does not ingest meetings, ship workflows, or include evals.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
-- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell. These are untested on Windows, not known to fail.
+- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore. PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell. These are untested on Windows, not known to fail.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 
