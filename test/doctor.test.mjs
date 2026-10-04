@@ -406,7 +406,7 @@ test('evidence set to stay out of git that git does not ignore is a fix naming b
 
   assert.equal(
     evidenceLine(result),
-    `FIX  evidence: evidence is set to stay out of git and git does not ignore ${SHOT}; ignore work/*/evidence/ in the map's .gitignore, or set "evidence.commit" to true in estate.json`,
+    `FIX  evidence: evidence is set to stay out of git and git does not ignore ${SHOT}; ignore /work/*/evidence/ in the map's .gitignore, or set "evidence.commit" to true in estate.json`,
   )
   assert.equal(result.code, 1)
 })
@@ -481,7 +481,7 @@ test('tracked evidence with no ignore rule is first told to ignore the folder, a
   spawnSync('git', ['-C', unruled.root, 'add', '-f', SHOT], { env: unruled.env })
   spawnSync('git', ['-C', ruled.root, 'add', '-f', SHOT, TRACE], { env: ruled.env })
 
-  assert.match(evidenceLine(doctor(unruled.root, unruled.env)), /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore work\/\*\/evidence\/ in the map's \.gitignore/)
+  assert.match(evidenceLine(doctor(unruled.root, unruled.env)), /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore \/work\/\*\/evidence\/ in the map's \.gitignore/)
   assert.equal(
     evidenceLine(doctor(ruled.root, ruled.env)),
     `FIX  evidence: evidence is set to stay out of git and git already tracks ${SHOT} and 1 more; run git rm --cached on each, or set "evidence.commit" to true in estate.json`,
