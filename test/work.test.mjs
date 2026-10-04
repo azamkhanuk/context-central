@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, acme, disposable, run } from './helpers.mjs'
@@ -21,6 +21,23 @@ test('a new work item gets a state file with its six parts', () => {
   for (const part of ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']) {
     assert.match(state, new RegExp(`^## ${part}$`, 'm'))
   }
+})
+
+test('a new work item gets folders for its notes, its sources and its evidence', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  for (const folder of ['notes', 'sources', 'evidence']) assert.equal(existsSync(join(root, 'work/PROJ-13', folder)), true, folder)
+})
+
+test('a new state file says where evidence that is not text goes', () => {
+  const root = tree(acme())
+
+  run(['work', 'new', 'PROJ-13'], { cwd: root })
+
+  const state = readFileSync(join(root, 'work/PROJ-13/STATE.md'), 'utf8')
+  assert.match(state, /^- Evidence that is not text \(screenshots, recordings, exports\): `evidence\/`, each file named in a note\.$/m)
 })
 
 test('creating an item that already exists is refused', () => {
@@ -49,6 +66,7 @@ test('the list shows what is in flight, with its state file and what lies behind
       entry: { rel: 'work/PROJ-12/STATE.md', kind: 'state', bytes: sizeOf(ACME_FILES['work/PROJ-12/STATE.md']) },
       notes: 2,
       deep: { count: 1, bytes: sizeOf(ACME_FILES['work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md']) },
+      evidence: { count: 0, bytes: 0 },
     },
   ])
 })
@@ -168,4 +186,63 @@ test('one note and several deep files are counted in plain English', () => {
   const result = run(['work', 'list'], { cwd: root })
 
   assert.match(result.stdout, /^PROJ-9 \| .* \| 1 note, 2 deep files \(4 B\)$/m)
+})
+
+test('files of any type under an item\'s evidence folder are counted as its evidence', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 2, bytes: 350 })
+  assert.equal(item.notes, 2)
+  assert.equal(item.deep.count, 1)
+})
+
+test('a dot name under the evidence folder is not counted', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/.DS_Store': 'xxxx', 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+
+  assert.deepEqual(list(root)[0].evidence, { count: 1, bytes: 300 })
+})
+
+test('a Markdown file under the evidence folder is evidence and not a note', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-export.md': 'x'.repeat(40), 'work/PROJ-12/evidence/sources/2026-01-14-inner-full-text.md': 'x'.repeat(60) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 2, bytes: 100 })
+  assert.equal(item.notes, 2)
+  assert.equal(item.deep.count, 1)
+})
+
+test('a file that is not Markdown outside the evidence folder is neither a note nor evidence', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x'.repeat(300), 'work/PROJ-12/notes/evidence/deeper.png': 'x'.repeat(300) }))
+
+  const item = list(root)[0]
+
+  assert.deepEqual(item.evidence, { count: 0, bytes: 0 })
+  assert.equal(item.notes, 2)
+})
+
+test('the plain list adds the evidence of an item that has some', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }))
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout, 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B), 2 evidence files (350 B)\n')
+})
+
+test('the plain list says nothing of evidence for an item with none', () => {
+  const root = tree(acme())
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout, 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B)\n')
+})
+
+test('a folder that holds only evidence is a work item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x'.repeat(300) }))
+
+  const result = run(['work', 'list'], { cwd: root })
+
+  assert.equal(result.stdout.split('\n')[1], 'PROJ-14 | PROJ-14 | no entry file | 0 notes, 0 deep files (0 B), 1 evidence file (300 B)')
 })

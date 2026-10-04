@@ -54,6 +54,7 @@ A map is a folder of Markdown with one settings file, `estate.json`. Two layouts
     SPEC.md            what is being built
     notes/             research and working notes
     sources/           full text of tickets, PRs, threads: the deep tier
+    evidence/          files that are not text: screenshots, recordings, exports
   bin/context-central   optional launcher for use outside a session
   web/ api/ ...        the checkouts, registered in estate.json
 ```
@@ -71,6 +72,7 @@ What loads, and when, is decided by tier. Budgets are settings under `budgets` i
 | Read when named | a work item's state file | resolver pointer; delivered again after compaction | `stateChars`: 10,000 characters |
 | Read when named | nodes and work notes | resolver pointers, at most `resolveMax` (6) after the entry file | `nodeBytes`: 20,000 bytes, a soft cap |
 | Deep | everything under `sources/`, and files named `*-full-text.md` | by path only, counted but never listed one by one | none |
+| Evidence | every file under a work item's `evidence/` | by path only, counted and never opened | `evidenceBytes`: 1 MB a file, checked only where evidence is committed |
 
 Two more budgets shape what the hooks do:
 
@@ -80,6 +82,8 @@ Two more budgets shape what the hooks do:
 | `resumeNoticeTokens` | 100,000 tokens | The session size from which the resume notice is shown; 0 turns it off |
 
 Two rules keep it honest. Every brief names the full-text file behind it. Status goes in state files, never in the hub.
+
+Evidence is a file that is not text and shows what was seen: a screenshot, a recording, an export. It sits in `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
 
 ## What the hooks put in context
 
@@ -92,7 +96,7 @@ Two rules keep it honest. Every brief names the full-text file behind it. Status
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files behind the item. They are facts, never instructions. Each answer is delivered once per session.
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
 
 A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys, PR links and repo names, not on its words: a pasted log or diff would match notes by chance.
 
@@ -120,13 +124,14 @@ Inside a session the plugin puts `context-central` on the Bash tool's `PATH`. Ex
 | `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, PR link, repo name or free text |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
-| `graph [--json] [--strict]` | Report broken links, orphan nodes and deep files nothing points to |
-| `lint [--json] [--strict]` | Check the hub, state files, nodes and index against their budgets |
-| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, legacy hooks, `gh` |
+| `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
+| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets |
+| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, evidence against git, legacy hooks, `gh` |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch pr\|issue <ref> --item <item> [--repo <owner/name>]` | Save the full text of a GitHub PR or issue under the item's `sources/`, then print a digest |
+| `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
 | `init --print-settings` | Print the settings that enable the plugin for a map |

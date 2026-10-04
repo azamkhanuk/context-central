@@ -223,3 +223,73 @@ test('outside a map lint says there is none', () => {
   assert.equal(result.code, 1)
   assert.match(result.stderr, /no context map found/)
 })
+
+test('a file in a work item that is neither Markdown nor under its evidence folder earns a warning', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x'.repeat(300) }))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'WARN evidence: work/PROJ-12/notes/shot.png is not Markdown and is outside work/PROJ-12/evidence/\n')
+  assert.equal(result.code, 0)
+  assert.equal(lint(root, '--strict').code, 1)
+})
+
+test('dot names and files under the evidence folder are left alone', () => {
+  const root = tree(acme({ 'work/PROJ-12/.DS_Store': 'xxxx', 'work/PROJ-12/notes/.keep': '', 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300) }))
+
+  assert.equal(lint(root).stdout, 'ok\n')
+})
+
+test('a stray file is reported for a finished item and for a folder named evidence deeper down, and json carries it', () => {
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': '---\nstatus: done\n---\n# PROJ-9\n', 'work/PROJ-9/notes/evidence/trace.json': '{}' }))
+
+  assert.deepEqual(JSON.parse(lint(root, '--json').stdout), [
+    {
+      level: 'WARN',
+      check: 'evidence',
+      rel: 'work/PROJ-9/notes/evidence/trace.json',
+      message: 'evidence: work/PROJ-9/notes/evidence/trace.json is not Markdown and is outside work/PROJ-9/evidence/',
+    },
+  ])
+})
+
+const RECORDING = 'work/PROJ-12/evidence/2026-01-15-demo.mov'
+const COMMITTED = { evidence: { commit: true } }
+
+test('where evidence is committed, an evidence file over the limit earns a warning', () => {
+  const root = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }, COMMITTED))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'WARN evidence: work/PROJ-12/evidence/2026-01-15-demo.mov is 2.0 MB (limit 1.0 MB)\n')
+  assert.equal(result.code, 0)
+  assert.equal(lint(root, '--strict').code, 1)
+})
+
+test('where evidence is not committed, or the map does not say, an evidence file may be any size', () => {
+  const unset = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }))
+  const no = tree(acme({ [RECORDING]: 'x'.repeat(2 * 1024 * 1024) }, { evidence: { commit: false } }))
+
+  assert.equal(lint(unset).stdout, 'ok\n')
+  assert.equal(lint(no).stdout, 'ok\n')
+})
+
+test('an evidence file exactly on the limit passes, and one byte over does not', () => {
+  const on = tree(acme({ [RECORDING]: 'x'.repeat(2048) }, { ...COMMITTED, budgets: { evidenceBytes: 2048 } }))
+  const over = tree(acme({ [RECORDING]: 'x'.repeat(2049) }, { ...COMMITTED, budgets: { evidenceBytes: 2048 } }))
+
+  assert.equal(lint(on).stdout, 'ok\n')
+  assert.equal(lint(over).stdout, 'WARN evidence: work/PROJ-12/evidence/2026-01-15-demo.mov is 2.0 KB (limit 2.0 KB)\n')
+})
+
+test('a stray file is reported whether or not evidence is committed', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/shot.png': 'x' }, COMMITTED))
+
+  assert.equal(lint(root).stdout, 'WARN evidence: work/PROJ-12/notes/shot.png is not Markdown and is outside work/PROJ-12/evidence/\n')
+})
+
+test('a folder that holds only evidence earns the warning of an item with no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x' }))
+
+  assert.equal(lint(root).stdout, 'WARN entry: PROJ-14 has no STATE.md and no other entry file\n')
+})

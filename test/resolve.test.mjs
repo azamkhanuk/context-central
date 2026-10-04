@@ -76,6 +76,7 @@ test('the answer as JSON carries both paths, the reason and a key to tell answer
       rel: 'work/PROJ-12/sources',
       path: join(root, 'work/PROJ-12/sources'),
     },
+    evidence: null,
   })
 })
 
@@ -475,4 +476,45 @@ test('a link whose letter case differs from the file is not followed', () => {
   const root = tree(acme({ 'work/PROJ-31/STATE.md': '# PROJ-31\n\nSee [[Concepts/Gateway]].\n' }))
 
   assert.deepEqual(rels(resolved(root, 'PROJ-31')), ['work/PROJ-31/STATE.md'])
+})
+
+const EVIDENCE = { 'work/PROJ-12/evidence/2026-01-14-limit-reached.png': 'x'.repeat(300), 'work/PROJ-12/evidence/2026-01-14-trace.json': 'x'.repeat(50) }
+
+test('an item with evidence gets one line for it after the deep tier', () => {
+  const root = tree(acme(EVIDENCE))
+
+  const lines = resolve(root, 'PROJ-12').stdout.split('\n')
+
+  assert.match(lines.at(-3), /^Deep tier: /)
+  assert.equal(lines.at(-2), 'Evidence: 2 files (350 B) under work/PROJ-12/evidence, not listed one by one.')
+})
+
+test('the answer as JSON carries the evidence group with both paths', () => {
+  const root = tree(acme(EVIDENCE))
+
+  assert.deepEqual(resolved(root, 'PROJ-12').evidence, { count: 2, bytes: 350, rel: 'work/PROJ-12/evidence', path: join(root, 'work/PROJ-12/evidence') })
+})
+
+test('an item without evidence, a repo and free text all answer with no evidence and no line for it', () => {
+  const root = tree(acme({ 'concepts/billing-retries.md': BILLING_NOTE }))
+
+  for (const query of ['PROJ-12', 'web', 'billing retries']) {
+    assert.equal(resolve(root, query).stdout.startsWith('Context for '), true, query)
+    assert.equal(resolved(root, query).evidence, null, query)
+    assert.doesNotMatch(resolve(root, query).stdout, /Evidence/, query)
+  }
+})
+
+test('the evidence line carries an absolute path on request', () => {
+  const root = tree(acme(EVIDENCE))
+
+  const result = resolve(root, 'PROJ-12', '--absolute')
+
+  assert.equal(result.stdout.split('\n').at(-2), `Evidence: 2 files (350 B) under ${join(root, 'work/PROJ-12/evidence')}, not listed one by one.`)
+})
+
+test('evidence is never matched on words', () => {
+  const root = tree(acme({ 'work/PROJ-12/evidence/billing-retries.md': BILLING_NOTE }))
+
+  assert.equal(resolve(root, 'how', 'do', 'billing', 'retries', 'behave').stdout, 'No confident match for "how do billing retries behave".\n')
 })

@@ -7,7 +7,7 @@ import { REPO, acme, disposable, makeTree, run } from './helpers.mjs'
 const SKILLS = ['onboard', 'research', 'prep', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'research', 'prep', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -33,6 +33,7 @@ const FLAGS = {
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
   fetch: ['item', 'repo'],
+  evidence: ['item', 'as'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 
@@ -231,4 +232,34 @@ test('the fetcher is told outright never to write to an external system', () => 
 test('the reader, which has no Write tool, is told how to write the one file it may', () => {
   assert.match(agentText('reader'), /no Write tool/)
   assert.match(agentText('reader'), /only that path/)
+})
+
+test('onboard asks whether evidence is committed straight after the layout, and its draft carries the answer', () => {
+  const draft = JSON.parse(/```json\n([\s\S]*?)```/.exec(skillText('onboard'))[1])
+
+  assert.match(skillText('onboard'), /^2\. Layout: .*\n3\. Whether evidence that is not text .* is committed\. Recommend yes exactly when the map is kept in git/m)
+  assert.match(skillText('onboard'), /a screenshot can show personal data, and no text check reads an image/)
+  assert.deepEqual(draft.config.evidence, { commit: true })
+})
+
+test('implement and checkpoint say where evidence that is not text goes, and checkpoint lists it in a note', () => {
+  for (const name of ['implement', 'checkpoint']) assert.ok(skillText(name).includes('(a screenshot, a recording, an export)'), name)
+  assert.ok(skillText('checkpoint').includes('`notes/<YYYY-MM-DD>-evidence.md` lists each by file name, with what it shows and the commit it was taken at'))
+  assert.ok(skillText('checkpoint').includes('- **Where the detail lives**: paths to the spec, the notes, the saved sources and the evidence note.'))
+})
+
+test('the state file, both hub blocks and checkpoint agree on the name of the evidence folder', () => {
+  const fresh = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
+  const lived = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } }, 'CLAUDE.md': '# Our rules\n' }))
+  for (const root of [fresh, lived]) run(['init', '--from', 'answers.json'], { cwd: root })
+  run(['work', 'new', 'PROJ-30'], { cwd: fresh })
+
+  assert.ok(readFileSync(join(fresh, 'work/PROJ-30/STATE.md'), 'utf8').includes('`evidence/`'))
+  assert.ok(readFileSync(join(fresh, 'CLAUDE.md'), 'utf8').includes('`evidence/`'))
+  assert.ok(readFileSync(join(lived, 'CLAUDE.md'), 'utf8').includes('`work/<item>/evidence/`'))
+  assert.ok(skillText('checkpoint').includes('`work/<item>/evidence/'))
+})
+
+test('implement and checkpoint save evidence with the command that puts it in place', () => {
+  for (const name of ['implement', 'checkpoint']) assert.ok(skillText(name).includes('`context-central evidence add <file> --item <item>`'), name)
 })

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -52,7 +53,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root)
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   hooks', 'ok   gh', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   evidence', 'ok   hooks', 'ok   gh', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -62,6 +63,15 @@ test('a config this version cannot read is the fix, and the checks that need it 
   const result = doctor(root)
 
   assert.match(result.stdout, /^ok {3}node\nFIX {2}config: .*"contextCentral" is 2; this version reads 1\n$/)
+  assert.equal(result.code, 1)
+})
+
+test('an answer on committing evidence that is not true or false is the config fix', () => {
+  const root = tree(acme({}, { evidence: { commit: 'yes' } }))
+
+  const result = doctor(root)
+
+  assert.equal(result.stdout, `ok   node\nFIX  config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
   assert.equal(result.code, 1)
 })
 
@@ -364,8 +374,116 @@ test('json lists every check with its fix', () => {
     { check: 'links', ok: true, fix: null },
     { check: 'repos', ok: true, fix: null },
     { check: 'git', ok: true, fix: null },
+    { check: 'evidence', ok: true, fix: null },
     { check: 'hooks', ok: true, fix: null },
     { check: 'gh', ok: false, fix: 'gh is not on PATH; install the GitHub CLI' },
   ])
   assert.equal(result.code, 1)
+})
+
+const SHOT = 'work/PROJ-12/evidence/2026-01-14-limit-reached.png'
+const TRACE = 'work/PROJ-12/evidence/2026-01-14-trace.json'
+const NO_REPOS = { repos: [] }
+
+function realGit() {
+  const home = tree(makeTree({ gitconfig: '' }))
+  return { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+}
+
+function repository(files, config = {}) {
+  const root = tree(acme(files, { ...NO_REPOS, ...config }))
+  const env = realGit()
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+  return { root, env }
+}
+
+const evidenceLine = result => result.stdout.split('\n').find(line => line.includes(' evidence'))
+
+test('evidence set to stay out of git that git does not ignore is a fix naming both ways out', () => {
+  const { root, env } = repository({ [SHOT]: 'x' })
+
+  const result = doctor(root, env)
+
+  assert.equal(
+    evidenceLine(result),
+    `FIX  evidence: evidence is set to stay out of git and git does not ignore ${SHOT}; ignore work/*/evidence/ in the map's .gitignore, or set "evidence.commit" to true in estate.json`,
+  )
+  assert.equal(result.code, 1)
+})
+
+test('evidence set to be committed that git ignores is a fix that names the first file and counts the rest', () => {
+  const { root, env } = repository({ [SHOT]: 'x', [TRACE]: 'x', 'work/PROJ-13/evidence/kept.png': 'x', '.gitignore': '/work/PROJ-12/evidence/\n' }, { evidence: { commit: true } })
+
+  const result = doctor(root, env)
+
+  assert.equal(
+    evidenceLine(result),
+    `FIX  evidence: evidence is set to be committed and git ignores ${SHOT} and 1 more; take out the ignore rule, or set "evidence.commit" to false in estate.json`,
+  )
+  assert.equal(result.code, 1)
+})
+
+test('evidence passes when git and the setting agree', () => {
+  const kept = repository({ [SHOT]: 'x', [TRACE]: 'x' }, { evidence: { commit: true } })
+  const left = repository({ [SHOT]: 'x', [TRACE]: 'x', '.gitignore': '/work/*/evidence/\n' })
+
+  for (const { root, env } of [kept, left]) {
+    const result = doctor(root, env)
+
+    assert.equal(evidenceLine(result), 'ok   evidence')
+    assert.equal(result.code, 0)
+  }
+})
+
+test('evidence passes where the map is not in a git work tree, and where there is no evidence', () => {
+  const outside = tree(acme({ [SHOT]: 'x' }, NO_REPOS))
+  const none = repository({})
+
+  assert.equal(evidenceLine(doctor(outside, realGit())), 'ok   evidence')
+  assert.equal(evidenceLine(doctor(none.root, none.env)), 'ok   evidence')
+})
+
+test('an inner map is asked about its evidence too, and the ignore file init writes for it settles it', () => {
+  const root = tree(
+    makeTree({
+      'answers.json': { layout: 'inner', git: true, config: { name: 'acme' } },
+      '.context-central/estate.json': { contextCentral: 1, name: 'acme' },
+      [`.context-central/${SHOT}`]: 'x',
+    }),
+  )
+  const env = realGit()
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+
+  const before = doctor(root, env)
+  run(['init', '--from', 'answers.json'], { cwd: root })
+  const after = doctor(root, env)
+
+  assert.match(evidenceLine(before), new RegExp(`^FIX  evidence: evidence is set to stay out of git and git does not ignore ${SHOT.replaceAll('.', '\\.')}; `))
+  assert.equal(evidenceLine(after), 'ok   evidence')
+})
+
+test('evidence that git already tracks is a fix that says to take it out of the index, not to ignore it again', () => {
+  const { root, env } = repository({ [SHOT]: 'x', [TRACE]: 'x', '.gitignore': '/work/*/evidence/\n' })
+  spawnSync('git', ['-C', root, 'add', '-f', SHOT], { env })
+
+  const result = doctor(root, env)
+
+  assert.equal(
+    evidenceLine(result),
+    `FIX  evidence: evidence is set to stay out of git and git already tracks ${SHOT}; run git rm --cached on it, or set "evidence.commit" to true in estate.json`,
+  )
+  assert.equal(result.code, 1)
+})
+
+test('tracked evidence with no ignore rule is first told to ignore the folder, and several tracked files are counted', () => {
+  const unruled = repository({ [SHOT]: 'x' })
+  const ruled = repository({ [SHOT]: 'x', [TRACE]: 'x', '.gitignore': '/work/*/evidence/\n' })
+  spawnSync('git', ['-C', unruled.root, 'add', '-f', SHOT], { env: unruled.env })
+  spawnSync('git', ['-C', ruled.root, 'add', '-f', SHOT, TRACE], { env: ruled.env })
+
+  assert.match(evidenceLine(doctor(unruled.root, unruled.env)), /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore work\/\*\/evidence\/ in the map's \.gitignore/)
+  assert.equal(
+    evidenceLine(doctor(ruled.root, ruled.env)),
+    `FIX  evidence: evidence is set to stay out of git and git already tracks ${SHOT} and 1 more; run git rm --cached on each, or set "evidence.commit" to true in estate.json`,
+  )
 })
