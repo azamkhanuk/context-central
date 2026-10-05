@@ -9,6 +9,9 @@ _Avoid_: knowledge base, wiki, vault, docs
 **Hub**: The one instruction file Claude Code loads at launch for the estate, `CLAUDE.md` by default. It holds the routing table and standing rules, never status.
 _Avoid_: root file, index, readme
 
+**Glossary**: The map's `glossary.md`: the estate's terms, one entry each, with the words that are not used for each. It sits at the root of the map and is not a node, so the resolver never lists it.
+_Avoid_: dictionary, vocabulary, terminology
+
 **Node**: One Markdown file in the map about one lasting subject: a repo, an area, a concept, an edge between repos, or a decision.
 _Avoid_: page, doc, article
 
