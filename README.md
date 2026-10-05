@@ -93,7 +93,7 @@ Restart or `/clear` afterwards so the hub loads.
 
 ## How a map is laid out
 
-A map is a folder of Markdown with one settings file, `estate.json`. An estate is the set of repositories you work across, with the folder that holds their checkouts. One estate has one map. [CONTEXT.md](CONTEXT.md) is the glossary.
+A map is a folder of Markdown with one settings file, `estate.json`. An estate is the set of repositories you work across, with the folder that holds their checkouts. One estate has one map. [CONTEXT.md](CONTEXT.md) defines the plugin's terms.
 
 There are two layouts:
 
@@ -239,7 +239,7 @@ Typed with the plugin prefix. The first four run only when you invoke them; `che
 | `/context-central:research <question> [item]` | Researches from primary sources, marks each claim verified or inferred, writes a note |
 | `/context-central:prep <item>` | Turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
 | `/context-central:implement <item>` | Builds from the state file and spec, one slice at a time, following the estate's settings for tests and review |
-| `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, log line, then `lint` and `graph` |
+| `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, the session's terms in the glossary, log line, then `lint` and `graph` |
 
 ## Agents
 
