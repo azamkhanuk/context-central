@@ -14,7 +14,7 @@ import { plural } from '../text.mts'
 
 export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, evidence, hooks, gh'
 
-const MIN_NODE = 20
+const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 // Elsewhere a backslash in a hook command is an escape, not a separator.
 const oneSeparator = sep === '\\' ? text => text.replaceAll('\\', '/') : text => text
@@ -53,8 +53,9 @@ function load(io) {
 }
 
 function node(version) {
-  if (Number(version.split('.')[0]) >= MIN_NODE) return null
-  return `this is Node ${version}; install Node ${MIN_NODE} or later`
+  const [major, minor] = version.split('.').map(Number)
+  if (major > MIN_NODE[0] || (major === MIN_NODE[0] && minor >= MIN_NODE[1])) return null
+  return `this is Node ${version}; install Node ${MIN_NODE.join('.')} or later`
 }
 
 function hub(estate) {

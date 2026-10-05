@@ -150,7 +150,7 @@ exec node "$cli" "$@"
 `
 }
 
-const NO_NODE = `${PLUGIN}: node was not found on the PATH. Install Node 20 or later.`
+const NO_NODE = `${PLUGIN}: node was not found on the PATH. Install Node 22.18 or later.`
 const NO_PLUGIN = [
   `${PLUGIN}: the plugin was not found. Add its marketplace with claude plugin marketplace add, then: claude plugin install ${PLUGIN}@${MARKETPLACE}`,
   `Or set CONTEXT_CENTRAL_CLI to the path of its bin/${PLUGIN} file.`,

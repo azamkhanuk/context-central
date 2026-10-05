@@ -242,7 +242,7 @@ test('without node on the PATH the launcher says so and exits 1', notOnWindows('
 
   assert.equal(result.status, 1)
   assert.equal(result.stdout, '')
-  assert.equal(result.stderr, 'context-central: node was not found on the PATH. Install Node 20 or later.\n')
+  assert.equal(result.stderr, 'context-central: node was not found on the PATH. Install Node 22.18 or later.\n')
 })
 
 test('an installed list without this plugin counts as nothing installed', () => {
@@ -393,7 +393,7 @@ test('without node on the PATH the cmd launcher says so and exits 1', CMD, () =>
 
   const result = cmd(root, `${cmdLauncher(root)} index`, { CONTEXT_CENTRAL_CLI: join(root, 'elsewhere/bin/context-central') }, { path: [SYSTEM32] })
 
-  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central: node was not found on the PATH. Install Node 20 or later.\r\n' })
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central: node was not found on the PATH. Install Node 22.18 or later.\r\n' })
 })
 
 const ARGS_THEN_EXIT_2 = 'console.log(JSON.stringify(process.argv.slice(2)))\nprocess.exitCode = 2\n'
