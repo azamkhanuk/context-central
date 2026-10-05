@@ -1,25 +1,34 @@
+import type { Env } from './cli.mts'
+
+export type Frontmatter = Record<string, string | undefined>
+
+export interface Parsed {
+  data: Frontmatter
+  body: string
+}
+
 const BOM = '\uFEFF'
 const FRONTMATTER = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n)---(?:\r?\n)?/
 
-export function withoutBom(text) {
+export function withoutBom(text: string) {
   return text.startsWith(BOM) ? text.slice(1) : text
 }
 
-export function formatBytes(bytes) {
+export function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   const kb = bytes / 1024
   if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`
   return `${(kb / 1024).toFixed(1)} MB`
 }
 
-export function plural(count, noun, many = `${noun}s`) {
+export function plural(count: number, noun: string, many = `${noun}s`) {
   return `${count} ${count === 1 ? noun : many}`
 }
 
-export function parseFrontmatter(text) {
+export function parseFrontmatter(text: string): Parsed {
   const match = FRONTMATTER.exec(text)
   if (!match) return { data: {}, body: withoutBom(text) }
-  const data = {}
+  const data: Frontmatter = {}
   for (const line of match[2].split(/\r?\n/)) {
     const colon = line.indexOf(':')
     if (colon < 1) continue
@@ -28,7 +37,7 @@ export function parseFrontmatter(text) {
   return { data, body: text.slice(match[0].length) }
 }
 
-export function setFrontmatter(text, key, value) {
+export function setFrontmatter(text: string, key: string, value: string) {
   const line = `${key}: ${value}`
   const match = FRONTMATTER.exec(text)
   if (!match) return newBlock(text, line)
@@ -40,43 +49,43 @@ export function setFrontmatter(text, key, value) {
   return `${opening}${changed}${text.slice(opening.length + block.length)}`
 }
 
-function newBlock(text, line) {
+function newBlock(text: string, line: string) {
   const eol = endingOf(text)
   const mark = text.startsWith(BOM) ? BOM : ''
   return `${mark}---${eol}${line}${eol}---${eol}${text.slice(mark.length)}`
 }
 
-function endingOf(text) {
+function endingOf(text: string) {
   return text.includes('\r\n') ? '\r\n' : '\n'
 }
 
-export function firstHeading(body) {
+export function firstHeading(body: string) {
   return /^#\s+(.+?)\s*$/m.exec(body)?.[1] ?? null
 }
 
-export function headings(body) {
+export function headings(body: string) {
   return [...body.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map(match => match[1])
 }
 
-export function withoutCode(text) {
+export function withoutCode(text: string) {
   return text.replace(/^ *(```|~~~)[\s\S]*?^ *\1[^\n]*$/gm, '').replace(/`[^`\n]*`/g, '')
 }
 
-export function truncate(text, max, suffix = '') {
+export function truncate(text: string, max: number, suffix = '') {
   if (text.length <= max) return text
   const room = text.slice(0, max - suffix.length)
   const lastBreak = room.lastIndexOf('\n')
   return (lastBreak > 0 ? room.slice(0, lastBreak) : room) + suffix
 }
 
-export function localDate(env) {
+export function localDate(env: Env) {
   const now = env.CONTEXT_CENTRAL_NOW ? new Date(env.CONTEXT_CENTRAL_NOW) : new Date()
-  const pad = number => String(number).padStart(2, '0')
+  const pad = (number: number) => String(number).padStart(2, '0')
   const month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
   return { month, day: `${month}-${pad(now.getDate())}` }
 }
 
-function unquote(value) {
+function unquote(value: string) {
   const quoted = /^(["'])(.*)\1$/.exec(value)
   return quoted ? quoted[2] : value
 }

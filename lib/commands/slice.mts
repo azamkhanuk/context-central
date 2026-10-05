@@ -3,14 +3,28 @@ import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { formatBytes, plural } from '../text.mts'
+import type { Io } from '../cli.mts'
+
+type Mode = keyof typeof SLICERS
+
+type Flags = ReturnType<typeof flags>['values']
+
+type Chosen = Flags & { heading: string; lines: string; grep: string }
+
+interface Heading {
+  line: number
+  level: number
+  hashes: string
+  text: string
+}
 
 export const summary = 'Part of a file: slice <file> --toc | --heading <text> | --lines <a>-<b> | --grep <regex>'
 
-const MODES = ['toc', 'heading', 'lines', 'grep']
+const MODES: Mode[] = ['toc', 'heading', 'lines', 'grep']
 const HEADING = /^(#{1,6})\s+(.+?)\s*$/
 const FENCE = /^\s*(`{3,}|~{3,})(.*)$/
 
-export function run(args, io) {
+export function run(args: string[], io: Io) {
   const { values, positionals } = flags(args)
   const [file] = positionals
   const chosen = MODES.filter(mode => values[mode] !== undefined)
@@ -19,14 +33,14 @@ export function run(args, io) {
   }
   const maxBytes = wholeNumber(values['max-bytes'], '--max-bytes', 1)
   const lines = readLines(resolve(io.cwd, file), file)
-  const { what, shown } = SLICERS[chosen[0]](lines, values, file)
+  const { what, shown } = SLICERS[chosen[0]](lines, values as Chosen, file)
   const { text, cut } = limit(shown, maxBytes)
   const header = `${file}: ${what} (${formatBytes(Buffer.byteLength(text))} of ${formatBytes(sizeOf(lines))})`
   const notice = cut ? `[cut at ${maxBytes} bytes; narrow the slice]\n` : ''
   io.out(`${header}\n${text}${notice}`.slice(0, -1))
 }
 
-function flags(args) {
+function flags(args: string[]) {
   return parseArgs({
     args,
     allowPositionals: true,
@@ -42,29 +56,29 @@ function flags(args) {
 }
 
 const SLICERS = {
-  toc(lines) {
+  toc(lines: string[]) {
     const found = headings(lines)
     return {
       what: plural(found.length, 'heading'),
       shown: found.map(heading => `${heading.line} ${heading.hashes} ${heading.text} (${formatBytes(sizeOf(section(lines, found, heading)))})`),
     }
   },
-  heading(lines, { heading: wanted }, file) {
+  heading(lines: string[], { heading: wanted }: Chosen, file: string) {
     const found = headings(lines)
     const match = found.find(heading => `${heading.hashes} ${heading.text}`.toLowerCase().includes(wanted.trim().toLowerCase()))
     if (!match) throw new PluginError(`no heading in ${file} contains "${wanted}"`)
     const shown = section(lines, found, match)
     return { what: `${match.hashes} ${match.text}, lines ${match.line}-${match.line + shown.length - 1}`, shown }
   },
-  lines(lines, { lines: range }, file) {
+  lines(lines: string[], { lines: range }: Chosen, file: string) {
     const match = /^(\d+)-(\d+)$/.exec(range)
-    const [first, last] = match ? [Number(match[1]), Number(match[2])] : []
+    const [first, last]: number[] = match ? [Number(match[1]), Number(match[2])] : []
     if (!match || first < 1 || last < first) throw new UsageError('--lines takes a range such as 10-40')
     if (first > lines.length) throw new PluginError(`${file} has ${plural(lines.length, 'line')}`)
     const end = Math.min(last, lines.length)
     return { what: `lines ${first}-${end}`, shown: lines.slice(first - 1, end) }
   },
-  grep(lines, { grep: source, context }, file) {
+  grep(lines: string[], { grep: source, context }: Chosen, file: string) {
     const pattern = regex(source)
     const around = wholeNumber(context, '--context', 0)
     const hits = lines.flatMap((line, index) => (pattern.test(line) ? [index] : []))
@@ -77,15 +91,15 @@ const SLICERS = {
   },
 }
 
-function readLines(path, file) {
+function readLines(path: string, file: string) {
   if (!statSync(path, { throwIfNoEntry: false })?.isFile()) throw new PluginError(`${file}: no such file`)
   const lines = readFileSync(path, 'utf8').split('\n')
   if (lines.at(-1) === '') lines.pop()
   return lines
 }
 
-function headings(lines) {
-  const found = []
+function headings(lines: string[]) {
+  const found: Heading[] = []
   const body = afterFrontmatter(lines)
   let fence = ''
   lines.forEach((line, index) => {
@@ -102,18 +116,18 @@ function headings(lines) {
   return found
 }
 
-function afterFrontmatter(lines) {
+function afterFrontmatter(lines: string[]) {
   if (lines[0]?.trimEnd() !== '---') return 0
   return lines.findIndex((line, index) => index > 0 && line.trimEnd() === '---') + 1
 }
 
-function section(lines, found, heading) {
+function section(lines: string[], found: Heading[], heading: Heading) {
   const next = found.find(other => other.line > heading.line && other.level <= heading.level)
   return lines.slice(heading.line - 1, next ? next.line - 1 : lines.length)
 }
 
-function groups(hits, around, total) {
-  const merged = []
+function groups(hits: number[], around: number, total: number) {
+  const merged: [number, number][] = []
   for (const hit of hits) {
     const from = Math.max(0, hit - around)
     const to = Math.min(total - 1, hit + around)
@@ -124,7 +138,7 @@ function groups(hits, around, total) {
   return merged
 }
 
-function limit(shown, maxBytes) {
+function limit(shown: string[], maxBytes: number) {
   const whole = Buffer.from(shown.map(line => `${line}\n`).join(''))
   if (whole.length <= maxBytes) return { text: whole.toString(), cut: false }
   const room = whole.subarray(0, maxBytes).toString().replace(/\uFFFD+$/, '')
@@ -132,11 +146,11 @@ function limit(shown, maxBytes) {
   return { text: lastBreak === -1 ? `${room}\n` : room.slice(0, lastBreak + 1), cut: true }
 }
 
-function sizeOf(lines) {
+function sizeOf(lines: string[]) {
   return lines.reduce((sum, line) => sum + Buffer.byteLength(line) + 1, 0)
 }
 
-function regex(source) {
+function regex(source: string) {
   try {
     return new RegExp(source)
   } catch {
@@ -144,7 +158,7 @@ function regex(source) {
   }
 }
 
-function wholeNumber(value, flag, least) {
+function wholeNumber(value: string, flag: string, least: number) {
   if (!/^\d+$/.test(value) || Number(value) < least) throw new UsageError(`${flag} takes a whole number, ${least} or more`)
   return Number(value)
 }

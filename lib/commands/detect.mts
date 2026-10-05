@@ -7,6 +7,19 @@ import { DEFAULT_NODE_DIRS, findEstate } from '../estate.mts'
 import { describeFile } from '../instructions.mts'
 import { claudeConfigDir, ghAccounts, onPath } from '../machine.mts'
 import { formatBytes, plural } from '../text.mts'
+import type { Env, Io } from '../cli.mts'
+
+interface Place {
+  rel: string
+  abs: string
+  names: string[]
+}
+
+type Ask = (cwd: string, ...args: string[]) => string | null
+
+type Facts = ReturnType<typeof detect>
+
+type RepoFacts = ReturnType<typeof describeRepo>
 
 export const summary = 'Report what a folder already holds: checkouts, instruction files, key patterns, tools'
 
@@ -16,7 +29,7 @@ const SKIPPED_FOLDERS = ['.git', 'node_modules']
 const KEY = /\b([A-Z][A-Z0-9]+)-\d+\b/g
 const MAX_EXAMPLES = 3
 
-export function run(args, io) {
+export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { json: { type: 'boolean' } } })
   const dir = resolve(io.cwd, positionals[0] ?? '.')
   if (!isFolder(dir)) throw new PluginError(`${dir} is not a folder`)
@@ -24,7 +37,7 @@ export function run(args, io) {
   io.out(values.json ? JSON.stringify(facts, null, 2) : describe(facts).join('\n'))
 }
 
-function detect(dir, env) {
+function detect(dir: string, env: Env) {
   const places = [{ rel: '', abs: dir, names: namesIn(dir) }, ...subfolders(dir)]
   const ask = git(env)
   const checkouts = places.filter(place => place.names.includes('.git'))
@@ -43,13 +56,13 @@ function detect(dir, env) {
   }
 }
 
-function subfolders(dir) {
+function subfolders(dir: string): Place[] {
   return namesIn(dir)
     .filter(name => !SKIPPED_FOLDERS.includes(name) && isFolder(join(dir, name)))
     .map(name => ({ rel: name, abs: join(dir, name), names: namesIn(join(dir, name)) }))
 }
 
-function namesIn(dir) {
+function namesIn(dir: string) {
   try {
     return readdirSync(dir).sort()
   } catch {
@@ -57,11 +70,11 @@ function namesIn(dir) {
   }
 }
 
-function isFolder(path) {
+function isFolder(path: string) {
   return existsSync(path) && statSync(path).isDirectory()
 }
 
-function filesNamed(place, wanted, order = place.names) {
+function filesNamed(place: Place, wanted: (name: string) => boolean, order = place.names) {
   return place.names
     .filter(wanted)
     .sort((a, b) => order.indexOf(a) - order.indexOf(b))
@@ -69,16 +82,16 @@ function filesNamed(place, wanted, order = place.names) {
     .filter(file => isFile(file.abs))
 }
 
-function isFile(path) {
+function isFile(path: string) {
   return existsSync(path) && statSync(path).isFile()
 }
 
-function sized({ rel, abs }) {
+function sized({ rel, abs }: { rel: string; abs: string }) {
   const { bytes, lines } = describeFile(abs)
   return { rel, bytes, lines }
 }
 
-function git(env) {
+function git(env: Env): Ask {
   const path = onPath('git', env)
   return (cwd, ...args) => {
     if (!path) return null
@@ -87,7 +100,7 @@ function git(env) {
   }
 }
 
-function describeRepo(place, ask) {
+function describeRepo(place: Place, ask: Ask) {
   const originHead = ask(place.abs, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
   return {
     name: basename(place.abs),
@@ -98,7 +111,7 @@ function describeRepo(place, ask) {
   }
 }
 
-function parseRemote(url) {
+function parseRemote(url: string | null) {
   if (!url) return { remote: null, host: null, org: null }
   const scp = /^[^@/\s]+@([^:/]+):(.+)$/.exec(url)
   if (scp) return { remote: url, host: scp[1], org: firstSegment(scp[2]) }
@@ -112,25 +125,25 @@ function parseRemote(url) {
   }
 }
 
-function firstSegment(path) {
+function firstSegment(path: string) {
   return path.split('/').filter(Boolean)[0] ?? null
 }
 
-function workNames(dir) {
+function workNames(dir: string) {
   return namesIn(join(dir, 'work'))
 }
 
-function branchNames(place, ask) {
+function branchNames(place: Place, ask: Ask) {
   const local = ask(place.abs, 'for-each-ref', '--format=%(refname:lstrip=2)', 'refs/heads') ?? ''
   const remote = ask(place.abs, 'for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes') ?? ''
   return [...new Set(`${local}\n${remote}`.split('\n').filter(Boolean))]
 }
 
-function keyCandidates(names) {
-  const prefixes = new Map()
+function keyCandidates(names: string[]) {
+  const prefixes = new Map<string, { seen: number; examples: Set<string> }>()
   for (const name of names) {
     for (const [key, prefix] of name.matchAll(KEY)) {
-      const held = prefixes.get(prefix) ?? { seen: 0, examples: new Set() }
+      const held = prefixes.get(prefix) ?? { seen: 0, examples: new Set<string>() }
       held.seen += 1
       held.examples.add(key)
       prefixes.set(prefix, held)
@@ -141,17 +154,17 @@ function keyCandidates(names) {
     .sort((a, b) => b.seen - a.seen || a.pattern.localeCompare(b.pattern))
 }
 
-function mcpServers(place) {
+function mcpServers(place: Place) {
   return filesNamed(place, name => name === '.mcp.json').flatMap(file => {
     try {
-      return [{ file: file.rel, names: Object.keys(JSON.parse(readFileSync(file.abs, 'utf8')).mcpServers ?? {}) }]
+      return [{ file: file.rel, names: Object.keys((JSON.parse(readFileSync(file.abs, 'utf8')) as { mcpServers?: Record<string, unknown> }).mcpServers ?? {}) }]
     } catch {
       return []
     }
   })
 }
 
-function describe(facts) {
+function describe(facts: Facts) {
   return [
     `Folder: ${facts.dir}`,
     `Existing map: ${facts.existingMap ? `${facts.existingMap.configPath} (${facts.existingMap.layout} layout)` : 'none'}`,
@@ -178,18 +191,18 @@ function describe(facts) {
   ]
 }
 
-function describeRepoLine(repo) {
+function describeRepoLine(repo: RepoFacts) {
   const remote = repo.remote ?? 'no remote'
   const base = repo.defaultBranch ? `default branch ${repo.defaultBranch}` : 'default branch unknown'
   const current = repo.currentBranch ? `on ${repo.currentBranch}` : 'no branch checked out'
   return `${repo.name} (${repo.path}) ${remote}, ${base}, ${current}`
 }
 
-function listed(label, lines) {
+function listed(label: string, lines: string[]) {
   if (lines.length === 0) return [`${label}: none`]
   return [`${label} (${lines.length}):`, ...lines.map(line => `- ${line}`)]
 }
 
-function inline(items) {
+function inline(items: string[]) {
   return items.length > 0 ? items.join(', ') : 'none'
 }

@@ -1,4 +1,7 @@
 import { EVIDENCE_DIR } from './nodes.mts'
+import type { Repo, Settings, WriteRules } from './estate.mts'
+
+export type InMap = (rel: string) => string
 
 export const BLOCK_START = '<!-- context-central:start -->'
 export const BLOCK_END = '<!-- context-central:end -->'
@@ -6,7 +9,7 @@ export const BLOCK_END = '<!-- context-central:end -->'
 const PLUGIN = 'context-central'
 const MARKETPLACE = 'context-central'
 
-const PARTS = {
+const PARTS: Record<string, string | undefined> = {
   repos: 'one note per repo: what it is, its traps, how to work in it.',
   areas: 'one corner of a repo, in depth.',
   concepts: 'the ideas the estate relies on, one per note.',
@@ -19,7 +22,7 @@ const PARTS = {
 const RESOLVE_LINE =
   "`context-central resolve <item or words>` lists the notes behind a task. A work item's name or title always answers. Other words answer when they single out one item or note; otherwise it says there is no confident match."
 
-export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir }, inMap = rel => rel) {
+export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir }: Settings, inMap: InMap = rel => rel) {
   return [
     `# ${title}`,
     '',
@@ -35,7 +38,7 @@ export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir 
   ].join('\n')
 }
 
-export function mapBlock({ workDir }, inMap = rel => rel) {
+export function mapBlock({ workDir }: Settings, inMap: InMap = rel => rel) {
   return [
     BLOCK_START,
     '## Context map',
@@ -46,22 +49,22 @@ export function mapBlock({ workDir }, inMap = rel => rel) {
   ].join('\n')
 }
 
-const NODE_TEMPLATES = {
+const NODE_TEMPLATES: Record<string, (title: string) => string> = {
   repos: title => `# ${title}\n\n## What it is\n\n## Traps\n\n## How to work in it\n`,
   areas: title => `# ${title}\n\n## What it covers\n\n## Traps\n`,
   edges: title =>
     `# ${title}\n\nStatus is \`verified\` (checked in the code) or \`inferred\` (read from names or documents).\n\n| From | To | Status |\n|---|---|---|\n`,
 }
 
-export function nodeTemplate(kind, title) {
+export function nodeTemplate(kind: string, title: string) {
   return Object.hasOwn(NODE_TEMPLATES, kind) ? NODE_TEMPLATES[kind](title) : `# ${title}\n`
 }
 
-export function decisionTemplate(number, title) {
+export function decisionTemplate(number: string, title: string) {
   return `# ${number}: ${title}\n\n## Context\n\n## Decision\n\n## Consequences\n`
 }
 
-export function stateTemplate(id, title) {
+export function stateTemplate(id: string, title: string) {
   return `---
 item: ${id}
 title: ${title}
@@ -101,12 +104,12 @@ export function glossaryTemplate() {
   ].join('\n')
 }
 
-export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }) {
+export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings) {
   const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
   return ['/*', ...allowed.map(path => `!/${path}`), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
 }
 
-export function evidenceIgnoreRule(workDir) {
+export function evidenceIgnoreRule(workDir: string) {
   return `/${workDir}/*/${EVIDENCE_DIR}/`
 }
 
@@ -114,7 +117,7 @@ export function gitattributesTemplate() {
   return 'log/*.md merge=union\n'
 }
 
-export function settingsTemplate(repo) {
+export function settingsTemplate(repo: string) {
   return {
     extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo } } },
     enabledPlugins: { [`${PLUGIN}@${MARKETPLACE}`]: true },
@@ -187,28 +190,28 @@ export function launcherAttributesTemplate() {
   return `${PLUGIN} text eol=lf\n${PLUGIN}.cmd text eol=crlf\n`
 }
 
-function section(heading, lines) {
+function section(heading: string, lines: string[]) {
   return lines.length > 0 ? [`## ${heading}`, '', ...lines, ''] : []
 }
 
-function routingTable(repos, inMap) {
+function routingTable(repos: Repo[], inMap: InMap) {
   if (repos.length === 0) return []
   const rows = repos.map(repo => `| \`${repo.name}\` | ${repo.role ?? 'not recorded'} |`)
   return ['| Repo | Role |', '|---|---|', ...rows, '', `A repo gets a note under \`${inMap('repos')}/\` once work starts in it; link the note from this table then.`]
 }
 
-function ruleLines(rules) {
+function ruleLines(rules: WriteRules | undefined) {
   if (!rules) return []
   if (typeof rules === 'string') return [`- ${rules}`]
   if (Array.isArray(rules)) return rules.map(rule => `- ${text(rule)}`)
   return Object.entries(rules).map(([name, rule]) => `- ${name}: ${text(rule)}`)
 }
 
-function text(value) {
+function text(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
-function partLines(nodeDirs, workDir, inMap) {
+function partLines(nodeDirs: string[], workDir: string, inMap: InMap) {
   const parts = nodeDirs.map(dir => (dir === workDir ? `- \`${inMap(dir)}/<item>/STATE.md\`: where a piece of work stands and what is next. Files that are not text sit in \`evidence/\` beside it.` : `- \`${inMap(dir)}/\`: ${PARTS[dir] ?? 'notes.'}`))
   return [...parts, `- \`${inMap('glossary.md')}\`: the estate's terms.`]
 }

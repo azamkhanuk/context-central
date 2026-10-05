@@ -2,10 +2,11 @@ import { parseArgs } from 'node:util'
 import { UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { formatPointers, resolveQuery } from '../resolve.mts'
+import type { Io } from '../cli.mts'
 
 export const summary = 'List the notes behind a work item, a PR link, a repo name or a few words'
 
-export function run(args, io) {
+export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
@@ -19,7 +20,7 @@ export function run(args, io) {
   else io.out(resolution ? formatPointers(resolution, { absolute: values.absolute }) : `No confident match for "${query}".`)
 }
 
-function maxOf(given, fallback) {
+function maxOf(given: string | undefined, fallback: number) {
   if (given === undefined) return fallback
   if (!/^\d+$/.test(given)) throw new UsageError('--max takes a whole number')
   return Number(given)

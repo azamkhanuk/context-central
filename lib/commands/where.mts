@@ -1,9 +1,10 @@
 import { parseArgs } from 'node:util'
 import { coverage, requireEstate } from '../estate.mts'
+import type { Io } from '../cli.mts'
 
 export const summary = 'Show which map covers this folder, and whether the hooks answer here'
 
-export function run(args, io) {
+export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
   const estate = requireEstate(io)
   const where = {

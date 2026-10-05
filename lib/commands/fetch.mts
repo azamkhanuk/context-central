@@ -6,10 +6,54 @@ import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
 import { formatBytes, localDate, plural } from '../text.mts'
+import type { Io } from '../cli.mts'
+
+interface Authored {
+  author?: { login?: string } | null
+}
+
+interface Comment extends Authored {
+  createdAt?: string
+  body?: string | null
+}
+
+interface Review extends Authored {
+  state?: string
+  submittedAt?: string
+  body?: string | null
+}
+
+interface ChangedFile {
+  path: string
+  additions: number
+  deletions: number
+}
+
+interface Fetched extends Authored {
+  number: number
+  title: string
+  state: string
+  url: string
+  body?: string | null
+  headRefName?: string
+  baseRefName?: string
+  files: ChangedFile[]
+  comments: Comment[]
+  reviews: Review[]
+  labels: { name: string }[]
+}
+
+interface Kind {
+  label: string
+  fields: string
+  digest: (fetched: Fetched) => string
+  facts: (fetched: Fetched) => string[]
+  sections: (fetched: Fetched) => string[]
+}
 
 export const summary = 'Save a PR or issue in full and print a digest: fetch pr|issue <ref> --item <item> [--repo <owner/name>]'
 
-const KINDS = {
+const KINDS: Record<string, Kind> = {
   pr: {
     label: 'PR',
     fields: 'number,title,state,author,baseRefName,headRefName,url,body,files,comments,reviews',
@@ -29,7 +73,7 @@ const KINDS = {
   },
 }
 
-export function run(args, io) {
+export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { item: { type: 'string' }, repo: { type: 'string' } } })
   const [kindName, ref] = positionals
   const kind = Object.hasOwn(KINDS, kindName ?? '') && KINDS[kindName]
@@ -50,24 +94,24 @@ export function run(args, io) {
   io.out(`saved: ${item.dirRel}/sources/${name} (${formatBytes(Buffer.byteLength(text))})`)
 }
 
-function gh(args, io) {
+function gh(args: string[], io: Io) {
   const result = spawnSync('gh', args, { cwd: io.cwd, env: io.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-  if (result.error?.['code'] === 'ENOENT') throw new PluginError('gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
+  if ((result.error as NodeJS.ErrnoException | undefined)?.['code'] === 'ENOENT') throw new PluginError('gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
   if (result.error) throw new PluginError(`gh failed: ${result.error.message}`)
   if (result.status !== 0) throw new PluginError(`gh failed: ${firstLine(result.stderr) || `exit ${result.status}`}`)
   try {
-    return withLists(JSON.parse(result.stdout))
+    return withLists(JSON.parse(result.stdout) as Fetched)
   } catch {
     throw new PluginError('gh failed: its answer was not JSON')
   }
 }
 
-function withLists(fetched) {
-  const lists = Object.fromEntries(['files', 'comments', 'reviews', 'labels'].map(key => [key, fetched[key] ?? []]))
+function withLists(fetched: Fetched): Fetched {
+  const lists = Object.fromEntries((['files', 'comments', 'reviews', 'labels'] satisfies (keyof Fetched)[]).map(key => [key, fetched[key] ?? []]))
   return { ...fetched, ...lists }
 }
 
-function fullText(kind, fetched, day) {
+function fullText(kind: Kind, fetched: Fetched, day: string) {
   const facts = [`URL: ${fetched.url}`, `State: ${fetched.state}`, `Author: ${login(fetched)}`, ...kind.facts(fetched), `Fetched: ${day}`]
   return [
     `# ${kind.label} #${fetched.number}: ${fetched.title}`,
@@ -80,31 +124,31 @@ function fullText(kind, fetched, day) {
     .concat('\n')
 }
 
-function section(title, items, render, separator = '\n\n') {
+function section<Item>(title: string, items: Item[], render: (item: Item) => string, separator = '\n\n') {
   return `## ${title} (${items.length})\n\n${items.map(render).join(separator) || 'None.'}`
 }
 
-function entry(heading, body) {
+function entry(heading: (string | undefined)[], body: string | null | undefined) {
   return `### ${heading.filter(Boolean).join(', ')}\n\n${verbatim(body, '(no text)')}`
 }
 
-function verbatim(body, whenEmpty) {
+function verbatim(body: string | null | undefined, whenEmpty: string) {
   return (body ?? '').replace(/\r\n/g, '\n').replace(/^\s*\n/, '').trimEnd() || whenEmpty
 }
 
-function nextNumber(sourcesAbs) {
+function nextNumber(sourcesAbs: string) {
   const taken = readdirSync(sourcesAbs).map(name => Number(/^(\d{2})-/.exec(name)?.[1] ?? 0))
   return String(Math.max(0, ...taken) + 1).padStart(2, '0')
 }
 
-function branches(pr) {
+function branches(pr: Fetched) {
   return `${pr.headRefName} -> ${pr.baseRefName}`
 }
 
-function login(authored) {
+function login(authored: Authored) {
   return authored.author?.login ?? 'unknown'
 }
 
-function firstLine(text) {
+function firstLine(text: string | null) {
   return (text ?? '').trim().split('\n')[0]
 }

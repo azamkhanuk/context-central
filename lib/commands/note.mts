@@ -5,6 +5,13 @@ import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
+import type { Io } from '../cli.mts'
+import type { Estate } from '../estate.mts'
+
+interface Flags {
+  values: { new?: string; title?: string }
+  positionals: string[]
+}
 
 export const summary = 'Log a line: note <text>. Start a node: note --new <kind>/<name> [--title <title>]'
 
@@ -12,23 +19,23 @@ const NODE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const NUMBERED = /^(\d+)-(.+)\.md$/
 const FIRST_FLAG = /^--(new|title)(=.*)?$/s
 
-export function run(args, io) {
-  const { values, positionals } = FIRST_FLAG.test(args[0] ?? '') ? flags(args) : { values: {}, positionals: args.slice(args[0] === '--' ? 1 : 0) }
+export function run(args: string[], io: Io) {
+  const { values, positionals }: Flags = FIRST_FLAG.test(args[0] ?? '') ? flags(args) : { values: {}, positionals: args.slice(args[0] === '--' ? 1 : 0) }
   const estate = requireEstate(io)
   if (values.new === undefined) return log(estate, oneLine(positionals), io)
   if (positionals.length > 0) throw new UsageError('give either text to log or --new <kind>/<name>, not both')
   return create(estate, values.new, values.title, io)
 }
 
-function flags(args) {
+function flags(args: string[]) {
   return parseArgs({ args, allowPositionals: true, options: { new: { type: 'string' }, title: { type: 'string' } } })
 }
 
-function oneLine(words) {
+function oneLine(words: string[]) {
   return words.join(' ').replace(/\s+/g, ' ').trim().replace(/^- /, '')
 }
 
-function log(estate, text, io) {
+function log(estate: Estate, text: string, io: Io) {
   if (!text) throw new UsageError('expected the text to log, or --new <kind>/<name>')
   const { month, day } = localDate(io.env)
   const rel = `log/${month}.md`
@@ -39,7 +46,7 @@ function log(estate, text, io) {
   io.out(rel)
 }
 
-function underDay(text, day, entry) {
+function underDay(text: string, day: string, entry: string) {
   const lines = text.trimEnd().split('\n')
   const heading = lines.findIndex(line => line.trimEnd() === `## ${day}`)
   if (heading === -1) return `${lines.join('\n')}\n\n## ${day}\n\n${entry}\n`
@@ -51,7 +58,7 @@ function underDay(text, day, entry) {
   return `${lines.join('\n')}\n`
 }
 
-function create(estate, target, title, io) {
+function create(estate: Estate, target: string, title: string | undefined, io: Io) {
   const kinds = estate.config.nodeDirs.filter(dir => dir !== estate.config.workDir && dir !== 'log')
   const [kind, named = '', ...rest] = target.split('/')
   const name = named.replace(/\.md$/, '')
@@ -66,11 +73,11 @@ function create(estate, target, title, io) {
   io.out(rel)
 }
 
-function node(kind, name, title) {
+function node(kind: string, name: string, title: string) {
   return { rel: `${kind}/${name}.md`, text: nodeTemplate(kind, title) }
 }
 
-function decision(estate, slug, title) {
+function decision(estate: Estate, slug: string, title: string) {
   if (/^\d{4}-/.test(slug)) throw new UsageError('name the decision without a number; it is given the next one')
   const recorded = decisions(estate)
   const same = recorded.find(entry => entry.slug === slug)
@@ -79,11 +86,11 @@ function decision(estate, slug, title) {
   return { rel: `decisions/${number}-${slug}.md`, text: decisionTemplate(number, title) }
 }
 
-function decisions(estate) {
+function decisions(estate: Estate) {
   const dir = join(estate.mapDir, 'decisions')
   if (!existsSync(dir)) return []
   return readdirSync(dir)
     .map(file => ({ file, match: NUMBERED.exec(file) }))
     .filter(entry => entry.match)
-    .map(({ file, match }) => ({ file, number: Number(match[1]), slug: match[2] }))
+    .map(({ file, match }) => ({ file, number: Number(match![1]), slug: match![2] }))
 }
