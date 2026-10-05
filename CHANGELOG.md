@@ -4,7 +4,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 
 ## 0.4.0 - 2026-10-05
 
-- **Checkpoint writes the session's terms to the glossary.** A word, an abbreviation or the name of a system that the estate uses with a meaning of its own goes in the map's `glossary.md` at a checkpoint, when its meaning was stated by the person or in text on disk. A term the person corrected has its entry rewritten where it stands, with the word they ruled out on its `_Avoid_` line.
+- **Checkpoint writes the session's terms to the glossary.** A word, an abbreviation or the name of a system that the estate uses with a meaning of its own goes in the map's `glossary.md` at a checkpoint, when its meaning was stated by the person or in text on disk. A term the person corrected has its entry rewritten where it stands, with the word they ruled out on its `_Avoid_` line. A new entry keeps that line, left empty when no word was ruled out for it.
 - A term that was used and never defined is not written, and an entry that a source disagrees with is left as it is until the person rules. The closing report names both, with each entry added or changed and where its meaning came from. A map with no `glossary.md` gets none, and the report carries the terms.
 - Nothing changes in what the commands, the hooks, the agents or the other skills do.
 

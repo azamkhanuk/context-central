@@ -302,6 +302,10 @@ test('checkpoint names the glossary init writes at the root of the map, and the 
   assert.ok(lessons().includes('add the word they ruled out to its `_Avoid_` line'))
 })
 
+test('checkpoint gives a new entry its Avoid line, left empty when no word was ruled out', () => {
+  assert.ok(lessons().includes('A new entry has its `_Avoid_` line too: it holds the words that were ruled out for the term, never synonyms of your own, and is left empty when none were.'))
+})
+
 test('checkpoint writes no term that was never defined, and leaves an entry that a source disagrees with until the person rules', () => {
   assert.ok(lessons().includes('A term that was used and never defined is not written, and an entry that a source disagrees with is left as it is unless the person ruled on it.'))
 })
