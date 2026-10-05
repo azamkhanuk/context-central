@@ -4,7 +4,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 
 ## 0.3.0 - 2026-10-05
 
-- **A simpler README.** It opens with what the plugin does, how it helps, the core idea and how it works day to day. Every part it had before is kept, laid out as short sentences, lists and tables.
+- **A simpler README.** It opens with a picture of how the plugin works, then what it does, how it helps, the core idea and how it works day to day. Every part it had before is kept, laid out as short sentences, lists and tables.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
 ## 0.2.0 - 2026-10-05
