@@ -2,6 +2,11 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
 
+## 0.3.0 - 2026-10-05
+
+- **A simpler README.** It opens with what the plugin does, how it helps, the core idea and how it works day to day. Every part it had before is kept, laid out as short sentences, lists and tables.
+- Nothing changes in what the commands, the hooks, the skills or the agents do.
+
 ## 0.2.0 - 2026-10-05
 
 - **Needs Node 22.18 or later.** It was Node 20, which reached its end of life in April 2026. On an older Node a command says so in one line, and the hooks stay quiet apart from one message at the start of a session.
