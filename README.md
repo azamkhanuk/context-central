@@ -4,7 +4,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 It routes each task to the few notes that matter and keeps work in flight in small state files.
 Long text (tickets, pull requests, threads) is saved in full behind those files and read only on request.
 
-Needs Node 20 or later, on macOS, Linux (WSL included) or Windows. On Windows it also needs Git for Windows, and it has been tried only on GitHub's Windows machines, not in a live Claude Code session: "Working from a terminal" lists what was shown there and "What it does not do" lists what was not. No runtime dependencies.
+Needs Node 22.18 or later, on macOS, Linux (WSL included) or Windows. On Windows it also needs Git for Windows, and it has been tried only on GitHub's Windows machines, not in a live Claude Code session: "Working from a terminal" lists what was shown there and "What it does not do" lists what was not. No runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed.
 
 ## Install
 
@@ -188,9 +188,9 @@ With the map's `bin/` folder on your `PATH`, the name `context-central` alone ru
 
 ### On Windows
 
-Windows needs Node 20 or later and Git for Windows. A session's Bash tool there is Git Bash, and that is where the skills call `context-central`.
+Windows needs Node 22.18 or later and Git for Windows. A session's Bash tool there is Git Bash, and that is where the skills call `context-central`.
 
-What the checks have shown on GitHub's Windows machines, with Node 20, 22 and 24:
+What the checks have shown on GitHub's Windows machines, with Node 22 and 24:
 
 - the commands, run as a process
 - both hooks answering when started as the hooks manifest declares them

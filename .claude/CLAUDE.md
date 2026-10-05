@@ -4,10 +4,10 @@ A Claude Code plugin: a CLI in `lib/`, two hooks, five skills and three agents. 
 
 ## Checks
 
-- One test file: `node --test test/<name>.test.mjs`. All of them: `npm test`.
+- One test file: `node --test test/<name>.test.mts`. All of them: `npm test`.
 - Types: `npm run typecheck`. It must stay clean.
 - Manifests: `claude plugin validate .`. It must pass.
-- Before any push: `node scripts/scan-names.mjs <names-file>`. It must exit 0.
+- Before any push: `node scripts/scan-names.mts <names-file>`. It must exit 0.
 
 ## Public-safety rule
 
@@ -16,10 +16,12 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 ## Conventions
 
 - Every tracked text file is LF, pinned in `.gitattributes`.
-- ESM `.mjs`, Node 20 or later, Node built-ins only. Flags are parsed with `parseArgs` from `node:util`.
-- A command is `lib/commands/<name>.mjs` exporting `summary` and `run(args, io)`. The router finds it by file name; nothing registers it.
+- TypeScript in `.mts` files, checked in strict mode and run by Node as it is: nothing is compiled, and `tsc` only checks. So only syntax Node can strip: no `enum`, no `namespace`, no parameter properties, `import type` for a type, and imports that end in `.mts`.
+- No `any` and no `@ts-` comments. A cast only where data comes in from outside: parsed JSON, flags, a caught error, the environment. A type lives beside the code that makes the thing.
+- Node 22.18 or later, Node built-ins only. `bin/context-central` is the one JavaScript file: it has to run on a Node too old for the rest, to say so. Flags are parsed with `parseArgs` from `node:util`.
+- A command is `lib/commands/<name>.mts` exporting `summary` and `run(args, io)`. The router finds it by file name; nothing registers it.
 - `io` is `{ cwd, env, nodeVersion, out, err, readStdin }`. Commands never touch `process` directly.
-- Expected failures throw `PluginError` (exit 1) or `UsageError` (exit 2) from `lib/errors.mjs`. Exit 0 means fine.
+- Expected failures throw `PluginError` (exit 1) or `UsageError` (exit 2) from `lib/errors.mts`. Exit 0 means fine.
 - `--json` on commands whose output a skill or script parses.
 - The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`.
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub).
@@ -31,15 +33,15 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 ## Releases
 
 - A release is one pull request that raises `version` in `.claude-plugin/plugin.json` and adds that version's section, dated, at the top of `CHANGELOG.md`. A test holds the two together.
-- Once it is merged and the checks pass on `main`, `.github/workflows/release.yml` tags that commit `context-central--v<version>` and publishes the GitHub release, with that section of the changelog as its notes. `scripts/release-notes.mjs` prints the tag, the title and the notes. A merge that does not raise the version publishes nothing.
+- Once it is merged and the checks pass on `main`, `.github/workflows/release.yml` tags that commit `context-central--v<version>` and publishes the GitHub release, with that section of the changelog as its notes. `scripts/release-notes.mts` prints the tag, the title and the notes. A merge that does not raise the version publishes nothing.
 - By hand, the same is `claude plugin tag --push` on `main`, then `gh release create <tag> --verify-tag`.
 
 ## Tests
 
 - Work test-first, one behaviour at a time.
-- Test through the CLI as a process: `run()` and `hook()` in `test/helpers.mjs`, against a tree made with `acme()` or `makeTree()`. Never import a module under test.
+- Test through the CLI as a process: `run()` and `hook()` in `test/helpers.mts`, against a tree made with `acme()` or `makeTree()`. Never import a module under test.
 - Expected values are literals or come from the fixture, never from re-running the code's own logic.
-- The checks run on Linux, macOS and Windows. Build an expected path with `join`. A test that cannot run on a system is skipped there with its reason, through `notOnWindows` or `onlyOnWindows` in `test/helpers.mjs`.
+- The checks run on Linux, macOS and Windows. Build an expected path with `join`. A test that cannot run on a system is skipped there with its reason, through `notOnWindows` or `onlyOnWindows` in `test/helpers.mts`.
 
 ## Writing
 
