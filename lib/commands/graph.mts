@@ -1,0 +1,25 @@
+import { parseArgs } from 'node:util'
+import { requireEstate } from '../estate.mts'
+import { graphEstate } from '../graph.mts'
+import { plural } from '../text.mts'
+import type { Io } from '../cli.mts'
+import type { Graph } from '../graph.mts'
+
+export const summary = 'Check the links between notes: broken links, orphans, unreferenced deep files and evidence'
+
+export function run(args: string[], io: Io) {
+  const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, strict: { type: 'boolean' } } })
+  const graph = graphEstate(requireEstate(io))
+  io.out(values.json ? JSON.stringify(graph, null, 2) : report(graph))
+  const reported = graph.broken.length + graph.orphans.length + graph.unreferenced.length
+  return graph.broken.length > 0 || (values.strict && reported > 0) ? 1 : 0
+}
+
+function report(graph: Graph) {
+  return [
+    `${plural(graph.nodes, 'node')}, ${plural(graph.links, 'link')}`,
+    ...graph.broken.map(link => `BROKEN ${link.from} -> ${link.target}`),
+    ...graph.orphans.map(rel => `ORPHAN ${rel}`),
+    ...graph.unreferenced.map(rel => `UNREFERENCED ${rel}`),
+  ].join('\n')
+}

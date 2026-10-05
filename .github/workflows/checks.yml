@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        node: [20, 22, 24]
+        node: [22, 24]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
@@ -121,6 +121,24 @@ jobs:
           git ls-files --eol
       - run: npm test
 
+  old-node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          package-manager-cache: false
+      - name: A Node too old for the plugin is told so in one line, and its hooks stay quiet
+        run: |
+          expected="context-central: this is Node $(node -p process.versions.node); the plugin needs Node 22.18 or later."
+          test "$(node bin/context-central help 2>&1)" = "$expected"
+          if node bin/context-central help 2>/dev/null; then exit 1; fi
+          test "$(echo '{}' | node bin/context-central hook user-prompt-submit 2>&1)" = ""
+          echo '{}' | node bin/context-central hook user-prompt-submit
+          test "$(echo '{}' | node bin/context-central hook session-start)" = "{\"systemMessage\":\"$expected Its hooks stay quiet until then.\"}"
+
   gate:
     if: ${{ always() }}
     needs:
@@ -128,6 +146,7 @@ jobs:
       - test
       - test-windows
       - line-endings
+      - old-node
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

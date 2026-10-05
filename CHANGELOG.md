@@ -2,6 +2,12 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
 
+## 0.2.0 - 2026-10-05
+
+- **Needs Node 22.18 or later.** It was Node 20, which reached its end of life in April 2026. On an older Node a command says so in one line, and the hooks stay quiet apart from one message at the start of a session.
+- **Written in TypeScript.** The whole program, its tests and its scripts are TypeScript checked in strict mode. Node runs it as it is, so there is still nothing to compile or install, and with Node 24 a start takes as long as it did before. With Node 22 a start took 30 to 50 ms longer on the one machine it was measured on.
+- Nothing changes in what the commands, the hooks, the skills or the agents do.
+
 ## 0.1.0 - 2026-10-04
 
 The first release.
