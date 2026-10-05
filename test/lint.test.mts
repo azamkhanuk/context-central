@@ -5,8 +5,8 @@ import { ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
-const lint = (root, ...flags) => run(['lint', ...flags], { cwd: root })
-const lines = count => 'A rule.\n'.repeat(count)
+const lint = (root: string, ...flags: string[]) => run(['lint', ...flags], { cwd: root })
+const lines = (count: number) => 'A rule.\n'.repeat(count)
 
 test('a map within every budget is ok', () => {
   const root = tree(acme())
@@ -205,7 +205,7 @@ test('json lists each finding with its level, check and file', () => {
 
   const result = lint(root, '--json')
 
-  assert.deepEqual(JSON.parse(result.stdout), [
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, [
     { level: 'WARN', check: 'entry', rel: 'work/PROJ-7.md', message: 'entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B' },
   ])
 })
@@ -213,7 +213,7 @@ test('json lists each finding with its level, check and file', () => {
 test('json is an empty list when there is nothing to report', () => {
   const root = tree(acme())
 
-  assert.deepEqual(JSON.parse(lint(root, '--json').stdout), [])
+  assert.deepEqual(JSON.parse(lint(root, '--json').stdout) as unknown, [])
 })
 
 test('lint run from inside the map folder of a map kept in a repository finds the hub at the repository root', () => {
@@ -252,7 +252,7 @@ test('dot names and files under the evidence folder are left alone', () => {
 test('a stray file is reported for a finished item and for a folder named evidence deeper down, and json carries it', () => {
   const root = tree(acme({ 'work/PROJ-9/STATE.md': '---\nstatus: done\n---\n# PROJ-9\n', 'work/PROJ-9/notes/evidence/trace.json': '{}' }))
 
-  assert.deepEqual(JSON.parse(lint(root, '--json').stdout), [
+  assert.deepEqual(JSON.parse(lint(root, '--json').stdout) as unknown, [
     {
       level: 'WARN',
       check: 'evidence',

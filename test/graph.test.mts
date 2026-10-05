@@ -4,7 +4,7 @@ import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helper
 
 const tree = disposable()
 
-const graph = (root, ...flags) => run(['graph', ...flags], { cwd: root })
+const graph = (root: string, ...flags: string[]) => run(['graph', ...flags], { cwd: root })
 const DEEP = 'work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md'
 const TIDY = {
   'estate.json': { contextCentral: 1, name: 'acme' },
@@ -219,7 +219,7 @@ test('json carries the counts and each list', () => {
 
   const result = graph(root, '--json')
 
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     nodes: 7,
     links: 4,
     broken: [{ from: 'repos/web.md', target: 'concepts/missing' }],
@@ -295,5 +295,5 @@ test('strict fails the run on an evidence file nothing names, in an item that is
 
   assert.equal(graph(root).code, 0)
   assert.equal(graph(root, '--strict').code, 1)
-  assert.deepEqual(JSON.parse(graph(root, '--json').stdout), { nodes: 3, links: 1, broken: [], orphans: [], unreferenced: [ACME_SHOT] })
+  assert.deepEqual(JSON.parse(graph(root, '--json').stdout) as unknown, { nodes: 3, links: 1, broken: [], orphans: [], unreferenced: [ACME_SHOT] })
 })

@@ -7,9 +7,24 @@ import { EXE_NAMES, NEEDS_STAND_IN, WINDOWS, acme, disposable, makeTree, run } f
 
 const tree = disposable()
 
-const REAL_GIT = process.env.PATH.split(delimiter)
+type DetectOptions = { tools?: string, args?: string[] }
+type RepoOptions = { remote?: string | null, originHead?: string | null, branches?: string[] }
+type Facts = {
+  repos: { remote: unknown, currentBranch: unknown }[]
+  instructionFiles: unknown
+  nodeDirs: unknown
+  keyCandidates: unknown
+  mcpServers: unknown
+  tools: { gh: unknown }
+  ghAccounts: unknown
+  configDir: unknown
+  glossaryCandidates: unknown
+  existingMap: unknown
+}
+
+const REAL_GIT = (process.env.PATH as string).split(delimiter)
   .map(dir => join(dir, WINDOWS ? 'git.exe' : 'git'))
-  .find(existsSync)
+  .find(existsSync) as string
 
 const GH_TWO_ACCOUNTS = `#!/bin/sh
 echo 'github.com'
@@ -22,7 +37,7 @@ echo '  - Active account: false'
 echo '  - Token: gho_fedcba9876543210'
 `
 
-function toolsDir(scripts = {}) {
+function toolsDir(scripts: Record<string, string> = {}) {
   const dir = tree(makeTree(scripts))
   for (const name of Object.keys(scripts)) chmodSync(join(dir, name), 0o755)
   if (WINDOWS) return [dir, dirname(REAL_GIT)].join(delimiter)
@@ -30,7 +45,7 @@ function toolsDir(scripts = {}) {
   return dir
 }
 
-function git(root, repo, ...args) {
+function git(root: string, repo: string, ...args: string[]) {
   const result = spawnSync(REAL_GIT, ['-C', join(root, repo), ...args], {
     encoding: 'utf8',
     env: { PATH: process.env.PATH, HOME: root, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' },
@@ -38,7 +53,7 @@ function git(root, repo, ...args) {
   assert.equal(result.status, 0, result.stderr)
 }
 
-function makeRepo(root, repo, { remote = null, originHead = null, branches = [] } = {}) {
+function makeRepo(root: string, repo: string, { remote = null, originHead = null, branches = [] }: RepoOptions = {}) {
   git(root, repo, 'init', '-q', '-b', 'main')
   git(root, repo, 'config', 'user.name', 'Test Person')
   git(root, repo, 'config', 'user.email', 'test@acme.example')
@@ -52,11 +67,11 @@ function makeRepo(root, repo, { remote = null, originHead = null, branches = [] 
   for (const branch of branches) git(root, repo, 'checkout', '-q', '-b', branch)
 }
 
-function detect(root, { tools = toolsDir(), args = [] } = {}) {
+function detect(root: string, { tools = toolsDir(), args = [] }: DetectOptions = {}) {
   return run(['detect', ...args], { cwd: root, env: { PATH: tools, HOME: join(root, 'home') } })
 }
 
-const detectJson = (root, options) => JSON.parse(detect(root, { ...options, args: ['--json'] }).stdout)
+const detectJson = (root: string, options?: DetectOptions) => JSON.parse(detect(root, { ...options, args: ['--json'] }).stdout) as Facts
 
 test('a bare folder reports nothing found, and which tools are missing', () => {
   const root = tree(makeTree({ 'readme.txt': 'nothing here\n' }))
@@ -101,7 +116,7 @@ test('the folder itself is reported when it is a checkout', () => {
 
   const result = run(['detect', 'solo', '--json'], { cwd: root, env: { PATH: toolsDir(), HOME: join(root, 'home') } })
 
-  assert.deepEqual(JSON.parse(result.stdout).repos, [
+  assert.deepEqual((JSON.parse(result.stdout) as Facts).repos, [
     { name: 'solo', path: '.', remote: 'https://github.com/acme/solo.git', host: 'github.com', org: 'acme', defaultBranch: null, currentBranch: 'main' },
   ])
 })
@@ -112,7 +127,7 @@ test('a token held in a remote address is never printed', () => {
 
   const result = detect(root, { args: ['--json'] })
 
-  assert.equal(JSON.parse(result.stdout).repos[0].remote, 'https://github.com/acme/api.git')
+  assert.equal((JSON.parse(result.stdout) as Facts).repos[0].remote, 'https://github.com/acme/api.git')
   assert.doesNotMatch(result.stdout, /tok_secret/)
   assert.doesNotMatch(detect(root).stdout, /tok_secret/)
 })
@@ -123,7 +138,7 @@ test('a password held in an ssh remote address is never printed', () => {
 
   const result = detect(root, { args: ['--json'] })
 
-  assert.deepEqual(JSON.parse(result.stdout).repos[0], {
+  assert.deepEqual((JSON.parse(result.stdout) as Facts).repos[0], {
     name: 'api',
     path: 'api',
     remote: 'ssh://git@git.acme.example:22/acme/api.git',
@@ -154,7 +169,7 @@ test('a link that points nowhere is passed over', () => {
   const result = detect(root, { args: ['--json'] })
 
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout).instructionFiles, [{ rel: 'web/AGENTS.md', bytes: 6, lines: 1 }])
+  assert.deepEqual((JSON.parse(result.stdout) as Facts).instructionFiles, [{ rel: 'web/AGENTS.md', bytes: 6, lines: 1 }])
 })
 
 test('instruction files are sized in the folder and one level down', () => {
@@ -208,7 +223,7 @@ test('MCP servers are reported by name only', () => {
 
   const result = detect(root, { args: ['--json'] })
 
-  assert.deepEqual(JSON.parse(result.stdout).mcpServers, [
+  assert.deepEqual((JSON.parse(result.stdout) as Facts).mcpServers, [
     { file: '.mcp.json', names: ['tracker'] },
     { file: 'web/.mcp.json', names: ['browser', 'design'] },
   ])
@@ -225,7 +240,7 @@ test('gh accounts are listed with the active one marked, and no token', NEEDS_ST
   const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
   const result = detect(root, { tools: toolsDir({ gh: GH_TWO_ACCOUNTS }), args: ['--json'] })
-  const facts = JSON.parse(result.stdout)
+  const facts = JSON.parse(result.stdout) as Facts
 
   assert.deepEqual(facts.ghAccounts, [
     { user: 'someone', active: true },
@@ -270,7 +285,7 @@ test('the config dir follows CLAUDE_CONFIG_DIR', () => {
 
   const result = run(['detect', '--json'], { cwd: root, env: { PATH: toolsDir(), HOME: join(root, 'home'), CLAUDE_CONFIG_DIR: join(root, 'other-config') } })
 
-  assert.equal(JSON.parse(result.stdout).configDir, join(root, 'other-config'))
+  assert.equal((JSON.parse(result.stdout) as Facts).configDir, join(root, 'other-config'))
 })
 
 test('without --json the same facts are short lines', NEEDS_STAND_IN, () => {

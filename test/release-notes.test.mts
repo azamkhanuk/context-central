@@ -8,8 +8,8 @@ const SCRIPT = join(REPO, 'scripts', 'release-notes.mts')
 const tree = disposable()
 
 const CHANGELOG = '# Changelog\n\nNewest first.\n\n## 0.2.0 - 2026-02-01\n\nSecond.\n\n- One thing.\n- Another.\n\n## 0.1.0 - 2026-01-15\n\nThe first release.\n'
-const repository = version => tree(makeTree({ '.claude-plugin/plugin.json': { name: 'acme-tools', version }, 'CHANGELOG.md': CHANGELOG }))
-const release = (root, ...flags) => spawned(process.execPath, [SCRIPT, ...flags], { cwd: root })
+const repository = (version: string) => tree(makeTree({ '.claude-plugin/plugin.json': { name: 'acme-tools', version }, 'CHANGELOG.md': CHANGELOG }))
+const release = (root: string, ...flags: string[]) => spawned(process.execPath, [SCRIPT, ...flags], { cwd: root })
 
 test('the notes of a release are the changelog section of the version the manifest carries, and no other', () => {
   const root = repository('0.2.0')

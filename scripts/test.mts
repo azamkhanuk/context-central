@@ -6,7 +6,7 @@ function entriesOfTestFolder() {
   try {
     return readdirSync('test', { withFileTypes: true })
   } catch (error) {
-    if (error.code === 'ENOENT') return []
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
 }

@@ -4,19 +4,20 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, disposable, makeTree } from './helpers.mts'
+import type { Env, TreeFiles } from './helpers.mts'
 
 const SCRIPT = join(REPO, 'scripts', 'scan-names.mts')
 const ISOLATED = { PATH: process.env.PATH, HOME: process.env.HOME, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
 
 const tree = disposable()
 
-function git(root, ...args) {
+function git(root: string, ...args: string[]) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: ISOLATED })
   assert.equal(result.status, 0, result.stderr)
   return result.stdout.trim()
 }
 
-function repository(files, message = 'first commit') {
+function repository(files: TreeFiles, message = 'first commit') {
   const root = tree(makeTree(files))
   git(root, 'init', '--quiet', '--initial-branch=main')
   git(root, 'config', 'user.name', 'Test Author')
@@ -26,11 +27,11 @@ function repository(files, message = 'first commit') {
   return root
 }
 
-function namesFile(content) {
+function namesFile(content: string) {
   return join(tree(makeTree({ 'names.txt': content })), 'names.txt')
 }
 
-function scan(root, args, env = {}) {
+function scan(root: string, args: string[], env: Env = {}) {
   const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: root, encoding: 'utf8', env: { ...ISOLATED, ...env } })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }

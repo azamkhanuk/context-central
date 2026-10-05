@@ -6,7 +6,7 @@ import { ACME_CONFIG, INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from
 
 const tree = disposable()
 
-const index = (root, ...flags) => run(['index', ...flags], { cwd: root })
+const index = (root: string, ...flags: string[]) => run(['index', ...flags], { cwd: root })
 const PORTAL = { 'work/portal-split/STATE.md': '---\ntitle: Split the portal\n---\n# portal-split\n' }
 
 test('the index names the map, the hub and each item in flight with its state file', () => {
@@ -82,7 +82,7 @@ test('two hundred items in flight stay within the default budget and the rest ar
   assert.ok(lines.join('\n').length <= 2000)
   assert.equal(lines[2], 'Work in flight (200):')
   assert.equal(lines[3], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
-  assert.match(lines.at(-2), /^- and 1\d\d more: context-central work list$/)
+  assert.match(lines.at(-2) ?? '', /^- and 1\d\d more: context-central work list$/)
   assert.equal(lines.at(-1), INDEX_CLOSING_LINE)
 })
 
@@ -128,7 +128,7 @@ test('a hub that is not there is marked', () => {
 test('the index as JSON lists the same items with both paths', () => {
   const root = tree(acme())
 
-  assert.deepEqual(JSON.parse(index(root, '--json').stdout), {
+  assert.deepEqual(JSON.parse(index(root, '--json').stdout) as unknown, {
     title: 'Acme estate',
     mapDir: root,
     hub: join(root, 'CLAUDE.md'),

@@ -6,6 +6,8 @@ import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
+type Where = { mapDir: unknown, covered: unknown, estateRoot: unknown }
+
 test('settings are read from anywhere inside the estate', () => {
   const root = tree(acme())
 
@@ -23,7 +25,7 @@ test('unset settings fall back to documented defaults', () => {
 test('a list setting prints as JSON', () => {
   const root = tree(acme())
 
-  assert.deepEqual(JSON.parse(run(['config', '--get', 'tracker.keyPatterns'], { cwd: root }).stdout), ['PROJ-\\d+'])
+  assert.deepEqual(JSON.parse(run(['config', '--get', 'tracker.keyPatterns'], { cwd: root }).stdout) as unknown, ['PROJ-\\d+'])
 })
 
 test('asking for a setting that does not exist fails', () => {
@@ -48,12 +50,12 @@ test('the map can live in a folder inside a repository', () => {
   const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, 'src/app.js': '' }))
 
   assert.equal(run(['config', '--get', 'name'], { cwd: join(root, 'src') }).stdout, 'solo\n')
-  assert.equal(JSON.parse(run(['where', '--json'], { cwd: join(root, 'src') }).stdout).mapDir, join(root, '.context-central'))
+  assert.equal((JSON.parse(run(['where', '--json'], { cwd: join(root, 'src') }).stdout) as Where).mapDir, join(root, '.context-central'))
 })
 
 test('from inside the map folder of a map kept in a repository, the estate root is still the repository', () => {
   const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, '.context-central/work/PROJ-1/STATE.md': '# PROJ-1\n' }))
-  const where = dir => JSON.parse(run(['where', '--json'], { cwd: join(root, dir) }).stdout)
+  const where = (dir: string) => JSON.parse(run(['where', '--json'], { cwd: join(root, dir) }).stdout) as Where
   const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside' }
 
   assert.deepEqual(where('.context-central'), inRepository)
@@ -85,11 +87,11 @@ for (const [folder, verdict] of [
   ['concepts', 'node'],
   ['scratch', null],
   ['elsewhere', null],
-]) {
+] satisfies [string, string | null][]) {
   test(`hooks ${verdict ? 'answer' : 'stay silent'} in ${folder}`, () => {
     const root = tree(acme())
 
-    const where = JSON.parse(run(['where', '--json'], { cwd: join(root, folder) }).stdout)
+    const where = JSON.parse(run(['where', '--json'], { cwd: join(root, folder) }).stdout) as Where
 
     assert.equal(where.covered, verdict)
     assert.equal(where.estateRoot, root)

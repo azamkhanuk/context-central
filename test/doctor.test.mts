@@ -4,17 +4,18 @@ import { chmodSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, onlyOnWindows, run } from './helpers.mts'
+import type { Env, Json, Result, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-function sandbox(stubs = {}, homeFiles = {}) {
+function sandbox(stubs: Record<string, string> = {}, homeFiles: TreeFiles = {}) {
   const bin = tree(makeTree(Object.fromEntries(Object.entries(stubs).map(([name, body]) => [name, `#!/bin/sh\n${body}\n`]))))
   for (const name of Object.keys(stubs)) chmodSync(join(bin, name), 0o755)
   const home = tree(makeTree({ '.keep': '', ...homeFiles }))
   return { PATH: bin, HOME: home }
 }
 
-const doctor = (root, env = sandbox(), ...flags) => run(['doctor', ...flags], { cwd: root, env })
+const doctor = (root: string, env: Env = sandbox(), ...flags: string[]) => run(['doctor', ...flags], { cwd: root, env })
 
 const GIT_IGNORING_WEB_ONLY = 'case "$*" in *rev-parse*) echo true ;; *"check-ignore -q web") exit 0 ;; *) exit 1 ;; esac'
 const GIT_IGNORING_BOTH = 'case "$*" in *rev-parse*) echo true ;; *) exit 0 ;; esac'
@@ -41,12 +42,12 @@ const GIT_OUTSIDE_A_REPOSITORY = 'echo "fatal: not a git repository" >&2; exit 1
 const GITHUB = { codeHost: { type: 'github' } }
 const GITHUB_AS_BOT = { codeHost: { type: 'github', ghUser: 'acme-bot' } }
 const LEGACY = { legacyHooks: ['old-resolver.mjs'] }
-const commandHook = command => ({ hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command }] }] } })
+const commandHook = (command: string) => ({ hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command }] }] } })
 const LEGACY_HOOK = commandHook('node ~/tools/old-resolver.mjs resolve')
-const legacyHookOf = root => commandHook(`node ${root}/bin/old-resolver.mjs --hook`)
+const legacyHookOf = (root: string) => commandHook(`node ${root}/bin/old-resolver.mjs --hook`)
 const BACKSLASHES = onlyOnWindows('only Windows reads a backslash in a hook command as a separator')
-const hooksLine = result => result.stdout.split('\n').find(line => line.includes('hooks'))
-const olderHookIn = file => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
+const hooksLine = (result: Result) => result.stdout.split('\n').find(line => line.includes('hooks'))
+const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
 test('a healthy map passes every check', () => {
@@ -413,7 +414,7 @@ test('json lists every check with its fix', () => {
 
   const result = doctor(root, sandbox(), '--json')
 
-  assert.deepEqual(JSON.parse(result.stdout), [
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, [
     { check: 'node', ok: true, fix: null },
     { check: 'config', ok: true, fix: null },
     { check: 'hub', ok: true, fix: null },
@@ -436,14 +437,14 @@ function realGit() {
   return { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
 }
 
-function repository(files, config = {}) {
+function repository(files: TreeFiles, config: { [key: string]: Json } = {}) {
   const root = tree(acme(files, { ...NO_REPOS, ...config }))
   const env = realGit()
   spawnSync('git', ['-C', root, 'init', '-q'], { env })
   return { root, env }
 }
 
-const evidenceLine = result => result.stdout.split('\n').find(line => line.includes(' evidence'))
+const evidenceLine = (result: Result) => result.stdout.split('\n').find(line => line.includes(' evidence'))
 
 test('evidence set to stay out of git that git does not ignore is a fix naming both ways out', () => {
   const { root, env } = repository({ [ACME_SHOT]: 'x' })
@@ -504,7 +505,7 @@ test('an inner map is asked about its evidence too, and the ignore file init wri
   run(['init', '--from', 'answers.json'], { cwd: root })
   const after = doctor(root, env)
 
-  assert.match(evidenceLine(before), new RegExp(`^FIX  evidence: evidence is set to stay out of git and git does not ignore ${ACME_SHOT.replaceAll('.', '\\.')}; `))
+  assert.match(evidenceLine(before) ?? '', new RegExp(`^FIX  evidence: evidence is set to stay out of git and git does not ignore ${ACME_SHOT.replaceAll('.', '\\.')}; `))
   assert.equal(evidenceLine(after), 'ok   evidence')
 })
 
@@ -527,7 +528,7 @@ test('tracked evidence with no ignore rule is first told to ignore the folder, a
   spawnSync('git', ['-C', unruled.root, 'add', '-f', ACME_SHOT], { env: unruled.env })
   spawnSync('git', ['-C', ruled.root, 'add', '-f', ACME_SHOT, TRACE], { env: ruled.env })
 
-  assert.match(evidenceLine(doctor(unruled.root, unruled.env)), /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore \/work\/\*\/evidence\/ in the map's \.gitignore/)
+  assert.match(evidenceLine(doctor(unruled.root, unruled.env)) ?? '', /git does not ignore work\/PROJ-12\/evidence\/2026-01-14-limit-reached\.png; ignore \/work\/\*\/evidence\/ in the map's \.gitignore/)
   assert.equal(
     evidenceLine(doctor(ruled.root, ruled.env)),
     `FIX  evidence: evidence is set to stay out of git and git already tracks ${ACME_SHOT} and 1 more; run git rm --cached on each, or set "evidence.commit" to true in estate.json`,

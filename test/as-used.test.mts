@@ -6,10 +6,12 @@ import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree,
 
 const tree = disposable()
 
+type HooksManifest = { hooks: Record<string, { hooks: { command: string, args: string[] }[] }[]> }
+
 const { contextCentral, ...ACME_ANSWERS } = ACME_CONFIG
 const PATH = [join(REPO, 'bin'), dirname(process.execPath), process.env.PATH].join(delimiter)
 
-const bare = (root, line) => spawned('sh', ['-c', line], { cwd: root, env: { PATH } })
+const bare = (root: string, line: string) => spawned('sh', ['-c', line], { cwd: root, env: { PATH } })
 
 function freshMap() {
   const root = tree(makeTree({ 'answers.json': { layout: 'root', git: false, config: ACME_ANSWERS } }))
@@ -66,8 +68,8 @@ test('the bare command lints and graphs the map it made', () => {
   assert.equal(graphed.code, 0, graphed.stderr + graphed.stdout)
 })
 
-function declared(event, input) {
-  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8'))
+function declared(event: string, input: unknown) {
+  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as HooksManifest
   const [{ command, args }] = hooks[event][0].hooks
   return spawned(
     command,
@@ -83,7 +85,7 @@ test('the session-start hook, started as the manifest declares it, answers with 
 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
       additionalContext: acmeIndex(root),
@@ -98,7 +100,7 @@ test('the prompt hook, started as the manifest declares it, answers a prompt nam
 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     hookSpecificOutput: {
       hookEventName: 'UserPromptSubmit',
       additionalContext: acmePointers(root),

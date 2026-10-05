@@ -6,8 +6,10 @@ import { ACME_FILES, ACME_SHOT, acme, disposable, run } from './helpers.mts'
 
 const tree = disposable()
 
-const list = (root, ...flags) => JSON.parse(run(['work', 'list', '--json', ...flags], { cwd: root }).stdout)
-const sizeOf = text => Buffer.byteLength(text)
+type WorkItem = { id: string, title: unknown, status: unknown, entry: { kind: unknown }, notes: unknown, deep: { count: unknown }, evidence: unknown }
+
+const list = (root: string, ...flags: string[]) => JSON.parse(run(['work', 'list', '--json', ...flags], { cwd: root }).stdout) as WorkItem[]
+const sizeOf = (text: string) => Buffer.byteLength(text)
 
 test('a new work item gets a state file with its six parts', () => {
   const root = tree(acme())
@@ -144,8 +146,8 @@ test('a note with no folder is still a work item', () => {
 
   const item = list(root).find(found => found.id === 'PROJ-7')
 
-  assert.equal(item.title, 'Old shape')
-  assert.deepEqual(item.entry, { rel: 'work/PROJ-7.md', kind: 'note', bytes: sizeOf(note) })
+  assert.equal(item?.title, 'Old shape')
+  assert.deepEqual(item?.entry, { rel: 'work/PROJ-7.md', kind: 'note', bytes: sizeOf(note) })
 })
 
 test('a start-here file is the entry when there is no state file', () => {
@@ -153,8 +155,8 @@ test('a start-here file is the entry when there is no state file', () => {
 
   const item = list(root).find(found => found.id === 'PROJ-9')
 
-  assert.equal(item.entry.kind, 'start-here')
-  assert.equal(item.notes, 1)
+  assert.equal(item?.entry.kind, 'start-here')
+  assert.equal(item?.notes, 1)
 })
 
 test('a full-text note counts as the deep tier wherever it sits', () => {
@@ -162,8 +164,8 @@ test('a full-text note counts as the deep tier wherever it sits', () => {
 
   const item = list(root).find(found => found.id === 'PROJ-9')
 
-  assert.deepEqual(item.deep, { count: 1, bytes: 5 })
-  assert.equal(item.notes, 0)
+  assert.deepEqual(item?.deep, { count: 1, bytes: 5 })
+  assert.equal(item?.notes, 0)
 })
 
 test('items are listed in natural order', () => {
@@ -248,7 +250,7 @@ test('a folder that holds only evidence is a work item with no entry file', () =
 })
 
 const BOM = '\uFEFF'
-const crlf = text => text.replaceAll('\n', '\r\n')
+const crlf = (text: string) => text.replaceAll('\n', '\r\n')
 const CACHE_STATE = '---\nitem: PROJ-60\ntitle: Cache the gateway\nstatus: active\n---\n# PROJ-60: a heading that is not the title\n\n## Next\n\nMeasure first.\n'
 const AS_FOUND = { 'Windows line endings': crlf(CACHE_STATE), 'a byte-order mark': BOM + CACHE_STATE, both: BOM + crlf(CACHE_STATE) }
 
@@ -307,7 +309,7 @@ test('a new frontmatter block takes the line ending the file uses and sits after
       'work/PROJ-64/STATE.md': '# PROJ-64',
     }),
   )
-  const after = item => {
+  const after = (item: string) => {
     run(['work', 'done', item], { cwd: root })
     return readFileSync(join(root, 'work', item, 'STATE.md'), 'utf8')
   }

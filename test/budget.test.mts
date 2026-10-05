@@ -3,17 +3,20 @@ import { rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { INDEX_CLOSING_LINE, acme, acmeIndex, disposable, makeTree, run } from './helpers.mts'
+import type { Env } from './helpers.mts'
 
 const tree = disposable()
+
+type BudgetReport = { files: { path: string, source: string }[], notLoaded: unknown, plugin: unknown, total: unknown }
 
 const USER_FILE = '# Mine\n\nPlain words.\n'
 const HUB = '# Acme estate\n\nRepo notes: @repos/web.md\n'
 const LONG_NOTE = 'line\n'.repeat(210)
 const SCOPED_RULE = '---\npaths:\n  - "src/**/*.ts"\n---\n# Only for source\n'
 
-const budget = (root, dir, env = {}, flags = []) => run(['budget', ...flags], { cwd: join(root, dir), env: { HOME: join(root, 'home'), ...env } })
-const budgetJson = (root, dir, env) => JSON.parse(budget(root, dir, env, ['--json']).stdout)
-const sources = report => report.files.map(file => [file.path, file.source])
+const budget = (root: string, dir: string, env: Env = {}, flags: string[] = []) => run(['budget', ...flags], { cwd: join(root, dir), env: { HOME: join(root, 'home'), ...env } })
+const budgetJson = (root: string, dir: string, env?: Env) => JSON.parse(budget(root, dir, env, ['--json']).stdout) as BudgetReport
+const sources = (report: BudgetReport) => report.files.map(file => [file.path, file.source])
 
 test('the user file, each ancestor file and their imports are listed with a total', () => {
   const root = tree(

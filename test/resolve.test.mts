@@ -3,16 +3,31 @@ import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
+import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
-const resolve = (root, ...args) => run(['resolve', ...args], { cwd: root })
-const resolved = (root, ...args) => JSON.parse(resolve(root, ...args, '--json').stdout)
-const rels = resolution => resolution.pointers.map(pointer => pointer.rel)
-const smallMap = files => makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, ...files })
+type Pointer = { rel: string, why: string }
+type Resolution = {
+  by: unknown
+  key: unknown
+  name: unknown
+  label: unknown
+  item: unknown
+  pointers: Pointer[]
+  more: unknown
+  deep: { count: unknown, bytes: unknown, rel: unknown }
+  notes: unknown
+  evidence: unknown
+}
 
-function proj12Answer(root) {
+const sizeOf = (rel: keyof typeof ACME_FILES) => Buffer.byteLength(ACME_FILES[rel])
+const resolve = (root: string, ...args: string[]) => run(['resolve', ...args], { cwd: root })
+const resolved = (root: string, ...args: string[]) => JSON.parse(resolve(root, ...args, '--json').stdout) as Resolution
+const rels = (resolution: Resolution) => resolution.pointers.map(pointer => pointer.rel)
+const smallMap = (files: TreeFiles) => makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, ...files })
+
+function proj12Answer(root: string) {
   return {
     by: 'item',
     key: 'item:PROJ-12',
@@ -150,7 +165,7 @@ test('a link that leads out of the map is not listed', () => {
 
   const result = run(['resolve', 'PROJ-40', '--json'], { cwd: join(root, 'map') })
 
-  assert.deepEqual(rels(JSON.parse(result.stdout)), ['work/PROJ-40/STATE.md', 'concepts/inside.md'])
+  assert.deepEqual(rels(JSON.parse(result.stdout) as Resolution), ['work/PROJ-40/STATE.md', 'concepts/inside.md'])
 })
 
 test('an item name shorter than five characters is never matched as a word', () => {
@@ -667,7 +682,7 @@ test('an item with evidence gets one line for it after the deep tier', () => {
 
   const lines = resolve(root, 'PROJ-12').stdout.split('\n')
 
-  assert.match(lines.at(-3), /^Deep tier: /)
+  assert.match(lines.at(-3) ?? '', /^Deep tier: /)
   assert.equal(lines.at(-2), 'Evidence: 2 files (350 B) under work/PROJ-12/evidence, not listed one by one.')
 })
 

@@ -3,6 +3,7 @@ import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync } from '
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
 import { EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, run } from './helpers.mts'
+import type { Env } from './helpers.mts'
 
 const tree = disposable()
 
@@ -134,10 +135,10 @@ function stubGh(pr = PR, issue = ISSUE) {
   return dir
 }
 
-const fetch = (root, gh, args, env = {}) => run(['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [gh, '/usr/bin', '/bin'].join(delimiter), ...env } })
-const read = (root, rel) => readFileSync(join(root, rel), 'utf8')
-const ghArgs = gh => readFileSync(join(gh, 'args'), 'utf8').trimEnd().split('\n')
-const sources = (root, item = 'PROJ-12') => readdirSync(join(root, 'work', item, 'sources'))
+const fetch = (root: string, gh: string, args: string[], env: Env = {}) => run(['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [gh, '/usr/bin', '/bin'].join(delimiter), ...env } })
+const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
+const ghArgs = (gh: string) => readFileSync(join(gh, 'args'), 'utf8').trimEnd().split('\n')
+const sources = (root: string, item = 'PROJ-12') => readdirSync(join(root, 'work', item, 'sources'))
 
 test('a fetched pull request is saved in full and answered with a digest', NEEDS_STAND_IN, () => {
   const root = tree(acme())

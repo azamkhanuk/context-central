@@ -3,14 +3,17 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mts'
+import type { Env, Result } from './helpers.mts'
 
 const tree = disposable()
 
+type HookOutput = { systemMessage: string, hookSpecificOutput: { additionalContext: string } }
+
 const STATE = 'work/PROJ-12/STATE.md'
 const stateDir = () => tree(makeTree({}))
-const fire = (event, input, env = {}) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: stateDir(), ...env } })
-const context = result => JSON.parse(result.stdout).hookSpecificOutput.additionalContext
-const silent = result => assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
+const fire = (event: string, input: unknown, env: Env = {}) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: stateDir(), ...env } })
+const context = (result: Result) => (JSON.parse(result.stdout) as HookOutput).hookSpecificOutput.additionalContext
+const silent = (result: Result) => assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
 
 test('a new session is given the index with absolute paths', () => {
   const root = tree(acme())
@@ -19,7 +22,7 @@ test('a new session is given the index with absolute paths', () => {
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
 
 test('a forked session is given the index', () => {
@@ -72,8 +75,8 @@ test('a broken config is shown to the person and kept from the model', () => {
   const prompted = fire('user-prompt-submit', { cwd: root, prompt: 'pick up PROJ-12' })
 
   assert.equal(started.code, 0)
-  assert.deepEqual(JSON.parse(started.stdout), { systemMessage: message })
-  assert.deepEqual(JSON.parse(prompted.stdout), { systemMessage: message })
+  assert.deepEqual(JSON.parse(started.stdout) as unknown, { systemMessage: message })
+  assert.deepEqual(JSON.parse(prompted.stdout) as unknown, { systemMessage: message })
 })
 
 test('a config that is not JSON is reported the same way', () => {
@@ -84,8 +87,8 @@ test('a config that is not JSON is reported the same way', () => {
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(Object.keys(JSON.parse(result.stdout)), ['systemMessage'])
-  assert.match(JSON.parse(result.stdout).systemMessage, /^context-central: .*estate\.json: not valid JSON/)
+  assert.deepEqual(Object.keys(JSON.parse(result.stdout) as HookOutput), ['systemMessage'])
+  assert.match((JSON.parse(result.stdout) as HookOutput).systemMessage, /^context-central: .*estate\.json: not valid JSON/)
 })
 
 test('a project in one map and a session standing in another get nothing from either', () => {
@@ -136,7 +139,7 @@ test('a prompt that names a work item is given its pointers with absolute paths'
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: acmePointers(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: acmePointers(root) } })
 })
 
 test('a prompt that names an item with evidence is told where it is, by absolute path', () => {
@@ -175,7 +178,7 @@ test('the session record holds what was delivered and the active item', () => {
   fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
   fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'and the web side' }, env)
 
-  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')), { delivered: ['item:PROJ-12', 'repo:web'], active: 'PROJ-12' })
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')) as unknown, { delivered: ['item:PROJ-12', 'repo:web'], active: 'PROJ-12' })
 })
 
 test('with no session id nothing is recorded and nothing is held back', () => {
@@ -267,7 +270,7 @@ const NOTICE =
 test('resuming a large session whose cache has lapsed tells the person what it costs', () => {
   const root = tree(acme())
 
-  const output = JSON.parse(fire('session-start', { ...RESUMED, cwd: root }).stdout)
+  const output = JSON.parse(fire('session-start', { ...RESUMED, cwd: root }).stdout) as HookOutput
 
   assert.equal(output.systemMessage, NOTICE)
   assert.equal(output.hookSpecificOutput.additionalContext, acmeIndex(root))
@@ -276,8 +279,8 @@ test('resuming a large session whose cache has lapsed tells the person what it c
 test('a small session, or one whose cache is still warm, resumes without the notice', () => {
   const root = tree(acme())
 
-  const small = JSON.parse(fire('session-start', { ...RESUMED, cwd: root, context_tokens: 99999 }).stdout)
-  const warm = JSON.parse(fire('session-start', { ...RESUMED, cwd: root, prompt_cache_likely_expired: false }).stdout)
+  const small = JSON.parse(fire('session-start', { ...RESUMED, cwd: root, context_tokens: 99999 }).stdout) as HookOutput
+  const warm = JSON.parse(fire('session-start', { ...RESUMED, cwd: root, prompt_cache_likely_expired: false }).stdout) as HookOutput
 
   assert.equal('systemMessage' in small, false)
   assert.equal('systemMessage' in warm, false)
@@ -287,15 +290,15 @@ test('the estate sets the size that earns the notice, and zero turns it off', ()
   const lower = tree(acme({}, { budgets: { resumeNoticeTokens: 50000 } }))
   const off = tree(acme({}, { budgets: { resumeNoticeTokens: 0 } }))
 
-  const noticed = JSON.parse(fire('session-start', { ...RESUMED, cwd: lower, context_tokens: 60000 }).stdout)
-  const quiet = JSON.parse(fire('session-start', { ...RESUMED, cwd: off }).stdout)
+  const noticed = JSON.parse(fire('session-start', { ...RESUMED, cwd: lower, context_tokens: 60000 }).stdout) as HookOutput
+  const quiet = JSON.parse(fire('session-start', { ...RESUMED, cwd: off }).stdout) as HookOutput
 
   assert.match(noticed.systemMessage, /about 60k tokens uncached/)
   assert.equal('systemMessage' in quiet, false)
 })
 
 test('the plugin wires both events to the hook command without a shell', () => {
-  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8'))
+  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { SessionStart: unknown, UserPromptSubmit: unknown } }
 
   assert.deepEqual(hooks.SessionStart, [
     {
@@ -345,7 +348,7 @@ test('a short prompt that holds an item title word for word is given the item on
 
   assert.equal(context(first), acmePointers(root))
   silent(second)
-  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')), { delivered: ['item:PROJ-12'], active: 'PROJ-12' })
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')) as unknown, { delivered: ['item:PROJ-12'], active: 'PROJ-12' })
 })
 
 test('a long prompt that holds an item title and no key or name is met with silence', () => {
@@ -358,7 +361,7 @@ test('a short prompt that only the words of an item name and title would answer 
   const root = tree(acme())
   const dir = stateDir()
 
-  assert.equal(JSON.parse(run(['resolve', 'rate', 'gateway', '--json'], { cwd: root }).stdout).key, 'item:PROJ-12')
+  assert.equal((JSON.parse(run(['resolve', 'rate', 'gateway', '--json'], { cwd: root }).stdout) as { key: unknown }).key, 'item:PROJ-12')
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'rate gateway' }, { CONTEXT_CENTRAL_STATE_DIR: dir }))
   assert.equal(existsSync(join(dir, 's1.json')), false)
 })
@@ -378,5 +381,5 @@ test('a config with a byte-order mark gives the index and no message about its J
 
   const result = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
 
-  assert.deepEqual(JSON.parse(result.stdout), { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })

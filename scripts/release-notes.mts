@@ -3,9 +3,9 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 const { values } = parseArgs({ options: { tag: { type: 'boolean' }, title: { type: 'boolean' } } })
-const { name, version } = JSON.parse(readFileSync(join('.claude-plugin', 'plugin.json'), 'utf8'))
+const { name, version } = JSON.parse(readFileSync(join('.claude-plugin', 'plugin.json'), 'utf8')) as { name: string, version: string }
 
-function sectionOf(changelog) {
+function sectionOf(changelog: string) {
   const lines = changelog.split('\n')
   const heading = lines.findIndex(line => line === `## ${version}` || line.startsWith(`## ${version} `))
   if (heading === -1) return null

@@ -27,7 +27,7 @@ The limit resets on deploy.
 `
 
 const docTree = () => tree(makeTree({ 'notes/doc.md': DOC, 'notes/plain.md': 'No headings here.\n' }))
-const slice = (root, ...args) => run(['slice', ...args], { cwd: root })
+const slice = (root: string, ...args: string[]) => run(['slice', ...args], { cwd: root })
 
 test('the contents list every heading with its line and the size of its section', () => {
   const root = docTree()

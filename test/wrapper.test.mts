@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:f
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { acme, disposable, makeTree, notOnWindows, onlyOnWindows, run } from './helpers.mts'
+import type { Env } from './helpers.mts'
 
 const tree = disposable()
 
@@ -22,7 +23,7 @@ function machine() {
   return root
 }
 
-function install(root, configDir, installPath = join(root, 'installed/context-central')) {
+function install(root: string, configDir: string, installPath = join(root, 'installed/context-central')) {
   const installed = {
     version: 2,
     plugins: {
@@ -34,7 +35,7 @@ function install(root, configDir, installPath = join(root, 'installed/context-ce
   writeFileSync(join(configDir, 'plugins', 'installed_plugins.json'), `${JSON.stringify(installed, null, 2)}\n`)
 }
 
-function launch(root, args, env) {
+function launch(root: string, args: string[], env?: Env) {
   const result = spawnSync('sh', [join(root, 'launcher/context-central'), ...args], { encoding: 'utf8', env: { PATH, HOME: join(root, 'home'), ...env } })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
@@ -120,7 +121,7 @@ test('launchers committed to git keep their line endings in a clone that convert
   const home = tree(makeTree({ gitconfig: '' }))
   const clone = join(tree(makeTree({})), 'clone')
   const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
-  const git = (...args) => {
+  const git = (...args: string[]) => {
     const result = spawnSync('git', args, { encoding: 'utf8', env })
     assert.equal(result.status, 0, result.stderr)
   }
@@ -153,7 +154,7 @@ test('the launcher runs the plugin the install record names', () => {
   const result = launch(root, ['resolve', 'PROJ-12', '--max', '3'], { CLAUDE_CONFIG_DIR: join(root, 'config') })
 
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     cli: join(root, 'installed/context-central/bin/context-central'),
     args: ['resolve', 'PROJ-12', '--max', '3'],
   })
@@ -168,7 +169,7 @@ test('the launcher passes every argument through unchanged', NODE_TO_SH, () => {
   const result = launch(root, ['resolve', 'two words', '', '*', "it's", '--max', '3'], { CLAUDE_CONFIG_DIR: join(root, 'config') })
 
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     cli: join(root, 'installed/context-central/bin/context-central'),
     args: ['resolve', 'two words', '', '*', "it's", '--max', '3'],
   })
@@ -180,7 +181,7 @@ test('the launcher looks in ~/.claude when no config dir is set', () => {
 
   const result = launch(root, ['index'], {})
 
-  assert.deepEqual(JSON.parse(result.stdout), { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
 test('CONTEXT_CENTRAL_CLI wins over the installed plugin', () => {
@@ -189,7 +190,7 @@ test('CONTEXT_CENTRAL_CLI wins over the installed plugin', () => {
 
   const result = launch(root, ['index'], { CLAUDE_CONFIG_DIR: join(root, 'config'), CONTEXT_CENTRAL_CLI: join(root, 'elsewhere/bin/context-central') })
 
-  assert.deepEqual(JSON.parse(result.stdout), { cli: join(root, 'elsewhere/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'elsewhere/bin/context-central'), args: ['index'] })
 })
 
 test('the exit code of the CLI is the exit code of the launcher', () => {
@@ -268,11 +269,11 @@ function cmdMachine() {
   return root
 }
 
-const cmdLauncher = root => `"${join(root, 'map', 'bin', 'context-central.cmd')}"`
-const withNode = root => [join(root, 'map', 'bin'), dirname(process.execPath), SYSTEM32]
+const cmdLauncher = (root: string) => `"${join(root, 'map', 'bin', 'context-central.cmd')}"`
+const withNode = (root: string) => [join(root, 'map', 'bin'), dirname(process.execPath), SYSTEM32]
 
-function cmd(root, line, env, { path = withNode(root), ownConsole = false, delayedExpansion = false } = {}) {
-  const result = spawnSync(process.env.ComSpec, [...(delayedExpansion ? ['/v:on'] : []), '/d', '/s', '/c', `"${line}"`], {
+function cmd(root: string, line: string, env?: Env, { path = withNode(root), ownConsole = false, delayedExpansion = false }: { path?: string[], ownConsole?: boolean, delayedExpansion?: boolean } = {}) {
+  const result = spawnSync(process.env.ComSpec as string, [...(delayedExpansion ? ['/v:on'] : []), '/d', '/s', '/c', `"${line}"`], {
     cwd: root,
     encoding: 'utf8',
     windowsVerbatimArguments: true,
@@ -290,7 +291,7 @@ test('the cmd launcher runs the plugin the install record names and passes every
 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     cli: join(root, 'installed/context-central/bin/context-central'),
     args: ['resolve', 'two words', '', '*', "it's", '--max', '3'],
   })
@@ -302,10 +303,10 @@ test('the cmd launcher looks in .claude under the profile folder when no config 
 
   const result = cmd(root, `${cmdLauncher(root)} index`, {})
 
-  assert.deepEqual(JSON.parse(result.stdout), { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
-function installUnderProfile(root, folder) {
+function installUnderProfile(root: string, folder: string) {
   const profile = join(root, folder)
   const installPath = join(profile, '.claude', 'plugins', 'cache', 'context-central')
   mkdirSync(join(installPath, 'bin'), { recursive: true })
@@ -321,7 +322,7 @@ test('in a console on code page 437 the cmd launcher finds a plugin installed un
   const result = cmd(root, `chcp 437 >nul && ${cmdLauncher(root)} index`, { USERPROFILE: profile }, { ownConsole: true })
 
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli, args: ['index'] })
 })
 
 test('the cmd launcher finds a plugin installed under a profile folder with a space in its name', CMD, () => {
@@ -331,7 +332,7 @@ test('the cmd launcher finds a plugin installed under a profile folder with a sp
   const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile })
 
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli, args: ['index'] })
 })
 
 test('with delayed expansion on in cmd, the cmd launcher finds a plugin installed under a profile folder with an exclamation mark', CMD, () => {
@@ -341,7 +342,7 @@ test('with delayed expansion on in cmd, the cmd launcher finds a plugin installe
   const result = cmd(root, `${cmdLauncher(root)} index`, { USERPROFILE: profile }, { delayedExpansion: true })
 
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout), { cli, args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli, args: ['index'] })
 })
 
 test('CONTEXT_CENTRAL_CLI wins over the installed plugin in the cmd launcher too', CMD, () => {
@@ -350,7 +351,7 @@ test('CONTEXT_CENTRAL_CLI wins over the installed plugin in the cmd launcher too
 
   const result = cmd(root, `${cmdLauncher(root)} index`, { CLAUDE_CONFIG_DIR: join(root, 'config'), CONTEXT_CENTRAL_CLI: join(root, 'elsewhere/bin/context-central') })
 
-  assert.deepEqual(JSON.parse(result.stdout), { cli: join(root, 'elsewhere/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'elsewhere/bin/context-central'), args: ['index'] })
 })
 
 test('the exit code of the CLI is the exit code of the cmd launcher', CMD, () => {

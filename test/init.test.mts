@@ -12,11 +12,11 @@ const CONFIG = { ...ACME_ANSWERS, writeRules: ['Never push without asking.', 'Tr
 const NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'log', 'work']
 
 const answers = (overrides = {}, files = {}) => tree(makeTree({ 'answers.json': { layout: 'root', git: false, config: CONFIG, ...overrides }, ...files }))
-const init = (root, ...flags) => run(['init', '--from', 'answers.json', ...flags], { cwd: root })
-const read = (root, rel) => readFileSync(join(root, rel), 'utf8')
-const lines = text => text.trimEnd().split('\n')
+const init = (root: string, ...flags: string[]) => run(['init', '--from', 'answers.json', ...flags], { cwd: root })
+const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
+const lines = (text: string) => text.trimEnd().split('\n')
 
-function ignored(root, rel) {
+function ignored(root: string, rel: string) {
   const env = { PATH: process.env.PATH, HOME: root, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
   return spawnSync('git', ['-C', root, 'check-ignore', '-q', rel], { env }).status === 0
 }
@@ -33,7 +33,7 @@ test('a map at the estate root gets its config, node folders, hub and glossary',
     'created CLAUDE.md',
     'created glossary.md',
   ])
-  assert.deepEqual(JSON.parse(read(root, 'estate.json')), { contextCentral: 1, ...CONFIG })
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { contextCentral: 1, ...CONFIG })
   assert.match(read(root, 'estate.json'), /^\{\n {2}"contextCentral": 1,\n/)
   for (const dir of NODE_DIRS) assert.ok(existsSync(join(root, dir)))
 })
@@ -146,7 +146,7 @@ test("a map inside a repo adds its block to the repo's own instruction file, whi
   assert.match(hub, /\n<!-- context-central:end -->\n$/)
   assert.equal(hub.split('<!-- context-central:start -->').length, 2)
   assert.equal(existsSync(join(root, '.context-central/CLAUDE.md')), false)
-  const budget = JSON.parse(run(['budget', '--json'], { cwd: root, env: { HOME: root } }).stdout)
+  const budget = JSON.parse(run(['budget', '--json'], { cwd: root, env: { HOME: root } }).stdout) as { files: { path: string }[] }
   assert.deepEqual(
     budget.files.map(file => file.path),
     [join(root, 'CLAUDE.md')],
@@ -223,7 +223,7 @@ test('a root map kept in git with evidence committed ignores none of it', () => 
   for (const rel of [ACME_SHOT, ...BESIDE]) assert.equal(ignored(root, rel), false, rel)
 })
 
-const inMap = rel => `.context-central/${rel}`
+const inMap = (rel: string) => `.context-central/${rel}`
 const INNER_ITEM = Object.fromEntries(Object.entries(ITEM).map(([rel, content]) => [inMap(rel), content]))
 
 test('an inner map kept in git with evidence not committed gets an ignore file inside the map folder', () => {
@@ -329,7 +329,7 @@ test('an estate.json that belongs to another tool is not taken over', () => {
 
   assert.equal(result.code, 1)
   assert.match(result.stderr, /estate\.json exists and is not a context-central config/)
-  assert.deepEqual(JSON.parse(read(root, 'estate.json')), { agent: 'someone else' })
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { agent: 'someone else' })
 })
 
 test('a target folder can be named', () => {
@@ -338,7 +338,7 @@ test('a target folder can be named', () => {
   const result = run(['init', 'estate', '--from', 'answers.json'], { cwd: root })
 
   assert.equal(result.code, 0)
-  assert.equal(JSON.parse(read(root, 'estate/estate.json')).name, 'acme')
+  assert.equal((JSON.parse(read(root, 'estate/estate.json')) as { name: unknown }).name, 'acme')
 })
 
 test('answers without a usable layout or config are refused', () => {
@@ -397,7 +397,7 @@ test('the settings to approve name the marketplace, the plugin and the one permi
   const result = run(['init', '--print-settings'], { cwd: plugin, env: { CONTEXT_CENTRAL_PLUGIN_ROOT: plugin } })
 
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(result.stdout), {
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
     extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' } } },
     enabledPlugins: { 'context-central@context-central': true },
     permissions: { allow: ['Bash(context-central *)'] },
@@ -422,7 +422,7 @@ test('a byte-order mark at the start of the answers file is ignored', () => {
 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(read(root, 'estate.json')), { contextCentral: 1, ...CONFIG })
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { contextCentral: 1, ...CONFIG })
 })
 
 test('a config already there with a byte-order mark is read, and the rest of the map is written round it', () => {

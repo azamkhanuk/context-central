@@ -8,10 +8,10 @@ const LISTER = join(REPO, 'scripts', 'test.mts')
 
 const tree = disposable()
 
-const marking = name => `import { mkdirSync, writeFileSync } from 'node:fs'\nmkdirSync('marks', { recursive: true })\nwriteFileSync('marks/${name}', '')\n`
-const marks = root => (existsSync(join(root, 'marks')) ? readdirSync(join(root, 'marks')).sort() : [])
+const marking = (name: string) => `import { mkdirSync, writeFileSync } from 'node:fs'\nmkdirSync('marks', { recursive: true })\nwriteFileSync('marks/${name}', '')\n`
+const marks = (root: string) => (existsSync(join(root, 'marks')) ? readdirSync(join(root, 'marks')).sort() : [])
 
-const list = root => spawned(process.execPath, [LISTER], { cwd: root })
+const list = (root: string) => spawned(process.execPath, [LISTER], { cwd: root })
 
 test('every test file at the top of the test folder is run, and nothing else', () => {
   const root = tree(

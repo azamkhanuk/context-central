@@ -6,9 +6,9 @@ import { ACME_FILES, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
-const at = now => ({ TZ: 'UTC', CONTEXT_CENTRAL_NOW: now })
-const note = (root, args, now = '2026-01-15T12:00:00Z') => run(['note', ...args], { cwd: root, env: at(now) })
-const read = (root, rel) => readFileSync(join(root, rel), 'utf8')
+const at = (now: string) => ({ TZ: 'UTC', CONTEXT_CENTRAL_NOW: now })
+const note = (root: string, args: string[], now = '2026-01-15T12:00:00Z') => run(['note', ...args], { cwd: root, env: at(now) })
+const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
 
 test('the first note of a month starts that month\'s log', () => {
   const root = tree(acme())

@@ -4,7 +4,10 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "target": "esnext",
-    "strict": false,
+    "lib": [
+      "esnext"
+    ],
+    "strict": true,
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,

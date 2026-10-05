@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, acme, disposable, makeTree, run } from './helpers.mts'
+import type { Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'research', 'prep', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'research', 'prep', 'implement']
@@ -17,7 +18,7 @@ const AGENT_FIELDS = [
   'background', 'omitClaudeMd', 'effort', 'isolation', 'color', 'initialPrompt', 'experimental',
 ]
 
-const FLAGS = {
+const FLAGS: Record<string, string[]> = {
   config: ['get'],
   where: ['json'],
   work: ['title', 'json', 'all'],
@@ -39,18 +40,20 @@ const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing tra
 
 const tree = disposable()
 
-const skillText = name => readFileSync(join(REPO, 'skills', name, 'SKILL.md'), 'utf8')
-const agentText = name => readFileSync(join(REPO, 'agents', `${name}.md`), 'utf8')
+type Draft = { config: { [key: string]: Json } }
+
+const skillText = (name: string) => readFileSync(join(REPO, 'skills', name, 'SKILL.md'), 'utf8')
+const agentText = (name: string) => readFileSync(join(REPO, 'agents', `${name}.md`), 'utf8')
 const everyFile = () => [...SKILLS.map(name => [`skills/${name}`, skillText(name)]), ...AGENTS.map(name => [`agents/${name}`, agentText(name)])]
 
-function frontmatter(text) {
+function frontmatter(text: string) {
   const block = /^---\n([\s\S]*?)\n---\n/.exec(text)
   assert.ok(block, 'the file opens with a frontmatter block')
   return Object.fromEntries(block[1].split('\n').map(line => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]))
 }
 
-const skill = name => frontmatter(skillText(name))
-const agent = name => frontmatter(agentText(name))
+const skill = (name: string) => frontmatter(skillText(name))
+const agent = (name: string) => frontmatter(agentText(name))
 
 test('every skill is named after its folder and says what it does', () => {
   for (const name of SKILLS) {
@@ -169,7 +172,7 @@ test('a user-only skill is only ever suggested to the person as a slash command'
 })
 
 test('every setting a skill reads is one the onboard draft writes', () => {
-  const draft = JSON.parse(/```json\n([\s\S]*?)```/.exec(skillText('onboard'))[1])
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
   const root = tree(makeTree({ 'estate.json': draft.config }))
   const keys = SKILLS.flatMap(name => [...skillText(name).matchAll(/context-central config --get ([A-Za-z.]+)/g)].map(match => match[1]))
 
@@ -235,7 +238,7 @@ test('the reader, which has no Write tool, is told how to write the one file it 
 })
 
 test('onboard asks whether evidence is committed straight after the layout, and its draft carries the answer', () => {
-  const draft = JSON.parse(/```json\n([\s\S]*?)```/.exec(skillText('onboard'))[1])
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
 
   assert.match(skillText('onboard'), /^2\. Layout: .*\n3\. Whether evidence that is not text .* is committed\. Recommend yes exactly when the map is kept in git/m)
   assert.match(skillText('onboard'), /a screenshot can show personal data, and no text check reads an image/)

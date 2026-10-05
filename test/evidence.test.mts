@@ -6,8 +6,8 @@ import { acme, disposable, run } from './helpers.mts'
 
 const tree = disposable()
 
-const add = (root, ...args) => run(['evidence', 'add', ...args], { cwd: root })
-const held = root => readdirSync(join(root, 'work/PROJ-12/evidence'))
+const add = (root: string, ...args: string[]) => run(['evidence', 'add', ...args], { cwd: root })
+const held = (root: string) => readdirSync(join(root, 'work/PROJ-12/evidence'))
 
 test('a file is copied into the item\'s evidence folder under the day and a cleaned name', () => {
   const root = tree(acme({ 'scratch/Limit Reached (2).PNG': 'x'.repeat(300) }))
@@ -70,7 +70,7 @@ test('the folder is made when it is missing, and work list then counts the file'
   assert.equal(before, false)
   assert.deepEqual(held(root), ['2026-01-15-trace.json'])
   assert.deepEqual(
-    JSON.parse(run(['work', 'list', '--json'], { cwd: root }).stdout).map(item => [item.id, item.evidence]),
+    (JSON.parse(run(['work', 'list', '--json'], { cwd: root }).stdout) as { id: string, evidence: unknown }[]).map(item => [item.id, item.evidence]),
     [['PROJ-12', { count: 1, bytes: 50 }], ['PROJ-13', { count: 1, bytes: 50 }]],
   )
 })
@@ -86,7 +86,7 @@ test('a name already taken is refused and nothing is overwritten', () => {
 
 test('a missing file, a folder, an unknown item and a name with nothing left of it are each refused', () => {
   const root = tree(acme({ 'scratch/trace.json': 'x', 'scratch/---.png': 'x' }))
-  const refused = (...args) => add(root, ...args)
+  const refused = (...args: string[]) => add(root, ...args)
 
   assert.deepEqual(refused('scratch/gone.png', '--item', 'PROJ-12'), { code: 1, stdout: '', stderr: 'context-central evidence: no file at scratch/gone.png\n' })
   assert.deepEqual(refused('scratch', '--item', 'PROJ-12'), { code: 1, stdout: '', stderr: 'context-central evidence: scratch is a folder, not a file\n' })

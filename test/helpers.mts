@@ -8,13 +8,21 @@ import { fileURLToPath } from 'node:url'
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = join(REPO, 'bin', 'context-central')
 
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
+export type TreeFiles = Record<string, Json>
+export type Env = Record<string, string | undefined>
+export type Result = { code: number | null, stdout: string, stderr: string }
+export type SpawnOptions = { cwd?: string, env?: Env, input?: string }
+export type RunOptions = { cwd?: string, env?: Env, stdin?: string }
+export type Skip = { skip?: string }
+
 export const WINDOWS = process.platform === 'win32'
-export const onlyOnWindows = reason => (WINDOWS ? {} : { skip: reason })
-export const notOnWindows = reason => (WINDOWS ? { skip: reason } : {})
+export const onlyOnWindows = (reason: string): Skip => (WINDOWS ? {} : { skip: reason })
+export const notOnWindows = (reason: string): Skip => (WINDOWS ? { skip: reason } : {})
 export const NEEDS_STAND_IN = notOnWindows('the stand-in for the tool is a shell script, which Windows cannot start')
 export const EXE_NAMES = onlyOnWindows('only Windows finds a tool under a name ending in .exe or .com')
 
-export function makeTree(files) {
+export function makeTree(files: TreeFiles): string {
   const root = withoutSymlinks(mkdtempSync(join(tmpdir(), 'context-central-test-')))
   for (const [path, content] of Object.entries(files)) {
     const full = join(root, path)
@@ -24,21 +32,21 @@ export function makeTree(files) {
   return root
 }
 
-function withoutSymlinks(path) {
+function withoutSymlinks(path: string) {
   return realpathSync(path)
 }
 
-export function removeTree(root) {
+export function removeTree(root: string) {
   rmSync(root, { recursive: true, force: true })
 }
 
 export function disposable() {
-  const trees = []
+  const trees: string[] = []
   after(() => trees.forEach(removeTree))
-  return root => (trees.push(root), root)
+  return (root: string) => (trees.push(root), root)
 }
 
-export function spawned(command, args, { cwd = undefined, env = {}, input = undefined } = {}) {
+export function spawned(command: string, args: string[], { cwd = undefined, env = {}, input = undefined }: SpawnOptions = {}): Result {
   const result = spawnSync(command, args, {
     cwd,
     input,
@@ -48,11 +56,11 @@ export function spawned(command, args, { cwd = undefined, env = {}, input = unde
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
-export function run(args, { cwd = undefined, env = {}, stdin = '' } = {}) {
+export function run(args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions = {}): Result {
   return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env })
 }
 
-export function hook(event, input, options = {}) {
+export function hook(event: string, input: unknown, options: RunOptions = {}) {
   return run(['hook', event], { ...options, stdin: JSON.stringify(input) })
 }
 
@@ -91,7 +99,7 @@ export const ACME_FILES = {
   'elsewhere/readme.md': '# not registered\n',
 }
 
-export function acme(extraFiles = {}, configOverrides = {}) {
+export function acme(extraFiles: TreeFiles = {}, configOverrides: { [key: string]: Json } = {}) {
   return makeTree({ 'estate.json': { ...ACME_CONFIG, ...configOverrides }, ...ACME_FILES, ...extraFiles })
 }
 
@@ -99,9 +107,9 @@ export const ACME_SHOT = 'work/PROJ-12/evidence/2026-01-14-limit-reached.png'
 export const INDEX_CLOSING_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 
 const ACME_STATE = 'work/PROJ-12/STATE.md'
-const sizeOf = rel => Buffer.byteLength(ACME_FILES[rel])
+const sizeOf = (rel: keyof typeof ACME_FILES) => Buffer.byteLength(ACME_FILES[rel])
 
-export function acmeIndex(root) {
+export function acmeIndex(root: string) {
   return [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')}`,
@@ -111,7 +119,7 @@ export function acmeIndex(root) {
   ].join('\n')
 }
 
-export function acmePointers(root) {
+export function acmePointers(root: string) {
   return [
     'Context for work item PROJ-12:',
     `- ${join(root, ACME_STATE)} (${sizeOf(ACME_STATE)} B) state file: where the work stands and what is next`,
