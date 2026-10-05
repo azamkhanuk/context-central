@@ -1,12 +1,59 @@
 # context-central
 
-A Claude Code plugin that gives all the context behind your work one central place: a map of the notes behind an estate of repositories.
-It routes each task to the few notes that matter and keeps work in flight in small state files.
-Long text (tickets, pull requests, threads) is saved in full behind those files and read only on request.
+A Claude Code plugin that gives all the context behind your work one central place: a map of plain Markdown notes about your repositories and the work in flight.
 
-Needs Node 22.18 or later, on macOS, Linux (WSL included) or Windows. On Windows it also needs Git for Windows, and it has been tried only on GitHub's Windows machines, not in a live Claude Code session: "Working from a terminal" lists what was shown there and "What it does not do" lists what was not. No runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed.
+![Mind map of how context-central works: the hub and the live index are always loaded, the state file and notes are read when named, the deep tier and evidence are read on request, two hooks bring it in, and five skills do the work](docs/how-it-works.png)
+
+## What it does
+
+- **Keeps a map.** A folder of plain Markdown notes about your repositories and the work you have in flight.
+- **Shows Claude the work in flight.** Every session starts with a short index, one line for each piece of work.
+- **Points Claude at the right notes.** Name a piece of work, a pull request or a repository in your prompt, and Claude gets a short list of the notes behind it.
+- **Keeps each piece of work in a small state file.** It says where the work stands, what is done and what is next.
+- **Saves long text in full.** Tickets, pull requests and threads are kept whole behind the short files, and read only on request.
+
+## How it helps
+
+- **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
+- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The rest is read when it is named or asked for.
+- **Nothing is lost.** Long text is kept in full, and each short note names the full text behind it.
+- **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
+- **It is plain files.** The map is Markdown and stays readable without the plugin. There are no runtime dependencies, and the resolver makes no network call.
+
+## The core idea
+
+Load little, and point to the rest. A map has three tiers, and the tier decides when Claude sees a file.
+
+| Tier | What is in it | When Claude sees it |
+|---|---|---|
+| Always loaded | the hub (where each task goes, and the standing rules) and the live index (the work in flight, one line each) | at the start of every session |
+| Read when named | a work item's state file, and the notes behind it | when your prompt names the work |
+| Read on request | the deep tier (tickets, pull requests and threads in full) and evidence (screenshots, recordings, exports) | by path, only when asked for |
+
+Two rules keep it honest:
+
+- Every brief names the full-text file behind it.
+- Status goes in state files, never in the hub.
+
+## How it works for you
+
+1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map.
+2. **Start a session.** Claude already has the list of work in flight.
+3. **Name the work** in your prompt, by its ticket key or its plain name. Claude is pointed at its state file and the notes behind it.
+4. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, and `/context-central:implement` builds it one slice at a time.
+5. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
 ## Install
+
+It needs:
+
+- Node 22.18 or later
+- macOS, Linux (WSL included) or Windows
+- on Windows, Git for Windows as well
+
+There are no runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed.
+
+On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [Working from a terminal](#working-from-a-terminal) lists what was shown there, and [What it does not do](#what-it-does-not-do) lists what was not.
 
 From a shell:
 
@@ -21,9 +68,11 @@ Or both at once from inside a session (Claude Code v2.1.275 or later):
 /plugin install context-central --marketplace azamkhanuk/context-central
 ```
 
-The repository is its own marketplace. To try a local clone, give `claude plugin marketplace add` the path of the clone: the plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
+**Trying a local clone.** The repository is its own marketplace. Give `claude plugin marketplace add` the path of the clone. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
 
-The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it; auto-update is off by default for a marketplace you add yourself. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
+**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself.
+
+**Releases.** [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
 ## First run
 
@@ -33,14 +82,23 @@ Start a session in the folder that holds your checkouts and run:
 /context-central:onboard
 ```
 
-It reads what it can from disk (repositories, instruction files, ticket keys in branch names, tools on `PATH`), asks only what is left unsettled in one pass, shows the draft settings, and writes the map. Restart or `/clear` afterwards so the hub loads.
+It then:
+
+1. reads what it can from disk: repositories, instruction files, ticket keys in branch names, tools on `PATH`
+2. asks only what is left unsettled, in one pass
+3. shows the draft settings
+4. writes the map
+
+Restart or `/clear` afterwards so the hub loads.
 
 ## How a map is laid out
 
-A map is a folder of Markdown with one settings file, `estate.json`. Two layouts:
+A map is a folder of Markdown with one settings file, `estate.json`. An estate is the set of repositories you work across, with the folder that holds their checkouts. One estate has one map. [CONTEXT.md](CONTEXT.md) is the glossary.
+
+There are two layouts:
 
 - **Root**: `estate.json` sits at the estate root, above the checkouts. The map is the root itself.
-- **Inner**: `estate.json` sits in `<repo>/.context-central/`. The map lives inside one repository, and the hub is that repository's own `CLAUDE.md` at its root, because that is the file Claude Code loads there. `init` adds one marked block to it and leaves the rest as it is.
+- **Inner**: `estate.json` sits in `<repo>/.context-central/`. The map lives inside one repository. The hub is that repository's own `CLAUDE.md` at its root, because that is the file Claude Code loads there. `init` adds one marked block to it and leaves the rest as it is.
 
 ```
 <estate root>/
@@ -59,11 +117,12 @@ A map is a folder of Markdown with one settings file, `estate.json`. Two layouts
   web/ api/ ...        the checkouts, registered in estate.json
 ```
 
-A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`). Nodes link to each other with wiki links (`[[concepts/gateway]]`) or relative Markdown links.
+- A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`).
+- Nodes link to each other with wiki links (`[[concepts/gateway]]`) or relative Markdown links.
 
 ## The three tiers
 
-What loads, and when, is decided by tier. Budgets are settings under `budgets` in `estate.json`; `context-central lint` reports anything over.
+What loads, and when, is decided by tier. The budgets are settings under `budgets` in `estate.json`. `context-central lint` reports anything over.
 
 | Tier | Holds | How it reaches the session | Budget (default) |
 |---|---|---|---|
@@ -81,30 +140,51 @@ Two more budgets shape what the hooks do:
 | `hookTextChars` | 600 characters | The longest prompt the hook matches on its words |
 | `resumeNoticeTokens` | 100,000 tokens | The session size from which the resume notice is shown; 0 turns it off |
 
-Two rules keep it honest. Every brief names the full-text file behind it. Status goes in state files, never in the hub.
+### Evidence
 
-Evidence is any file under a work item's `evidence/` folder. The folder is for what was seen and is not text: a screenshot, a recording, an export. The commands count every file there, whatever its kind, and never open one. A file sits at `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes, and a note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`. `context-central evidence add` copies a file into place under such a name. Text a session can read stays in the deep tier. `evidence.commit` in `estate.json` records whether evidence is committed and is read as false when absent. `graph` reports an evidence file no note names, `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`, and `doctor` says when git and the setting disagree.
+Evidence is any file under a work item's `evidence/` folder. The folder is for what was seen and is not text: a screenshot, a recording, an export.
+
+- The commands count every file there, whatever its kind, and never open one.
+- A file sits at `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`, lower case with dashes.
+- A note names it, by custom `notes/<YYYY-MM-DD>-evidence.md`.
+- `context-central evidence add` copies a file into place under such a name.
+- Text a session can read stays in the deep tier.
+- `evidence.commit` in `estate.json` records whether evidence is committed. It is read as false when absent.
+- `graph` reports an evidence file no note names.
+- `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`.
+- `doctor` says when git and the setting disagree.
 
 ## What the hooks put in context
 
-**At session start** (startup, resume, clear, compaction, fork): the live index. It names the map, the hub, and each work item in flight with its title and state file. After compaction or on resume, the state file of the item the session was working on follows the index. The whole text is cut at 9,500 characters.
+### At session start
 
-**When a prompt is submitted**: pointers, when the prompt names something the map knows. First match wins:
+On startup, resume, clear, compaction and fork, the hook adds the live index.
+
+- It names the map, the hub, and each work item in flight with its title and state file.
+- After compaction or on resume, the state file of the item the session was working on follows the index.
+- The whole text is cut at 9,500 characters.
+
+### When a prompt is submitted
+
+The hook adds pointers when the prompt names something the map knows. First match wins:
 
 1. a work item, by ticket key or by name, or else by its name written with spaces or its title word for word
 2. a GitHub pull request link recorded in a work item, or whose repository has a note
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
 
-On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
-
 The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
 
-A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys and names, PR links and repo names, not on its words, a title or a name written with spaces: a pasted log or diff would match those by chance.
+Two limits:
 
-**When a large session resumes with an expired cache**: a notice to the person, not to the model. If Claude Code reports that the prompt cache has likely expired and the session holds at least `budgets.resumeNoticeTokens` (100,000) tokens, the hook shows one line giving the size and saying that a fresh session started from the work item's state file is cheaper.
+- A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys and names, PR links and repo names. It is not matched on its words, a title or a name written with spaces: a pasted log or diff would match those by chance.
+- On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
 
-**The hooks stay silent** when:
+### When a large session resumes with an expired cache
+
+The hook shows a notice to the person, not to the model. If Claude Code reports that the prompt cache has likely expired and the session holds at least `budgets.resumeNoticeTokens` (100,000) tokens, the hook shows one line giving the size and saying that a fresh session started from the work item's state file is cheaper.
+
+### When the hooks stay silent
 
 - no map covers the session's folder
 - the working directory is inside a different map
@@ -116,7 +196,9 @@ If `estate.json` is invalid, the person sees a one-line message and the model se
 
 ## Commands
 
-Inside a session the plugin puts `context-central` on the Bash tool's `PATH`. Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
+Inside a session the plugin puts `context-central` on the Bash tool's `PATH`.
+
+Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 
 | Command | What it does |
 |---|---|
@@ -140,7 +222,12 @@ Inside a session the plugin puts `context-central` on the Bash tool's `PATH`. Ex
 | `wrapper [--write]` | Print a launcher for running the CLI from a terminal, or save it in the map with one for cmd |
 | `budget [dir] [--json]` | Show what a session started in a folder loads at launch from instruction files |
 
-`doctor` prints one line per check, `ok` or `FIX` with what to do, and exits 1 if anything needs fixing. Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time. Name them in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`; the list is empty by default and the check then passes. A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
+About `doctor`:
+
+- It prints one line per check, `ok` or `FIX` with what to do, and exits 1 if anything needs fixing.
+- Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time.
+- Name those hooks in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`. The list is empty by default, and the check then passes.
+- A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
 
 ## Skills
 
@@ -164,27 +251,32 @@ Typed with the plugin prefix. The first four run only when you invoke them; `che
 
 ## Working from a terminal
 
-Outside a session the CLI is not on your `PATH`, so the map can hold a small launcher. Write it once, in either of two ways:
+Outside a session the CLI is not on your `PATH`, so the map can hold a small launcher.
+
+**Write it once**, in either of two ways:
 
 - from inside a Claude Code session in the map, ask Claude to run `context-central wrapper --write`
 - from a terminal in the map, run `node <plugin folder>/bin/context-central wrapper --write`
 
-Three files are saved in the map's `bin/` folder, on every system, and a file already there is kept; with a map inside a repository the folder is `.context-central/bin/`:
+**What is saved.** Three files go in the map's `bin/` folder, on every system, and a file already there is kept. With a map inside a repository the folder is `.context-central/bin/`.
 
 - `context-central`, the launcher: a `sh` script for macOS, Linux and Git Bash
 - `context-central.cmd`, the cmd launcher: the same for cmd and Windows PowerShell
 - `.gitattributes`, which keeps the first at LF and the second at CRLF when the map is kept in git, whatever a machine's line-ending setting
 
-Each launcher finds the installed plugin through Claude Code's install record and passes the arguments it is given and the exit code through:
+**Using it.** Each launcher finds the installed plugin through Claude Code's install record and passes the arguments it is given and the exit code through:
 
 ```sh
 ./bin/context-central work list
 ./bin/context-central doctor
 ```
 
-When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+**Worth knowing:**
 
-With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash. PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried. The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
+- When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash.
+- PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried.
+- The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
 
 ### On Windows
 
@@ -200,7 +292,7 @@ What the checks have shown on GitHub's Windows machines, with Node 22 and 24:
 - the cmd launcher found by its bare name in cmd and in Windows PowerShell, with two plain arguments and its exit code coming back
 - a map whose files have Windows line endings or a byte-order mark: frontmatter and `estate.json` are read, and `work done` changes one line and keeps the rest as it found it
 
-What has not been shown there is under "What it does not do".
+What has not been shown there is under [What it does not do](#what-it-does-not-do).
 
 ## Two accounts on one machine
 
@@ -210,7 +302,14 @@ A plugin installed at user scope belongs to one Claude Code config directory. If
 context-central init --print-settings
 ```
 
-Put the printed JSON in the map's `.claude/settings.json` (shared with everyone who clones the map) or `.claude/settings.local.json` (this machine only). It declares the marketplace, enables `context-central@context-central`, and allows `Bash(context-central *)`. The command only prints: `.claude/` is a protected path, so the write is yours to approve. Claude Code applies project settings after you accept the trust prompt for the folder.
+Put the printed JSON in one of:
+
+- the map's `.claude/settings.json`, shared with everyone who clones the map
+- the map's `.claude/settings.local.json`, for this machine only
+
+It declares the marketplace, enables `context-central@context-central`, and allows `Bash(context-central *)`.
+
+The command only prints: `.claude/` is a protected path, so the write is yours to approve. Claude Code applies project settings after you accept the trust prompt for the folder.
 
 ## Turning it off
 
@@ -228,7 +327,11 @@ The map is plain Markdown and stays readable without the plugin.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
 - It does not ingest meetings, ship workflows, or include evals.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
-- On Windows it has not been tried in a live Claude Code session. Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool. Nor has anything shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts. Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore. PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell. These are untested on Windows, not known to fail.
+- On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:
+  - Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool.
+  - Nothing has shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts.
+  - Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore.
+  - PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 
