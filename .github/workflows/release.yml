@@ -26,13 +26,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="$(node scripts/release-notes.mjs --tag)"
+          tag="$(node scripts/release-notes.mts --tag)"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
             echo "$tag is out already. Nothing to publish."
             exit 0
           fi
-          title="$(node scripts/release-notes.mjs --title)"
-          node scripts/release-notes.mjs > "$RUNNER_TEMP/notes.md"
+          title="$(node scripts/release-notes.mts --title)"
+          node scripts/release-notes.mts > "$RUNNER_TEMP/notes.md"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$tag" -m "$title"

@@ -2,7 +2,7 @@
 const { join } = require('node:path')
 const { pathToFileURL } = require('node:url')
 
-import(pathToFileURL(join(__dirname, '..', 'lib', 'cli.mjs')).href)
+import(pathToFileURL(join(__dirname, '..', 'lib', 'cli.mts')).href)
   .then(cli => cli.main(process.argv.slice(2)))
   .then(code => {
     process.exitCode = code

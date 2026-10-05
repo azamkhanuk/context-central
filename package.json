@@ -4,17 +4,17 @@
   "description": "A context map for Claude Code: routes a task to the right notes and keeps work in flight in small state files.",
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "bin": {
     "context-central": "bin/context-central"
   },
   "scripts": {
-    "test": "node scripts/test.mjs",
-    "typecheck": "tsc -p jsconfig.json"
+    "test": "node scripts/test.mts",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.6.0"
+    "@types/node": "^22.18.0",
+    "typescript": "^5.8.0"
   }
 }

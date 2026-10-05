@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        node: [20, 22, 24]
+        node: [22, 24]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
