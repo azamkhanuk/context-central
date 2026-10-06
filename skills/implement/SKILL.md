@@ -40,7 +40,7 @@ When `implement.review` is on, review in rounds. A round is one run of the `cont
 
 After a round, take each finding: it needs a fix, or the code stays as it is and you say why, which answers it. A round with nothing to fix ends the review.
 
-`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else. When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff. When the last round allowed brings one, make no fix: stop the build there, list that round's findings and what the earlier rounds changed, run step 7 so the state file says where the build stopped, and wait for the person. What the person then asks for is done with no further round unless they ask for one.
+`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else. When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff. When the last round allowed brings one, make no fix: stop the build there, list that round's findings and what the earlier rounds changed, run step 7 so the state file says where the build stopped, and wait for the person. What the person then asks for is done with no further round unless they ask for one, and steps 6 and 7 follow it.
 
 ## 6. Report
 

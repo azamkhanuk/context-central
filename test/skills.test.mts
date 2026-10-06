@@ -555,7 +555,7 @@ test('implement stops the review at a ceiling of rounds, three unless the estate
   assert.ok(review.includes('When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff.'))
   assert.ok(review.includes('`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else.'))
   assert.ok(review.includes('When the last round allowed brings one, make no fix: stop the build there'))
-  assert.ok(review.includes('What the person then asks for is done with no further round unless they ask for one.'))
+  assert.ok(review.includes('What the person then asks for is done with no further round unless they ask for one, and steps 6 and 7 follow it.'))
   assert.ok(review.indexOf('is the most rounds there may be') < review.indexOf('make the fixes'), 'the ceiling is read before any fix is made')
   assert.ok(review.includes('run step 7 so the state file says where the build stopped, and wait for the person'))
   assert.ok(step('implement', '6. Report').includes('how many review rounds were run'))
