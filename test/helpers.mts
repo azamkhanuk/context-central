@@ -77,7 +77,7 @@ export function runIn(plugin: string, args: string[], { cwd = undefined, env = {
   return spawned(process.execPath, [join(plugin, 'bin', 'context-central'), ...args], { cwd, input: stdin, env })
 }
 
-export function standIns(scripts: Record<string, string>) {
+export function standIns(scripts: TreeFiles) {
   const dir = makeTree(scripts)
   for (const name of Object.keys(scripts)) chmodSync(join(dir, name), 0o755)
   return dir

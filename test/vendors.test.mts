@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
-import { NEEDS_STAND_IN, disposable, makeTree, run, standIns } from './helpers.mts'
+import { NEEDS_STAND_IN, disposable, makeTree, run, spawned, standIns } from './helpers.mts'
 import type { Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -131,4 +131,111 @@ test('on a map made before connections, the new word ticket goes to the tracker 
 
 test('on such a map the old word issue still goes where it always went', NEEDS_STAND_IN, () => {
   assert.deepEqual(argsOf('gh', oldMap(OLD_AZURE), ['issue', '41']).slice(0, 3), ['issue', 'view', '41'])
+})
+
+const ACLI_AS_DOCUMENTED = `#!/bin/sh
+here="\${0%/*}"
+fail() { printf 'Error: %s\\n' "$1" >&2; exit 1; }
+[ "$1 $2 $3" = "jira workitem view" ] || fail "unknown command"
+shift 3
+key=""; fields=""; json=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --json) json=1 ;;
+    --web|-w) ;;
+    --fields|-f) [ $# -ge 2 ] || fail "flag needs an argument: $1"; fields="$2"; shift ;;
+    -*) fail "unknown flag: $1" ;;
+    *) [ -z "$key" ] || fail "accepts at most 1 arg(s), received 2"; key="$1" ;;
+  esac
+  shift
+done
+[ "$key" = OPS-7 ] || fail "Issue does not exist or you do not have permission to see it."
+[ -n "$json" ] || fail "this stand-in answers with --json only"
+case "$fields" in
+  '*all') cat "$here/all.json" ;;
+  *) cat "$here/default.json" ;;
+esac
+`
+const AZ_AS_DOCUMENTED = `#!/bin/sh
+here="\${0%/*}"
+fail() { printf 'az: error: %s\\n' "$1" >&2; exit 2; }
+case "$1 $2 $3" in
+  "boards work-item show") what=workitem ;;
+  "repos pr show") what=pr ;;
+  *) fail "'$1 $2 $3' is not in the 'az' command group" ;;
+esac
+shift 3
+id=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --id) [ $# -ge 2 ] || fail "argument --id: expected one argument"; id="$2"; shift ;;
+    --org|--organization) case "$2" in https://dev.azure.com/*) ;; *) fail "--organization must be of the form https://dev.azure.com/<name>" ;; esac; shift ;;
+    --output|-o) case "$2" in json|jsonc|none|table|tsv|yaml|yamlc) ;; *) fail "argument --output/-o: invalid choice: '$2'" ;; esac; shift ;;
+    --expand) [ "$what" = workitem ] || fail "unrecognized arguments: --expand"; case "$2" in all|fields|links|none|relations) ;; *) fail "argument --expand: invalid choice: '$2'" ;; esac; shift ;;
+    --open) ;;
+    --detect) shift ;;
+    *) fail "unrecognized arguments: $1" ;;
+  esac
+  shift
+done
+case "$id" in ''|*[!0-9]*) fail "argument --id: invalid int value: '$id'" ;; esac
+cat "$here/$what.json"
+`
+const JIRA_WITH_COMMENTS = { key: 'OPS-7', fields: { summary: 'Rotate the signing keys', comment: { comments: [{ author: { displayName: 'Dev Two' }, body: 'Rotation has to overlap by a day.' }] } } }
+const JIRA_BY_DEFAULT = { key: 'OPS-7', fields: { summary: 'Rotate the signing keys' } }
+const WORK_ITEM = { id: 4312, fields: { 'System.Title': 'Export the monthly report', 'System.State': 'Active' } }
+const PULL_REQUEST = { pullRequestId: 89, title: 'Export the monthly report', status: 'active' }
+
+const asDocumented = (files: TreeFiles) => tree(standIns(files))
+const through = (tools: string, root: string, args: string[]) => run(['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [tools, '/usr/bin', '/bin'].join(delimiter) } })
+const saved = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
+
+test('jira: the read is taken by a stand-in that takes only the flags the vendor documents, and the saved ticket holds its comments', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
+  const root = withTicket(JIRA, 'OPS-7')
+
+  const result = through(tools, root, ['ticket', '--item', 'login-redirect'])
+
+  assert.equal(result.stderr, '')
+  assert.match(result.stdout, /^ticket OPS-7 read through jira\nsaved: work\/login-redirect\/sources\/01-2026-01-15-ticket-OPS-7-full-text\.md /)
+  assert.ok(saved(root, 'work/login-redirect/sources/01-2026-01-15-ticket-OPS-7-full-text.md').includes('"body": "Rotation has to overlap by a day."'))
+})
+
+test('jira: that stand-in refuses a flag, a command and a second key that the vendor does not document', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
+  const stand = (...args: string[]) => spawned(join(tools, 'acli'), args, { env: { PATH: '/usr/bin:/bin' } })
+
+  assert.deepEqual([stand('jira', 'workitem', 'view', 'OPS-7', '--json', '--all-fields').code, stand('jira', 'issue', 'view', 'OPS-7', '--json').code, stand('jira', 'workitem', 'view', 'OPS-7', 'OPS-8', '--json').code], [1, 1, 1])
+  assert.equal(stand('jira', 'workitem', 'view', 'OPS-7', '--json').stdout.includes('Rotation has to overlap'), false)
+})
+
+test('jira: a ticket the tool does not know is reported by the first line the tool wrote', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
+
+  const result = through(tools, estate(JIRA), ['ticket', 'OPS-8', '--check'])
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, 'context-central fetch: acli failed: Error: Issue does not exist or you do not have permission to see it.\n')
+})
+
+test('azure-devops: both reads are taken by a stand-in that takes only the flags the vendor documents, and what it printed is saved', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ az: AZ_AS_DOCUMENTED, 'workitem.json': WORK_ITEM, 'pr.json': PULL_REQUEST })
+  const root = withTicket(AZURE, 'AB#4312')
+
+  const ticket = through(tools, root, ['ticket', '--item', 'login-redirect'])
+  const pull = through(tools, root, ['pr', 'https://dev.azure.com/acme/Shop/_git/api/pullrequest/89', '--item', 'login-redirect'])
+
+  assert.deepEqual([ticket.stderr, pull.stderr], ['', ''])
+  assert.ok(saved(root, 'work/login-redirect/sources/01-2026-01-15-ticket-4312-full-text.md').includes('"System.Title": "Export the monthly report"'))
+  assert.ok(saved(root, 'work/login-redirect/sources/02-2026-01-15-pr-89-full-text.md').includes('"pullRequestId": 89'))
+})
+
+test('azure-devops: that stand-in refuses a flag, a command and an organisation that the vendor does not document', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ az: AZ_AS_DOCUMENTED, 'workitem.json': WORK_ITEM, 'pr.json': PULL_REQUEST })
+  const stand = (...args: string[]) => spawned(join(tools, 'az'), args, { env: { PATH: '/usr/bin:/bin' } }).code
+
+  assert.deepEqual(
+    [stand('boards', 'work-item', 'show', '--id', '4312', '--comments'), stand('boards', 'workitem', 'show', '--id', '4312'), stand('repos', 'pr', 'show', '--id', '89', '--expand', 'all'), stand('repos', 'pr', 'show', '--id', '89', '--org', 'acme'), stand('repos', 'pr', 'show', '--id', 'AB#89')],
+    [2, 2, 2, 2, 2],
+  )
 })
