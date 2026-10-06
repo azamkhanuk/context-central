@@ -95,6 +95,16 @@ test('a preset that reads nothing and takes no parameter says neither', () => {
   const plugin = tree(pluginWith({ plain: "export default { program: 'plain', kinds: { tickets: { references: () => [] } } }\n" }))
 
   assert.equal(runIn(plugin, ['connections', '--presets'], { cwd: estate({}) }).stdout, 'plain | holds tickets | starts plain\n')
+  assert.deepEqual(JSON.parse(runIn(plugin, ['connections', '--presets', '--json'], { cwd: estate({}) }).stdout) as unknown, [{ name: 'plain', holds: ['tickets'], program: 'plain', reads: [], takes: {} }])
+})
+
+test('the presets are given as JSON too, for a skill to read what each takes', () => {
+  const result = runIn(withDesk(), ['connections', '--presets', '--json'], { cwd: estate({}) })
+
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, [
+    { name: 'acmedesk', holds: ['tickets', 'pull-requests', 'documents'], program: 'acmedesk', reads: ['tickets', 'pull-requests'], takes: { keys: 'the keys of its boards, as a list', board: 'the board a ticket is on' } },
+  ])
+  assert.equal(runIn(tree(pluginWith({})), ['connections', '--presets', '--json'], { cwd: estate({}) }).stdout, '[]\n')
 })
 
 test('a plugin that carries no preset says so and still lists connections', () => {
@@ -435,6 +445,50 @@ test('a value from the settings that is more than one word is refused before any
   assert.equal(result.code, 1)
   assert.equal(result.stderr, 'context-central fetch: connection desk gives the command "Platform team", which is not one word\n')
   assert.equal(existsSync(join(desk, 'args')), false)
+})
+
+const TAKES_ANY_ID = { desk: { holds: 'tickets', preset: 'acmedesk', references: ['X(?<id>-+\\w+)'] } }
+
+test('an identifier that a pattern takes out of a reference is refused when it starts with a dash, before anything is started', () => {
+  const desk = deskAnswering()
+
+  const result = fetch(connected(TAKES_ANY_ID), desk, ['ticket', 'X--web', '--check'])
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, 'context-central fetch: connection desk reads "--web" out of "X--web", which cannot be put into a command: an identifier is one word that does not start with a dash\n')
+  assert.equal(existsSync(join(desk, 'args')), false)
+})
+
+test("the same holds for an item's own ticket, and nothing is saved", () => {
+  const desk = deskAnswering()
+  const root = estate({ connections: TAKES_ANY_ID }, { 'work/odd/STATE.md': '---\nitem: odd\ntitle: Odd\nstatus: active\nticket: "X--web"\n---\n# odd: Odd\n' })
+
+  const result = fetch(root, desk, ['ticket', '--item', 'odd'])
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /reads "--web" out of "X--web", which cannot be put into a command/)
+  assert.equal(existsSync(join(desk, 'args')), false)
+  assert.equal(existsSync(join(root, 'work/odd/sources')), false)
+})
+
+test('a parameter from the settings that starts with a dash is refused before anything is started', () => {
+  const desk = deskAnswering()
+
+  const result = fetch(connected({ desk: { holds: 'tickets', preset: 'acmedesk', keys: ['DESK'], board: '--web' } }), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, 'context-central fetch: connection desk holds "--web" for board, and a parameter that starts with a dash cannot be put into a command\n')
+  assert.equal(existsSync(join(desk, 'args')), false)
+})
+
+test('a key of an entry that the preset does not say it takes never reaches its command', NEEDS_STAND_IN, () => {
+  const plugin = tree(pluginWith({ acmedesk: DESK.replace(", board: 'the board a ticket is on'", '') }))
+  const desk = deskAnswering()
+  const root = connected({ desk: { holds: 'tickets', preset: 'acmedesk', keys: ['DESK'], board: 'Platform' } })
+
+  runIn(plugin, ['fetch', 'ticket', 'DESK-41', '--check'], { cwd: root, env: { TZ: 'UTC', PATH: [desk, '/usr/bin', '/bin'].join(delimiter) } })
+
+  assert.deepEqual(argsGiven(desk), ['show', 'DESK-41'])
 })
 
 test('a tool that is there only as a .cmd file is said to be one the plugin cannot start', EXE_NAMES, () => {

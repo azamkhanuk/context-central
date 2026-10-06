@@ -212,8 +212,67 @@ test('a ticket and a pull request at once, either beside the list of presets, or
   const root = withConnections(TWO_TRACKERS)
 
   assert.equal(connections(root, '--ticket', 'DESK-7', '--pr', 'https://forge.acme.example/pull/9').code, 2)
+  assert.equal(connections(root, '--ticket', 'DESK-7', '--item', 'login-redirect').code, 2)
   assert.equal(connections(root, '--ticket', 'DESK-7', '--presets').code, 2)
   assert.equal(connections(root, 'DESK-7').code, 2)
+})
+
+test('a reference that fetch would refuse as not one word, or as starting with a dash, is refused here too', () => {
+  const root = withConnections({ tracker: { holds: 'tickets', references: ['PROJ-\\d+'], server: 'issues' } })
+
+  for (const odd of ['', ' ', 'PROJ 12', '--web', ' PROJ-12 ', 'PROJ-12\n']) {
+    assert.equal(connections(root, `--ticket=${odd}`).code, 2, JSON.stringify(odd))
+    assert.equal(connections(root, `--pr=${odd}`).code, 2, JSON.stringify(odd))
+  }
+  assert.equal(connections(root, '--ticket=PROJ-12').code, 0)
+})
+
+const TWO_FORGES = {
+  one: { holds: 'pull-requests', references: ['https://forge\\.acme\\.example/(?<repo>[\\w.-]+)/pull/(?<id>\\d+)'], server: 'forge-one', repos: ['api'] },
+  two: { holds: 'pull-requests', references: ['https://forge\\.acme\\.example/(?<repo>[\\w.-]+)/pull/(?<id>\\d+)'], server: 'forge-two', repos: ['web'] },
+}
+
+test('a pull request link that two connections claim belongs to the one that serves its repository, for fetch as well', () => {
+  const root = withConnections(TWO_FORGES)
+
+  assert.equal(connections(root, '--pr', 'https://forge.acme.example/web/pull/7').stdout, 'two | pull-requests | by a session, through the server forge-two\n')
+  assert.equal(connections(root, '--pr', 'https://forge.acme.example/api/pull/7').stdout, 'one | pull-requests | by a session, through the server forge-one\n')
+  assert.match(run(['fetch', 'pr', 'https://forge.acme.example/web/pull/7', '--check'], { cwd: root }).stderr, /^context-central fetch: connection two is not read by fetch/)
+})
+
+test('a connection that names no repos has a link before one that names other repos', () => {
+  const root = withConnections({ one: TWO_FORGES.one, any: { holds: 'pull-requests', references: TWO_FORGES.two.references, server: 'forge-two' } })
+
+  assert.equal(connections(root, '--pr', 'https://forge.acme.example/web/pull/7').stdout, 'any | pull-requests | by a session, through the server forge-two\n')
+})
+
+test('a link to a repository that no claiming connection serves belongs to the one written first', () => {
+  assert.equal(connections(withConnections(TWO_FORGES), '--pr', 'https://forge.acme.example/docs/pull/7').stdout, 'one | pull-requests | by a session, through the server forge-one\n')
+})
+
+const head = (id: string, ticket: string | null) => `---\nitem: ${id}\ntitle: Something\nstatus: active\n${ticket ? `ticket: "${ticket}"\n` : ''}---\n# ${id}: Something\n`
+const withItems = () =>
+  tree(makeTree({
+    'estate.json': { contextCentral: 1, name: 'acme', repos: REPOS, connections: TWO_TRACKERS },
+    'CLAUDE.md': '# Acme\n',
+    'work/login-redirect/STATE.md': head('login-redirect', 'DESK-7'),
+    'work/PROJ-12/STATE.md': head('PROJ-12', null),
+    'work/tidy-up/STATE.md': head('tidy-up', null),
+  }))
+
+test("with a work item named, the connection is the one its own ticket belongs to", () => {
+  assert.equal(connections(withItems(), '--item', 'login-redirect').stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+})
+
+test('a work item whose name is itself a reference has that for its ticket', () => {
+  assert.equal(connections(withItems(), '--item', 'PROJ-12').stdout, 'tracker | tickets | by hand: Open the tracker.\n')
+})
+
+test('a work item with no ticket has no connection, and one that does not exist is said not to', () => {
+  const root = withItems()
+
+  assert.deepEqual([connections(root, '--item', 'tidy-up').code, connections(root, '--item', 'tidy-up').stderr], [1, 'context-central connections: tidy-up has no ticket\n'])
+  assert.deepEqual([connections(root, '--item', 'nope').code, connections(root, '--item', 'nope').stderr], [1, 'context-central connections: no work item "nope"\n'])
 })
 
 test('an argument the command does not take is wrong usage, said in one line', () => {

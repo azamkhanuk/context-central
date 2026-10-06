@@ -69,6 +69,7 @@ interface OldSettings {
 export const TICKETS = 'tickets'
 export const PULL_REQUESTS = 'pull-requests'
 export const FETCH_WORDS: Record<string, string> = { ticket: TICKETS, issue: TICKETS, pr: PULL_REQUESTS }
+export const REFERENCE = /^[^\s\p{Cc}-][^\s\p{Cc}]*$/u
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const LINK = /^[a-z][a-z0-9+.-]*:\/\//i
@@ -136,10 +137,22 @@ export function chosenAmong({ recorded, unasked, oldMap }: Held, word: string, r
   const kind = FETCH_WORDS[word]
   const written = holding(recorded, kind)
   const candidates = [...written, ...holding(unasked, kind)]
-  const claiming = candidates.find(candidate => referenceOf([candidate], reference))
   const asBefore = candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked)
   const fallback = !oldMap ? only(written) : word === NEW_WORD ? (only(written) ?? asBefore) : (asBefore ?? only(candidates))
-  return { one: claiming ?? fallback ?? null, kind, candidates }
+  return { one: claiming(candidates, reference) ?? fallback ?? null, kind, candidates }
+}
+
+export function ticketOf(recorded: Connection[], { id, ticket }: { id: string; ticket: string | null }) {
+  return ticket ?? (referenceOf(holding(recorded, TICKETS), id) ? id : null)
+}
+
+function claiming(candidates: Connection[], reference: string) {
+  const claims = candidates.flatMap(candidate => {
+    const found = referenceOf([candidate], reference)
+    return found ? [{ candidate, repo: found.repo?.toLowerCase() }] : []
+  })
+  const serving = claims.find(({ candidate, repo }) => repo !== undefined && candidate.entry.repos?.some(name => name.toLowerCase() === repo))
+  return (serving ?? claims.find(({ candidate }) => !candidate.entry.repos) ?? claims[0])?.candidate
 }
 
 function only(connections: Connection[]) {

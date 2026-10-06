@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { TICKETS, holding, listed, referenceOf } from '../connections.mts'
+import { listed, ticketOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems } from '../nodes.mts'
@@ -63,22 +63,19 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
   for (const folder of ['notes', 'sources', EVIDENCE_DIR]) mkdirSync(join(estate.mapDir, dirRel, folder), { recursive: true })
-  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticket ?? ownTicket(estate, id)))
+  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
   io.out(`${dirRel}/STATE.md`)
 }
 
-function ownTicket(estate: Estate, id: string) {
-  return referenceOf(holding(listed(estate.config.connections), TICKETS), id) ? id : null
-}
-
 function list(estate: Estate, { json, all }: { json?: boolean; all?: boolean }, io: Io) {
+  const recorded = listed(estate.config.connections)
   const items = listWorkItems(estate)
     .filter(item => all || inFlight(item))
     .map((item): Listed => ({
       id: item.id,
       title: item.title,
       status: item.status,
-      ticket: item.ticket ?? ownTicket(estate, item.id),
+      ticket: ticketOf(recorded, item),
       entry: item.entry && { rel: item.entry.rel, kind: item.entry.kind, bytes: item.entry.bytes },
       notes: item.files.length,
       deep: { count: item.deep.count, bytes: item.deep.bytes },

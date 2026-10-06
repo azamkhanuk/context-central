@@ -29,7 +29,7 @@ export function isOnlyAScript(name: string, env: Env) {
     .split(delimiter)
     .filter(Boolean)
     .flatMap(dir => SCRIPT_NAMES(name).map(file => join(dir, file)))
-    .some(path => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false)
+    .some(isFile)
 }
 
 export function accountsOf(preset: Preset, env: Env): Account[] {
@@ -42,6 +42,14 @@ export function accountsOf(preset: Preset, env: Env): Account[] {
 function isExecutable(path: string) {
   try {
     accessSync(path, constants.X_OK)
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
+function isFile(path: string) {
+  try {
     return statSync(path).isFile()
   } catch {
     return false

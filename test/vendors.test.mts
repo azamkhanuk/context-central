@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
-import { NEEDS_STAND_IN, disposable, makeTree, run, spawned, standIns } from './helpers.mts'
+import { NEEDS_STAND_IN, disposable, makeTree, pluginWith, run, runIn, standIns } from './helpers.mts'
 import type { Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -137,8 +137,16 @@ test('on such a map a pull request link belongs to the preset that applies unask
   const nothingOnPath = { PATH: tree(makeTree({})) }
   const root = oldMap(OLD_AZURE)
 
-  assert.equal(run(['connections', '--pr', 'https://github.com/acme/api/pull/7'], { cwd: root, env: nothingOnPath }).stdout, 'github | pull-requests | by hand (not by fetch here: gh is not on PATH)\n')
+  assert.equal(run(['connections', '--pr', 'https://github.com/acme/api/pull/7'], { cwd: root, env: nothingOnPath }).stdout, 'github | pull-requests | by hand (not by fetch here: gh is not on PATH) | not recorded in this map: its preset applies unasked\n')
   assert.equal(run(['connections', '--ticket', '4312'], { cwd: root, env: nothingOnPath }).stdout, 'azure-devops | tickets | by hand (not by fetch here: az is not on PATH)\n')
+})
+
+test('as JSON, a connection that the map does not record says so, and one that it records does not', () => {
+  const root = oldMap(OLD_AZURE)
+  const first = (...args: string[]) => (JSON.parse(run(['connections', ...args, '--json'], { cwd: root }).stdout) as { name: string, unasked?: boolean }[])[0]
+
+  assert.deepEqual([first('--pr', 'https://github.com/acme/api/pull/7').name, first('--pr', 'https://github.com/acme/api/pull/7').unasked], ['github', true])
+  assert.deepEqual([first('--ticket', '4312').name, 'unasked' in first('--ticket', '4312')], ['azure-devops', false])
 })
 
 test('each preset says which parameters of an entry it takes, so that no document has to', () => {
@@ -218,12 +226,26 @@ test('jira: the read is taken by a stand-in that takes only the flags the vendor
   assert.ok(saved(root, 'work/login-redirect/sources/01-2026-01-15-ticket-OPS-7-full-text.md').includes('"body": "Rotation has to overlap by a day."'))
 })
 
-test('jira: that stand-in refuses a flag, a command and a second key that the vendor does not document', NEEDS_STAND_IN, () => {
-  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
-  const stand = (...args: string[]) => spawned(join(tools, 'acli'), args, { env: { PATH: '/usr/bin:/bin' } })
+const otherwise = (program: string, args: string) => tree(pluginWith({ otherwise: `export default { program: '${program}', kinds: { tickets: { references: () => [], read: asked => ({ args: ${args} }) } } }\n` }))
+const OTHERWISE = { desk: { holds: 'tickets', preset: 'otherwise' } }
+const readOtherwise = (plugin: string, tools: string, root: string, args: string[]) => runIn(plugin, ['fetch', 'ticket', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [tools, '/usr/bin', '/bin'].join(delimiter) } })
 
-  assert.deepEqual([stand('jira', 'workitem', 'view', 'OPS-7', '--json', '--all-fields').code, stand('jira', 'issue', 'view', 'OPS-7', '--json').code, stand('jira', 'workitem', 'view', 'OPS-7', 'OPS-8', '--json').code], [1, 1, 1])
-  assert.equal(stand('jira', 'workitem', 'view', 'OPS-7', '--json').stdout.includes('Rotation has to overlap'), false)
+test('jira: a read written with a flag, a command or a second key the vendor does not document is refused by that stand-in', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
+  const refusal = (args: string) => readOtherwise(otherwise('acli', args), tools, estate(OTHERWISE), ['OPS-7', '--check']).stderr
+
+  assert.equal(refusal("['jira', 'workitem', 'view', asked.id, '--json', '--all-fields']"), 'context-central fetch: acli failed: Error: unknown flag: --all-fields\n')
+  assert.equal(refusal("['jira', 'issue', 'view', asked.id, '--json']"), 'context-central fetch: acli failed: Error: unknown command\n')
+  assert.equal(refusal("['jira', 'workitem', 'view', asked.id, 'OPS-8', '--json']"), 'context-central fetch: acli failed: Error: accepts at most 1 arg(s), received 2\n')
+})
+
+test('jira: a read that does not ask for every field saves a ticket without its comments, which is why the preset asks', NEEDS_STAND_IN, () => {
+  const tools = asDocumented({ acli: ACLI_AS_DOCUMENTED, 'all.json': JIRA_WITH_COMMENTS, 'default.json': JIRA_BY_DEFAULT })
+  const root = withTicket(OTHERWISE, 'OPS-7')
+
+  readOtherwise(otherwise('acli', "['jira', 'workitem', 'view', asked.id, '--json']"), tools, root, ['--item', 'login-redirect'])
+
+  assert.equal(saved(root, 'work/login-redirect/sources/01-2026-01-15-ticket-OPS-7-full-text.md').includes('Rotation has to overlap'), false)
 })
 
 test('jira: a ticket the tool does not know is reported by the first line the tool wrote', NEEDS_STAND_IN, () => {
@@ -247,12 +269,13 @@ test('azure-devops: both reads are taken by a stand-in that takes only the flags
   assert.ok(saved(root, 'work/login-redirect/sources/02-2026-01-15-pr-89-full-text.md').includes('"pullRequestId": 89'))
 })
 
-test('azure-devops: that stand-in refuses a flag, a command and an organisation that the vendor does not document', NEEDS_STAND_IN, () => {
+test('azure-devops: a read written with a flag, a command, an organisation or an identifier the vendor does not document is refused by that stand-in', NEEDS_STAND_IN, () => {
   const tools = asDocumented({ az: AZ_AS_DOCUMENTED, 'workitem.json': WORK_ITEM, 'pr.json': PULL_REQUEST })
-  const stand = (...args: string[]) => spawned(join(tools, 'az'), args, { env: { PATH: '/usr/bin:/bin' } }).code
+  const refusal = (args: string, reference = '4312') => readOtherwise(otherwise('az', args), tools, estate(OTHERWISE), [reference, '--check']).stderr
 
-  assert.deepEqual(
-    [stand('boards', 'work-item', 'show', '--id', '4312', '--comments'), stand('boards', 'workitem', 'show', '--id', '4312'), stand('repos', 'pr', 'show', '--id', '89', '--expand', 'all'), stand('repos', 'pr', 'show', '--id', '89', '--org', 'acme'), stand('repos', 'pr', 'show', '--id', 'AB#89')],
-    [2, 2, 2, 2, 2],
-  )
+  assert.equal(refusal("['boards', 'work-item', 'show', '--id', asked.id, '--comments']"), 'context-central fetch: az failed: az: error: unrecognized arguments: --comments\n')
+  assert.equal(refusal("['boards', 'workitem', 'show', '--id', asked.id]"), "context-central fetch: az failed: az: error: 'boards workitem show' is not in the 'az' command group\n")
+  assert.equal(refusal("['repos', 'pr', 'show', '--id', asked.id, '--expand', 'all']"), 'context-central fetch: az failed: az: error: unrecognized arguments: --expand\n')
+  assert.equal(refusal("['repos', 'pr', 'show', '--id', asked.id, '--org', 'acme']"), 'context-central fetch: az failed: az: error: --organization must be of the form https://dev.azure.com/<name>\n')
+  assert.equal(refusal("['repos', 'pr', 'show', '--id', asked.id]", 'AB#89'), "context-central fetch: az failed: az: error: argument --id: invalid int value: 'AB#89'\n")
 })

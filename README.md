@@ -191,7 +191,7 @@ They are recorded under `connections` in `estate.json`, by name:
 - **by a session**: through the server named, or with your own command, which the fetcher agent uses
 - **by hand**: the skill asks you to paste the text and saves it in full
 
-`context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, and `--pr "<reference>"` the one a pull request belongs to. It is the connection `fetch` reads through: the one whose references claim it, the first written where two do, or else the only connection that holds the kind. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
+`context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, `--pr "<reference>"` the one a pull request belongs to, and `--item <item>` the one a work item's own ticket belongs to. It is the connection `fetch ticket` and `fetch pr` read through: the one whose references claim it or, where none does, the only connection that holds the kind. Where two claim a link, the one that names its repository under `repos` has it, and otherwise the one written first. On a map made before connections the answer can be a preset that applies unasked, and its line says that the map does not record it. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
 
 A developer who has some of an estate's connections and not others is served by those they have. A tool that is missing is a note in `doctor`, never a fault.
 
@@ -261,7 +261,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. `--check` in place of `--item` tries the connection and saves nothing |
-| `connections [--ticket\|--pr "<reference>"] [--json]` | List the connections and how this machine reaches each. With a ticket or a pull request named, only the connection it belongs to. `connections --presets` lists the presets this version carries |
+| `connections [--ticket\|--pr "<reference>"] [--item <item>] [--json]` | List the connections and how this machine reaches each. With a ticket, a pull request or a work item named, only the connection it belongs to. `connections --presets [--json]` lists the presets this version carries and what each takes |
 | `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools, accounts and connection candidates |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
@@ -371,7 +371,7 @@ The map is plain Markdown and stays readable without the plugin.
 ## What it does not do
 
 - Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
-- Its own `fetch` reads only with the command of a preset. A connection with no preset is read by a session, through its server or your own command. The plugin never runs a command that `estate.json` names.
+- Its own `fetch` reads only with the command of a preset. A connection with no preset is read by a session, through its server or your own command. The plugin never runs a command that `estate.json` names. What it puts into a preset's command from a reference or from the settings is one word that does not start with a dash, so that nothing reaches the tool as a flag.
 - Of the presets' read commands, only GitHub's has been run against the real tool. Jira's and Azure DevOps's were written from their vendors' documentation and tried against stand-ins. `fetch --check` shows whether one works for you.
 - A pull request read by `fetch` holds what the preset's tool returns. Where that leaves out a review's line comments, the fetcher can read them through a server that offers them.
 - On Windows it does not start a tool that is installed only as a `.cmd` or a `.bat` file. `fetch` says so, and a session reads that connection through its own shell or a server.
