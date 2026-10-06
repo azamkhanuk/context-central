@@ -302,3 +302,12 @@ test('an empty title falls back to the name', () => {
 
   assert.equal(read(root, 'concepts/token-bucket.md'), '# token-bucket\n')
 })
+
+test('a note is refused in plain words when a file stands where its folder would go', () => {
+  const root = tree(acme({ standards: 'a file\n', decisions: 'a file\n', log: 'a file\n' }))
+  const refused = (what: string) => ({ code: 1, stdout: '', stderr: `context-central note: ${what} is a file, not a folder, so nothing can be written under it\n` })
+
+  assert.deepEqual(note(root, ['--new', 'standards/api']), refused('standards'))
+  assert.deepEqual(note(root, ['--new', 'decisions/limits']), refused('decisions'))
+  assert.deepEqual(note(root, ['Gateway', 'limits', 'agreed']), refused('log'))
+})

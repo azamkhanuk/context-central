@@ -416,7 +416,7 @@ test('standards tells a map that names its own kinds of note from a repo whose n
   assert.equal(oddName.code, 2)
   assert.match(oddName.stderr, /the kind is one of: .*standards\n$/)
   assert.ok(write.includes('If the command refuses, read the kinds its message lists. When `standards` is not among them, the map sets its own `nodeDirs`: ask the person to add `standards` to that list in `estate.json`.'))
-  assert.ok(write.includes('When it is, the repo\'s name cannot be a note\'s name: ask the person for a name of letters, digits, dots, dashes and underscores, and write the note under that.'))
+  assert.ok(write.includes('When it is, the repo\'s name cannot be a note\'s name: ask the person for a name of letters, digits, dots, dashes and underscores that no repo has, and write the note under that.'))
 })
 
 test('implement asks the plugin for a repo\'s standards and checks, and works as before where none is recorded', () => {

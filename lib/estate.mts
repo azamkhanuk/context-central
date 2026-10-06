@@ -157,15 +157,21 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
 export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
   const folder = join(mapDir, STANDARDS_DIR)
   const kept = config.nodeDirs.includes(STANDARDS_DIR)
-  const named = join(folder, `${repo.name}.md`)
-  const byName = kept && NODE_NAME.test(repo.name) && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
+  const namedAfter = (name: string) => join(folder, `${name}.md`)
+  const named = namedAfter(repo.name)
+  const nameable = NODE_NAME.test(repo.name)
+  const byName = kept && nameable && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
   const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
   const seen = new Set<string>()
   const files = [...byName, ...listed]
     .map(file => ({ ...file, state: stateOf(file.path), real: realPath(file.path) }))
     .filter(file => !seen.has(file.real) && seen.add(file.real))
-  const note = kept ? files.find(file => file.state === 'file' && dirname(file.real) === realPath(folder)) : undefined
-  return files.map(({ real, ...file }) => ({ ...file, note: real === note?.real }))
+  const underAnotherName = () => {
+    const ofOthers = new Set(config.repos.filter(other => NODE_NAME.test(other.name)).map(other => realPath(namedAfter(other.name))))
+    return files.find(file => file.state === 'file' && dirname(file.real) === realPath(folder) && !ofOthers.has(file.real))
+  }
+  const note = !kept ? undefined : nameable ? byName.map(file => realPath(file.path))[0] : underAnotherName()?.real
+  return files.map(({ real, ...file }) => ({ ...file, note: real === note }))
 }
 
 function stateOf(path: string): StandardsFile['state'] {

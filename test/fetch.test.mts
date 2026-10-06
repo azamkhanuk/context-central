@@ -310,3 +310,11 @@ test('an item kept as a single note gets a sources folder beside it', NEEDS_STAN
   assert.match(result.stdout, /saved: work\/PROJ-7\/sources\/01-2026-01-15-issue-41-full-text\.md/)
   assert.deepEqual(sources(root, 'PROJ-7'), ['01-2026-01-15-issue-41-full-text.md'])
 })
+
+test('a fetch is refused in plain words when a file stands where the sources folder would go', NEEDS_STAND_IN, () => {
+  const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13\n', 'work/PROJ-13/sources': 'a file\n' }))
+
+  const result = fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-13'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: work/PROJ-13/sources is a file, not a folder, so nothing can be written under it\n' })
+})

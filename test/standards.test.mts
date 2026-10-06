@@ -183,6 +183,31 @@ test('a repo whose name cannot name a note takes as its note the first listed fi
   assert.deepEqual(lines.slice(0, 3), ['Standards for repo .tools:', `- ${join(root, 'api/CONTRIBUTING.md')}`, `- ${join(root, 'standards/tools.md')} (the standards note)`])
 })
 
+test('a repo whose name can name a note has no other: a file it lists in the standards folder is listed and not marked', () => {
+  const web = { ...WEB, standards: ['standards/api.md', 'standards/house.md'] }
+  const root = tree(acme({ ...FILES, 'standards/house.md': '# House\n' }, { repos: [web, API] }))
+
+  assert.equal(standards(root, 'web').stdout, ['Standards for repo web:', `- ${join(root, 'standards/api.md')}`, `- ${join(root, 'standards/house.md')}`, 'No checks recorded for repo web.', ''].join('\n'))
+  assert.deepEqual((JSON.parse(standards(root, 'web', '--json').stdout) as { standards: { note: boolean }[] }[])[0].standards.map(file => file.note), [false, false])
+  assert.doesNotMatch(run(['resolve', 'web'], { cwd: root }).stdout, /standards of the repo/)
+})
+
+test('a repo whose name cannot name a note is never given the note named after another repo', () => {
+  const tools = { name: '.tools', path: 'api', standards: ['standards/api.md', 'standards/tools.md'] }
+  const borrowing = { name: '@acme/site', path: 'web', standards: ['standards/api.md'] }
+  const root = tree(acme({ ...FILES, 'standards/tools.md': '# tools\n' }, { repos: [API, tools, borrowing] }))
+
+  assert.deepEqual(standards(root, '.tools').stdout.split('\n').slice(0, 3), ['Standards for repo .tools:', `- ${join(root, 'standards/api.md')}`, `- ${join(root, 'standards/tools.md')} (the standards note)`])
+  assert.deepEqual(standards(root, '@acme/site').stdout.split('\n').slice(0, 2), ['Standards for repo @acme/site:', `- ${join(root, 'standards/api.md')}`])
+})
+
+test('two repos whose names cannot name a note may list one note between them', () => {
+  const shared = ['standards/tools.md']
+  const root = tree(acme({ 'standards/tools.md': '# tools\n' }, { repos: [{ name: '.tools', path: 'api', standards: shared }, { name: '@acme/site', path: 'web', standards: shared }] }))
+
+  for (const name of ['.tools', '@acme/site']) assert.equal(standards(root, name).stdout.split('\n')[1], `- ${join(root, 'standards/tools.md')} (the standards note)`, name)
+})
+
 test('a map that does not keep standards as a kind of note has no standards note, whatever sits in a folder of that name', () => {
   const root = tree(acme({ 'standards/api.md': '# A handbook, not a note\n', 'repos/api.md': '# api\n' }, { nodeDirs: ['repos', 'concepts', 'edges', 'work'], repos: [WEB, { name: 'api' }] }))
 
