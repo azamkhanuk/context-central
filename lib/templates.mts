@@ -16,6 +16,7 @@ const PARTS: Record<string, string | undefined> = {
   edges: 'where one repo meets another, each row marked verified or inferred.',
   decisions: 'numbered records of what was decided and why.',
   docs: 'longer reference notes.',
+  standards: 'one note per repo: how its code is designed, written, tested and reviewed, each rule with its source.',
   log: 'dated notes, one file a month.',
 }
 
@@ -54,6 +55,8 @@ const NODE_TEMPLATES: Record<string, (title: string) => string> = {
   areas: title => `# ${title}\n\n## What it covers\n\n## Traps\n`,
   edges: title =>
     `# ${title}\n\nStatus is \`verified\` (checked in the code) or \`inferred\` (read from names or documents).\n\n| From | To | Status |\n|---|---|---|\n`,
+  standards: title =>
+    `# ${title}\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n`,
 }
 
 export function nodeTemplate(kind: string, title: string) {

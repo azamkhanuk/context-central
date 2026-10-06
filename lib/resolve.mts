@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, posix } from 'node:path'
+import { join, posix, relative, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
+import { standardsFiles } from './estate.mts'
 import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
@@ -53,7 +54,7 @@ interface Scored {
   matched: string[]
 }
 
-const KIND_RANK = ['concepts', 'edges', 'areas', 'repos', 'decisions', 'docs']
+const KIND_RANK = ['concepts', 'edges', 'areas', 'repos', 'standards', 'decisions', 'docs']
 const MIN_ID_LENGTH = 5
 const MORE_MAX = 20
 const LABEL_CHARS = 80
@@ -295,8 +296,18 @@ function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   const rel = `repos/${name}.md`
   if (!existsSync(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
-  const rest = linkedFrom(estate, note).map(linked => pointer(estate, linked, 'linked from the repo note'))
-  return resolution({ by, key: `repo:${name}`, name, label: `repo ${name}`, ...capped([pointer(estate, rel, 'repo note')], rest, max) })
+  const standards = standardsNote(estate, name)
+  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, 'standards of the repo')] : [])]
+  const rest = linkedFrom(estate, note)
+    .filter(linked => linked !== standards)
+    .map(linked => pointer(estate, linked, 'linked from the repo note'))
+  return resolution({ by, key: `repo:${name}`, name, label: `repo ${name}`, ...capped(first, rest, max) })
+}
+
+function standardsNote(estate: Estate, name: string) {
+  const repo = estate.config.repos.find(candidate => candidate.name === name)
+  const note = repo && standardsFiles(estate, repo).find(file => file.note)
+  return note && relative(estate.mapDir, note.path).split(sep).join('/')
 }
 
 function linkedFrom(estate: Estate, node: NodeText) {

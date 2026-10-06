@@ -9,7 +9,7 @@ const tree = disposable()
 
 const { contextCentral, ...ACME_ANSWERS } = ACME_CONFIG
 const CONFIG = { ...ACME_ANSWERS, writeRules: ['Never push without asking.', 'Tracker comments need approval.'] }
-const NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'log', 'work']
+const NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work']
 
 const answers = (overrides = {}, files = {}) => tree(makeTree({ 'answers.json': { layout: 'root', git: false, config: CONFIG, ...overrides }, ...files }))
 const init = (root: string, ...flags: string[]) => run(['init', '--from', 'answers.json', ...flags], { cwd: root })
@@ -36,6 +36,13 @@ test('a map at the estate root gets its config, node folders, hub and glossary',
   assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { contextCentral: 1, ...CONFIG })
   assert.match(read(root, 'estate.json'), /^\{\n {2}"contextCentral": 1,\n/)
   for (const dir of NODE_DIRS) assert.ok(existsSync(join(root, dir)))
+})
+
+test('a new hub says what the standards folder holds', () => {
+  const root = answers()
+  init(root)
+
+  assert.match(read(root, 'CLAUDE.md'), /^- `standards\/`: one note per repo: how its code is designed, written, tested and reviewed, each rule with its source\.$/m)
 })
 
 test('the map it writes is one the plugin then finds', () => {

@@ -29,7 +29,7 @@ Its six parts, each replaced with what is true now:
 - **Next**: the next action, concrete enough to start cold.
 - **Blocked**: what is waiting, and on whom or what.
 - **Standing traps**: what would catch out someone new to this item.
-- **Where the detail lives**: paths to the spec, the notes, the saved sources and the evidence note.
+- **Where the detail lives**: paths to the spec, the design when there is one, the notes, the saved sources and the evidence note.
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 
@@ -41,6 +41,8 @@ A trap or fact that the next item will also meet goes in the repo's note (`repos
 
 A term the estate uses with a meaning of its own (a word, an abbreviation, the name of a system) goes in `glossary.md` at the root of the map, in that file's entry format. Read the file first. Write a term only when its meaning was stated: by the person in this session, or in text on disk that you can name. A meaning you worked out yourself is not stated, even where this session wrote it down. When the person corrected a term, rewrite its entry where it stands and add the word they ruled out to its `_Avoid_` line; never add a second entry for one term. A new entry has its `_Avoid_` line too: it holds the words that were ruled out for the term, never synonyms of your own, and is left empty when none were. A term that was used and never defined is not written, and an entry that a source disagrees with is left as it is unless the person ruled on it. If the map has no `glossary.md`, write none: the closing report says it is missing and carries the terms and their stated meanings. A session that met no term leaves the glossary alone and says nothing about it.
 
+A rule for how a repo's code is designed, written, tested or reviewed goes in that repo's standards note, the file `context-central standards <repo>` marks `(the standards note)`. Write a rule only when it was stated: by the person in this session, or as a reviewer's finding the person accepted. A rule you worked out yourself is not stated, even where the code follows it. Put it under the part it belongs to (Design, Code, Tests or Review) and end it with its source: who said it and the date, or the finding's `file:line`. When the person corrected a rule, rewrite it where it stands; never add a second rule for one matter. If no file is marked, the repo has no standards note and none is written, in any other file either: the closing report carries the rules and says that `/context-central:standards <repo>` makes the note. A session that met no such rule leaves the note alone and says nothing about it.
+
 ## 6. Log
 
 Run `context-central note "<item>: <what changed, in one line>"`.
@@ -51,4 +53,4 @@ Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `B
 
 ## 8. Say what was not recorded
 
-End with the paths written, and anything from the session that was left out and why. Name each glossary entry added or changed and where its meaning came from, each term left for the person to define, and each entry a source disagrees with.
+End with the paths written, and anything from the session that was left out and why. Name each glossary entry added or changed and where its meaning came from, each term left for the person to define, and each entry a source disagrees with. Name each standards rule added or changed and who stated it.

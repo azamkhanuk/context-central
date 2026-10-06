@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, accountFault, chosenAmong, kindOf, listed, parametersOf, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { findWorkItem } from '../nodes.mts'
+import { findWorkItem, makeFolder } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -46,8 +46,7 @@ export function run(args: string[], io: Io) {
   const { day } = localDate(io.env)
   const laid = laidOut(preset, reading, printed, day) ?? asPrinted(connection, kind, asked, printed, day)
   if (!item) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
-  const sourcesAbs = join(estate.mapDir, item.dirRel, 'sources')
-  mkdirSync(sourcesAbs, { recursive: true })
+  const sourcesAbs = makeFolder(estate.mapDir, `${item.dirRel}/sources`)
   const name = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
   writeFileSync(join(sourcesAbs, name), laid.text, { flag: 'wx' })
   io.out(laid.digest)

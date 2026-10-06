@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync } from 'node:fs'
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, onlyOnWindows, run } from './helpers.mts'
@@ -58,7 +58,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root)
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   evidence', 'ok   hooks', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   hooks', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -458,6 +458,7 @@ test('json lists every check with its fix and its note', () => {
     { check: 'links', ok: true, fix: null, note: null },
     { check: 'repos', ok: true, fix: null, note: null },
     { check: 'git', ok: true, fix: null, note: null },
+    { check: 'notes', ok: true, fix: null, note: null },
     { check: 'evidence', ok: true, fix: null, note: null },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
@@ -569,4 +570,76 @@ test('tracked evidence with no ignore rule is first told to ignore the folder, a
     evidenceLine(doctor(ruled.root, ruled.env)),
     `FIX  evidence: evidence is set to stay out of git and git already tracks ${ACME_SHOT} and 1 more; run git rm --cached on each, or set "evidence.commit" to true in estate.json`,
   )
+})
+
+const KEPT = '/*\n!/.gitignore\n!/estate.json\n!/CLAUDE.md\n!/repos/\n!/concepts/\n!/edges/\n'
+const notesLine = (result: Result) => result.stdout.split('\n').find(line => line.includes(' notes'))
+
+test('a note folder git ignores, in a map git otherwise keeps, is a fix that names the folder', () => {
+  const { root, env } = repository({ '.gitignore': `${KEPT}!/work/\n`, 'standards/api.md': '# api\n' })
+
+  const result = doctor(root, env)
+
+  assert.equal(notesLine(result), "FIX  notes: git ignores standards/ while it keeps the rest of the map, so notes there are never committed; allow it in the map's .gitignore")
+  assert.equal(result.code, 1)
+})
+
+test('several ignored note folders are named together', () => {
+  const { root, env } = repository({ '.gitignore': KEPT, 'standards/api.md': '# api\n' })
+
+  assert.equal(notesLine(doctor(root, env)), "FIX  notes: git ignores standards/, work/ while it keeps the rest of the map, so notes there are never committed; allow them in the map's .gitignore")
+})
+
+test('note folders that git keeps pass, and so does a folder the map does not have yet', () => {
+  const { root, env } = repository({ '.gitignore': `${KEPT}!/work/\n` })
+  const allowed = repository({ '.gitignore': `${KEPT}!/work/\n!/standards/\n`, 'standards/api.md': '# api\n' })
+
+  assert.equal(notesLine(doctor(root, env)), 'ok   notes')
+  assert.equal(notesLine(doctor(allowed.root, allowed.env)), 'ok   notes')
+})
+
+test('a map that git ignores as a whole is not asked about its note folders', () => {
+  const { root, env } = repository({ '.gitignore': '/*\n', 'standards/api.md': '# api\n' })
+
+  assert.equal(notesLine(doctor(root, env)), 'ok   notes')
+})
+
+test('a map made before standards was a kind of note, and kept in git, is told its new folder is ignored', () => {
+  const answers = { layout: 'root', git: true, config: { name: 'acme', nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'log', 'work'] } }
+  const root = tree(makeTree({ 'answers.json': answers }))
+  const env = realGit()
+  run(['init', '--from', 'answers.json'], { cwd: root, env })
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+  const upgraded = JSON.parse(readFileSync(join(root, 'estate.json'), 'utf8')) as { [key: string]: Json }
+  delete upgraded.nodeDirs
+  writeFileSync(join(root, 'estate.json'), JSON.stringify(upgraded))
+  run(['note', '--new', 'standards/api'], { cwd: root, env })
+
+  assert.equal(notesLine(doctor(root, env)), "FIX  notes: git ignores standards/ while it keeps the rest of the map, so notes there are never committed; allow it in the map's .gitignore")
+})
+
+test('a note folder the map ignores by name is the estate\'s choice, not a fix', () => {
+  const { root, env } = repository({ '.gitignore': '/work/\n/standards/*\n', 'standards/api.md': '# api\n' })
+
+  assert.equal(notesLine(doctor(root, env)), 'ok   notes')
+})
+
+test('an inner map with an allow-list that leaves a note folder out is told so', () => {
+  const root = tree(makeTree({
+    '.context-central/estate.json': { contextCentral: 1, name: 'acme' },
+    '.context-central/.gitignore': '/*\n!/.gitignore\n!/estate.json\n!/repos/\n',
+    '.context-central/repos/app.md': '# app\n',
+    '.context-central/standards/app.md': '# app\n',
+    'CLAUDE.md': '# Acme\n',
+  }))
+  const env = realGit()
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+
+  assert.equal(notesLine(doctor(root, env)), "FIX  notes: git ignores standards/ while it keeps the rest of the map, so notes there are never committed; allow it in the map's .gitignore")
+})
+
+test('a node folder named with a closing slash is printed with one', () => {
+  const { root, env } = repository({ '.gitignore': KEPT, 'standards/api.md': '# api\n' }, { nodeDirs: ['repos', 'concepts', 'edges', 'standards/', 'work'] })
+
+  assert.match(notesLine(doctor(root, env)) ?? '', /^FIX {2}notes: git ignores standards\/, work\/ while/)
 })

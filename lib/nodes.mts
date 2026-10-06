@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve, sep } from 'node:path'
+import { PluginError } from './errors.mts'
 import { firstHeading, headings, parseFrontmatter, withoutCode } from './text.mts'
 import type { Estate, Settings } from './estate.mts'
 import type { Frontmatter, Parsed } from './text.mts'
@@ -96,7 +97,7 @@ export function isEvidence(config: Settings, rel: string) {
 
 export function listFiles(estate: Estate) {
   return estate.config.nodeDirs
-    .filter(dir => existsSync(join(estate.mapDir, dir)))
+    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory())
     .flatMap(dir => walk(estate.mapDir, dir))
     .filter(rel => !estate.config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`)))
     .filter(rel => !isEvidence(estate.config, rel))
@@ -135,9 +136,18 @@ export function resolveLink(estate: Estate, fromRel: string, link: Link) {
   return workItemIds(estate).includes(target.slice(workPrefix.length)) ? (workItem(estate, target.slice(workPrefix.length))?.entry?.rel ?? null) : null
 }
 
+export function makeFolder(mapDir: string, rel: string) {
+  const parts = rel.split('/')
+  const taken = parts.map((_, depth) => parts.slice(0, depth + 1).join('/')).find(above => statSync(join(mapDir, above), { throwIfNoEntry: false })?.isDirectory() === false)
+  if (taken) throw new PluginError(`${taken} is a file, not a folder, so nothing can be written under it`)
+  const path = join(mapDir, rel)
+  mkdirSync(path, { recursive: true })
+  return path
+}
+
 export function workItemIds(estate: Estate) {
   const workAbs = join(estate.mapDir, estate.config.workDir)
-  if (!existsSync(workAbs)) return []
+  if (!isFolder(workAbs)) return []
   const ids = new Set<string>()
   for (const entry of readdirSync(workAbs, { withFileTypes: true })) {
     if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue
@@ -174,7 +184,7 @@ function workItem(estate: Estate, id: string): WorkItem | null {
   const dirRel = `${workDir}/${id}`
   const noteRel = `${workDir}/${id}.md`
   const evidenceRel = `${dirRel}/${EVIDENCE_DIR}`
-  const inFolder = existsSync(join(estate.mapDir, dirRel))
+  const inFolder = isFolder(join(estate.mapDir, dirRel))
     ? walk(estate.mapDir, dirRel)
         .filter(rel => !isEvidence(estate.config, rel))
         .map(rel => describe(estate, rel))

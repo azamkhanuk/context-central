@@ -106,6 +106,18 @@ test('a new area note says what it covers and its traps', () => {
   assert.equal(read(root, 'areas/checkout.md'), '# Checkout\n\n## What it covers\n\n## Traps\n')
 })
 
+test('a new standards note has a part for each phase and says where a rule comes from', () => {
+  const root = tree(acme())
+
+  const result = note(root, ['--new', 'standards/api'])
+
+  assert.equal(result.stdout, 'standards/api.md\n')
+  assert.equal(
+    read(root, 'standards/api.md'),
+    '# api\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n',
+  )
+})
+
 test('a new edge note is a table of crossings, each marked verified or inferred', () => {
   const root = tree(acme())
 
@@ -160,7 +172,7 @@ test('work items and the log are not made with note --new', () => {
     const result = note(root, ['--new', target])
 
     assert.equal(result.code, 2, target)
-    assert.match(result.stderr, /repos, areas, concepts, edges, decisions, docs/)
+    assert.match(result.stderr, /repos, areas, concepts, edges, decisions, docs, standards\n$/)
   }
 })
 
@@ -289,4 +301,13 @@ test('an empty title falls back to the name', () => {
   note(root, ['--new', 'concepts/token-bucket', '--title', ''])
 
   assert.equal(read(root, 'concepts/token-bucket.md'), '# token-bucket\n')
+})
+
+test('a note is refused in plain words when a file stands where its folder would go', () => {
+  const root = tree(acme({ standards: 'a file\n', decisions: 'a file\n', log: 'a file\n' }))
+  const refused = (what: string) => ({ code: 1, stdout: '', stderr: `context-central note: ${what} is a file, not a folder, so nothing can be written under it\n` })
+
+  assert.deepEqual(note(root, ['--new', 'standards/api']), refused('standards'))
+  assert.deepEqual(note(root, ['--new', 'decisions/limits']), refused('decisions'))
+  assert.deepEqual(note(root, ['Gateway', 'limits', 'agreed']), refused('log'))
 })

@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { requireEstate } from '../estate.mts'
+import { NODE_NAME, requireEstate } from '../estate.mts'
+import { makeFolder } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -15,7 +16,6 @@ interface Flags {
 
 export const summary = 'Log a line: note <text>. Start a node: note --new <kind>/<name> [--title <title>]'
 
-const NODE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const NUMBERED = /^(\d+)-(.+)\.md$/
 const FIRST_FLAG = /^--(new|title)(=.*)?$/s
 
@@ -41,7 +41,7 @@ function log(estate: Estate, text: string, io: Io) {
   const rel = `log/${month}.md`
   const path = join(estate.mapDir, rel)
   const before = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  mkdirSync(dirname(path), { recursive: true })
+  makeFolder(estate.mapDir, 'log')
   writeFileSync(path, underDay(before.trim() ? before : `# ${month}\n`, day, `- ${text}`))
   io.out(rel)
 }
@@ -68,7 +68,7 @@ function create(estate: Estate, target: string, title: string | undefined, io: I
   const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, name, title || name)
   const path = join(estate.mapDir, rel)
   if (existsSync(path)) throw new PluginError(`${rel} already exists`)
-  mkdirSync(dirname(path), { recursive: true })
+  makeFolder(estate.mapDir, kind)
   writeFileSync(path, text, { flag: 'wx' })
   io.out(rel)
 }
@@ -88,7 +88,7 @@ function decision(estate: Estate, slug: string, title: string) {
 
 function decisions(estate: Estate) {
   const dir = join(estate.mapDir, 'decisions')
-  if (!existsSync(dir)) return []
+  if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return []
   return readdirSync(dir)
     .map(file => ({ file, match: NUMBERED.exec(file) }))
     .filter(entry => entry.match)

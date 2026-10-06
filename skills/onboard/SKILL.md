@@ -32,7 +32,7 @@ Send every unsettled question in one message, numbered, each with the answer you
 7. For each connection, one reference the person can read through it (a ticket, a pull request), so that step 5 can prove it.
 8. Per repo: the base branch (recommend `defaultBranch`), where the key goes (branch name, commit subject, PR title), the commit style, and which connection holds its pull requests when more than one does.
 9. Write rules: what may be posted outside the map (ticket comments, transitions, PR comments, pushes) and which of those need approval each time.
-10. Whether implement writes tests, and whether it runs a review.
+10. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks. Recommend three.
 11. Estate skills the plugin should defer to for implementing.
 
 Done when every question has an answer or an explicit "none".
@@ -58,7 +58,7 @@ Show the draft in this shape and wait for a yes. Omit a key that has no value. A
       "notes": { "holds": "meetings", "how": "how a person gets at them" }
     },
     "writeRules": ["one rule per line, as the person worded it"],
-    "implement": { "tests": true, "review": true, "deferTo": "" }
+    "implement": { "tests": true, "review": true, "deferTo": "", "reviewRounds": 3 }
   }
 }
 ```
@@ -105,4 +105,4 @@ Seed `glossary.md` in the entry format `init` wrote there, from the terms the in
 
 Run `context-central doctor`. Fix each `FIX` line you can, pass on each `note` line as it stands, and report the rest with what the person has to do.
 
-Finish by telling the person to restart the session or run `/clear`, so the hub loads.
+Finish by telling the person to restart the session or run `/clear`, so the hub loads, and that `/context-central:standards <repo>` records how a repo's code is written and checked once work starts in it.

@@ -12,8 +12,20 @@ _Avoid_: root file, index, readme
 **Glossary**: The map's `glossary.md`: the estate's terms, one entry each, with the words that are not used for each. It sits at the root of the map and is not a node, so the resolver never lists it.
 _Avoid_: dictionary, vocabulary, terminology
 
-**Node**: One Markdown file in the map about one lasting subject: a repo, an area, a concept, an edge between repos, or a decision.
+**Node**: One Markdown file in the map about one lasting subject: a repo, an area, a concept, an edge between repos, a decision, or a repo's standards.
 _Avoid_: page, doc, article
+
+**Design**: A work item's `DESIGN.md`: how its spec will be built in this repo, as the modules, their interfaces, each choice with its reason, and the slices in order. It names files and lines, so it carries the commit it was written at. A small item has none.
+_Avoid_: technical spec, plan, architecture document
+
+**Review round**: One run of the reviewer for each repo a build touches. The estate sets how many a build may have, three unless it says otherwise, and a build whose last round still brings a finding that needs a fix stops and asks.
+_Avoid_: iteration, loop, pass
+
+**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it. The plugin ships none and knows no language.
+_Avoid_: style guide, coding guidelines, rulebook, skill
+
+**Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, and work is verified only when every one exits 0.
+_Avoid_: quality gate, pipeline, score
 
 **Work item**: One piece of work in flight or done, kept as a folder under `work/` and named by a ticket key or a plain name.
 _Avoid_: ticket, task, issue, story

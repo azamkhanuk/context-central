@@ -1,9 +1,9 @@
-import { copyFileSync, constants, mkdirSync, statSync } from 'node:fs'
+import { copyFileSync, constants, statSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { EVIDENCE_DIR, findWorkItem } from '../nodes.mts'
+import { EVIDENCE_DIR, findWorkItem, makeFolder } from '../nodes.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
 
@@ -23,7 +23,7 @@ export function run(args: string[], io: Io) {
   if (!item) throw new PluginError(`no work item "${values.item}"`)
   const extension = EXTENSION.test(extname(from)) ? extname(from) : ''
   const rel = `${item.dirRel}/${EVIDENCE_DIR}/${dated(values.as ?? basename(from, extension), localDate(io.env).day)}${extension.toLowerCase()}`
-  mkdirSync(join(estate.mapDir, item.dirRel, EVIDENCE_DIR), { recursive: true })
+  makeFolder(estate.mapDir, `${item.dirRel}/${EVIDENCE_DIR}`)
   copy(from, join(estate.mapDir, rel), rel)
   io.out(`saved: ${rel} (${formatBytes(size)})`)
 }

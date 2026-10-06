@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, acme, disposable, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
@@ -380,4 +380,28 @@ test('--ticket does not go with list, done or reopen', () => {
 
   assert.equal(run(['work', 'list', '--ticket', '#41'], { cwd: root }).code, 2)
   assert.equal(run(['work', 'done', 'PROJ-12', '--ticket', '#41'], { cwd: root }).code, 2)
+})
+
+const WORK_IS_A_FILE = { 'estate.json': { contextCentral: 1, name: 'acme', title: 'Acme estate' }, 'CLAUDE.md': '# Acme estate\n', work: 'kept by the estate for something else\n' }
+const NOT_A_FOLDER = 'is a file, not a folder, so nothing can be written under it'
+
+test('a file where the work folder would be is no work in flight, to every command that reads the map', () => {
+  const root = tree(makeTree(WORK_IS_A_FILE))
+  const at = (...args: string[]) => run(args, { cwd: root })
+
+  assert.deepEqual(at('work', 'list'), { code: 0, stdout: 'No work in flight.\n', stderr: '' })
+  assert.deepEqual(at('work', 'list', '--all', '--json'), { code: 0, stdout: '[]\n', stderr: '' })
+  assert.deepEqual(at('index'), { code: 0, stdout: [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.', ''].join('\n'), stderr: '' })
+  assert.deepEqual(at('lint'), { code: 0, stdout: 'ok\n', stderr: '' })
+  assert.deepEqual(at('graph'), { code: 0, stdout: '0 nodes, 0 links\n', stderr: '' })
+  assert.deepEqual(at('resolve', 'PROJ-12'), { code: 0, stdout: 'No confident match for "PROJ-12".\n', stderr: '' })
+  assert.deepEqual(at('work', 'done', 'PROJ-12'), { code: 1, stdout: '', stderr: 'context-central work: no work item "PROJ-12"\n' })
+})
+
+test('a new work item is refused in plain words when a file stands where a folder would go', () => {
+  const noFolder = tree(makeTree(WORK_IS_A_FILE))
+  const taken = tree(acme({ 'work/PROJ-13': 'a file with the name the item would take\n' }))
+
+  assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: noFolder }), { code: 1, stdout: '', stderr: `context-central work: work ${NOT_A_FOLDER}\n` })
+  assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: taken }), { code: 1, stdout: '', stderr: `context-central work: work/PROJ-13 ${NOT_A_FOLDER}\n` })
 })

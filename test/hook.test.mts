@@ -450,3 +450,20 @@ test('a prompt that ends where a pattern could match nothing is met with silence
 
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what now?' }))
 })
+
+test('a prompt that names a repo is pointed at its standards note', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const pointers = context(fire('user-prompt-submit', { cwd: root, prompt: 'what does the api repo do with limits?' })).split('\n')
+
+  assert.equal(pointers[0], 'Context for repo api:')
+  assert.equal(pointers[2], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
+})
+
+test('a file where the work folder would be still gets a session its index', () => {
+  const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', title: 'Acme estate' }, 'CLAUDE.md': '# Acme estate\n', work: 'a file\n' }))
+
+  const started = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
+
+  assert.equal(context(started), [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.'].join('\n'))
+})
