@@ -566,6 +566,12 @@ test('nothing calls an unfixed finding one that stands, which is what implement 
   for (const file of ['README.md', 'CONTEXT.md']) assert.doesNotMatch(readFileSync(join(REPO, file), 'utf8'), /finding[^.|]*\bstanding\b/, file)
 })
 
+test('a review round count that is not a whole number of one or more is still a setting the plugin reads', () => {
+  const root = tree(acme({}, { implement: { review: true, reviewRounds: 0 } }))
+
+  assert.equal(run(['config', '--get', 'implement.reviewRounds'], { cwd: root }).stdout, '0\n')
+})
+
 test('a build across repos reviews each, and no run counts another repo\'s work as missing', () => {
   assert.ok(step('implement', '5. Review').includes('When the work touches more than one repo, tell each run which the others are.'))
   assert.ok(agentText('reviewer').includes('When your prompt says the work touches other repos as well, a requirement or a slice that belongs to one of them is not missing from this diff.'))
