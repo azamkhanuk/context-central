@@ -1,8 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { list, patterns, strings, text } from './checks.mts'
+import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
+import type { Fail } from './checks.mts'
 import type { Io } from './cli.mts'
+import type { Connection, Connections } from './connections.mts'
 
 export const CONFIG_FILE = 'estate.json'
 export const INNER_DIR = '.context-central'
@@ -63,6 +67,7 @@ export interface Settings {
   legacyHooks: string[]
   repos: Repo[]
   tracker: Tracker
+  connections: Connections
   evidence: EvidenceSettings
   budgets: Budgets
   codeHost?: CodeHost
@@ -85,6 +90,8 @@ interface WrittenSettings {
   legacyHooks?: unknown
   repos?: unknown
   tracker?: { type?: string; keyPatterns?: unknown }
+  connections?: unknown
+  sources?: unknown
   evidence?: { commit?: unknown } | null
   budgets?: Partial<Budgets>
   codeHost?: CodeHost
@@ -100,11 +107,10 @@ export interface MapLocation {
 
 export interface Estate extends MapLocation {
   config: Settings
+  unasked: Connection[]
 }
 
 export type Coverage = 'root' | 'inside' | 'node' | `repo:${string}`
-
-type Fail = (message: string) => never
 
 export function findEstate(startDir: string): MapLocation | null {
   let dir = resolve(startDir)
@@ -120,7 +126,10 @@ export function findEstate(startDir: string): MapLocation | null {
 
 export function loadEstate(startDir: string): Estate | null {
   const found = findEstate(startDir)
-  return found && { ...found, config: readConfig(found.configPath) }
+  if (!found) return null
+  const written = readWritten(found.configPath)
+  const config = validateConfig(written, found.configPath)
+  return { ...found, config, unasked: unaskedOn(written as WrittenSettings, config.connections) }
 }
 
 export function requireEstate(io: Io) {
@@ -163,14 +172,12 @@ function isPluginConfig(path: string) {
   }
 }
 
-function readConfig(path: string) {
-  let raw: unknown
+function readWritten(path: string): unknown {
   try {
-    raw = JSON.parse(withoutBom(readFileSync(path, 'utf8')))
+    return JSON.parse(withoutBom(readFileSync(path, 'utf8')))
   } catch (error) {
     throw new ConfigError(`${path}: not valid JSON (${(error as Error).message})`)
   }
-  return validateConfig(raw, path)
 }
 
 export function validateConfig(raw: unknown, label: string) {
@@ -184,6 +191,8 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   if (raw.contextCentral !== SCHEMA) fail(`"contextCentral" is ${JSON.stringify(raw.contextCentral)}; this version reads ${SCHEMA}`)
   if (typeof raw.name !== 'string' || !raw.name) fail('"name" must be a non-empty string')
   const tracker = raw.tracker ?? {}
+  const keyPatterns = patterns(tracker.keyPatterns ?? [], 'tracker.keyPatterns', fail)
+  const repos = list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail))
   return {
     ...raw,
     title: text(raw.title ?? raw.name, 'title', fail),
@@ -195,8 +204,9 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     deepDirs: strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail),
     deepPatterns: strings(raw.deepPatterns ?? ['*-full-text.md'], 'deepPatterns', fail),
     legacyHooks: strings(raw.legacyHooks ?? [], 'legacyHooks', fail),
-    repos: list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail)),
-    tracker: { type: 'none', ...tracker, keyPatterns: keyPatterns(tracker.keyPatterns ?? [], fail) },
+    repos,
+    tracker: { type: 'none', ...tracker, keyPatterns },
+    connections: raw.connections === undefined ? connectionsOfOldMap(raw, keyPatterns) : readConnections(raw.connections, repos.map(repo => repo.name), fail),
     evidence: evidence(raw.evidence, fail),
     budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) },
   }
@@ -208,38 +218,10 @@ function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
   return { path: entry.name, ...entry }
 }
 
-function keyPatterns(value: unknown, fail: Fail) {
-  const sources = strings(value, 'tracker.keyPatterns', fail)
-  for (const source of sources) {
-    try {
-      new RegExp(source)
-    } catch {
-      fail(`tracker.keyPatterns: "${source}" is not a valid regular expression`)
-    }
-  }
-  return sources
-}
-
 function evidence(value: { commit?: unknown } | null = {}, fail: Fail): EvidenceSettings {
   const commit = value?.commit === undefined ? false : value.commit
   if (value === null || typeof value !== 'object' || Array.isArray(value) || typeof commit !== 'boolean') fail('"evidence.commit" must be true or false')
   return { ...value, commit }
-}
-
-function text(value: unknown, name: string, fail: Fail): string {
-  if (typeof value !== 'string' || !value) fail(`"${name}" must be text`)
-  return value
-}
-
-function strings(value: unknown, name: string, fail: Fail): string[] {
-  const items = list(value, name, fail)
-  if (items.some(item => typeof item !== 'string' || item === '')) fail(`"${name}" must be a list of non-empty strings`)
-  return items as string[]
-}
-
-function list(value: unknown, name: string, fail: Fail): unknown[] {
-  if (!Array.isArray(value)) fail(`"${name}" must be a list`)
-  return value
 }
 
 function fromPosix(path: string) {

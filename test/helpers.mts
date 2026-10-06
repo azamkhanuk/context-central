@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after } from 'node:test'
@@ -62,6 +62,25 @@ export function run(args: string[], { cwd = undefined, env = {}, stdin = '' }: R
 
 export function hook(event: string, input: unknown, options: RunOptions = {}) {
   return run(['hook', event], { ...options, stdin: JSON.stringify(input) })
+}
+
+export function pluginWith(presets: Record<string, string>) {
+  const plugin = makeTree({})
+  for (const folder of ['bin', 'lib']) cpSync(join(REPO, folder), join(plugin, folder), { recursive: true })
+  rmSync(join(plugin, 'lib', 'presets'), { recursive: true, force: true })
+  mkdirSync(join(plugin, 'lib', 'presets'))
+  for (const [name, text] of Object.entries(presets)) writeFileSync(join(plugin, 'lib', 'presets', `${name}.mts`), text)
+  return plugin
+}
+
+export function runIn(plugin: string, args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions = {}): Result {
+  return spawned(process.execPath, [join(plugin, 'bin', 'context-central'), ...args], { cwd, input: stdin, env })
+}
+
+export function standIns(scripts: Record<string, string>) {
+  const dir = makeTree(scripts)
+  for (const name of Object.keys(scripts)) chmodSync(join(dir, name), 0o755)
+  return dir
 }
 
 export const ACME_CONFIG = {
