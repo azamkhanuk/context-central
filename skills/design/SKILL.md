@@ -8,7 +8,7 @@ allowed-tools: Bash(context-central *)
 
 The work item: $ARGUMENTS
 
-Write the design of a work item that has a spec and no code yet. The spec says what is built and why. The design says how, in the repos it touches, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
+Write the design of a work item that has a spec, before its code is written, or revise the design when a build has shown it wrong. The spec says what is built and why. The design says how, in the repos it touches, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
 
 ## 1. Load the item
 
@@ -36,6 +36,6 @@ The design names files and lines, which the spec does not, so it carries the com
 
 ## 5. Show it
 
-Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" for an item that is designed and not built. Then show the person the Choices and the Slices in short, with every point where the design departs from the standards or could not follow the spec.
+Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built. Then show the person the Choices and the Slices in short, with every point where the design departs from the standards or could not follow the spec.
 
 The person approves by starting the build. Suggest a fresh session: `/clear`, then `/context-central:implement <item>`.

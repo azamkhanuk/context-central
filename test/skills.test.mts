@@ -532,7 +532,8 @@ test('a design linked from the state file is a pointer of its item, which is whe
 test('design is approved by starting the build, and a small item needs none', () => {
   const show = step('design', '5. Show it')
 
-  assert.ok(show.includes('rewrite "Where it stands" and "Next" for an item that is designed and not built'))
+  assert.ok(show.includes('rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built'))
+  assert.ok(skillText('design').includes('Write the design of a work item that has a spec, before its code is written, or revise the design when a build has shown it wrong.'))
   assert.ok(show.includes('every point where the design departs from the standards or could not follow the spec'))
   assert.ok(show.includes('The person approves by starting the build. Suggest a fresh session: `/clear`, then `/context-central:implement <item>`.'))
   assert.ok(skillText('design').includes('A small item needs none: `/context-central:implement <item>` builds from the spec alone.'))
@@ -542,7 +543,7 @@ test('implement follows a design when there is one, and builds from the spec alo
   assert.ok(step('implement', '1. Load the item').includes('When there is a `DESIGN.md` beside the spec, read it too. With none, the build goes from the spec alone.'))
   assert.ok(step('implement', '1. Load the item').includes('A design names the commit it was written at: where a file its anchors point at has changed since, say so before building.'))
   assert.ok(step('implement', '2. Read the estate\'s settings').includes('and with the design\'s path when there is one'))
-  assert.ok(step('implement', '3. Build in slices').startsWith('3. Build in slices\n\nWith a design, build its slices in its order. Without one, order the spec into vertical slices'))
+  assert.ok(step('implement', '3. Build in slices').startsWith('3. Build in slices\n\nWith a design, build its slices in its order, passing over any it marks as built. Without one, order the spec into vertical slices'))
   assert.ok(step('implement', '3. Build in slices').includes('A slice that shows the spec or the design to be wrong stops the build: say what was found and ask.'))
 })
 
@@ -550,10 +551,12 @@ test('implement stops the review at a ceiling of rounds, three unless the estate
   const review = step('implement', '5. Review')
 
   assert.ok(review.includes('A round is one run of the `context-central:reviewer` agent for each repo the work touches'))
-  assert.ok(review.includes('After a round, take each finding: fix it, or leave the code as it is and say why, which answers it.'))
-  assert.ok(review.includes('A round with nothing to fix ends the review. Otherwise make the fixes, repeat step 4, and run the next round on the new diff.'))
+  assert.ok(review.includes('After a round, take each finding: it needs a fix, or the code stays as it is and you say why, which answers it. A round with nothing to fix ends the review.'))
+  assert.ok(review.includes('When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff.'))
   assert.ok(review.includes('`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else.'))
-  assert.ok(review.includes('When the last round allowed brings a finding that needs a fix, stop the build there with it unfixed'))
+  assert.ok(review.includes('When the last round allowed brings one, make no fix: stop the build there'))
+  assert.ok(review.includes('What the person then asks for is done with no further round unless they ask for one.'))
+  assert.ok(review.indexOf('is the most rounds there may be') < review.indexOf('make the fixes'), 'the ceiling is read before any fix is made')
   assert.ok(review.includes('run step 7 so the state file says where the build stopped, and wait for the person'))
   assert.ok(step('implement', '6. Report').includes('how many review rounds were run'))
 })
@@ -563,10 +566,10 @@ test('nothing calls an unfixed finding one that stands, which is what implement 
   for (const file of ['README.md', 'CONTEXT.md']) assert.doesNotMatch(readFileSync(join(REPO, file), 'utf8'), /finding[^.|]*\bstanding\b/, file)
 })
 
-test('a review round count that is not a whole number of one or more is still a setting the plugin reads', () => {
-  const root = tree(acme({}, { implement: { review: true, reviewRounds: 0 } }))
-
-  assert.equal(run(['config', '--get', 'implement.reviewRounds'], { cwd: root }).stdout, '0\n')
+test('a build across repos reviews each, and no run counts another repo\'s work as missing', () => {
+  assert.ok(step('implement', '5. Review').includes('When the work touches more than one repo, tell each run which the others are.'))
+  assert.ok(agentText('reviewer').includes('When your prompt says the work touches other repos as well, a requirement or a slice that belongs to one of them is not missing from this diff.'))
+  assert.ok(readFileSync(join(REPO, 'CONTEXT.md'), 'utf8').includes('**Review round**: One run of the reviewer for each repo a build touches.'))
 })
 
 test('the reviewer holds the diff to a design it is given', () => {
