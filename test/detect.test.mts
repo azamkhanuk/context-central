@@ -337,6 +337,7 @@ for (const [remote, parts] of [
   ['git@ssh.dev.azure.com:v3/acme/Shop/api', { host: 'ssh.dev.azure.com', system: 'azure-devops', org: 'acme', project: 'Shop' }],
   ['https://acme.visualstudio.com/Shop/_git/api', { host: 'acme.visualstudio.com', system: 'azure-devops', org: 'acme', project: 'Shop' }],
   ['git@github.com:acme/api.git', { host: 'github.com', system: 'github', org: 'acme' }],
+  ['git@github.com-personal:acme/api.git', { host: 'github.com-personal', system: 'github', org: 'acme' }],
   ['git@code.acme.example:acme/api.git', { host: 'code.acme.example', system: null, org: null }],
 ] satisfies [string, { [part: string]: string | null }][]) {
   test(`the remote ${remote} is read by the preset that recognises it, or by none`, () => {

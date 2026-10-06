@@ -45,7 +45,8 @@ interface Shape {
 }
 
 const HOST = 'github.com'
-const REMOTE = /github\.com[:/](?<org>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/
+// An ssh host alias for a second key is written github.com-<name>.
+const REMOTE = /github\.com(?:-[\w.-]+)?[:/](?<org>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/
 const PULL_REQUEST: Shape = {
   word: 'pr',
   label: 'PR',
