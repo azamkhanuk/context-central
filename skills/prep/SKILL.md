@@ -12,6 +12,8 @@ The work item: $ARGUMENTS
 
 Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path. Read the state file and the research notes it points to.
 
+If the item has a ticket, which is the `ticket` line in the head of its state file, and its `sources/` holds no copy of it, read the ticket before anything else. Run `context-central connections`: where the ticket's connection is read by fetch, `context-central fetch ticket --item <item>` saves it and prints a digest; otherwise give the `context-central:fetcher` agent the connection's entry from `context-central config --get connections`, the reference and the path to save to. When neither reaches it, ask the person to paste it and save it in full. A spec is never written with a ticket unread.
+
 ## 2. Ask once
 
 List every question the spec needs answered that neither the conversation nor the notes settle. Send them all in one message, numbered, each with the answer you recommend and why. Wait for the reply.
@@ -42,7 +44,7 @@ Add each new domain term to `glossary.md` in the map, in that file's entry forma
 
 After the spec is saved, write a brief for the ticket in three parts: why, what, done when. The spec stays in the map; the tracker gets the brief only.
 
-Run `context-central config --get writeRules` and `context-central config --get tracker.route`. Post the brief through that route only when the write rules allow it and the person approves the exact text. Otherwise show the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed".
+Run `context-central config --get writeRules` and `context-central config --get connections`. Post the brief through the connection that holds the ticket only when the write rules allow it and the person approves the exact text: by the server's own tool for a comment, found with tool search, or by the estate's own command for `comment`. Otherwise show the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed". With no connection that holds the ticket, show the text.
 
 ## 7. Update the state file
 
