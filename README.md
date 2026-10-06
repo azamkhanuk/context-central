@@ -38,10 +38,11 @@ Two rules keep it honest:
 ## How it works for you
 
 1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map.
-2. **Start a session.** Claude already has the list of work in flight.
-3. **Name the work** in your prompt, by its ticket key or its plain name. Claude is pointed at its state file and the notes behind it.
-4. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, and `/context-central:implement` builds it one slice at a time.
-5. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
+2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
+3. **Start a session.** Claude already has the list of work in flight.
+4. **Name the work** in your prompt, by its ticket key or its plain name. Claude is pointed at its state file and the notes behind it.
+5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, and `/context-central:implement` builds it one slice at a time.
+6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
 ## Install
 
@@ -106,6 +107,7 @@ There are two layouts:
   CLAUDE.md            the hub: routing table, standing rules, where the parts are
   glossary.md          the estate's own terms
   repos/ areas/ concepts/ edges/ decisions/ docs/    nodes, one subject per file
+  standards/<repo>.md  how one repo's code is designed, written, tested and reviewed
   log/2026-01.md       dated one-line notes
   work/<item>/
     STATE.md           where the item stands and what is next
@@ -153,6 +155,51 @@ Evidence is any file under a work item's `evidence/` folder. The folder is for w
 - `graph` reports an evidence file no note names.
 - `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`.
 - `doctor` says when git and the setting disagree.
+
+## Standards and checks
+
+How a repo's code is written is the estate's to say. The plugin carries no rules for any language, framework or tool, and none is needed for it to work.
+
+A repo's entry in `estate.json` may carry two lists, both optional:
+
+```json
+{ "name": "api", "path": "api", "standards": ["standards/api.md", "api/CONTRIBUTING.md"], "checks": ["./check.sh tests", "./check.sh style"] }
+```
+
+- `standards`: files, counted from the estate root. The first is the repo's standards note. The rest are whatever the repo already keeps for people, listed here and not copied.
+- `checks`: commands, run from the repo's folder. The code passes when every one exits 0.
+
+A standards note has four parts, and every rule in it names its source: the file that shows it, or who said it and when. An example is a pointer to real code, never a pasted snippet. For the invented estate:
+
+```markdown
+# api
+
+Each rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.
+
+## Design
+
+- A route handler calls one service and never a store. Source: `api/src/orders/handler.js:12`.
+- Only the gateway opens a connection to another system. Said by the owner, 2026-01-12.
+
+## Code
+
+- An error names the route and the client it happened for. Source: `api/src/errors.js:8`.
+
+## Tests
+
+- Each module has one test file beside it, named after it. Source: `api/src/orders/handler.test.js:1`.
+
+## Review
+
+- A change to a limit comes with the test that shows the limit reached. Accepted from a review, 2026-01-14: `api/src/limits.js:40`.
+```
+
+- `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, asks what the files cannot answer, and writes both once you approve. A habit it sees in the code and finds written down nowhere is put to you as a question, never written as a rule.
+- `/context-central:implement` reads the standards before it builds, counts the work as verified only when every recorded check exits 0, and hands the standards to the reviewer.
+- `/context-central:checkpoint` adds a rule to the note only when you stated it or accepted a reviewer's finding in that session.
+- `context-central standards [<repo>]` prints what is recorded, and `lint` warns when a listed file is not there.
+
+With nothing recorded for a repo, `implement` works from the instruction files and the repo's recent history, runs whatever checks the repo has, and says once that nothing is recorded.
 
 ## What the hooks put in context
 
@@ -209,13 +256,14 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
-| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets |
+| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files exist |
 | `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, evidence against git, legacy hooks, `gh` |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch pr\|issue <ref> --item <item> [--repo <owner/name>]` | Save the full text of a GitHub PR or issue under the item's `sources/`, then print a digest |
 | `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
+| `standards [<repo>] [--json]` | Print a repo's standards files as absolute paths, marking one that is missing, and its recorded checks with the folder they run from |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
 | `init --print-settings` | Print the settings that enable the plugin for a map |
@@ -231,15 +279,16 @@ About `doctor`:
 
 ## Skills
 
-Typed with the plugin prefix. The first four run only when you invoke them; `checkpoint` may also be picked up by the model.
+Typed with the plugin prefix. All but the last run only when you invoke them; `checkpoint` may also be picked up by the model.
 
 | Skill | What it does |
 |---|---|
 | `/context-central:onboard` | Detects the estate, asks what is unsettled, writes the map, runs `doctor` |
+| `/context-central:standards <repo>` | Drafts one repo's standards note and its checks from what the repo declares, asks what is unsettled, writes both on your yes |
 | `/context-central:research <question> [item]` | Researches from primary sources, marks each claim verified or inferred, writes a note |
 | `/context-central:prep <item>` | Turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
-| `/context-central:implement <item>` | Builds from the state file and spec, one slice at a time, following the estate's settings for tests and review |
-| `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, the session's terms in the glossary, log line, then `lint` and `graph` |
+| `/context-central:implement <item>` | Builds from the state file and spec, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks |
+| `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, the session's terms in the glossary, the rules you stated in the repo's standards note, log line, then `lint` and `graph` |
 
 ## Agents
 
@@ -247,7 +296,7 @@ Typed with the plugin prefix. The first four run only when you invoke them; `che
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
 | `context-central:fetcher` | Fetches one ticket, PR, thread or meeting, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems |
-| `context-central:reviewer` | Reviews a diff against the spec and the estate's standing rules. Never edits |
+| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules and the repo's standards files when it is given them. Never edits |
 
 ## Working from a terminal
 
@@ -326,6 +375,7 @@ The map is plain Markdown and stays readable without the plugin.
 - It fetches from the command line through `gh` only (GitHub PRs and issues). Other trackers are reached through whatever tools your session already has, by the route recorded in `estate.json`.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
 - It does not ingest meetings, ship workflows, or include evals.
+- It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
 - On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:
   - Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool.
