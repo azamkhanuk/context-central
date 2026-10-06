@@ -2,6 +2,11 @@ import type { Entry, PresetBody } from '../presets.mts'
 
 const HOST = 'dev.azure.com'
 const SEGMENT = '[^/\\s]+'
+const REMOTES = [
+  /dev\.azure\.com\/(?<org>[^/]+)\/(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
+  /ssh\.dev\.azure\.com:v3\/(?<org>[^/]+)\/(?<project>[^/]+)\/(?<repo>[^/]+?)\/?$/,
+  /\/\/(?<org>[^./]+)\.visualstudio\.com\/(?:DefaultCollection\/)?(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
+]
 
 export default {
   program: 'az',
@@ -15,6 +20,10 @@ export default {
       references: entry => [`${projectAt(entry)}/_git/(?<repo>${SEGMENT})/pullrequest/(?<id>\\d+)`],
       read: ({ id, entry }) => ({ args: ['repos', 'pr', 'show', '--id', id, ...inOrganisation(entry), '--output', 'json'] }),
     },
+  },
+  remote: address => {
+    const found = REMOTES.map(shape => shape.exec(address)?.groups).find(Boolean)
+    return found ? { ...found } : null
   },
 } satisfies PresetBody
 

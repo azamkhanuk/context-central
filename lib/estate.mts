@@ -46,11 +46,6 @@ export interface EvidenceSettings {
   commit: boolean
 }
 
-export interface CodeHost {
-  type?: string
-  ghUser?: string
-}
-
 export type WriteRules = string | unknown[] | Record<string, unknown>
 
 export interface Settings {
@@ -70,7 +65,7 @@ export interface Settings {
   connections: Connections
   evidence: EvidenceSettings
   budgets: Budgets
-  codeHost?: CodeHost
+  codeHost?: unknown
   writeRules?: WriteRules
 }
 
@@ -94,7 +89,7 @@ interface WrittenSettings {
   sources?: unknown
   evidence?: { commit?: unknown } | null
   budgets?: Partial<Budgets>
-  codeHost?: CodeHost
+  codeHost?: unknown
   writeRules?: WriteRules
 }
 

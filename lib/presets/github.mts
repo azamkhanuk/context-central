@@ -1,4 +1,4 @@
-import type { Asked, Entry, Laid, PresetBody, Reading } from '../presets.mts'
+import type { Account, Asked, Entry, Laid, PresetBody, Reading } from '../presets.mts'
 
 interface Authored {
   author?: { login?: string } | null
@@ -45,6 +45,7 @@ interface Shape {
 }
 
 const HOST = 'github.com'
+const REMOTE = /github\.com[:/](?<org>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/
 const PULL_REQUEST: Shape = {
   word: 'pr',
   label: 'PR',
@@ -78,8 +79,28 @@ export default {
       read: asked => reading(PULL_REQUEST, asked),
     },
   },
+  remote: address => {
+    const found = REMOTE.exec(address)?.groups
+    return found ? { org: found.org, repo: found.repo } : null
+  },
+  accounts: {
+    args: ['auth', 'status'],
+    read: accountsIn,
+    fix: wanted => `the active gh account is not ${wanted}; run gh auth switch --user ${wanted}, or start each gh command with GH_TOKEN=$(gh auth token --user ${wanted})`,
+  },
   onOldMaps: { accountKey: 'ghUser', unasked: true },
 } satisfies PresetBody
+
+function accountsIn(printed: string) {
+  const accounts: Account[] = []
+  for (const line of printed.split('\n')) {
+    const login = /Logged in to \S+ (?:account|as) (\S+)/.exec(line)
+    const active = /Active account: (true|false)/.exec(line)
+    if (login) accounts.push({ user: login[1], active: true })
+    if (active && accounts.length > 0) accounts.at(-1)!.active = active[1] === 'true'
+  }
+  return accounts
+}
 
 function repoAt({ host, org }: Entry) {
   return `https://${literal(typeof host === 'string' && host ? host : HOST)}/${typeof org === 'string' && org ? literal(org) : '[\\w.-]+'}/(?<repo>[\\w.-]+)`

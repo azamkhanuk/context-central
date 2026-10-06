@@ -1,5 +1,5 @@
 import { isObject, patterns, strings } from './checks.mts'
-import { onPath } from './machine.mts'
+import { accountsOf, onPath } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
 import type { Env } from './cli.mts'
@@ -142,6 +142,15 @@ export function reachOf(connection: Connection, env: Env): Reach {
     fetch: here ? `context-central fetch ${word} <reference> --item <item>` : null,
     missing: reads && !here ? preset.program : null,
   }
+}
+
+export function accountFault({ entry }: Connection, env: Env) {
+  const preset = presetNamed(entry.preset)
+  if (!entry.account || !preset?.accounts || !onPath(preset.program, env)) return null
+  const active = accountsOf(preset, env)
+    .filter(account => account.active)
+    .map(account => account.user.toLowerCase())
+  return active.includes(entry.account.toLowerCase()) ? null : preset.accounts.fix(entry.account)
 }
 
 function patternsOf(connection: Connection) {

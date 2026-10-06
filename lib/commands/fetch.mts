@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { FETCH_WORDS, PULL_REQUESTS, TICKETS, holding, kindOf, listed, referenceOf } from '../connections.mts'
+import { FETCH_WORDS, PULL_REQUESTS, TICKETS, accountFault, holding, kindOf, listed, referenceOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -102,7 +102,10 @@ function started(preset: Preset, reading: Reading, connection: Connection, io: I
     throw new PluginError(`connection ${connection.name} is not read by fetch here: ${preset.program} is not on PATH${preset.hint ? `; ${preset.hint}` : ''}.${instead(connection)}`)
   }
   if (result.error) throw new PluginError(`${preset.program} failed: ${result.error.message}`)
-  if (result.status !== 0) throw new PluginError(`${preset.program} failed: ${firstLine(result.stderr) || `exit ${result.status}`}`)
+  if (result.status !== 0) {
+    const fault = accountFault(connection, io.env)
+    throw new PluginError(`${preset.program} failed: ${firstLine(result.stderr) || `exit ${result.status}`}${fault ? `; ${fault}` : ''}`)
+  }
   return result.stdout
 }
 

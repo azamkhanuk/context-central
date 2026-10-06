@@ -30,10 +30,23 @@ const DESK = `export default {
       references: () => [],
     },
   },
+  remote: address => {
+    const found = /desk\\.acme\\.example[:/](?<team>[^/]+)\\/(?<repo>[^/.]+)/.exec(address)
+    return found ? { ...found.groups } : null
+  },
+  accounts: {
+    args: ['whoami'],
+    read: printed => printed.split('\\n').filter(Boolean).map(line => ({ user: line.replace(/^\\* /, ''), active: line.startsWith('* ') })),
+    fix: wanted => 'the active desk account is not ' + wanted + '; run acmedesk login ' + wanted,
+  },
 }
 `
 const DESK_STAND_IN = `#!/bin/sh
 here="\${0%/*}"
+if [ "$1" = whoami ]; then
+  while IFS= read -r account; do printf '%s\\n' "$account"; done < "$here/accounts"
+  exit 0
+fi
 printf '%s\\n' "$@" > "$here/args"
 if [ -n "$DESK_FAIL" ]; then
   printf '%s\\n' "$DESK_FAIL" >&2
@@ -64,7 +77,7 @@ const estate = (settings: { [key: string]: Json }, files: TreeFiles = {}) => tre
 const DESK_PLUGIN = tree(pluginWith({ acmedesk: DESK }))
 const withDesk = () => DESK_PLUGIN
 const deskOnPath = () => ({ PATH: tree(standIns({ acmedesk: '#!/bin/sh\n' })) })
-const deskAnswering = (answer = TICKET_TEXT) => tree(standIns({ acmedesk: DESK_STAND_IN, answer }))
+const deskAnswering = (answer = TICKET_TEXT, accounts = '* dev-one\n') => tree(standIns({ acmedesk: DESK_STAND_IN, answer, accounts }))
 const fetch = (root: string, desk: string, args: string[], env: Env = {}) => runIn(withDesk(), ['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [desk, '/usr/bin', '/bin'].join(delimiter), ...env } })
 const argsGiven = (desk: string) => readFileSync(join(desk, 'args'), 'utf8').trimEnd().split('\n')
 const sources = (root: string, item = 'login-redirect') => readdirSync(join(root, 'work', item, 'sources'))
@@ -326,4 +339,69 @@ test("an identifier that could not be part of a file's name is made safe in it",
 
 test('--check and --item do not go together', () => {
   assert.equal(fetch(connected(), deskAnswering(), ['ticket', 'DESK-41', '--check', '--item', 'login-redirect']).code, 2)
+})
+
+const doctorLine = (root: string, env: Env) => runIn(withDesk(), ['doctor'], { cwd: root, env: { HOME: tree(makeTree({ '.keep': '' })), ...env } }).stdout.split('\n').find(line => line.includes('connections'))
+const BOT = { desk: { holds: 'tickets', preset: 'acmedesk', account: 'acme-bot' } }
+
+test('doctor notes a connection whose only way is a preset whose program is not on the PATH', () => {
+  const root = connected({ desk: { holds: 'tickets', preset: 'acmedesk' }, spare: { holds: 'tickets', preset: 'acmedesk', server: 'issues' } })
+
+  const result = runIn(withDesk(), ['doctor'], { cwd: root, env: NOTHING_ON_PATH })
+
+  assert.equal(result.stdout.split('\n').find(line => line.includes('connections')), 'note connections: desk is not reached here: acmedesk is not on PATH; install the desk tool')
+  assert.equal(result.code, 0)
+})
+
+test('doctor is content with a connection whose preset program is on the PATH', ON_PATH, () => {
+  assert.equal(doctorLine(connected(), deskOnPath()), 'ok   connections')
+})
+
+test("a pinned account that is not the active one is a fault, said in the preset's words", NEEDS_STAND_IN, () => {
+  const result = runIn(withDesk(), ['doctor'], { cwd: connected(BOT), env: { PATH: deskAnswering(TICKET_TEXT, '* dev-one\nacme-bot\n') } })
+
+  assert.equal(result.stdout.split('\n').find(line => line.includes('connections')), 'FIX  connections: the active desk account is not acme-bot; run acmedesk login acme-bot')
+  assert.equal(result.code, 1)
+})
+
+test('a pinned account that is the active one, whatever its letter case, is fine', NEEDS_STAND_IN, () => {
+  assert.equal(doctorLine(connected(BOT), { PATH: deskAnswering(TICKET_TEXT, 'dev-one\n* Acme-Bot\n') }), 'ok   connections')
+})
+
+test('a pinned account whose program is not on the PATH is noted, not held to be a fault', () => {
+  assert.equal(doctorLine(connected(BOT), NOTHING_ON_PATH), 'note connections: desk is not reached here: acmedesk is not on PATH; install the desk tool')
+})
+
+test('a failed read through a connection with a pinned account names it when the active one is another', NEEDS_STAND_IN, () => {
+  const result = fetch(connected(BOT), deskAnswering(TICKET_TEXT, '* dev-one\n'), ['ticket', 'DESK-41', '--check'], { DESK_FAIL: 'Not permitted.' })
+
+  assert.equal(result.stderr, 'context-central fetch: acmedesk failed: Not permitted.; the active desk account is not acme-bot; run acmedesk login acme-bot\n')
+})
+
+test('a failed read as the pinned account says nothing of accounts', NEEDS_STAND_IN, () => {
+  const result = fetch(connected(BOT), deskAnswering(TICKET_TEXT, '* acme-bot\n'), ['ticket', 'DESK-41', '--check'], { DESK_FAIL: 'Not permitted.' })
+
+  assert.equal(result.stderr, 'context-central fetch: acmedesk failed: Not permitted.\n')
+})
+
+test('detect looks for the program of every preset and lists the accounts of those that can say', NEEDS_STAND_IN, () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  const facts = JSON.parse(runIn(withDesk(), ['detect', '--json'], { cwd: root, env: { PATH: deskAnswering(TICKET_TEXT, '* dev-one\nacme-bot\n'), HOME: join(root, 'home') } }).stdout) as { tools: unknown, accounts: unknown, connectionCandidates: unknown }
+
+  assert.deepEqual(facts.tools, { git: false, acmedesk: true })
+  assert.deepEqual(facts.accounts, { acmedesk: [{ user: 'dev-one', active: true }, { user: 'acme-bot', active: false }] })
+  assert.deepEqual(facts.connectionCandidates, [
+    { preset: 'acmedesk', holds: 'tickets', because: 'its tool is on the PATH', entry: { holds: 'tickets', preset: 'acmedesk' } },
+    { preset: 'acmedesk', holds: 'pull-requests', because: 'its tool is on the PATH', entry: { holds: 'pull-requests', preset: 'acmedesk' } },
+    { preset: 'acmedesk', holds: 'documents', because: 'its tool is on the PATH', entry: { holds: 'documents', preset: 'acmedesk' } },
+  ])
+})
+
+test('a plugin that carries no preset looks for git alone and offers no candidate', () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  const facts = JSON.parse(runIn(tree(pluginWith({})), ['detect', '--json'], { cwd: root, env: { ...NOTHING_ON_PATH, HOME: join(root, 'home') } }).stdout) as { tools: unknown, accounts: unknown, connectionCandidates: unknown }
+
+  assert.deepEqual([facts.tools, facts.accounts, facts.connectionCandidates], [{ git: false }, {}, []])
 })
