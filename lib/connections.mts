@@ -32,6 +32,19 @@ export interface Reach {
   missing: string | null
 }
 
+export interface Reference {
+  text: string
+  at: number
+  connection: Connection
+  id: string
+  repo: string | null
+}
+
+interface Candidate {
+  reference: Reference
+  rank: number[]
+}
+
 interface OldSettings {
   connections?: unknown
   tracker?: unknown
@@ -44,6 +57,7 @@ export const PULL_REQUESTS = 'pull-requests'
 export const FETCH_WORDS: Record<string, string> = { ticket: TICKETS, issue: TICKETS, pr: PULL_REQUESTS }
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const LINK = /^[a-z][a-z0-9+.-]*:\/\//i
 const TEXT_KEYS = ['preset', 'server', 'how', 'account']
 const NO_TRACKER = 'none'
 const WORD_TO_FETCH: Record<string, string> = { [TICKETS]: 'ticket', [PULL_REQUESTS]: 'pr' }
@@ -80,6 +94,38 @@ export function listed(connections: Connections): Connection[] {
   return Object.entries(connections).map(([name, entry]) => ({ name, entry }))
 }
 
+export function holding(connections: Connection[], kind: string) {
+  return connections.filter(connection => connection.entry.holds === kind)
+}
+
+export function referencesIn(connections: Connection[], text: string): Reference[] {
+  const found: Candidate[] = connections.flatMap((connection, order) =>
+    patternsOf(connection).flatMap(pattern =>
+      [...text.matchAll(pattern)].map(match => ({
+        reference: { text: match[0], at: match.index, connection, id: match.groups?.id ?? match[0], repo: match.groups?.repo ?? null },
+        rank: [-match[0].length, order],
+      })),
+    ),
+  )
+  return found
+    .filter((candidate, index) => !found.some((other, otherIndex) => overlap(other.reference, candidate.reference) && before([...other.rank, otherIndex], [...candidate.rank, index])))
+    .map(candidate => candidate.reference)
+    .sort((a, b) => a.at - b.at)
+}
+
+export function referenceOf(connections: Connection[], text: string) {
+  const whole = text.trim()
+  return referencesIn(connections, whole).find(found => found.at === 0 && found.text.length === whole.length) ?? null
+}
+
+export function sameReference(a: Reference, b: Reference) {
+  return a.connection.name === b.connection.name && a.id.toLowerCase() === b.id.toLowerCase()
+}
+
+export function isLink(reference: Reference) {
+  return LINK.test(reference.text)
+}
+
 export function kindOf({ entry }: Connection): Kind | null {
   const preset = presetNamed(entry.preset)
   return preset && Object.hasOwn(preset.kinds, entry.holds) ? preset.kinds[entry.holds] : null
@@ -96,6 +142,25 @@ export function reachOf(connection: Connection, env: Env): Reach {
     fetch: here ? `context-central fetch ${word} <reference> --item <item>` : null,
     missing: reads && !here ? preset.program : null,
   }
+}
+
+function patternsOf(connection: Connection) {
+  return [...(connection.entry.references ?? []), ...(kindOf(connection)?.references(connection.entry) ?? [])].flatMap(source => {
+    try {
+      return [new RegExp(`(?<!\\w)(?:${source})(?!\\w)`, 'gi')]
+    } catch {
+      return []
+    }
+  })
+}
+
+function overlap(a: Reference, b: Reference) {
+  return a !== b && a.at < b.at + b.text.length && b.at < a.at + a.text.length
+}
+
+function before(a: number[], b: number[]) {
+  const at = a.findIndex((value, index) => value !== b[index])
+  return at !== -1 && a[at] < b[at]
 }
 
 function readEntry(name: string, entry: unknown, repos: string[], fail: Fail): ConnectionEntry {

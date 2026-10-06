@@ -48,6 +48,7 @@ interface WorkItemBody {
   dirRel: string
   title: string
   status: string
+  ticket: string | null
   files: Node[]
   deep: FileGroup<Node>
   evidence: FileGroup<MapFile> & { rel: string }
@@ -189,6 +190,7 @@ function workItem(estate: Estate, id: string): WorkItem | null {
     dirRel,
     title: head.data.title ?? stripId(firstHeading(head.body) ?? id, id),
     status: head.data.status ?? 'active',
+    ticket: head.data.ticket || null,
     entry,
     files: [...(note ? [note] : []), ...inFolder].filter(file => !file.deep && file.rel !== entry?.rel),
     deep: group(deep),

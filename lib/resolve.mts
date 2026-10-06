@@ -1,10 +1,11 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
-import { keyRegexes } from './estate.mts'
+import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { formatBytes, parseFrontmatter, plural } from './text.mts'
+import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
-import type { MapFile, Node, NodeText, WorkItem, WorkItemWithEntry } from './nodes.mts'
+import type { MapFile, Node, NodeText, WorkItem } from './nodes.mts'
 
 export interface Pointer extends MapFile {
   why: string
@@ -17,7 +18,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'repo' | 'text'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text'
 
 export interface Resolution {
   by: Route
@@ -66,10 +67,9 @@ const STOP_WORDS = new Set(
   just let like make may more most need new not now off one only other our out over please put say see she should some such than that the
   their them then there these they this those too two use very want was way were what when where which who why will with would you your`.split(/\s+/),
 )
-const PR_LINK = /https:\/\/github\.com\/[\w.-]+\/([\w.-]+)\/pull\/\d+/g
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byPrLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -101,7 +101,7 @@ function byItemNameOrTitle(estate: Estate, query: string, max: number) {
   const asked = runsOf(query)
   const [first, ...others] = listWorkItems(estate)
     .filter(item => item.entry)
-    .flatMap(item => [item.id, item.title].map(runsOf).map(phrase => ({ item, at: startOf(asked, phrase), length: phrase.length })))
+    .flatMap(item => [item.id, item.title, ...(item.ticket ? [item.ticket] : [])].map(runsOf).map(phrase => ({ item, at: startOf(asked, phrase), length: phrase.length })))
     .filter(found => found.at >= 0)
     .sort((a, b) => a.at - b.at || b.length - a.length)
   if (!first || others.some(other => other.at === first.at && other.length === first.length && other.item.id !== first.item.id)) return null
@@ -117,18 +117,20 @@ function runsOf(text: string): string[] {
   return text.toLowerCase().match(RUN) ?? []
 }
 
-function byPrLink(estate: Estate, query: string, max: number) {
-  for (const [url, repo] of query.matchAll(PR_LINK)) {
-    const item = listWorkItems(estate).find(candidate => candidate.entry && mentions(candidate, url))
-    const found = item ? itemResolution(estate, item, 'pr', max) : repoResolution(estate, repo, 'pr', max)
+function byLink(estate: Estate, query: string, max: number) {
+  const connections = [...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)]
+  for (const { text, repo, connection } of referencesIn(connections, query).filter(isLink)) {
+    const by = connection.entry.holds === PULL_REQUESTS ? 'pr' : 'link'
+    const item = listWorkItems(estate).find(candidate => candidate.entry && mentions(candidate, text))
+    const found = item ? itemResolution(estate, item, by, max) : repo ? repoResolution(estate, repo, by, max) : null
     if (found) return found
   }
   return null
 }
 
-function mentions(item: WorkItemWithEntry, url: string) {
+function mentions(item: WorkItem, url: string) {
   const exact = new RegExp(`${escapeRegExp(url)}(?!\\d)`)
-  return [item.entry, ...item.files].some(file => exact.test(readFileSync(file.path, 'utf8')))
+  return [...(item.entry ? [item.entry] : []), ...item.files].some(file => exact.test(readFileSync(file.path, 'utf8')))
 }
 
 function byRepoName(estate: Estate, query: string, max: number) {
@@ -210,16 +212,28 @@ function itemNamedIn(estate: Estate, query: string) {
 
 function namesIn(estate: Estate, query: string) {
   const ids = workItemIds(estate).map(id => id.toLowerCase())
-  const keys = keyRegexes(estate.config)
-    .flatMap(regex => [...query.matchAll(regex)])
-    .map(match => ({ name: match[0].toLowerCase(), at: match.index }))
-    .filter(found => ids.includes(found.name))
+  const tickets = holding(listed(estate.config.connections), TICKETS)
+  const keys = referencesIn(tickets, query)
+    .map(reference => ({ name: nameAnswering(estate, tickets, ids, reference), at: reference.at }))
+    .filter((found): found is { name: string; at: number } => found.name !== null)
   const plain = ids
     .filter(id => id.length >= MIN_ID_LENGTH)
     .map(id => ({ name: id, at: query.search(wholeWord(id)) }))
     .filter(found => found.at >= 0)
   const whole = ids.filter(id => id === query.trim().toLowerCase())
   return [...new Set([...whole, ...[...keys, ...plain].sort((a, b) => a.at - b.at).map(found => found.name)])]
+}
+
+function nameAnswering(estate: Estate, tickets: Connection[], ids: string[], reference: Reference) {
+  const written = reference.text.toLowerCase()
+  if (ids.includes(written)) return written
+  const answering = listWorkItems(estate).find(item => item.entry && isTicketOf(tickets, item, reference))
+  return answering ? answering.id.toLowerCase() : null
+}
+
+function isTicketOf(tickets: Connection[], item: WorkItem, reference: Reference) {
+  const own = referenceOf(tickets, item.ticket ?? item.id)
+  return own !== null && sameReference(own, reference)
 }
 
 function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) {

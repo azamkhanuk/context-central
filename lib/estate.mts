@@ -150,10 +150,6 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   return estate.config.nodeDirs.some(under) ? 'node' : null
 }
 
-export function keyRegexes(config: Settings) {
-  return config.tracker.keyPatterns.map(source => new RegExp(`\\b(?:${source})\\b`, 'gi'))
-}
-
 function candidates(dir: string): Omit<MapLocation, 'mapDir'>[] {
   const here = join(dir, CONFIG_FILE)
   return [

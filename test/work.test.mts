@@ -6,7 +6,7 @@ import { ACME_FILES, ACME_SHOT, acme, disposable, run } from './helpers.mts'
 
 const tree = disposable()
 
-type WorkItem = { id: string, title: unknown, status: unknown, entry: { kind: unknown }, notes: unknown, deep: { count: unknown }, evidence: unknown }
+type WorkItem = { id: string, title: unknown, status: unknown, ticket: unknown, entry: { kind: unknown }, notes: unknown, deep: { count: unknown }, evidence: unknown }
 
 const list = (root: string, ...flags: string[]) => JSON.parse(run(['work', 'list', '--json', ...flags], { cwd: root }).stdout) as WorkItem[]
 const sizeOf = (text: string) => Buffer.byteLength(text)
@@ -19,7 +19,7 @@ test('a new work item gets a state file with its six parts', () => {
   assert.equal(result.code, 0)
   assert.match(result.stdout, /work\/PROJ-13\/STATE\.md/)
   const state = readFileSync(join(root, 'work/PROJ-13/STATE.md'), 'utf8')
-  assert.match(state, /^---\nitem: PROJ-13\ntitle: Cache the gateway\nstatus: active\n---\n/)
+  assert.match(state, /^---\nitem: PROJ-13\ntitle: Cache the gateway\nstatus: active\nticket: "PROJ-13"\n---\n/)
   for (const part of ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']) {
     assert.match(state, new RegExp(`^## ${part}$`, 'm'))
   }
@@ -65,6 +65,7 @@ test('the list shows what is in flight, with its state file and what lies behind
       id: 'PROJ-12',
       title: 'Rate limit the gateway',
       status: 'active',
+      ticket: 'PROJ-12',
       entry: { rel: 'work/PROJ-12/STATE.md', kind: 'state', bytes: sizeOf(ACME_FILES['work/PROJ-12/STATE.md']) },
       notes: 2,
       deep: { count: 1, bytes: sizeOf(ACME_FILES['work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md']) },
@@ -317,4 +318,66 @@ test('a new frontmatter block takes the line ending the file uses and sits after
   assert.equal(after('PROJ-62'), '---\r\nstatus: done\r\n---\r\n# PROJ-62\r\n\r\nMeasure first.\r\n')
   assert.equal(after('PROJ-63'), `${BOM}---\nstatus: done\n---\n# PROJ-63\n`)
   assert.equal(after('PROJ-64'), '---\nstatus: done\n---\n# PROJ-64')
+})
+
+const DESK = { connections: { desk: { holds: 'tickets', references: ['#(?<id>\\d+)', 'DESK-(?<id>\\d+)'] } } }
+const headOf = (root: string, item: string) => readFileSync(join(root, 'work', item, 'STATE.md'), 'utf8').split('\n---\n')[0]
+
+test('a new work item given a ticket carries it in its head, in quotes', () => {
+  const root = tree(acme({}, DESK))
+
+  const result = run(['work', 'new', 'login-redirect', '--title', 'Fix the login redirect', '--ticket', '#41'], { cwd: root })
+
+  assert.equal(result.code, 0)
+  assert.equal(headOf(root, 'login-redirect'), '---\nitem: login-redirect\ntitle: Fix the login redirect\nstatus: active\nticket: "#41"')
+})
+
+test('a name that is a reference of a tickets connection is written as the ticket', () => {
+  const root = tree(acme({}, DESK))
+
+  run(['work', 'new', 'DESK-30'], { cwd: root })
+
+  assert.equal(headOf(root, 'DESK-30'), '---\nitem: DESK-30\ntitle: DESK-30\nstatus: active\nticket: "DESK-30"')
+})
+
+test('a name that no tickets connection claims gets no ticket', () => {
+  const root = tree(acme({}, DESK))
+
+  run(['work', 'new', 'portal-split'], { cwd: root })
+
+  assert.equal(headOf(root, 'portal-split'), '---\nitem: portal-split\ntitle: portal-split\nstatus: active')
+})
+
+test('a ticket is taken as written where no connection is recorded', () => {
+  const root = tree(acme({}, { connections: {} }))
+
+  run(['work', 'new', 'login-redirect', '--ticket', 'DESK-41'], { cwd: root })
+
+  assert.equal(headOf(root, 'login-redirect'), '---\nitem: login-redirect\ntitle: login-redirect\nstatus: active\nticket: "DESK-41"')
+})
+
+test("the list as JSON carries each item's ticket, and none where it has none", () => {
+  const root = tree(acme({}, DESK))
+  run(['work', 'new', 'login-redirect', '--ticket', '#41'], { cwd: root })
+  run(['work', 'new', 'portal-split'], { cwd: root })
+
+  assert.deepEqual(list(root).map(item => [item.id, item.ticket]), [['login-redirect', '#41'], ['portal-split', null], ['PROJ-12', null]])
+})
+
+for (const [what, ticket] of [['a double quote', 'say "41"'], ['a line break', 'DESK-41\nDESK-42'], ['nothing in it', '']]) {
+  test(`a ticket with ${what} is wrong usage and makes no item`, () => {
+    const root = tree(acme({}, DESK))
+
+    const result = run(['work', 'new', 'login-redirect', '--ticket', ticket], { cwd: root })
+
+    assert.equal(result.code, 2)
+    assert.equal(existsSync(join(root, 'work/login-redirect')), false)
+  })
+}
+
+test('--ticket does not go with list, done or reopen', () => {
+  const root = tree(acme())
+
+  assert.equal(run(['work', 'list', '--ticket', '#41'], { cwd: root }).code, 2)
+  assert.equal(run(['work', 'done', 'PROJ-12', '--ticket', '#41'], { cwd: root }).code, 2)
 })
