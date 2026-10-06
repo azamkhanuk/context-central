@@ -1,9 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems } from '../nodes.mts'
+import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems, makeFolder } from '../nodes.mts'
 import { stateTemplate } from '../templates.mts'
 import { formatBytes, plural, setFrontmatter } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -58,7 +58,7 @@ function create(estate: Estate, id: string, title: string | undefined, io: Io) {
   if (!id || !ITEM_NAME.test(id)) throw new UsageError('an item name is letters, digits, dots, dashes and underscores, for example PROJ-12 or portal-split')
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
-  for (const folder of ['notes', 'sources', EVIDENCE_DIR]) mkdirSync(join(estate.mapDir, dirRel, folder), { recursive: true })
+  for (const folder of ['notes', 'sources', EVIDENCE_DIR]) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
   writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id))
   io.out(`${dirRel}/STATE.md`)
 }

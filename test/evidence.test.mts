@@ -115,3 +115,11 @@ test('no file, no item, or an action other than add is wrong usage', () => {
   }
   assert.equal(existsSync(join(root, 'work/PROJ-12/evidence')), false)
 })
+
+test('evidence is refused in plain words when a file stands where the evidence folder would go', () => {
+  const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13\n', 'work/PROJ-13/evidence': 'a file\n', 'scratch/shot.png': 'x' }))
+
+  const result = add(root, 'scratch/shot.png', '--item', 'PROJ-13')
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central evidence: work/PROJ-13/evidence is a file, not a folder, so nothing can be written under it\n' })
+})

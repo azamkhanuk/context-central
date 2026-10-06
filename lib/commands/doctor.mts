@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError } from '../errors.mts'
-import { loadEstate } from '../estate.mts'
+import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
 import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, ghAccounts, onPath } from '../machine.mts'
@@ -20,13 +20,14 @@ interface Result {
   fix: string | null
 }
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, evidence, hooks, gh'
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, hooks, gh'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 // Elsewhere a backslash in a hook command is an escape, not a separator.
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
-const ESTATE_CHECKS = { hub, lint, links, repos, git, evidence, hooks, gh }
+const CATCH_ALL = ['/*', '*', '/**', '**']
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, hooks, gh }
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
@@ -94,6 +95,18 @@ function git(estate: Estate, io: Io) {
   const exposed = checkouts.filter(repo => ask(['check-ignore', '-q', repo.path]).status !== 0).map(repo => repo.path)
   if (exposed.length === 0) return null
   return `${exposed.join(', ')} ${exposed.length === 1 ? 'is' : 'are'} not ignored; git add there could stage a checkout; add an allowlist .gitignore`
+}
+
+function notes(estate: Estate, io: Io) {
+  const ask = (args: string[]) => spawnSync('git', args, { cwd: estate.mapDir, env: io.env, encoding: 'utf8' })
+  if (ask(['rev-parse', '--is-inside-work-tree']).stdout?.trim() !== 'true') return null
+  const rule = (rel: string) => /^.*?:\d+:(.*)$/.exec((ask(['check-ignore', '-v', rel]).stdout ?? '').split('\t')[0])?.[1] ?? '!'
+  if (!rule(CONFIG_FILE).startsWith('!')) return null
+  const left = estate.config.nodeDirs
+    .map(dir => dir.replace(/\/+$/, ''))
+    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory() && CATCH_ALL.includes(rule(dir)))
+  if (left.length === 0) return null
+  return `git ignores ${left.map(dir => `${dir}/`).join(', ')} while it keeps the rest of the map, so notes there are never committed; allow ${left.length === 1 ? 'it' : 'them'} in the map's .gitignore`
 }
 
 function evidence(estate: Estate, io: Io) {

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -7,9 +7,13 @@ import type { Io } from './cli.mts'
 export const CONFIG_FILE = 'estate.json'
 export const INNER_DIR = '.context-central'
 
-export const DEFAULT_NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'log', 'work']
+export const DEFAULT_NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work']
 
 export const CONFIG_MARKER = '"contextCentral"'
+
+export const NODE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+
+const STANDARDS_DIR = 'standards'
 
 const SCHEMA = 1
 const DEFAULT_BUDGETS = {
@@ -31,6 +35,8 @@ export interface Repo {
   name: string
   path: string
   role?: unknown
+  standards?: string[]
+  checks?: string[]
 }
 
 export interface Tracker {
@@ -69,7 +75,7 @@ export interface Settings {
   writeRules?: WriteRules
 }
 
-type WrittenRepo = Pick<Repo, 'name'> & Partial<Repo>
+type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown }
 
 interface WrittenSettings {
   contextCentral: number
@@ -89,6 +95,13 @@ interface WrittenSettings {
   budgets?: Partial<Budgets>
   codeHost?: CodeHost
   writeRules?: WriteRules
+}
+
+export interface StandardsFile {
+  rel: string
+  path: string
+  state: 'file' | 'folder' | 'missing'
+  note: boolean
 }
 
 export interface MapLocation {
@@ -139,6 +152,40 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   const repo = estate.config.repos.find(candidate => under(candidate.path))
   if (repo) return `repo:${repo.name}`
   return estate.config.nodeDirs.some(under) ? 'node' : null
+}
+
+export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
+  const folder = join(mapDir, STANDARDS_DIR)
+  const kept = config.nodeDirs.includes(STANDARDS_DIR)
+  const namedAfter = (name: string) => join(folder, `${name}.md`)
+  const named = namedAfter(repo.name)
+  const nameable = NODE_NAME.test(repo.name)
+  const byName = kept && nameable && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
+  const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
+  const seen = new Set<string>()
+  const files = [...byName, ...listed]
+    .map(file => ({ ...file, state: stateOf(file.path), real: realPath(file.path) }))
+    .filter(file => !seen.has(file.real) && seen.add(file.real))
+  const underAnotherName = () => {
+    const ofOthers = new Set(config.repos.filter(other => NODE_NAME.test(other.name)).map(other => realPath(namedAfter(other.name))))
+    return files.find(file => file.state === 'file' && dirname(file.real) === realPath(folder) && !ofOthers.has(file.real))
+  }
+  const note = !kept ? undefined : nameable ? byName.map(file => realPath(file.path))[0] : underAnotherName()?.real
+  return files.map(({ real, ...file }) => ({ ...file, note: real === note }))
+}
+
+function stateOf(path: string): StandardsFile['state'] {
+  const stat = statSync(path, { throwIfNoEntry: false })
+  if (!stat) return 'missing'
+  return stat.isFile() ? 'file' : 'folder'
+}
+
+function realPath(path: string) {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
 }
 
 export function keyRegexes(config: Settings) {
@@ -205,7 +252,32 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
 function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
   const entry = typeof repo === 'string' ? { name: repo } : repo
   if (!entry || typeof entry.name !== 'string' || !entry.name) fail('each entry in "repos" needs a "name"')
-  return { path: entry.name, ...entry }
+  if (!oneLine(entry.name)) fail('each entry in "repos" needs a "name" on one line')
+  const inRepo: Fail = message => fail(`repo "${entry.name}": ${message}`)
+  if (entry.path !== undefined && (typeof entry.path !== 'string' || !oneLine(entry.path))) inRepo('"path" must be one line of text')
+  return {
+    path: entry.name,
+    ...entry,
+    standards: entry.standards === undefined ? undefined : pathsInEstate(entry.standards, 'standards', inRepo),
+    checks: entry.checks === undefined ? undefined : singleLines(entry.checks, 'checks', inRepo),
+  }
+}
+
+function singleLines(value: unknown, name: string, fail: Fail) {
+  const items = strings(value, name, fail)
+  if (!items.every(oneLine)) fail(`each entry in "${name}" must be one line of text`)
+  return items
+}
+
+function oneLine(text: string) {
+  return text.trim() !== '' && !/[\u0000-\u0008\u000a-\u001f\u007f\u0085\u2028\u2029]/.test(text)
+}
+
+function pathsInEstate(value: unknown, name: string, fail: Fail) {
+  const paths = singleLines(value, name, fail)
+  const outside = paths.find(path => /^([/\\]|[A-Za-z]:)/.test(path) || path.includes('\\') || path.split('/').includes('..'))
+  if (outside !== undefined) fail(`"${name}" holds "${outside}"; a path there is counted from the estate root, with forward slashes and no ".."`)
+  return paths
 }
 
 function keyPatterns(value: unknown, fail: Fail) {
