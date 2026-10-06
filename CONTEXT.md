@@ -15,6 +15,12 @@ _Avoid_: dictionary, vocabulary, terminology
 **Node**: One Markdown file in the map about one lasting subject: a repo, an area, a concept, an edge between repos, a decision, or a repo's standards.
 _Avoid_: page, doc, article
 
+**Design**: A work item's `DESIGN.md`: how its spec will be built in this repo, as the modules, their interfaces, each choice with its reason, and the slices in order. It names files and lines, so it carries the commit it was written at. A small item has none.
+_Avoid_: technical spec, plan, architecture document
+
+**Review round**: One run of the reviewer for each repo a build touches. The estate sets how many a build may have, three unless it says otherwise, and a build whose last round still brings a finding that needs a fix stops and asks.
+_Avoid_: iteration, loop, pass
+
 **Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
 

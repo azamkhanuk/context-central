@@ -29,7 +29,7 @@ Its six parts, each replaced with what is true now:
 - **Next**: the next action, concrete enough to start cold.
 - **Blocked**: what is waiting, and on whom or what.
 - **Standing traps**: what would catch out someone new to this item.
-- **Where the detail lives**: paths to the spec, the notes, the saved sources and the evidence note.
+- **Where the detail lives**: paths to the spec, the design when there is one, the notes, the saved sources and the evidence note.
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 

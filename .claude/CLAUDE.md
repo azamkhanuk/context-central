@@ -1,6 +1,6 @@
 # Working on context-central
 
-A Claude Code plugin: a CLI in `lib/`, two hooks, six skills and three agents. Terms are defined in `CONTEXT.md`; use them as written.
+A Claude Code plugin: a CLI in `lib/`, two hooks, seven skills and three agents. Terms are defined in `CONTEXT.md`; use them as written.
 
 ## Checks
 

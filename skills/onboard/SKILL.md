@@ -32,7 +32,7 @@ Send every unsettled question in one message, numbered, each with the answer you
 9. Code host: type, organisation (recommend the detected `org`) and which `gh` account to pin (from `ghAccounts`).
 10. Meeting and chat sources, and how each is reached.
 11. Write rules: what may be posted outside the map (tracker comments, transitions, PR comments, pushes) and which of those need approval each time.
-12. Whether implement writes tests, and whether it runs a review.
+12. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks. Recommend three.
 13. Estate skills the plugin should defer to for implementing.
 
 Done when every question has an answer or an explicit "none".
@@ -62,7 +62,7 @@ Show the draft in this shape and wait for a yes. Omit a key that has no value.
     "codeHost": { "type": "github", "org": "acme", "ghUser": "the pinned account" },
     "sources": { "meetings": "", "chat": "" },
     "writeRules": ["one rule per line, as the person worded it"],
-    "implement": { "tests": true, "review": true, "deferTo": "" }
+    "implement": { "tests": true, "review": true, "deferTo": "", "reviewRounds": 3 }
   }
 }
 ```
