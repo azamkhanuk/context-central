@@ -97,4 +97,4 @@ Seed `glossary.md` in the entry format `init` wrote there, from the terms the in
 
 Run `context-central doctor`. Fix each `FIX` line you can and report the rest with what the person has to do.
 
-Finish by telling the person to restart the session or run `/clear`, so the hub loads.
+Finish by telling the person to restart the session or run `/clear`, so the hub loads, and that `/context-central:standards <repo>` records how a repo's code is written and checked once work starts in it.

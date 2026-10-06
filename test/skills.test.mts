@@ -5,10 +5,10 @@ import { test } from 'node:test'
 import { REPO, acme, disposable, makeTree, run } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
-const SKILLS = ['onboard', 'research', 'prep', 'implement', 'checkpoint']
-const USER_ONLY = ['onboard', 'research', 'prep', 'implement']
+const SKILLS = ['onboard', 'standards', 'research', 'prep', 'implement', 'checkpoint']
+const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'standards']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -35,8 +35,10 @@ const FLAGS: Record<string, string[]> = {
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
   fetch: ['item', 'repo'],
   evidence: ['item', 'as'],
+  standards: ['json'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
+const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
 
 const tree = disposable()
 
@@ -64,7 +66,7 @@ test('every skill is named after its folder and says what it does', () => {
   }
 })
 
-test('the four working skills run only when the person types them', () => {
+test('the working skills run only when the person types them', () => {
   for (const name of USER_ONLY) assert.equal(skill(name)['disable-model-invocation'], 'true', name)
 })
 
@@ -89,6 +91,7 @@ test('the skills that take an argument say which', () => {
   assert.equal(skill('research')['argument-hint'], '<question> [item]')
   assert.equal(skill('prep')['argument-hint'], '<item>')
   assert.equal(skill('implement')['argument-hint'], '<item>')
+  assert.equal(skill('standards')['argument-hint'], '<repo>')
 })
 
 test('every skill is under 120 lines', () => {
@@ -324,4 +327,102 @@ test('checkpoint closes by naming the glossary entries it wrote, the terms left 
   assert.ok(closing.includes('each glossary entry added or changed and where its meaning came from'))
   assert.ok(closing.includes('each term left for the person to define'))
   assert.ok(closing.includes('each entry a source disagrees with'))
+})
+
+test('standards names the four parts that a new standards note lays out, and so do checkpoint and the reviewer', () => {
+  const root = tree(acme())
+  run(['note', '--new', 'standards/api'], { cwd: root })
+  const note = readFileSync(join(root, 'standards/api.md'), 'utf8')
+
+  for (const part of STANDARDS_PARTS) {
+    assert.ok(note.includes(`## ${part}\n`), part)
+    assert.ok(skillText('standards').includes(`- **${part}**:`), part)
+  }
+  assert.ok(lessons().includes('(Design, Code, Tests or Review)'))
+  assert.ok(agentText('reviewer').includes('the Review part first, then Design, Code and Tests'))
+  assert.ok(skillText('implement').includes('the Design, Code and Tests parts of the repo\'s standards'))
+})
+
+test('standards carries no language of its own: its facts come from the repo and the person', () => {
+  assert.ok(skillText('standards').includes('The plugin knows no language, framework or tool: everything here comes from the repo and from the person.'))
+  assert.ok(skillText('standards').includes('the files that configure those, whatever they are called here'))
+  assert.match(skillText('standards'), /context-central:reader/)
+})
+
+test('standards gives every rule a source, points at real code and never takes a habit for a rule', () => {
+  assert.ok(skillText('standards').includes('Every rule ends with its source: the file that shows it, as `path:line`, or the person who said it and the date.'))
+  assert.ok(skillText('standards').includes('An example is a pointer to real code in the repo, never a snippet pasted in and never one made up.'))
+  assert.ok(skillText('standards').includes('A habit seen in the code and written down nowhere is a question for the person, not a rule'))
+})
+
+test('standards asks once, and writes nothing before a yes', () => {
+  const ask = step('standards', '4. Ask once')
+  const write = step('standards', '5. Write')
+
+  assert.ok(ask.includes('numbered, each with the answer you recommend. Wait for the reply.'))
+  assert.ok(write.startsWith('5. Write\n\nOn a yes:\n'))
+  for (const earlier of ['1. Find the repo', '2. Gather from the repo itself', '3. Draft', '4. Ask once']) {
+    assert.doesNotMatch(step('standards', earlier), /note --new|set `standards`/, earlier)
+  }
+})
+
+test('standards writes the two settings the plugin reads back, and reads the marks the command prints', () => {
+  const recorded = { name: 'api', standards: ['standards/api.md'], checks: ['./check.sh'] }
+  const root = tree(acme({}, { repos: [{ name: 'web' }, recorded] as Json[] }))
+  const printed = run(['standards', 'api'], { cwd: root })
+
+  assert.ok(step('standards', '5. Write').includes('set `standards` to a list of paths counted from the estate root, the note first, and `checks` to the approved commands'))
+  assert.equal(printed.stdout.split('\n')[1], `- ${join(root, 'standards/api.md')} (missing)`)
+  assert.ok(step('standards', '6. Check').includes('a file marked `(missing)`'))
+  assert.equal(run(['standards', 'billing'], { cwd: root }).code, 1)
+  assert.ok(step('standards', '1. Find the repo').includes('A repo the estate does not register makes `standards` exit 1'))
+})
+
+test('standards says what to do in a map that names its own kinds of note', () => {
+  const root = tree(acme({}, { nodeDirs: ['repos', 'work'] }))
+  const refused = run(['note', '--new', 'standards/api'], { cwd: root })
+
+  assert.equal(refused.code, 2)
+  assert.ok(step('standards', '5. Write').includes('If the command refuses the kind, the map sets its own `nodeDirs`: ask the person to add `standards` to that list'))
+})
+
+test('implement asks the plugin for a repo\'s standards and checks, and works as before where none is recorded', () => {
+  const root = tree(acme())
+  const settings = step('implement', '2. Read the estate\'s settings')
+
+  assert.equal(run(['standards', 'web'], { cwd: root }).stdout, 'No standards recorded for repo web.\nNo checks recorded for repo web.\n')
+  assert.ok(settings.includes('run `context-central standards <repo>`'))
+  assert.ok(settings.includes('Where none is recorded, work from the instruction files and the repo\'s recent history as before, and say so once in the report'))
+  assert.ok(step('implement', '3. Build in slices').includes('Run the repo\'s recorded checks after each slice, or the repo\'s own checks where none is recorded'))
+})
+
+test('implement calls the work verified only when every recorded check exits 0', () => {
+  const verify = step('implement', '4. Verify')
+
+  assert.ok(verify.includes('Run every recorded check from the folder `standards` gave and read what it exits with: the work is verified only when each one exits 0.'))
+  assert.ok(verify.includes('Where no check is recorded, run the tests, the typecheck and the build the repo has.'))
+})
+
+test('implement hands the reviewer the standards files, and the reviewer names the rule a finding rests on', () => {
+  assert.ok(step('implement', '5. Review').includes('the spec\'s absolute path and the absolute paths of the repo\'s standards files'))
+  assert.ok(agentText('reviewer').includes('It may also give the paths of the repo\'s standards files.'))
+  assert.ok(agentText('reviewer').includes('A standards file that is named and cannot be read is a finding.'))
+  assert.ok(agentText('reviewer').includes('- the rule it breaks, as the standards file\'s `path:line`, when the finding rests on one'))
+})
+
+test('checkpoint adds a rule to the standards note only when it was stated or an accepted finding', () => {
+  assert.ok(lessons().includes('the first file `context-central standards <repo>` lists'))
+  assert.ok(lessons().includes('Write a rule only when it was stated: by the person in this session, or as a reviewer\'s finding the person accepted.'))
+  assert.ok(lessons().includes('A rule you worked out yourself is not stated, even where the code follows it.'))
+  assert.ok(lessons().includes('never add a second rule for one matter'))
+})
+
+test('checkpoint makes no standards note where the repo has none, and reports the rules instead', () => {
+  assert.ok(lessons().includes('If the repo has no standards note, write none: the closing report carries the rules and says that `/context-central:standards <repo>` makes the note.'))
+  assert.ok(lessons().includes('A session that met no such rule leaves the note alone and says nothing about it.'))
+  assert.ok(step('checkpoint', '8. Say what was not recorded').includes('Name each standards rule added or changed and who stated it.'))
+})
+
+test('onboard closes by naming the skill that records a repo\'s standards', () => {
+  assert.ok(skillText('onboard').trimEnd().endsWith('and that `/context-central:standards <repo>` records how a repo\'s code is written and checked once work starts in it.'))
 })
