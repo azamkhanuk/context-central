@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from './helpers.mts'
+import { ACME_CONFIG, ACME_CONNECTIONS_LINE, INDEX_CLOSING_LINE, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
@@ -20,6 +20,7 @@ test('the index names the map, the hub and each item in flight with its state fi
     [
       `Context map "Acme estate": ${root}`,
       `Hub: ${join(root, 'CLAUDE.md')}`,
+      ACME_CONNECTIONS_LINE,
       'Work in flight (2):',
       '- portal-split | Split the portal | work/portal-split/STATE.md',
       '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
@@ -34,7 +35,7 @@ test('state files are given as absolute paths on request', () => {
 
   const result = index(root, '--absolute')
 
-  assert.equal(result.stdout.split('\n')[3], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
+  assert.equal(result.stdout.split('\n')[4], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
 })
 
 test('finished items are left out, and with none in flight the index says so', () => {
@@ -43,13 +44,13 @@ test('finished items are left out, and with none in flight the index says so', (
 
   const result = index(root)
 
-  assert.equal(result.stdout, [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.', ''].join('\n'))
+  assert.equal(result.stdout, [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, ACME_CONNECTIONS_LINE, 'No work in flight.', ''].join('\n'))
 })
 
 test('an item with no entry file says so', () => {
   const root = tree(acme({ 'work/PROJ-30/notes/2026-01-02-idea.md': '# An idea\n' }))
 
-  assert.equal(index(root).stdout.split('\n')[4], '- PROJ-30 | PROJ-30 | no entry file')
+  assert.equal(index(root).stdout.split('\n')[5], '- PROJ-30 | PROJ-30 | no entry file')
 })
 
 test('an index over its budget lists what fits and counts the rest', () => {
@@ -63,6 +64,7 @@ test('an index over its budget lists what fits and counts the rest', () => {
   const expected = [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')}`,
+    ACME_CONNECTIONS_LINE,
     'Work in flight (4):',
     '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
     '- and 3 more: context-central work list',
@@ -80,8 +82,8 @@ test('two hundred items in flight stay within the default budget and the rest ar
   const lines = index(root, '--absolute').stdout.trimEnd().split('\n')
 
   assert.ok(lines.join('\n').length <= 2000)
-  assert.equal(lines[2], 'Work in flight (200):')
-  assert.equal(lines[3], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
+  assert.equal(lines[3], 'Work in flight (200):')
+  assert.equal(lines[4], `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`)
   assert.match(lines.at(-2) ?? '', /^- and 1\d\d more: context-central work list$/)
   assert.equal(lines.at(-1), INDEX_CLOSING_LINE)
 })
@@ -92,6 +94,7 @@ test('with two hundred items in flight, the count of the rest is two hundred les
   const expected = [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')}`,
+    ACME_CONNECTIONS_LINE,
     'Work in flight (200):',
     '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
     '- PROJ-100 | One of a great many items | work/PROJ-100/STATE.md',
@@ -116,7 +119,7 @@ test('an argument the command does not take is wrong usage, said in one line', (
 test('a budget too small for any item still counts them', () => {
   const root = tree(acme({}, { budgets: { indexChars: 10 } }))
 
-  assert.deepEqual(index(root).stdout.split('\n').slice(2, 4), ['Work in flight (1):', '- and 1 more: context-central work list'])
+  assert.deepEqual(index(root).stdout.split('\n').slice(3, 5), ['Work in flight (1):', '- and 1 more: context-central work list'])
 })
 
 test('a hub that is not there is marked', () => {
@@ -132,6 +135,7 @@ test('the index as JSON lists the same items with both paths', () => {
     title: 'Acme estate',
     mapDir: root,
     hub: join(root, 'CLAUDE.md'),
+    connections: [{ name: 'jira', holds: 'tickets' }],
     items: [{ id: 'PROJ-12', title: 'Rate limit the gateway', entry: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md') }],
   })
 })
@@ -154,5 +158,47 @@ test("a map inside a repo has the repo's own instruction file as its hub", () =>
 test('a folder that holds only evidence is listed as an item with no entry file', () => {
   const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x' }))
 
-  assert.equal(index(root).stdout.split('\n')[4], '- PROJ-14 | PROJ-14 | no entry file')
+  assert.equal(index(root).stdout.split('\n')[5], '- PROJ-14 | PROJ-14 | no entry file')
+})
+
+const HOW_TO_ASK = 'context-central connections says how this machine reaches each.'
+const connected = (connections: { [name: string]: { [key: string]: string | string[] | { [action: string]: string[] } } }) => tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', connections }, 'CLAUDE.md': '# Acme\n' }))
+
+test('the index names the connections and the ways recorded for each', () => {
+  const root = connected({
+    desk: { holds: 'tickets', server: 'issues' },
+    forge: { holds: 'pull-requests', preset: 'acmeforge', account: 'acme-bot' },
+    notes: { holds: 'meetings' },
+    talk: { holds: 'chat', commands: { read: ['talk', 'show', '{id}'] } },
+  })
+
+  assert.equal(
+    index(root).stdout,
+    [
+      `Context map "acme": ${root}`,
+      `Hub: ${join(root, 'CLAUDE.md')}`,
+      `Connections: desk holds tickets (server issues); forge holds pull-requests (preset acmeforge, as acme-bot); notes holds meetings; talk holds chat (its own command). ${HOW_TO_ASK}`,
+      'No work in flight.',
+      '',
+    ].join('\n'),
+  )
+})
+
+test('a map that records no connection has no line for them', () => {
+  const root = connected({})
+
+  assert.equal(index(root).stdout, [`Context map "acme": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.', ''].join('\n'))
+})
+
+test('a line of connections that would pass 400 characters gives names and kinds alone', () => {
+  const names = Array.from({ length: 12 }, (_, at) => `tracker-${at + 1}`)
+  const root = connected(Object.fromEntries(names.map(name => [name, { holds: 'tickets', server: `the-${name}-server-with-a-long-name` }])))
+
+  assert.equal(index(root).stdout.split('\n')[2], `Connections: ${names.map(name => `${name} holds tickets`).join('; ')}. ${HOW_TO_ASK}`)
+})
+
+test('the index as JSON lists the connections by name and kind', () => {
+  const root = connected({ desk: { holds: 'tickets', server: 'issues' } })
+
+  assert.deepEqual((JSON.parse(index(root, '--json').stdout) as { connections: unknown }).connections, [{ name: 'desk', holds: 'tickets' }])
 })

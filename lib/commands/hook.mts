@@ -3,7 +3,7 @@ import { ConfigError } from '../errors.mts'
 import { coverage, findEstate, loadEstate } from '../estate.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
-import { formatPointers, resolveQuery } from '../resolve.mts'
+import { formatPointers, formatUnanswered, resolveQuery, unansweredIn } from '../resolve.mts'
 import { loadSession, resetSession, saveSession } from '../session.mts'
 import { truncate } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
@@ -96,10 +96,13 @@ function resumeNotice(estate: Estate, input: HookInput): HookAnswer {
 function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswer | null {
   if (typeof input.prompt !== 'string') return null
   // A pasted log or diff matches notes and titles by chance, so only a short prompt is matched on its words.
-  const resolution = resolveQuery(estate, input.prompt, { plainWords: input.prompt.length <= estate.config.budgets.hookTextChars })
-  if (!resolution) return null
+  const short = input.prompt.length <= estate.config.budgets.hookTextChars
   const session = loadSession(env, input.session_id)
-  if (session.delivered.includes(resolution.key)) return null
-  saveSession(env, input.session_id, { delivered: [...session.delivered, resolution.key], active: resolution.item ?? session.active })
-  return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: formatPointers(resolution, { absolute: true }) } }
+  const isNew = ({ key }: { key: string }) => !session.delivered.includes(key)
+  const resolution = [resolveQuery(estate, input.prompt, { plainWords: short })].filter(found => found !== null).filter(isNew)
+  const unanswered = (short ? unansweredIn(estate, input.prompt) : []).filter(isNew)
+  if (resolution.length + unanswered.length === 0) return null
+  saveSession(env, input.session_id, { delivered: [...session.delivered, ...[...resolution, ...unanswered].map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
+  const lines = [...resolution.map(found => formatPointers(found, { absolute: true })), ...unanswered.map(formatUnanswered)]
+  return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lines.join('\n') } }
 }

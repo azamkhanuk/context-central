@@ -128,10 +128,13 @@ export const INDEX_CLOSING_LINE = "A work item's state file records where it sta
 const ACME_STATE = 'work/PROJ-12/STATE.md'
 const sizeOf = (rel: keyof typeof ACME_FILES) => Buffer.byteLength(ACME_FILES[rel])
 
+export const ACME_CONNECTIONS_LINE = 'Connections: jira holds tickets (preset jira). context-central connections says how this machine reaches each.'
+
 export function acmeIndex(root: string) {
   return [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')}`,
+    ACME_CONNECTIONS_LINE,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${join(root, ACME_STATE)}`,
     INDEX_CLOSING_LINE,

@@ -33,6 +33,12 @@ export interface Resolution {
   evidence: Counted | null
 }
 
+export interface Unanswered {
+  text: string
+  connection: string
+  key: string
+}
+
 interface Profile {
   rel: string
   name: Set<string>
@@ -61,6 +67,8 @@ const BODY_CAP = 4
 const WORD = /\p{L}{3,}/gu
 const RUN = /[\p{L}\p{N}]+/gu
 const MIN_PHRASE_RUNS = 2
+const UNANSWERED_MAX = 3
+const DIGITS_ALONE = /^\d+$/
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
   `about after all also and any are because been before but can could did does for from get had has have her here him his how into its
@@ -86,6 +94,20 @@ export function formatPointers(resolution: Resolution, { absolute = false }: { a
   if (resolution.deep) lines.push(`Deep tier: ${counted(resolution.deep)} under ${shown(resolution.deep)}, not listed one by one.`)
   if (resolution.evidence) lines.push(`Evidence: ${counted(resolution.evidence)} under ${shown(resolution.evidence)}, not listed one by one.`)
   return lines.join('\n')
+}
+
+export function unansweredIn(estate: Estate, query: string): Unanswered[] {
+  const tickets = holding(listed(estate.config.connections), TICKETS)
+  if (tickets.length === 0) return []
+  const ids = workItemIds(estate).map(id => id.toLowerCase())
+  const found = referencesIn(tickets, query)
+    .filter(reference => !DIGITS_ALONE.test(reference.text) && nameAnswering(estate, tickets, ids, reference) === null)
+    .map(({ text, connection, id }) => ({ text, connection: connection.name, key: `reference:${connection.name}:${id.toLowerCase()}` }))
+  return found.filter((one, index) => found.findIndex(other => other.key === one.key) === index).slice(0, UNANSWERED_MAX)
+}
+
+export function formatUnanswered({ text, connection }: Unanswered) {
+  return `${text} reads as a ticket of connection ${connection}. No work item answers to it.`
 }
 
 function resolution({ by, key, item = null, name = null, label, pointers, more, notes = null, deep = null, evidence = null }: Pick<Resolution, 'by' | 'key' | 'label' | 'pointers' | 'more'> & Partial<Resolution>): Resolution {

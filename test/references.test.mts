@@ -5,7 +5,7 @@ import type { Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-type Answer = { by: unknown, key: unknown, item: unknown } | null
+type Answer = { by?: unknown, key?: unknown, item?: unknown, unanswered?: unknown } | null
 
 const CONNECTIONS = {
   desk: { holds: 'tickets', references: ['#(?<id>\\d+)', 'DESK-(?<id>\\d+)', 'https://desk\\.acme\\.example/t/(?<id>\\d+)'] },
@@ -36,9 +36,15 @@ for (const spelling of ['DESK-41', 'desk-41', 'see https://desk.acme.example/t/4
   })
 }
 
-for (const text of ['page#41', 'XDESK-41', 'DESK-410', '#410']) {
-  test(`${text} is not a reference to ticket 41`, () => {
+for (const text of ['page#41', 'XDESK-41']) {
+  test(`${text} is not a reference`, () => {
     assert.equal(answer(redirect('#41'), text), null)
+  })
+}
+
+for (const text of ['DESK-410', '#410']) {
+  test(`${text} is a reference to another ticket than 41`, () => {
+    assert.deepEqual(answer(redirect('#41'), text), { unanswered: [{ text, connection: 'desk' }] })
   })
 }
 
@@ -105,4 +111,56 @@ test('on a map made before connections, a key pattern that starts with a sign an
   const root = estate({ [REDIRECT]: state('login-redirect', 'Fix the login redirect', '#41') }, { tracker: { type: 'desk', keyPatterns: ['#\\d+'] } })
 
   assert.equal(first(root, 'look at #41 please'), 'Context for work item login-redirect:')
+})
+
+const said = (root: string, query: string) => run(['resolve', query], { cwd: root }).stdout.trimEnd().split('\n')
+const noItemFor = (text: string, connection = 'desk') => `${text} reads as a ticket of connection ${connection}. No work item answers to it.`
+
+test('a ticket that no work item answers to is said to read as one, with its connection', () => {
+  const result = run(['resolve', 'look at #99 please'], { cwd: redirect('#41') })
+
+  assert.equal(result.stdout, `${noItemFor('#99')}\n`)
+  assert.equal(result.code, 0)
+})
+
+test('that line stands beside whatever else answers', () => {
+  const lines = said(estate({}), 'DESK-99 in the api')
+
+  assert.equal(lines[0], 'Context for repo api:')
+  assert.equal(lines.at(-1), noItemFor('DESK-99'))
+})
+
+test('a reference that a work item answers to is not said to be unanswered', () => {
+  assert.deepEqual(said(redirect('#41'), 'look at #41 please').filter(line => line.includes('reads as a ticket')), [])
+})
+
+test('a match that is digits alone is never said to be a ticket', () => {
+  const root = estate({}, { connections: { desk: { holds: 'tickets', references: ['\\d+'] } } })
+
+  assert.deepEqual(said(root, 'a limit of 99 please'), ['No confident match for "a limit of 99 please".'])
+})
+
+test('one reference written twice is said once, and three references at most are said', () => {
+  assert.deepEqual(said(estate({}), '#91 then DESK-91 then #92 #93 #94'), [noItemFor('#91'), noItemFor('#92'), noItemFor('#93')])
+})
+
+test('one text that two connections could claim belongs to the one written first', () => {
+  const connections = { boards: { holds: 'tickets', references: ['#(?<id>\\d+)'] }, issues: { holds: 'tickets', references: ['#(?<id>\\d+)'] } }
+
+  assert.deepEqual(said(estate({}, { connections }), '#41'), [noItemFor('#41', 'boards')])
+})
+
+test('a link of a connection that holds no tickets is never said to be one', () => {
+  assert.deepEqual(said(estate({}), 'https://forge.acme.example/web/-/pulls/3'), ['No confident match for "https://forge.acme.example/web/-/pulls/3".'])
+})
+
+test('as JSON an unanswered reference is carried in a list of its own', () => {
+  const beside = answer(estate({}), 'DESK-99 in the api')
+
+  assert.deepEqual(answer(estate({}), 'look at #99 please'), { unanswered: [{ text: '#99', connection: 'desk' }] })
+  assert.deepEqual([beside?.by, beside?.unanswered], ['repo', [{ text: 'DESK-99', connection: 'desk' }]])
+})
+
+test('an answer with nothing unanswered carries no such list', () => {
+  assert.equal(Object.hasOwn(answer(redirect('#41'), 'look at #41 please') ?? {}, 'unanswered'), false)
 })

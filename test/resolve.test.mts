@@ -126,7 +126,7 @@ test('a work item with a plain name is found when the name is a whole token', ()
 test('a longer key does not resolve to the item whose key it starts with', () => {
   const root = tree(acme())
 
-  assert.equal(resolved(root, 'look', 'at', 'PROJ-123'), null)
+  assert.deepEqual(resolved(root, 'look', 'at', 'PROJ-123') as unknown, { unanswered: [{ text: 'PROJ-123', connection: 'jira' }] })
 })
 
 test('a work item named inside a path or with an ending is still found', () => {
@@ -231,18 +231,24 @@ test('a key with no work item falls through to the next route', () => {
 test('no match is an answer, not a failure', () => {
   const root = tree(acme())
 
-  const result = resolve(root, 'PROJ-99', 'tomorrow')
+  const result = resolve(root, 'nothing', 'tomorrow')
 
   assert.equal(result.code, 0)
-  assert.equal(result.stdout, 'No confident match for "PROJ-99 tomorrow".\n')
-  assert.equal(resolved(root, 'PROJ-99', 'tomorrow'), null)
+  assert.equal(result.stdout, 'No confident match for "nothing tomorrow".\n')
+  assert.equal(resolved(root, 'nothing', 'tomorrow'), null)
+})
+
+test('on a map made before connections, a key with no work item is said to read as a ticket', () => {
+  const root = tree(acme())
+
+  assert.equal(resolve(root, 'PROJ-99', 'tomorrow').stdout, 'PROJ-99 reads as a ticket of connection jira. No work item answers to it.\n')
 })
 
 test('the answer as JSON ends cleanly whether or not there is a match', () => {
   const root = tree(acme())
 
   const found = resolve(root, 'PROJ-12', '--json')
-  const missed = resolve(root, 'PROJ-99', 'tomorrow', '--json')
+  const missed = resolve(root, 'nothing', 'tomorrow', '--json')
 
   assert.deepEqual([found.code, found.stderr], [0, ''])
   assert.deepEqual([missed.code, missed.stdout, missed.stderr], [0, 'null\n', ''])
