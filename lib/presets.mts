@@ -46,6 +46,7 @@ export interface OnOldMaps {
 export interface PresetBody {
   program: string
   hint?: string
+  takes?: Record<string, string>
   kinds: Record<string, Kind>
   remote?: (address: string) => Entry | null
   accounts?: Accounts

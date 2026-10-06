@@ -5,6 +5,7 @@ const ANY_KEY = '[A-Z][A-Z0-9]+'
 export default {
   program: 'acli',
   hint: 'install the Atlassian CLI and sign in with "acli jira auth login"',
+  takes: { keys: 'the keys of its projects, as a list', site: 'the address of the site' },
   kinds: {
     tickets: {
       references,

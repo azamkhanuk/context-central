@@ -183,13 +183,15 @@ They are recorded under `connections` in `estate.json`, by name:
 
 **References.** `PROJ-12`, `#41`, `AB#4312` and a link can each name a ticket. A reference is matched whatever its letter case and never inside a longer word. A work item answers to every spelling of its own ticket. That is the `ticket` line in the head of its state file, which `work new <item> --ticket "<reference>"` writes, or its name when the name is itself a reference. In a shell a reference goes in quotes, since `#` starts a comment there.
 
-**Presets.** A preset is what the plugin knows about one vendor's system: how its references look, which program reads from it, and how a checkout's remote reads as it. `context-central connections --presets` lists the ones this version carries. A preset is optional knowledge, kept in one folder of the plugin with a file for each vendor, and nothing else in the plugin names a vendor. A connection with no preset is used in every skill like any other.
+**Presets.** A preset is what the plugin knows about one vendor's system: how its references look, which program reads from it, and how a checkout's remote reads as it. `context-central connections --presets` lists the ones this version carries, each with the parameters it takes, which are written beside `preset` in the connection's entry. A preset is optional knowledge, kept in one folder of the plugin with a file for each vendor, and nothing else in the plugin names a vendor. A connection with no preset is used in every skill like any other.
 
 **How a connection is read.** `context-central connections` lists each one with how this machine reaches it:
 
 - **by fetch**: its preset has a read command and that program is on the `PATH`, so `fetch` saves the full text with no agent
 - **by a session**: through the server named, or with your own command, which the fetcher agent uses
 - **by hand**: the skill asks you to paste the text and saves it in full
+
+`context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, and `--pr "<reference>"` the one a pull request belongs to. It is the connection `fetch` reads through: the one whose references claim it, the first written where two do, or else the only connection that holds the kind. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
 
 A developer who has some of an estate's connections and not others is served by those they have. A tool that is missing is a note in `doctor`, never a fault.
 
@@ -259,7 +261,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
 | `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. `--check` in place of `--item` tries the connection and saves nothing |
-| `connections [--json] [--presets]` | List the connections and how this machine reaches each, or the presets this version carries |
+| `connections [--ticket\|--pr "<reference>"] [--json]` | List the connections and how this machine reaches each. With a ticket or a pull request named, only the connection it belongs to. `connections --presets` lists the presets this version carries |
 | `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools, accounts and connection candidates |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |

@@ -40,6 +40,18 @@ export interface Reference {
   repo: string | null
 }
 
+export interface Held {
+  recorded: Connection[]
+  unasked: Connection[]
+  oldMap: boolean
+}
+
+export interface Choice {
+  one: Connection | null
+  kind: string
+  candidates: Connection[]
+}
+
 interface Candidate {
   reference: Reference
   rank: number[]
@@ -62,6 +74,7 @@ const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const LINK = /^[a-z][a-z0-9+.-]*:\/\//i
 const TEXT_KEYS = ['preset', 'server', 'how', 'account']
 const NO_TRACKER = 'none'
+const NEW_WORD = 'ticket'
 const WORD_TO_FETCH: Record<string, string> = { [TICKETS]: 'ticket', [PULL_REQUESTS]: 'pr' }
 
 export function readConnections(value: unknown, repos: string[], fail: Fail): Connections {
@@ -117,6 +130,20 @@ export function referencesIn(connections: Connection[], text: string): Reference
 export function referenceOf(connections: Connection[], text: string) {
   const whole = text.trim()
   return referencesIn(connections, whole).find(found => found.at === 0 && found.text.length === whole.length) ?? null
+}
+
+export function chosenAmong({ recorded, unasked, oldMap }: Held, word: string, reference: string): Choice {
+  const kind = FETCH_WORDS[word]
+  const written = holding(recorded, kind)
+  const candidates = [...written, ...holding(unasked, kind)]
+  const claiming = candidates.find(candidate => referenceOf([candidate], reference))
+  const asBefore = candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked)
+  const fallback = !oldMap ? only(written) : word === NEW_WORD ? (only(written) ?? asBefore) : (asBefore ?? only(candidates))
+  return { one: claiming ?? fallback ?? null, kind, candidates }
+}
+
+function only(connections: Connection[]) {
+  return connections.length === 1 ? connections[0] : undefined
 }
 
 export function sameReference(a: Reference, b: Reference) {

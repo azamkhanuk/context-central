@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { FETCH_WORDS, PULL_REQUESTS, TICKETS, accountFault, holding, kindOf, listed, referenceOf, whyNotStarted } from '../connections.mts'
+import { FETCH_WORDS, PULL_REQUESTS, TICKETS, accountFault, chosenAmong, holding, kindOf, listed, referenceOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -24,7 +24,6 @@ export const summary = 'Read a ticket or a pull request through its connection a
 const USAGE = 'expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --check in place of --item to try the connection and save nothing'
 const REFERENCE = /^[^\s\p{Cc}-][^\s\p{Cc}]*$/u
 const ONE_WORD = /^[^\s\p{Cc}]+$/u
-const NEW_WORD = 'ticket'
 const WORDS: Record<string, { word: string; label: string }> = { [TICKETS]: { word: 'ticket', label: 'Ticket' }, [PULL_REQUESTS]: { word: 'pr', label: 'Pull request' } }
 
 export function run(args: string[], io: Io) {
@@ -65,20 +64,12 @@ function ownTicket(estate: Estate, item: WorkItem | null) {
 }
 
 function chosen(estate: Estate, kind: string, typed: string, reference: string, named: string | undefined) {
-  const recorded = holding(listed(estate.config.connections), kind)
-  const candidates = [...recorded, ...holding(estate.unasked, kind)]
-  if (named !== undefined) return theOneNamed([...listed(estate.config.connections), ...estate.unasked], kind, named)
-  const claiming = candidates.find(candidate => referenceOf([candidate], reference))
-  const asBefore = candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked)
-  const fallback = !estate.oldMap ? only(recorded) : typed === NEW_WORD ? (only(recorded) ?? asBefore) : (asBefore ?? only(candidates))
-  const one = claiming ?? fallback
+  const recorded = listed(estate.config.connections)
+  if (named !== undefined) return theOneNamed([...recorded, ...estate.unasked], kind, named)
+  const { one, candidates } = chosenAmong({ recorded, unasked: estate.unasked, oldMap: estate.oldMap }, typed, reference)
   if (one) return one
   if (candidates.length === 0) throw new PluginError(`no connection holds ${kind}`)
   throw new PluginError(`more than one connection holds ${kind}: ${candidates.map(candidate => candidate.name).join(', ')}; name one with --connection`)
-}
-
-function only(connections: Connection[]) {
-  return connections.length === 1 ? connections[0] : undefined
 }
 
 function theOneNamed(every: Connection[], kind: string, named: string) {

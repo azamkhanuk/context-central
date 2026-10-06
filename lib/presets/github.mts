@@ -71,6 +71,7 @@ const ISSUE: Shape = {
 export default {
   program: 'gh',
   hint: 'install the GitHub CLI and sign in with "gh auth login"',
+  takes: { org: 'the organisation or the user its repositories are under', host: 'the host, where it is not github.com' },
   kinds: {
     tickets: {
       references: entry => ['#(?<id>\\d+)', 'GH-(?<id>\\d+)', `${repoAt(entry)}/issues/(?<id>\\d+)`],

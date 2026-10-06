@@ -137,6 +137,85 @@ test('with connections present the tracker, the code host and the sources are no
   assert.equal(connections(root).stdout, NONE)
 })
 
+const TWO_TRACKERS = {
+  tracker: { holds: 'tickets', references: ['PROJ-\\d+'], how: 'Open the tracker.' },
+  desk: { holds: 'tickets', references: ['DESK-\\d+', 'https://desk\\.acme\\.example/t/(?<id>DESK-\\d+)'], server: 'acme-desk' },
+  code: { holds: 'pull-requests', references: ['https://forge\\.acme\\.example/pull/(?<id>\\d+)'], server: 'forge' },
+}
+
+test('with a ticket or a pull request named, only the connection it belongs to is listed', () => {
+  const root = withConnections(TWO_TRACKERS)
+
+  assert.equal(connections(root, '--ticket', 'DESK-7').stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+  assert.equal(connections(root, '--ticket', 'PROJ-12').stdout, 'tracker | tickets | by hand: Open the tracker.\n')
+  assert.equal(connections(root, '--pr', 'https://forge.acme.example/pull/9').stdout, 'code | pull-requests | by a session, through the server forge\n')
+})
+
+test('a link to a ticket belongs to the connection its short form belongs to', () => {
+  const root = withConnections(TWO_TRACKERS)
+
+  assert.equal(connections(root, '--ticket', 'https://desk.acme.example/t/DESK-7').stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+})
+
+test('the connection of a ticket is given as JSON too', () => {
+  const root = withConnections(TWO_TRACKERS)
+
+  assert.deepEqual(JSON.parse(connections(root, '--ticket', 'DESK-7', '--json').stdout) as unknown, [
+    { name: 'desk', holds: 'tickets', by: 'server', fetch: null, missing: null, entry: TWO_TRACKERS.desk },
+  ])
+})
+
+test('a ticket that two connections claim belongs to the one written first, which is the one fetch reads', () => {
+  const root = withConnections({ first: { holds: 'tickets', references: ['#\\d+'], server: 'one' }, second: { holds: 'tickets', references: ['#\\d+'], server: 'two' } })
+
+  assert.equal(connections(root, '--ticket', '#41').stdout, 'first | tickets | by a session, through the server one\n')
+  assert.match(run(['fetch', 'ticket', '#41', '--check'], { cwd: root }).stderr, /^context-central fetch: connection first is not read by fetch/)
+})
+
+test('a reference is looked for only among the connections that hold its kind', () => {
+  const root = withConnections({ issues: { holds: 'tickets', references: ['#\\d+'] }, code: { holds: 'pull-requests', references: ['#\\d+'] } })
+
+  assert.equal(connections(root, '--ticket', '#41').stdout, 'issues | tickets | by hand\n')
+  assert.equal(connections(root, '--pr', '#41').stdout, 'code | pull-requests | by hand\n')
+})
+
+test('a ticket that no pattern claims belongs to the only connection that holds tickets, as fetch has it', () => {
+  const root = withConnections({ tracker: { holds: 'tickets', server: 'issues' }, code: { holds: 'pull-requests', references: ['#\\d+'] } })
+
+  assert.equal(connections(root, '--ticket', 'ABC-1').stdout, 'tracker | tickets | by a session, through the server issues\n')
+  assert.match(run(['fetch', 'ticket', 'ABC-1', '--check'], { cwd: root }).stderr, /^context-central fetch: connection tracker is not read by fetch/)
+})
+
+test('a ticket that none of several connections claims has no connection, and they are named', () => {
+  const result = connections(withConnections(TWO_TRACKERS), '--ticket', 'OTHER-1')
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, 'context-central connections: more than one connection holds tickets and none claims "OTHER-1": tracker, desk\n')
+})
+
+test('part of a reference is not the reference', () => {
+  const result = connections(withConnections(TWO_TRACKERS), '--ticket', 'DESK-7-and-more')
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /none claims "DESK-7-and-more"/)
+})
+
+test('where no connection holds the kind, the command says so', () => {
+  const result = connections(withConnections({ tracker: { holds: 'tickets', server: 'issues' } }), '--pr', 'https://forge.acme.example/pull/9')
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, 'context-central connections: no connection holds pull-requests\n')
+})
+
+test('a ticket and a pull request at once, either beside the list of presets, or a bare word, is wrong usage', () => {
+  const root = withConnections(TWO_TRACKERS)
+
+  assert.equal(connections(root, '--ticket', 'DESK-7', '--pr', 'https://forge.acme.example/pull/9').code, 2)
+  assert.equal(connections(root, '--ticket', 'DESK-7', '--presets').code, 2)
+  assert.equal(connections(root, 'DESK-7').code, 2)
+})
+
 test('an argument the command does not take is wrong usage, said in one line', () => {
   const result = connections(withConnections({}), '--nope')
 

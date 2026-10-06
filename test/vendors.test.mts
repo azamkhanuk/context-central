@@ -133,6 +133,23 @@ test('on such a map the old word issue still goes where it always went', NEEDS_S
   assert.deepEqual(argsOf('gh', oldMap(OLD_AZURE), ['issue', '41']).slice(0, 3), ['issue', 'view', '41'])
 })
 
+test('on such a map a pull request link belongs to the preset that applies unasked, and a ticket to the tracker the map records', () => {
+  const nothingOnPath = { PATH: tree(makeTree({})) }
+  const root = oldMap(OLD_AZURE)
+
+  assert.equal(run(['connections', '--pr', 'https://github.com/acme/api/pull/7'], { cwd: root, env: nothingOnPath }).stdout, 'github | pull-requests | by hand (not by fetch here: gh is not on PATH)\n')
+  assert.equal(run(['connections', '--ticket', '4312'], { cwd: root, env: nothingOnPath }).stdout, 'azure-devops | tickets | by hand (not by fetch here: az is not on PATH)\n')
+})
+
+test('each preset says which parameters of an entry it takes, so that no document has to', () => {
+  assert.equal(run(['connections', '--presets'], { cwd: oldMap({}) }).stdout, [
+    'azure-devops | holds tickets, pull-requests | starts az | reads tickets, pull-requests | takes org: the organisation; project: the project',
+    'github | holds tickets, pull-requests | starts gh | reads tickets, pull-requests | takes org: the organisation or the user its repositories are under; host: the host, where it is not github.com',
+    'jira | holds tickets | starts acli | reads tickets | takes keys: the keys of its projects, as a list; site: the address of the site',
+    '',
+  ].join('\n'))
+})
+
 const ACLI_AS_DOCUMENTED = `#!/bin/sh
 here="\${0%/*}"
 fail() { printf 'Error: %s\\n' "$1" >&2; exit 1; }

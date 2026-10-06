@@ -11,6 +11,7 @@ const REMOTES = [
 export default {
   program: 'az',
   hint: 'install the Azure CLI with its azure-devops extension and sign in with "az login"',
+  takes: { org: 'the organisation', project: 'the project' },
   kinds: {
     tickets: {
       references: entry => ['AB#(?<id>\\d+)', '#(?<id>\\d+)', `${projectAt(entry)}/_workitems/edit/(?<id>\\d+)`],

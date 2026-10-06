@@ -11,6 +11,7 @@ const ON_PATH = notOnWindows('the stand-in on the PATH is a file with no extensi
 const DESK = `export default {
   program: 'acmedesk',
   hint: 'install the desk tool',
+  takes: { keys: 'the keys of its boards, as a list', board: 'the board a ticket is on' },
   kinds: {
     tickets: {
       references: entry => (entry.keys ?? []).map(key => '(?<id>' + key + '-\\\\d+)'),
@@ -83,11 +84,17 @@ const argsGiven = (desk: string) => readFileSync(join(desk, 'args'), 'utf8').tri
 const sources = (root: string, item = 'login-redirect') => readdirSync(join(root, 'work', item, 'sources'))
 const connected = (connections: Json = DESK_CONNECTION) => estate({ connections }, REDIRECT)
 
-test('a preset is found by its file name, and listed with what it holds and the program it starts', () => {
+test('a preset is found by its file name, and listed with what it holds, the program it starts and the parameters it takes', () => {
   const result = runIn(withDesk(), ['connections', '--presets'], { cwd: estate({}) })
 
-  assert.equal(result.stdout, 'acmedesk | holds tickets, pull-requests, documents | starts acmedesk | reads tickets, pull-requests\n')
+  assert.equal(result.stdout, 'acmedesk | holds tickets, pull-requests, documents | starts acmedesk | reads tickets, pull-requests | takes keys: the keys of its boards, as a list; board: the board a ticket is on\n')
   assert.equal(result.code, 0)
+})
+
+test('a preset that reads nothing and takes no parameter says neither', () => {
+  const plugin = tree(pluginWith({ plain: "export default { program: 'plain', kinds: { tickets: { references: () => [] } } }\n" }))
+
+  assert.equal(runIn(plugin, ['connections', '--presets'], { cwd: estate({}) }).stdout, 'plain | holds tickets | starts plain\n')
 })
 
 test('a plugin that carries no preset says so and still lists connections', () => {
