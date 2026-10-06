@@ -733,3 +733,23 @@ test('a repo with no standards note is resolved as before', () => {
 
   assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 2), ['Context for repo api:', `- repos/api.md (${Buffer.byteLength(ACME_FILES['repos/api.md'])} B) repo note`])
 })
+
+test('a repo note that links its own standards note has it listed once, as the standards', () => {
+  const repoNote = '# api\n\nSee [[standards/api]] and [[concepts/gateway]].\n'
+  const root = tree(acme({ 'repos/api.md': repoNote, 'standards/api.md': '# api\n' }))
+
+  const lines = run(['resolve', 'api'], { cwd: root }).stdout.trimEnd().split('\n')
+
+  assert.deepEqual(lines, [
+    'Context for repo api:',
+    `- repos/api.md (${Buffer.byteLength(repoNote)} B) repo note`,
+    '- standards/api.md (6 B) standards of the repo',
+    `- concepts/gateway.md (${Buffer.byteLength(ACME_FILES['concepts/gateway.md'])} B) linked from the repo note`,
+  ])
+})
+
+test('a folder where the standards note would be is not a note', () => {
+  const root = tree(acme({ 'standards/api.md/readme.md': '# not a note\n' }))
+
+  assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 3), ['Context for repo api:', `- repos/api.md (${Buffer.byteLength(ACME_FILES['repos/api.md'])} B) repo note`, ''])
+})

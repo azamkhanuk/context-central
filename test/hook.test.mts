@@ -383,3 +383,12 @@ test('a config with a byte-order mark gives the index and no message about its J
 
   assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
+
+test('a prompt that names a repo is pointed at its standards note', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const pointers = context(fire('user-prompt-submit', { cwd: root, prompt: 'what does the api repo do with limits?' })).split('\n')
+
+  assert.equal(pointers[0], 'Context for repo api:')
+  assert.equal(pointers[2], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
+})

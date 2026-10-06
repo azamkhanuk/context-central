@@ -26,6 +26,7 @@ const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 // Elsewhere a backslash in a hook command is an escape, not a separator.
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
+const CATCH_ALL = ['/*', '*', '/**', '**']
 const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, hooks, gh }
 
 export function run(args: string[], io: Io) {
@@ -99,9 +100,11 @@ function git(estate: Estate, io: Io) {
 function notes(estate: Estate, io: Io) {
   const ask = (args: string[]) => spawnSync('git', args, { cwd: estate.mapDir, env: io.env, encoding: 'utf8' })
   if (ask(['rev-parse', '--is-inside-work-tree']).stdout?.trim() !== 'true') return null
-  const ignored = (rel: string) => ask(['check-ignore', '-q', rel]).status === 0
-  if (ignored(CONFIG_FILE)) return null
-  const left = estate.config.nodeDirs.filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory() && ignored(dir))
+  const rule = (rel: string) => /^.*?:\d+:(.*)$/.exec((ask(['check-ignore', '-v', rel]).stdout ?? '').split('\t')[0])?.[1] ?? '!'
+  if (!rule(CONFIG_FILE).startsWith('!')) return null
+  const left = estate.config.nodeDirs
+    .map(dir => dir.replace(/\/+$/, ''))
+    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory() && CATCH_ALL.includes(rule(dir)))
   if (left.length === 0) return null
   return `git ignores ${left.map(dir => `${dir}/`).join(', ')} while it keeps the rest of the map, so notes there are never committed; allow ${left.length === 1 ? 'it' : 'them'} in the map's .gitignore`
 }

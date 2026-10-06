@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, posix } from 'node:path'
-import { keyRegexes } from './estate.mts'
+import { join, posix, relative, sep } from 'node:path'
+import { keyRegexes, standardsFiles } from './estate.mts'
 import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Estate } from './estate.mts'
@@ -258,12 +258,18 @@ function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   const rel = `repos/${name}.md`
   if (!existsSync(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
-  const standards = `standards/${name}.md`
-  const first = [pointer(estate, rel, 'repo note'), ...(existsSync(join(estate.mapDir, standards)) ? [pointer(estate, standards, 'standards of the repo')] : [])]
+  const standards = standardsNote(estate, name)
+  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, 'standards of the repo')] : [])]
   const rest = linkedFrom(estate, note)
     .filter(linked => linked !== standards)
     .map(linked => pointer(estate, linked, 'linked from the repo note'))
   return resolution({ by, key: `repo:${name}`, name, label: `repo ${name}`, ...capped(first, rest, max) })
+}
+
+function standardsNote(estate: Estate, name: string) {
+  const repo = estate.config.repos.find(candidate => candidate.name === name)
+  const note = repo && standardsFiles(estate, repo).find(file => file.note)
+  return note && relative(estate.mapDir, note.path).split(sep).join('/')
 }
 
 function linkedFrom(estate: Estate, node: NodeText) {

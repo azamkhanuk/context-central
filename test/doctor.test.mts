@@ -581,3 +581,29 @@ test('a map made before standards was a kind of note, and kept in git, is told i
 
   assert.equal(notesLine(doctor(root, env)), "FIX  notes: git ignores standards/ while it keeps the rest of the map, so notes there are never committed; allow it in the map's .gitignore")
 })
+
+test('a note folder the map ignores by name is the estate\'s choice, not a fix', () => {
+  const { root, env } = repository({ '.gitignore': '/work/\n/standards/*\n', 'standards/api.md': '# api\n' })
+
+  assert.equal(notesLine(doctor(root, env)), 'ok   notes')
+})
+
+test('an inner map with an allow-list that leaves a note folder out is told so', () => {
+  const root = tree(makeTree({
+    '.context-central/estate.json': { contextCentral: 1, name: 'acme' },
+    '.context-central/.gitignore': '/*\n!/.gitignore\n!/estate.json\n!/repos/\n',
+    '.context-central/repos/app.md': '# app\n',
+    '.context-central/standards/app.md': '# app\n',
+    'CLAUDE.md': '# Acme\n',
+  }))
+  const env = realGit()
+  spawnSync('git', ['-C', root, 'init', '-q'], { env })
+
+  assert.equal(notesLine(doctor(root, env)), "FIX  notes: git ignores standards/ while it keeps the rest of the map, so notes there are never committed; allow it in the map's .gitignore")
+})
+
+test('a node folder named with a closing slash is printed with one', () => {
+  const { root, env } = repository({ '.gitignore': KEPT, 'standards/api.md': '# api\n' }, { nodeDirs: ['repos', 'concepts', 'edges', 'standards/', 'work'] })
+
+  assert.match(notesLine(doctor(root, env)) ?? '', /^FIX {2}notes: git ignores standards\/, work\/ while/)
+})

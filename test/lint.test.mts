@@ -335,3 +335,12 @@ test('a map kept inside a repo is warned about a missing standards file counted 
 
   assert.equal(lint(root).stdout, 'WARN standards: repo app names CONTRIBUTING.md, which does not exist\n')
 })
+
+test('a file where a node folder would be is passed over, not read as a folder', () => {
+  const root = tree(acme({ standards: 'a file of that name, kept by the estate for something else\n' }))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'ok\n')
+  assert.equal(result.code, 0)
+})

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -154,20 +154,32 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   return estate.config.nodeDirs.some(under) ? 'node' : null
 }
 
-export function standardsFiles({ estateRoot, mapDir }: MapLocation, repo: Repo): StandardsFile[] {
-  const note = NODE_NAME.test(repo.name) ? join(mapDir, STANDARDS_DIR, `${repo.name}.md`) : null
+export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
+  const folder = join(mapDir, STANDARDS_DIR)
+  const kept = config.nodeDirs.includes(STANDARDS_DIR)
+  const named = join(folder, `${repo.name}.md`)
+  const byName = kept && NODE_NAME.test(repo.name) && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
   const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
-  const found = note !== null && stateOf(note) === 'file' ? [{ rel: relative(estateRoot, note).split(sep).join('/'), path: note }] : []
   const seen = new Set<string>()
-  return [...found, ...listed]
-    .filter(file => !seen.has(file.path) && seen.add(file.path))
-    .map(file => ({ ...file, state: stateOf(file.path), note: file.path === note && found.length > 0 }))
+  const files = [...byName, ...listed]
+    .map(file => ({ ...file, state: stateOf(file.path), real: realPath(file.path) }))
+    .filter(file => !seen.has(file.real) && seen.add(file.real))
+  const note = kept ? files.find(file => file.state === 'file' && dirname(file.real) === realPath(folder)) : undefined
+  return files.map(({ real, ...file }) => ({ ...file, note: real === note?.real }))
 }
 
-function stateOf(path: string) {
+function stateOf(path: string): StandardsFile['state'] {
   const stat = statSync(path, { throwIfNoEntry: false })
   if (!stat) return 'missing'
   return stat.isFile() ? 'file' : 'folder'
+}
+
+function realPath(path: string) {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
 }
 
 export function keyRegexes(config: Settings) {
@@ -234,7 +246,9 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
 function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
   const entry = typeof repo === 'string' ? { name: repo } : repo
   if (!entry || typeof entry.name !== 'string' || !entry.name) fail('each entry in "repos" needs a "name"')
+  if (!oneLine(entry.name)) fail('each entry in "repos" needs a "name" on one line')
   const inRepo: Fail = message => fail(`repo "${entry.name}": ${message}`)
+  if (entry.path !== undefined && (typeof entry.path !== 'string' || !oneLine(entry.path))) inRepo('"path" must be one line of text')
   return {
     path: entry.name,
     ...entry,
@@ -245,8 +259,12 @@ function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
 
 function singleLines(value: unknown, name: string, fail: Fail) {
   const items = strings(value, name, fail)
-  if (items.some(item => !item.trim() || /[\r\n]/.test(item))) fail(`each entry in "${name}" must be one line of text`)
+  if (!items.every(oneLine)) fail(`each entry in "${name}" must be one line of text`)
   return items
+}
+
+function oneLine(text: string) {
+  return text.trim() !== '' && !/[\u0000-\u0008\u000a-\u001f\u007f\u0085\u2028\u2029]/.test(text)
 }
 
 function pathsInEstate(value: unknown, name: string, fail: Fail) {

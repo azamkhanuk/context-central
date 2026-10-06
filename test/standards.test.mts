@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, makeTree, run } from './helpers.mts'
+import { symlinkSync } from 'node:fs'
+import { acme, disposable, makeTree, notOnWindows, run } from './helpers.mts'
 import type { Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -173,6 +174,29 @@ test('a repo whose name could not be a note\'s name has no note found for it', (
   assert.equal(standards(root).stdout, 'No standards recorded for repo ../glossary.\nNo checks recorded for repo ../glossary.\n')
 })
 
+test('a repo whose name cannot name a note takes as its note the first listed file in the map\'s standards folder', () => {
+  const hidden = { name: '.tools', path: 'api', standards: ['api/CONTRIBUTING.md', 'standards/tools.md'] }
+  const root = tree(acme({ 'standards/tools.md': '# tools\n', 'api/CONTRIBUTING.md': '# Contributing\n' }, { repos: [hidden] }))
+
+  const lines = standards(root, '.tools').stdout.split('\n')
+
+  assert.deepEqual(lines.slice(0, 3), ['Standards for repo .tools:', `- ${join(root, 'api/CONTRIBUTING.md')}`, `- ${join(root, 'standards/tools.md')} (the standards note)`])
+})
+
+test('a map that does not keep standards as a kind of note has no standards note, whatever sits in a folder of that name', () => {
+  const root = tree(acme({ 'standards/api.md': '# A handbook, not a note\n', 'repos/api.md': '# api\n' }, { nodeDirs: ['repos', 'concepts', 'edges', 'work'], repos: [WEB, { name: 'api' }] }))
+
+  assert.equal(standards(root, 'api').stdout, 'No standards recorded for repo api.\nNo checks recorded for repo api.\n')
+  assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 2), ['Context for repo api:', '- repos/api.md (6 B) repo note'])
+})
+
+test('a listed link to the note is the note, printed once', notOnWindows('making a symbolic link needs a right most Windows accounts lack'), () => {
+  const root = withApi(FILES, { ...API, standards: ['api/STANDARDS.md'] })
+  symlinkSync(join(root, 'standards/api.md'), join(root, 'api/STANDARDS.md'))
+
+  assert.deepEqual(standards(root, 'api').stdout.split('\n').slice(0, 3), ['Standards for repo api:', `- ${join(root, 'standards/api.md')} (the standards note)`, `Checks for repo api, run from ${join(root, 'api')}:`])
+})
+
 test('it answers from any folder the map covers', () => {
   const root = withApi()
 
@@ -205,6 +229,9 @@ test('a check or a path that is blank, or runs over a line, is refused', () => {
   for (const [wrong, name] of [
     [{ checks: ['  '] }, 'checks'],
     [{ checks: ['./check.sh\n./publish.sh'] }, 'checks'],
+    [{ checks: ['./check.sh\r'] }, 'checks'],
+    [{ checks: ['./check.sh\u2028./publish.sh'] }, 'checks'],
+    [{ checks: ['./check.sh \u001b[2K'] }, 'checks'],
     [{ standards: [' '] }, 'standards'],
   ] as [{ [key: string]: Json }, string][]) {
     const result = refusal(wrong)
@@ -212,6 +239,15 @@ test('a check or a path that is blank, or runs over a line, is refused', () => {
     assert.equal(result.code, 1, name)
     assert.ok(result.stderr.endsWith(`estate.json: repo "api": each entry in "${name}" must be one line of text\n`), result.stderr)
   }
+})
+
+test('a check may hold a tab, and a repo\'s name and path may not run over a line', () => {
+  const tabbed = withApi(FILES, { ...API, checks: ['./check.sh\ttests'] })
+  const forged = 'api\n- ./publish.sh\nChecks for repo api, run from here'
+
+  assert.equal(standards(tabbed, 'api').stdout.split('\n').at(-2), '- ./check.sh\ttests')
+  assert.ok(refusal({ path: forged }).stderr.endsWith('estate.json: repo "api": "path" must be one line of text\n'))
+  assert.ok(run(['config'], { cwd: tree(acme({}, { repos: [{ name: forged }] })) }).stderr.endsWith('estate.json: each entry in "repos" needs a "name" on one line\n'))
 })
 
 test('a standards path that would leave the estate is refused', () => {

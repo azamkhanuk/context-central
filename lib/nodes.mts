@@ -95,7 +95,7 @@ export function isEvidence(config: Settings, rel: string) {
 
 export function listFiles(estate: Estate) {
   return estate.config.nodeDirs
-    .filter(dir => existsSync(join(estate.mapDir, dir)))
+    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory())
     .flatMap(dir => walk(estate.mapDir, dir))
     .filter(rel => !estate.config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`)))
     .filter(rel => !isEvidence(estate.config, rel))
