@@ -364,7 +364,7 @@ test("the list as JSON carries each item's ticket, and none where it has none", 
   assert.deepEqual(list(root).map(item => [item.id, item.ticket]), [['login-redirect', '#41'], ['portal-split', null], ['PROJ-12', null]])
 })
 
-for (const [what, ticket] of [['a double quote', 'say "41"'], ['a line break', 'DESK-41\nDESK-42'], ['nothing in it', '']]) {
+for (const [what, ticket] of [['a double quote', 'say"41"'], ['a space', 'DESK 41'], ['a line break', 'DESK-41\nDESK-42'], ['a dash at its start', '--web'], ['nothing in it', '']]) {
   test(`a ticket with ${what} is wrong usage and makes no item`, () => {
     const root = tree(acme({}, DESK))
 

@@ -202,3 +202,9 @@ test('the index as JSON lists the connections by name and kind', () => {
 
   assert.deepEqual((JSON.parse(index(root, '--json').stdout) as { connections: unknown }).connections, [{ name: 'desk', holds: 'tickets' }])
 })
+
+test('so many connections that even their names would pass 400 characters are counted and not named', () => {
+  const root = connected(Object.fromEntries(Array.from({ length: 40 }, (_, at) => [`tracker-${at + 1}`, { holds: 'tickets' }])))
+
+  assert.equal(index(root).stdout.split('\n')[2], 'Connections: 40 are recorded. context-central connections lists them and says how this machine reaches each.')
+})

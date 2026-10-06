@@ -131,11 +131,11 @@ function partsBy(preset: Preset | null, remote: string): Entry {
 }
 
 function candidatesOf(preset: Preset, repos: RepoFacts[], tools: Record<string, boolean>) {
-  const seen = repos.find(repo => repo.system === preset.name)
-  if (!seen && !tools[preset.program]) return []
-  const parts = seen?.remote ? partsBy(preset, seen.remote) : {}
-  const because = seen ? 'a remote reads as it' : 'its tool is on the PATH'
-  return Object.keys(preset.kinds).map(holds => ({ preset: preset.name, holds, because, entry: { holds, preset: preset.name, ...parts } }))
+  const read = repos.filter(repo => repo.system === preset.name).map(repo => partsBy(preset, repo.remote ?? ''))
+  if (read.length === 0 && !tools[preset.program]) return []
+  const agreed = Object.fromEntries(Object.entries(read[0] ?? {}).filter(([part, value]) => read.every(parts => parts[part] === value)))
+  const because = read.length > 0 ? 'a remote reads as it' : 'its tool is on the PATH'
+  return Object.keys(preset.kinds).map(holds => ({ preset: preset.name, holds, because, entry: { holds, preset: preset.name, ...agreed } }))
 }
 
 function parseRemote(url: string | null) {

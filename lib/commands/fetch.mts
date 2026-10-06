@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { FETCH_WORDS, PULL_REQUESTS, TICKETS, accountFault, holding, kindOf, listed, referenceOf } from '../connections.mts'
+import { FETCH_WORDS, PULL_REQUESTS, TICKETS, accountFault, holding, kindOf, listed, referenceOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -22,7 +22,9 @@ interface Asked {
 export const summary = 'Read a ticket or a pull request through its connection and save it in full: fetch ticket|pr <reference> --item <item>; --check tries a connection and saves nothing'
 
 const USAGE = 'expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --check in place of --item to try the connection and save nothing'
+const REFERENCE = /^[^\s\p{Cc}-][^\s\p{Cc}]*$/u
 const ONE_WORD = /^[^\s\p{Cc}]+$/u
+const NEW_WORD = 'ticket'
 const WORDS: Record<string, { word: string; label: string }> = { [TICKETS]: { word: 'ticket', label: 'Ticket' }, [PULL_REQUESTS]: { word: 'pr', label: 'Pull request' } }
 
 export function run(args: string[], io: Io) {
@@ -35,12 +37,12 @@ export function run(args: string[], io: Io) {
   const kind = Object.hasOwn(FETCH_WORDS, typed ?? '') ? FETCH_WORDS[typed] : null
   const readsItsOwn = kind === TICKETS && values.item !== undefined
   if (!kind || positionals.length > 2 || Boolean(values.check) === (values.item !== undefined) || (!given && !readsItsOwn)) throw new UsageError(USAGE)
-  if ([given, values.repo].some(value => value !== undefined && !ONE_WORD.test(value))) throw new UsageError('a reference and a repo are each one word, with no space in it')
+  if ([given, values.repo].some(value => value !== undefined && !REFERENCE.test(value))) throw new UsageError('a reference and a repo are each one word that does not start with a dash')
   const estate = requireEstate(io)
   const item = values.item === undefined ? null : findWorkItem(estate, values.item)
   if (values.item !== undefined && !item) throw new PluginError(`no work item "${values.item}"`)
   const asked = { reference: given ?? ownTicket(estate, item), repo: values.repo }
-  const connection = chosen(estate, kind, asked.reference, values.connection)
+  const connection = chosen(estate, kind, typed, asked.reference, values.connection)
   const { preset, reading } = readingOf(connection, kind, asked)
   const printed = started(preset, reading, connection, io)
   const { day } = localDate(io.env)
@@ -58,19 +60,25 @@ function ownTicket(estate: Estate, item: WorkItem | null) {
   if (!item) throw new UsageError(USAGE)
   const ticket = item.ticket ?? (referenceOf(holding(listed(estate.config.connections), TICKETS), item.id) ? item.id : null)
   if (!ticket) throw new PluginError(`${item.id} has no ticket; name the reference to read`)
+  if (!REFERENCE.test(ticket)) throw new PluginError(`"${ticket}" cannot be put into a command: a reference is one word that does not start with a dash`)
   return ticket
 }
 
-function chosen(estate: Estate, kind: string, reference: string, named: string | undefined) {
-  const every = [...listed(estate.config.connections), ...estate.unasked]
-  if (named !== undefined) return theOneNamed(every, kind, named)
-  const candidates = holding(every, kind)
+function chosen(estate: Estate, kind: string, typed: string, reference: string, named: string | undefined) {
+  const recorded = holding(listed(estate.config.connections), kind)
+  const candidates = [...recorded, ...holding(estate.unasked, kind)]
+  if (named !== undefined) return theOneNamed([...listed(estate.config.connections), ...estate.unasked], kind, named)
   const claiming = candidates.find(candidate => referenceOf([candidate], reference))
-  const asBefore = estate.oldMap ? candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked) : undefined
-  const one = claiming ?? asBefore ?? (candidates.length === 1 ? candidates[0] : null)
+  const asBefore = candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked)
+  const fallback = !estate.oldMap ? only(recorded) : typed === NEW_WORD ? (only(recorded) ?? asBefore) : (asBefore ?? only(candidates))
+  const one = claiming ?? fallback
   if (one) return one
   if (candidates.length === 0) throw new PluginError(`no connection holds ${kind}`)
   throw new PluginError(`more than one connection holds ${kind}: ${candidates.map(candidate => candidate.name).join(', ')}; name one with --connection`)
+}
+
+function only(connections: Connection[]) {
+  return connections.length === 1 ? connections[0] : undefined
 }
 
 function theOneNamed(every: Connection[], kind: string, named: string) {
@@ -86,7 +94,10 @@ function readingOf(connection: Connection, kind: string, { reference, repo }: As
   const read = kindOf(connection)?.read
   if (!preset || !read) throw new PluginError(`connection ${connection.name} is not read by fetch: it has no preset that reads ${kind}.${instead(connection)}`)
   const id = referenceOf([connection], reference)?.id ?? reference
-  return { preset, reading: read({ reference, id, repo, entry: connection.entry }) }
+  const reading = read({ reference, id, repo, entry: connection.entry })
+  const odd = reading.args.find(arg => !ONE_WORD.test(arg))
+  if (odd !== undefined) throw new PluginError(`connection ${connection.name} gives the command "${odd}", which is not one word`)
+  return { preset, reading }
 }
 
 function instead({ entry }: Connection) {
@@ -99,7 +110,7 @@ function instead({ entry }: Connection) {
 function started(preset: Preset, reading: Reading, connection: Connection, io: Io) {
   const result = spawnSync(preset.program, reading.args, { cwd: io.cwd, env: io.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   if ((result.error as NodeJS.ErrnoException | undefined)?.['code'] === 'ENOENT') {
-    throw new PluginError(`connection ${connection.name} is not read by fetch here: ${preset.program} is not on PATH${preset.hint ? `; ${preset.hint}` : ''}.${instead(connection)}`)
+    throw new PluginError(`connection ${connection.name} is not read by fetch here: ${whyNotStarted(preset, io.env)}.${instead(connection)}`)
   }
   if (result.error) throw new PluginError(`${preset.program} failed: ${result.error.message}`)
   if (result.status !== 0) {

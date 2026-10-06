@@ -3,7 +3,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
-import { accountFault, listed, reachOf } from '../connections.mts'
+import { accountFault, listed, reachOf, whyNotStarted } from '../connections.mts'
 import { PluginError } from '../errors.mts'
 import { loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
@@ -170,8 +170,8 @@ function notesOn(connection: Connection, env: Env) {
   const preset = presetNamed(entry.preset)
   if (entry.preset && !preset) return [`${name} names the preset ${entry.preset}, which this version does not carry`]
   const reach = reachOf(connection, env)
-  if (!reach.missing || reach.by !== 'hand' || entry.how) return []
-  return [`${name} is not reached here: ${reach.missing} is not on PATH${preset?.hint ? `; ${preset.hint}` : ''}`]
+  if (!preset || !reach.missing || reach.by !== 'hand' || entry.how) return []
+  return [`${name} is not reached here: ${whyNotStarted(preset, env)}`]
 }
 
 function repoExists(estate: Estate, repo: Repo) {

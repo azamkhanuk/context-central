@@ -8,6 +8,7 @@ import type { Account, Preset } from './presets.mts'
 const ACCOUNTS_TIMEOUT_MS = 5000
 // Node starts a .exe or a .com without a shell, and nothing else.
 const FILE_NAMES = platform() === 'win32' ? (name: string) => [`${name}.exe`, `${name}.com`] : (name: string) => [name]
+const SCRIPT_NAMES = platform() === 'win32' ? (name: string) => [`${name}.cmd`, `${name}.bat`] : () => []
 
 export function claudeConfigDir(env: Env) {
   return env.CLAUDE_CONFIG_DIR || join(env.HOME ?? homedir(), '.claude')
@@ -21,6 +22,14 @@ export function onPath(name: string, env: Env) {
       .flatMap(dir => FILE_NAMES(name).map(file => join(dir, file)))
       .find(isExecutable) ?? null
   )
+}
+
+export function isOnlyAScript(name: string, env: Env) {
+  return (env.PATH ?? '')
+    .split(delimiter)
+    .filter(Boolean)
+    .flatMap(dir => SCRIPT_NAMES(name).map(file => join(dir, file)))
+    .some(path => statSync(path, { throwIfNoEntry: false })?.isFile() ?? false)
 }
 
 export function accountsOf(preset: Preset, env: Env): Account[] {

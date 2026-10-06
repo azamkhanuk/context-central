@@ -1,5 +1,5 @@
 import { isObject, patterns, strings } from './checks.mts'
-import { accountsOf, onPath } from './machine.mts'
+import { accountsOf, isOnlyAScript, onPath } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
 import type { Env } from './cli.mts'
@@ -45,6 +45,8 @@ interface Candidate {
   rank: number[]
 }
 
+const compiled = new WeakMap<ConnectionEntry, RegExp[]>()
+
 interface OldSettings {
   connections?: unknown
   tracker?: unknown
@@ -75,19 +77,15 @@ export function connectionsOfOldMap({ tracker, codeHost, sources }: OldSettings,
   if (trackerType || keyPatterns.length > 0) add(trackerType ?? 'tracker', { holds: TICKETS, references: keyPatterns, ...presetKey(presetNamed(trackerType)), ...without(written, ['type', 'keyPatterns']) })
   if (isObject(codeHost)) add(...codeHostConnection(codeHost))
   for (const [kind, way] of isObject(sources) ? Object.entries(sources) : []) {
-    if (typeof way === 'string' ? way : way !== null && way !== undefined) add(kind, typeof way === 'string' ? { holds: kind, how: way } : { holds: kind, route: way })
+    if (typeof way === 'string' && way) add(kind, { holds: kind, how: way })
+    else if (typeof way === 'object' && way !== null) add(kind, { holds: kind, route: way })
   }
   return Object.fromEntries(found)
 }
 
-export function unaskedOn(written: OldSettings, recorded: Connections): Connection[] {
+export function unaskedOn(written: OldSettings): Connection[] {
   if (written.connections !== undefined) return []
-  const isRecorded = (preset: Preset, kind: string) => Object.values(recorded).some(entry => entry.preset === preset.name && entry.holds === kind)
-  return PRESETS.filter(preset => preset.onOldMaps?.unasked).flatMap(preset =>
-    Object.keys(preset.kinds)
-      .filter(kind => !isRecorded(preset, kind))
-      .map(kind => ({ name: preset.name, entry: { holds: kind, preset: preset.name } })),
-  )
+  return PRESETS.filter(preset => preset.onOldMaps?.unasked).flatMap(preset => Object.keys(preset.kinds).map(kind => ({ name: preset.name, entry: { holds: kind, preset: preset.name } })))
 }
 
 export function listed(connections: Connections): Connection[] {
@@ -101,16 +99,19 @@ export function holding(connections: Connection[], kind: string) {
 export function referencesIn(connections: Connection[], text: string): Reference[] {
   const found: Candidate[] = connections.flatMap((connection, order) =>
     patternsOf(connection).flatMap(pattern =>
-      [...text.matchAll(pattern)].map(match => ({
-        reference: { text: match[0], at: match.index, connection, id: match.groups?.id ?? match[0], repo: match.groups?.repo ?? null },
-        rank: [-match[0].length, order],
-      })),
+      [...text.matchAll(pattern)]
+        .filter(match => match[0] !== '')
+        .map(match => ({
+          reference: { text: match[0], at: match.index, connection, id: match.groups?.id ?? match[0], repo: match.groups?.repo ?? null },
+          rank: [-match[0].length, order, match.groups?.id === undefined ? 1 : 0],
+        })),
     ),
   )
-  return found
-    .filter((candidate, index) => !found.some((other, otherIndex) => overlap(other.reference, candidate.reference) && before([...other.rank, otherIndex], [...candidate.rank, index])))
-    .map(candidate => candidate.reference)
-    .sort((a, b) => a.at - b.at)
+  const kept: Reference[] = []
+  for (const { reference } of found.map((candidate, index) => ({ ...candidate, rank: [...candidate.rank, index] })).sort((a, b) => (before(a.rank, b.rank) ? -1 : 1))) {
+    if (!kept.some(other => overlap(other, reference))) kept.push(reference)
+  }
+  return kept.sort((a, b) => a.at - b.at)
 }
 
 export function referenceOf(connections: Connection[], text: string) {
@@ -119,7 +120,8 @@ export function referenceOf(connections: Connection[], text: string) {
 }
 
 export function sameReference(a: Reference, b: Reference) {
-  return a.connection.name === b.connection.name && a.id.toLowerCase() === b.id.toLowerCase()
+  const inOneRepo = a.repo === null || b.repo === null || a.repo.toLowerCase() === b.repo.toLowerCase()
+  return a.connection.name === b.connection.name && a.id.toLowerCase() === b.id.toLowerCase() && inOneRepo
 }
 
 export function isLink(reference: Reference) {
@@ -139,9 +141,14 @@ export function reachOf(connection: Connection, env: Env): Reach {
   const here = reads && onPath(preset.program, env) !== null
   return {
     by: here ? 'fetch' : entry.server ? 'server' : entry.commands ? 'command' : entry.route !== undefined ? 'route' : 'hand',
-    fetch: here ? `context-central fetch ${word} <reference> --item <item>` : null,
+    fetch: here ? `context-central fetch ${word} "<reference>" --item <item>` : null,
     missing: reads && !here ? preset.program : null,
   }
+}
+
+export function whyNotStarted(preset: Preset, env: Env, { hint = true }: { hint?: boolean } = {}) {
+  if (isOnlyAScript(preset.program, env)) return `${preset.program} is a .cmd or .bat file, which the plugin cannot start`
+  return `${preset.program} is not on PATH${hint && preset.hint ? `; ${preset.hint}` : ''}`
 }
 
 export function accountFault({ entry }: Connection, env: Env) {
@@ -154,17 +161,21 @@ export function accountFault({ entry }: Connection, env: Env) {
 }
 
 function patternsOf(connection: Connection) {
-  return [...(connection.entry.references ?? []), ...(kindOf(connection)?.references(connection.entry) ?? [])].flatMap(source => {
+  const held = compiled.get(connection.entry)
+  if (held) return held
+  const patterns = [...(connection.entry.references ?? []), ...(kindOf(connection)?.references(connection.entry) ?? [])].flatMap(source => {
     try {
       return [new RegExp(`(?<!\\w)(?:${source})(?!\\w)`, 'gi')]
     } catch {
       return []
     }
   })
+  compiled.set(connection.entry, patterns)
+  return patterns
 }
 
 function overlap(a: Reference, b: Reference) {
-  return a !== b && a.at < b.at + b.text.length && b.at < a.at + a.text.length
+  return a.at < b.at + b.text.length && b.at < a.at + a.text.length
 }
 
 function before(a: number[], b: number[]) {

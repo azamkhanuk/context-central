@@ -721,3 +721,11 @@ test('evidence is never matched on words', () => {
 
   assert.equal(resolve(root, 'how', 'do', 'billing', 'retries', 'behave').stdout, 'No confident match for "how do billing retries behave".\n')
 })
+
+test('on a map made before connections, a pull request link under any organisation still finds its work item', () => {
+  const root = tree(acme({ 'work/PROJ-12/notes/2026-01-12-pr.md': '# PR\n\nRaised as https://github.com/elsewhere/api/pull/7 on Monday.\n' }, { codeHost: { type: 'github', org: 'acme', ghUser: 'acme-bot' } }))
+
+  const resolution = resolved(root, 'https://github.com/elsewhere/api/pull/7')
+
+  assert.deepEqual([resolution.by, resolution.item], ['pr', 'PROJ-12'])
+})

@@ -434,3 +434,19 @@ test('a ticket said to have no work item does not become the active item', () =>
 
   assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')) as unknown, { delivered: ['reference:desk:99'], active: null })
 })
+
+test('a ticket named after three that were already told of is still told of', () => {
+  const root = deskMap()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what of #91 #92 #93' }, env)
+  const second = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'and #91 #92 #93 #94' }, env)
+
+  assert.equal(context(second), '#94 reads as a ticket of connection desk. No work item answers to it.')
+})
+
+test('a prompt that ends where a pattern could match nothing is met with silence', () => {
+  const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', connections: { desk: { holds: 'tickets', references: ['(DESK-\\d+)?'] } } }, 'CLAUDE.md': '# Acme\n' }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what now?' }))
+})

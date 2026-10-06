@@ -100,7 +100,7 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   const session = loadSession(env, input.session_id)
   const isNew = ({ key }: { key: string }) => !session.delivered.includes(key)
   const resolution = [resolveQuery(estate, input.prompt, { plainWords: short })].filter(found => found !== null).filter(isNew)
-  const unanswered = (short ? unansweredIn(estate, input.prompt) : []).filter(isNew)
+  const unanswered = short ? unansweredIn(estate, input.prompt, session.delivered) : []
   if (resolution.length + unanswered.length === 0) return null
   saveSession(env, input.session_id, { delivered: [...session.delivered, ...[...resolution, ...unanswered].map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
   const lines = [...resolution.map(found => formatPointers(found, { absolute: true })), ...unanswered.map(formatUnanswered)]

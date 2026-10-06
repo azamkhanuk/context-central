@@ -45,8 +45,9 @@ interface Shape {
 }
 
 const HOST = 'github.com'
+const LINK = /^[a-z][a-z0-9+.-]*:\/\//i
 // An ssh host alias for a second key is written github.com-<name>.
-const REMOTE = /github\.com(?:-[\w.-]+)?[:/](?<org>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/
+const REMOTE = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/\s]+@)?github\.com(?:-[\w-]+)?(?::\d+)?[:/](?<org>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/
 const PULL_REQUEST: Shape = {
   word: 'pr',
   label: 'PR',
@@ -111,9 +112,9 @@ function literal(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function reading(shape: Shape, { reference, repo }: Asked): Reading {
+function reading(shape: Shape, { reference, id, repo }: Asked): Reading {
   return {
-    args: [shape.word, 'view', reference, '--json', shape.fields, ...(repo ? ['--repo', repo] : [])],
+    args: [shape.word, 'view', LINK.test(reference) ? reference : id, '--json', shape.fields, ...(repo ? ['--repo', repo] : [])],
     layout: (printed, day) => laid(shape, withLists(JSON.parse(printed) as Fetched), day),
   }
 }

@@ -96,14 +96,14 @@ export function formatPointers(resolution: Resolution, { absolute = false }: { a
   return lines.join('\n')
 }
 
-export function unansweredIn(estate: Estate, query: string): Unanswered[] {
+export function unansweredIn(estate: Estate, query: string, told: string[] = []): Unanswered[] {
   const tickets = holding(listed(estate.config.connections), TICKETS)
   if (tickets.length === 0) return []
-  const ids = workItemIds(estate).map(id => id.toLowerCase())
+  const answering = answerer(estate, tickets, workItemIds(estate).map(id => id.toLowerCase()))
   const found = referencesIn(tickets, query)
-    .filter(reference => !DIGITS_ALONE.test(reference.text) && nameAnswering(estate, tickets, ids, reference) === null)
+    .filter(reference => !DIGITS_ALONE.test(reference.text) && answering(reference) === null)
     .map(({ text, connection, id }) => ({ text, connection: connection.name, key: `reference:${connection.name}:${id.toLowerCase()}` }))
-  return found.filter((one, index) => found.findIndex(other => other.key === one.key) === index).slice(0, UNANSWERED_MAX)
+  return found.filter((one, index) => !told.includes(one.key) && found.findIndex(other => other.key === one.key) === index).slice(0, UNANSWERED_MAX)
 }
 
 export function formatUnanswered({ text, connection }: Unanswered) {
@@ -235,8 +235,9 @@ function itemNamedIn(estate: Estate, query: string) {
 function namesIn(estate: Estate, query: string) {
   const ids = workItemIds(estate).map(id => id.toLowerCase())
   const tickets = holding(listed(estate.config.connections), TICKETS)
+  const answering = answerer(estate, tickets, ids)
   const keys = referencesIn(tickets, query)
-    .map(reference => ({ name: nameAnswering(estate, tickets, ids, reference), at: reference.at }))
+    .map(reference => ({ name: answering(reference), at: reference.at }))
     .filter((found): found is { name: string; at: number } => found.name !== null)
   const plain = ids
     .filter(id => id.length >= MIN_ID_LENGTH)
@@ -246,16 +247,16 @@ function namesIn(estate: Estate, query: string) {
   return [...new Set([...whole, ...[...keys, ...plain].sort((a, b) => a.at - b.at).map(found => found.name)])]
 }
 
-function nameAnswering(estate: Estate, tickets: Connection[], ids: string[], reference: Reference) {
-  const written = reference.text.toLowerCase()
-  if (ids.includes(written)) return written
-  const answering = listWorkItems(estate).find(item => item.entry && isTicketOf(tickets, item, reference))
-  return answering ? answering.id.toLowerCase() : null
-}
-
-function isTicketOf(tickets: Connection[], item: WorkItem, reference: Reference) {
-  const own = referenceOf(tickets, item.ticket ?? item.id)
-  return own !== null && sameReference(own, reference)
+function answerer(estate: Estate, tickets: Connection[], ids: string[]) {
+  let own: { id: string; reference: Reference | null }[] | null = null
+  return (reference: Reference) => {
+    const written = reference.text.toLowerCase()
+    if (ids.includes(written)) return written
+    own ??= listWorkItems(estate)
+      .filter(item => item.entry)
+      .map(item => ({ id: item.id.toLowerCase(), reference: referenceOf(tickets, item.ticket ?? item.id) }))
+    return own.find(item => item.reference !== null && sameReference(item.reference, reference))?.id ?? null
+  }
 }
 
 function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) {

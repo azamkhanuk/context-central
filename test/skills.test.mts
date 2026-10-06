@@ -344,11 +344,11 @@ test('research makes the work item for a ticket that no work item answers to, in
 
   assert.equal(run(['resolve', 'PROJ-99'], { cwd: root }).stdout, 'PROJ-99 reads as a ticket of connection jira. No work item answers to it.\n')
   said('research', 'When the answer says a reference reads as a ticket and no work item answers to it, the ticket is new to the map.')
-  said('research', '`context-central work new <item> --ticket <reference>`')
+  said('research', '`context-central work new <item> --ticket "<reference>"`')
 })
 
 test('research reads through fetch where a connection allows it and through the fetcher with the entry of the connection otherwise', () => {
-  said('research', '`context-central fetch ticket <reference> --item <item>` or `context-central fetch pr <reference> --item <item>`')
+  said('research', '`context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>`')
   said('research', "Give it the connection's entry from `context-central config --get connections`")
 })
 
@@ -387,7 +387,7 @@ test('onboard adds the servers the session itself holds, recommends at least one
 })
 
 test('onboard proves each connection with one read that saves nothing, and offers allow rules for this machine only', () => {
-  said('onboard', '`context-central fetch ticket <reference> --check` or `context-central fetch pr <reference> --check`, which runs the read and saves nothing')
+  said('onboard', '`context-central fetch ticket "<reference>" --check` or `context-central fetch pr "<reference>" --check`, which runs the read and saves nothing')
   said('onboard', 'Say which connections were proven and which were not.')
   said('onboard', 'for `.claude/settings.local.json` on this machine only')
 })
@@ -400,4 +400,9 @@ test("the draft that onboard shows is one the plugin reads, with every connectio
 
   assert.equal(listed.stderr, '')
   assert.equal(listed.stdout, 'tracker | tickets | by a session, through the server the name of the server\ncode | pull-requests | by hand | as the pinned account\nnotes | meetings | by hand: how a person gets at them\n')
+})
+
+test('a reference in a command that a skill or an agent gives is in quotes, since one may start with a sign the shell reads as a comment', () => {
+  for (const [file, text] of everyFile()) assert.doesNotMatch(text, /(--ticket|fetch (ticket|pr|issue)) <reference>/, file)
+  assert.match(skillText('research'), /in quotes, since a reference may start with `#`/)
 })

@@ -3,9 +3,9 @@ import type { Entry, PresetBody } from '../presets.mts'
 const HOST = 'dev.azure.com'
 const SEGMENT = '[^/\\s]+'
 const REMOTES = [
-  /dev\.azure\.com\/(?<org>[^/]+)\/(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
-  /ssh\.dev\.azure\.com:v3\/(?<org>[^/]+)\/(?<project>[^/]+)\/(?<repo>[^/]+?)\/?$/,
-  /\/\/(?<org>[^./]+)\.visualstudio\.com\/(?:DefaultCollection\/)?(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
+  /^https:\/\/(?:[^@/\s]+@)?dev\.azure\.com\/(?<org>[^/]+)\/(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
+  /^(?:ssh:\/\/)?(?:[^@/\s]+@)?ssh\.dev\.azure\.com(?::\d+)?[:/]v3\/(?<org>[^/]+)\/(?<project>[^/]+)\/(?<repo>[^/]+?)\/?$/,
+  /^https:\/\/(?:[^@/\s]+@)?(?<org>[^./]+)\.visualstudio\.com\/(?:DefaultCollection\/)?(?<project>[^/]+)\/_git\/(?<repo>[^/]+?)\/?$/,
 ]
 
 export default {

@@ -126,7 +126,7 @@ export function loadEstate(startDir: string): Estate | null {
   const written = readWritten(found.configPath)
   const config = validateConfig(written, found.configPath)
   const { connections } = written as WrittenSettings
-  return { ...found, config, oldMap: connections === undefined, unasked: unaskedOn({ connections }, config.connections) }
+  return { ...found, config, oldMap: connections === undefined, unasked: unaskedOn({ connections }) }
 }
 
 export function requireEstate(io: Io) {
@@ -183,7 +183,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('the config must be a JSON object')
   if (raw.contextCentral !== SCHEMA) fail(`"contextCentral" is ${JSON.stringify(raw.contextCentral)}; this version reads ${SCHEMA}`)
   if (typeof raw.name !== 'string' || !raw.name) fail('"name" must be a non-empty string')
-  const tracker = raw.tracker ?? {}
+  const tracker = raw.connections === undefined ? (raw.tracker ?? {}) : {}
   const keyPatterns = patterns(tracker.keyPatterns ?? [], 'tracker.keyPatterns', fail)
   const repos = list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail))
   return {

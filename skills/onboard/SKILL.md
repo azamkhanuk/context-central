@@ -77,7 +77,7 @@ The commands in the steps below find the map from the working directory, so run 
 
 Run `context-central connections`. For each connection, read the reference the person named for it:
 
-- where the line says it is read by fetch: `context-central fetch ticket <reference> --check` or `context-central fetch pr <reference> --check`, which runs the read and saves nothing;
+- where the line says it is read by fetch: `context-central fetch ticket "<reference>" --check` or `context-central fetch pr "<reference>" --check`, which runs the read and saves nothing. The reference goes in quotes, since one may start with `#`;
 - where it is reached through a server: find the server's tool for reading that kind of thing with tool search, by the server's name and what the connection holds, and call it;
 - where it is the estate's own command: run it with the reference in place of `{id}`.
 

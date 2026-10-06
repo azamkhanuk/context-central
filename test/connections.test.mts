@@ -150,3 +150,15 @@ test('outside any map the command says there is none', () => {
   assert.equal(result.code, 1)
   assert.match(result.stderr, /no context map found/)
 })
+
+test('with connections present, a tracker written badly is not even read', () => {
+  const root = tree(acme({}, { connections: {}, tracker: { keyPatterns: ['PROJ-('] } }))
+
+  assert.equal(run(['config', '--get', 'connections'], { cwd: root }).stdout, '{}\n')
+})
+
+test('a source of an old map that is neither words nor a route written down is no connection', () => {
+  const root = tree(acme({}, { tracker: { type: 'none', keyPatterns: [] }, sources: { chat: false, meetings: 0, wiki: null } }))
+
+  assert.equal(run(['config', '--get', 'connections'], { cwd: root }).stdout, '{}\n')
+})

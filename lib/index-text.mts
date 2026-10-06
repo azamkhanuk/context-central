@@ -31,8 +31,8 @@ function connectionsLine(connections: Connection[]) {
   if (connections.length === 0) return []
   const line = (describe: (connection: Connection) => string) => `Connections: ${connections.map(describe).join('; ')}. ${HOW_TO_ASK}`
   const short = ({ name, entry }: Connection) => `${name} holds ${entry.holds}`
-  const full = line(connection => `${short(connection)}${waysRecorded(connection)}`)
-  return [full.length <= CONNECTIONS_CHARS ? full : line(short)]
+  const fitting = [line(connection => `${short(connection)}${waysRecorded(connection)}`), line(short)].find(text => text.length <= CONNECTIONS_CHARS)
+  return [fitting ?? `Connections: ${connections.length} are recorded. context-central connections lists them and says how this machine reaches each.`]
 }
 
 function waysRecorded({ entry }: Connection) {

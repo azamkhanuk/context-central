@@ -12,7 +12,7 @@ The question, and the work item when one is named: $ARGUMENTS
 
 Run `context-central resolve <item or question> --absolute`. Read the first pointer, which for a work item is its state file, and only the other pointers the question needs.
 
-When the answer says a reference reads as a ticket and no work item answers to it, the ticket is new to the map. Create its item before reading it: `context-central work new <item> --ticket <reference>`, where the item's name is the reference when that could be a folder's name, and a short plain name otherwise. Give it its title once the ticket has been read.
+When the answer says a reference reads as a ticket and no work item answers to it, the ticket is new to the map. Create its item before reading it: `context-central work new <item> --ticket "<reference>"`, where the item's name is the reference when that could be a folder's name, and a short plain name otherwise. Give it its title once the ticket has been read. In every command a reference goes in quotes, since a reference may start with `#`, which a shell reads as the start of a comment.
 
 When no item is named and none resolves, the research has no item and its note goes in `concepts/`.
 
@@ -25,7 +25,7 @@ A primary source is the thing itself: the code at a named commit, the ticket, th
 Run `context-central connections` to see what the estate reaches and how this machine reaches each. Keep bulk out of this conversation by delegating:
 
 - **Bulk reading** (many files, long files, anything in the deep tier) goes to the `context-central:reader` agent. Give it the exact absolute paths and the question. It starts without the instruction files, so the prompt carries everything it needs.
-- **A ticket or a pull request that fetch reads** needs no agent: `context-central fetch ticket <reference> --item <item>` or `context-central fetch pr <reference> --item <item>` saves the full text and prints a digest. With no reference, `fetch ticket` reads the item's own ticket.
+- **A ticket or a pull request that fetch reads** needs no agent: `context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>` saves the full text and prints a digest. With no reference, `fetch ticket` reads the item's own ticket.
 - **Anything else in a connection** (a ticket or a pull request that a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the absolute path to save the full text to: `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder.
 - **What no connection reaches**, or a way that fails: ask the person to paste the text, and save it in full at such a path before anything else.
 

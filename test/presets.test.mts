@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
-import { NEEDS_STAND_IN, disposable, makeTree, notOnWindows, pluginWith, runIn, standIns } from './helpers.mts'
+import { EXE_NAMES, NEEDS_STAND_IN, disposable, makeTree, notOnWindows, pluginWith, runIn, standIns } from './helpers.mts'
 import type { Env, Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -14,7 +14,7 @@ const DESK = `export default {
   kinds: {
     tickets: {
       references: entry => (entry.keys ?? []).map(key => '(?<id>' + key + '-\\\\d+)'),
-      read: asked => ({ args: ['show', asked.id, ...(asked.repo ? ['--in', asked.repo] : [])] }),
+      read: asked => ({ args: ['show', asked.id, ...(asked.repo ? ['--in', asked.repo] : []), ...(asked.entry.board ? ['--board', asked.entry.board] : [])] }),
     },
     'pull-requests': {
       references: () => ['https://forge\\\\.acme\\\\.example/(?<repo>[\\\\w.-]+)/-/pulls/(?<id>\\\\d+)'],
@@ -108,7 +108,7 @@ test('the presets are listed with no map at all', () => {
 test('a connection whose preset can read is reached by fetch where its program is on the PATH', ON_PATH, () => {
   const result = runIn(withDesk(), ['connections'], { cwd: connected(), env: deskOnPath() })
 
-  assert.equal(result.stdout, 'desk | tickets | by fetch: context-central fetch ticket <reference> --item <item>\n')
+  assert.equal(result.stdout, 'desk | tickets | by fetch: context-central fetch ticket "<reference>" --item <item>\n')
 })
 
 test('where the program is not on the PATH the line says so, beside the other way recorded', () => {
@@ -130,7 +130,7 @@ test('as JSON a connection says whether fetch reads it here and which program is
   const entry = { holds: 'tickets', preset: 'acmedesk' }
 
   assert.deepEqual(JSON.parse(runIn(withDesk(), ['connections', '--json'], { cwd: root, env: deskOnPath() }).stdout) as unknown, [
-    { name: 'tracker', holds: 'tickets', by: 'fetch', fetch: 'context-central fetch ticket <reference> --item <item>', missing: null, entry },
+    { name: 'tracker', holds: 'tickets', by: 'fetch', fetch: 'context-central fetch ticket "<reference>" --item <item>', missing: null, entry },
   ])
   assert.deepEqual(JSON.parse(runIn(withDesk(), ['connections', '--json'], { cwd: root, env: NOTHING_ON_PATH }).stdout) as unknown, [
     { name: 'tracker', holds: 'tickets', by: 'hand', fetch: null, missing: 'acmedesk', entry },
@@ -404,4 +404,36 @@ test('a plugin that carries no preset looks for git alone and offers no candidat
   const facts = JSON.parse(runIn(tree(pluginWith({})), ['detect', '--json'], { cwd: root, env: { ...NOTHING_ON_PATH, HOME: join(root, 'home') } }).stdout) as { tools: unknown, accounts: unknown, connectionCandidates: unknown }
 
   assert.deepEqual([facts.tools, facts.accounts, facts.connectionCandidates], [{ git: false }, {}, []])
+})
+
+const withOwnTicket = (ticket: string) => estate({ connections: DESK_CONNECTION }, { 'work/odd/STATE.md': `---\nitem: odd\ntitle: Odd\nstatus: active\nticket: "${ticket}"\n---\n# odd: Odd\n` })
+
+for (const [what, ticket] of [['more than one word', 'DESK 41'], ['a word that starts with a dash', '--web']]) {
+  test(`an item's own ticket that is ${what} is refused before anything is started`, () => {
+    const desk = deskAnswering()
+
+    const result = fetch(withOwnTicket(ticket), desk, ['ticket', '--item', 'odd'])
+
+    assert.equal(result.code, 1)
+    assert.equal(result.stderr, `context-central fetch: "${ticket}" cannot be put into a command: a reference is one word that does not start with a dash\n`)
+    assert.equal(existsSync(join(desk, 'args')), false)
+  })
+}
+
+test('a value from the settings that is more than one word is refused before anything is started', () => {
+  const desk = deskAnswering()
+
+  const result = fetch(connected({ desk: { holds: 'tickets', preset: 'acmedesk', board: 'Platform team' } }), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, 'context-central fetch: connection desk gives the command "Platform team", which is not one word\n')
+  assert.equal(existsSync(join(desk, 'args')), false)
+})
+
+test('a tool that is there only as a .cmd file is said to be one the plugin cannot start', EXE_NAMES, () => {
+  const tools = tree(makeTree({ 'acmedesk.cmd': '@echo off\r\n' }))
+  const root = connected({ desk: { holds: 'tickets', preset: 'acmedesk', server: 'issues' } })
+
+  assert.equal(runIn(withDesk(), ['connections'], { cwd: root, env: { PATH: tools } }).stdout, 'desk | tickets | by a session, through the server issues (not by fetch here: acmedesk is a .cmd or .bat file, which the plugin cannot start)\n')
+  assert.equal(runIn(withDesk(), ['fetch', 'ticket', 'DESK-41', '--check'], { cwd: root, env: { PATH: tools } }).stderr, 'context-central fetch: connection desk is not read by fetch here: acmedesk is a .cmd or .bat file, which the plugin cannot start. A session reads it through the server issues.\n')
 })

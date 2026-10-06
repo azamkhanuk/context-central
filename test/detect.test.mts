@@ -339,6 +339,11 @@ for (const [remote, parts] of [
   ['git@github.com:acme/api.git', { host: 'github.com', system: 'github', org: 'acme' }],
   ['git@github.com-personal:acme/api.git', { host: 'github.com-personal', system: 'github', org: 'acme' }],
   ['git@code.acme.example:acme/api.git', { host: 'code.acme.example', system: null, org: null }],
+  ['https://notgithub.com/acme/api.git', { host: 'notgithub.com', system: null, org: null }],
+  ['https://git.acme.example/mirrors/github.com/acme/api', { host: 'git.acme.example', system: null, org: null }],
+  ['https://github.com-mirror.example/acme/api', { host: 'github.com-mirror.example', system: null, org: null }],
+  ['https://notdev.azure.com/acme/Shop/_git/api', { host: 'notdev.azure.com', system: null, org: null }],
+  ['ssh://git@github.com:22/acme/api.git', { host: 'github.com', system: 'github', org: 'acme' }],
 ] satisfies [string, { [part: string]: string | null }][]) {
   test(`the remote ${remote} is read by the preset that recognises it, or by none`, () => {
     const root = tree(makeTree({ 'api/README.md': '# api\n' }))
@@ -376,4 +381,15 @@ test('with no remote a preset recognises and none of their tools, there is no ca
 
   assert.deepEqual(detectJson(root).connectionCandidates, [])
   assert.match(detect(root).stdout, /^Connection candidates: none$/m)
+})
+
+test('a part that the remotes of one system do not agree on is left out of its candidates', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n', 'web/README.md': '# web\n' }))
+  makeRepo(root, 'api', { remote: 'https://dev.azure.com/acme/Shop/_git/api' })
+  makeRepo(root, 'web', { remote: 'https://dev.azure.com/acme/Front/_git/web' })
+
+  assert.deepEqual(detectJson(root).connectionCandidates, [
+    { preset: 'azure-devops', holds: 'tickets', because: 'a remote reads as it', entry: { holds: 'tickets', preset: 'azure-devops', org: 'acme' } },
+    { preset: 'azure-devops', holds: 'pull-requests', because: 'a remote reads as it', entry: { holds: 'pull-requests', preset: 'azure-devops', org: 'acme' } },
+  ])
 })

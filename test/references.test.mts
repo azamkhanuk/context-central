@@ -164,3 +164,26 @@ test('as JSON an unanswered reference is carried in a list of its own', () => {
 test('an answer with nothing unanswered carries no such list', () => {
   assert.equal(Object.hasOwn(answer(redirect('#41'), 'look at #41 please') ?? {}, 'unanswered'), false)
 })
+
+test('of two patterns of one connection that take the same text, the one that names its identifier decides it', () => {
+  const connections = { issues: { holds: 'tickets', references: ['GH-\\d+', 'GH-(?<id>\\d+)', '#(?<id>\\d+)'] } }
+  const root = estate({ 'work/GH-41/STATE.md': state('GH-41', 'Fix the login redirect') }, { connections })
+
+  assert.equal(first(root, 'look at #41 please'), 'Context for work item GH-41:')
+})
+
+test('a pattern that can match nothing gives no reference', () => {
+  const root = estate({}, { connections: { desk: { holds: 'tickets', references: ['(DESK-\\d+)?'] } } })
+
+  assert.deepEqual(said(root, 'what now?'), ['No confident match for "what now?".'])
+  assert.deepEqual(said(root, 'and DESK-99?'), [noItemFor('DESK-99')])
+})
+
+test('two links to the same number in different repositories are not the same reference', () => {
+  const connections = { issues: { holds: 'tickets', references: ['https://desk\\.acme\\.example/(?<repo>[\\w-]+)/t/(?<id>\\d+)', '#(?<id>\\d+)'] } }
+  const root = estate({ [REDIRECT]: state('login-redirect', 'Fix the login redirect', 'https://desk.acme.example/api/t/41') }, { connections })
+
+  assert.equal(first(root, 'see https://desk.acme.example/api/t/41'), 'Context for work item login-redirect:')
+  assert.equal(first(root, 'see #41'), 'Context for work item login-redirect:')
+  assert.deepEqual(said(root, 'see https://desk.acme.example/web/t/41'), [noItemFor('https://desk.acme.example/web/t/41', 'issues')])
+})

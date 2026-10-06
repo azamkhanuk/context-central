@@ -32,7 +32,7 @@ interface Listed {
 export const summary = 'Work items: new <item>, list, done <item>, reopen <item>'
 
 const ITEM_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
-const TICKET = /^[^"\r\n]*[^"\s][^"\r\n]*$/
+const TICKET = /^[^\s"\p{Cc}-][^\s"\p{Cc}]*$/u
 const ACTIONS: Record<string, Action> = {
   new: { flags: ['title', 'ticket'] },
   list: { flags: ['json', 'all'] },
@@ -59,11 +59,11 @@ export function run(args: string[], io: Io) {
 
 function create(estate: Estate, id: string, { title, ticket }: { title?: string; ticket?: string }, io: Io) {
   if (!id || !ITEM_NAME.test(id)) throw new UsageError('an item name is letters, digits, dots, dashes and underscores, for example PROJ-12 or portal-split')
-  if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one line with no double quote, for example PROJ-12, #41 or a link')
+  if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one word with no double quote in it and no dash at its start, for example PROJ-12, #41 or a link')
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
   for (const folder of ['notes', 'sources', EVIDENCE_DIR]) mkdirSync(join(estate.mapDir, dirRel, folder), { recursive: true })
-  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticket?.trim() ?? ownTicket(estate, id)))
+  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticket ?? ownTicket(estate, id)))
   io.out(`${dirRel}/STATE.md`)
 }
 

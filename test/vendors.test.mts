@@ -58,10 +58,17 @@ test('github: a host of its own is where its links are', () => {
   assert.equal(answer(root, 'https://github.com/acme/api/pull/8')?.by, 'repo')
 })
 
-test('github: an issue and a pull request are each read by number, link or branch as given', NEEDS_STAND_IN, () => {
+for (const spelling of ['#41', 'GH-41', 'gh-41', '41']) {
+  test(`github: an issue written ${spelling} is read by its number, which is what the tool takes`, NEEDS_STAND_IN, () => {
+    assert.deepEqual(argsOf('gh', estate(GITHUB), ['ticket', spelling]), ['issue', 'view', '41', '--json', 'number,title,state,author,url,body,comments,labels'])
+  })
+}
+
+test('github: a link is handed over whole, since it carries its repository, and a branch as it is written', NEEDS_STAND_IN, () => {
   const root = estate(GITHUB)
 
-  assert.deepEqual(argsOf('gh', root, ['ticket', '#41']), ['issue', 'view', '#41', '--json', 'number,title,state,author,url,body,comments,labels'])
+  assert.deepEqual(argsOf('gh', root, ['ticket', 'https://github.com/acme/api/issues/41']).slice(0, 3), ['issue', 'view', 'https://github.com/acme/api/issues/41'])
+  assert.deepEqual(argsOf('gh', root, ['pr', 'feat/limit']).slice(0, 3), ['pr', 'view', 'feat/limit'])
   assert.deepEqual(argsOf('gh', root, ['pr', 'https://github.com/acme/api/pull/7']), ['pr', 'view', 'https://github.com/acme/api/pull/7', '--json', 'number,title,state,author,baseRefName,headRefName,url,body,files,comments,reviews'])
 })
 
@@ -113,4 +120,15 @@ test('azure-devops: with no organisation named, the tool is left to its own defa
   const root = estate({ boards: { holds: 'tickets', preset: 'azure-devops' } })
 
   assert.deepEqual(argsOf('az', root, ['ticket', '4312']), ['boards', 'work-item', 'show', '--id', '4312', '--expand', 'all', '--output', 'json'])
+})
+
+const OLD_AZURE = { tracker: { type: 'azure-devops', keyPatterns: [] } }
+const oldMap = (settings: { [key: string]: Json }) => tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', ...settings }, 'CLAUDE.md': '# Acme\n' }))
+
+test('on a map made before connections, the new word ticket goes to the tracker the map records', NEEDS_STAND_IN, () => {
+  assert.deepEqual(argsOf('az', oldMap(OLD_AZURE), ['ticket', '4312']).slice(0, 5), ['boards', 'work-item', 'show', '--id', '4312'])
+})
+
+test('on such a map the old word issue still goes where it always went', NEEDS_STAND_IN, () => {
+  assert.deepEqual(argsOf('gh', oldMap(OLD_AZURE), ['issue', '41']).slice(0, 3), ['issue', 'view', '41'])
 })
