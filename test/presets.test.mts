@@ -481,6 +481,14 @@ test('a parameter from the settings that starts with a dash is refused before an
   assert.equal(existsSync(join(desk, 'args')), false)
 })
 
+test('a preset sees only the parameters it says it takes, so one it forgot shows at once in what it matches', () => {
+  const forgetful = tree(pluginWith({ acmedesk: DESK.replace("takes: { keys: 'the keys of its boards, as a list', board: 'the board a ticket is on' },", '') }))
+  const root = connected()
+
+  assert.equal(runIn(withDesk(), ['resolve', 'look at DESK-99'], { cwd: root }).stdout, 'DESK-99 reads as a ticket of connection desk. No work item answers to it.\n')
+  assert.equal(runIn(forgetful, ['resolve', 'look at DESK-99'], { cwd: root }).stdout, 'No confident match for "look at DESK-99".\n')
+})
+
 test('a key of an entry that the preset does not say it takes never reaches its command', NEEDS_STAND_IN, () => {
   const plugin = tree(pluginWith({ acmedesk: DESK.replace(", board: 'the board a ticket is on'", '') }))
   const desk = deskAnswering()

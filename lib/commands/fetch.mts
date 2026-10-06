@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, accountFault, chosenAmong, kindOf, listed, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
+import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, accountFault, chosenAmong, kindOf, listed, parametersOf, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -85,19 +85,19 @@ function readingOf(connection: Connection, kind: string, { reference, repo }: As
   if (!preset || !read) throw new PluginError(`connection ${connection.name} is not read by fetch: it has no preset that reads ${kind}.${instead(connection)}`)
   const id = referenceOf([connection], reference)?.id ?? reference
   if (!REFERENCE.test(id)) throw new PluginError(`connection ${connection.name} reads "${id}" out of "${reference}", which cannot be put into a command: an identifier is one word that does not start with a dash`)
-  const reading = read({ reference, id, repo, entry: taken(preset, connection) })
+  const reading = read({ reference, id, repo, entry: taken(connection) })
   const odd = reading.args.find(arg => !ONE_WORD.test(arg))
   if (odd !== undefined) throw new PluginError(`connection ${connection.name} gives the command "${odd}", which is not one word`)
   return { preset, reading }
 }
 
-function taken({ takes = {} }: Preset, { name, entry }: Connection) {
-  const parameters = Object.entries(entry).filter(([parameter]) => Object.hasOwn(takes, parameter))
-  for (const [parameter, value] of parameters) {
+function taken(connection: Connection) {
+  const parameters = parametersOf(connection)
+  for (const [parameter, value] of Object.entries(parameters)) {
     const odd = [value].flat().find(one => typeof one === 'string' && one.startsWith('-'))
-    if (odd !== undefined) throw new PluginError(`connection ${name} holds "${odd}" for ${parameter}, and a parameter that starts with a dash cannot be put into a command`)
+    if (odd !== undefined) throw new PluginError(`connection ${connection.name} holds "${odd}" for ${parameter}, and a parameter that starts with a dash cannot be put into a command`)
   }
-  return Object.fromEntries(parameters)
+  return parameters
 }
 
 function instead({ entry }: Connection) {

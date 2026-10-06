@@ -55,6 +55,7 @@ function ownTicket(estate: Estate, name: string): Named {
   if (!item) throw new PluginError(`no work item "${name}"`)
   const reference = ticketOf(listed(estate.config.connections), item)
   if (!reference) throw new PluginError(`${item.id} has no ticket`)
+  if (!REFERENCE.test(reference)) throw new PluginError(`"${reference}" cannot be put into a command: a reference is one word that does not start with a dash`)
   return { word: OWN_TICKET, reference }
 }
 

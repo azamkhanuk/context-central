@@ -3,7 +3,7 @@ import { accountsOf, isOnlyAScript, onPath } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
 import type { Env } from './cli.mts'
-import type { Kind, Preset } from './presets.mts'
+import type { Entry, Kind, Preset } from './presets.mts'
 
 export interface ConnectionEntry {
   holds: string
@@ -146,13 +146,19 @@ export function ticketOf(recorded: Connection[], { id, ticket }: { id: string; t
   return ticket ?? (referenceOf(holding(recorded, TICKETS), id) ? id : null)
 }
 
+export function parametersOf({ entry }: Connection): Entry {
+  const takes = presetNamed(entry.preset)?.takes ?? {}
+  return Object.fromEntries(Object.entries(entry).filter(([parameter]) => Object.hasOwn(takes, parameter)))
+}
+
 function claiming(candidates: Connection[], reference: string) {
   const claims = candidates.flatMap(candidate => {
     const found = referenceOf([candidate], reference)
     return found ? [{ candidate, repo: found.repo?.toLowerCase() }] : []
   })
-  const serving = claims.find(({ candidate, repo }) => repo !== undefined && candidate.entry.repos?.some(name => name.toLowerCase() === repo))
-  return (serving ?? claims.find(({ candidate }) => !candidate.entry.repos) ?? claims[0])?.candidate
+  const inRepo = claims.filter(({ repo }) => repo !== undefined)
+  const serving = inRepo.find(({ candidate, repo }) => candidate.entry.repos?.some(name => name.toLowerCase() === repo))
+  return (serving ?? inRepo.find(({ candidate }) => !candidate.entry.repos) ?? claims[0])?.candidate
 }
 
 function only(connections: Connection[]) {
@@ -203,7 +209,7 @@ export function accountFault({ entry }: Connection, env: Env) {
 function patternsOf(connection: Connection) {
   const held = compiled.get(connection.entry)
   if (held) return held
-  const patterns = [...(connection.entry.references ?? []), ...(kindOf(connection)?.references(connection.entry) ?? [])].flatMap(source => {
+  const patterns = [...(connection.entry.references ?? []), ...(kindOf(connection)?.references(parametersOf(connection)) ?? [])].flatMap(source => {
     try {
       return [new RegExp(`(?<!\\w)(?:${source})(?!\\w)`, 'gi')]
     } catch {

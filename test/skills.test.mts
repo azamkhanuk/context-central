@@ -404,7 +404,7 @@ test("prep and implement ask the plugin which connection the item's ticket belon
 
 test('prep keeps the connection the person named where no connection claims the ticket', () => {
   assert.equal(run(['connections', '--item', 'odd'], { cwd: twoTrackers() }).stderr, 'context-central connections: more than one connection holds tickets and none claims "OTHER-1": tracker, desk\n')
-  said('prep', 'When it answers that none claims the ticket, the connection is the one the person named in step 1.')
+  said('prep', 'When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now.')
 })
 
 test('prep and implement look for an entry only where the map records the connection', () => {

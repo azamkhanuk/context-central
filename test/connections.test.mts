@@ -268,6 +268,23 @@ test('a work item whose name is itself a reference has that for its ticket', () 
   assert.equal(connections(withItems(), '--item', 'PROJ-12').stdout, 'tracker | tickets | by hand: Open the tracker.\n')
 })
 
+test("a work item's own ticket that fetch would refuse is refused here in the same words", () => {
+  for (const ticket of ['PROJ 12', '--web']) {
+    const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', connections: { tracker: TWO_TRACKERS.tracker } }, 'CLAUDE.md': '# Acme\n', 'work/odd/STATE.md': head('odd', ticket) }))
+    const refusal = `"${ticket}" cannot be put into a command: a reference is one word that does not start with a dash\n`
+
+    assert.deepEqual([connections(root, '--item', 'odd').code, connections(root, '--item', 'odd').stderr], [1, `context-central connections: ${refusal}`], ticket)
+    assert.equal(run(['fetch', 'ticket', '--item', 'odd'], { cwd: root }).stderr, `context-central fetch: ${refusal}`, ticket)
+  }
+})
+
+test('a ticket that names no repository belongs to the first written of two that claim it, whatever repos they name', () => {
+  const root = withConnections({ first: { holds: 'tickets', references: ['#\\d+'], server: 'one', repos: ['api'] }, second: { holds: 'tickets', references: ['#\\d+'], server: 'two' } })
+
+  assert.equal(connections(root, '--ticket', '#41').stdout, 'first | tickets | by a session, through the server one\n')
+  assert.equal(run(['resolve', 'what of #77'], { cwd: root }).stdout, '#77 reads as a ticket of connection first. No work item answers to it.\n')
+})
+
 test('a work item with no ticket has no connection, and one that does not exist is said not to', () => {
   const root = withItems()
 
