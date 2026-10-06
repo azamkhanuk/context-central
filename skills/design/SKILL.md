@@ -1,0 +1,41 @@
+---
+name: design
+description: Settle how a specified work item will be built before any code is written. Writes the modules, their interfaces, the order of the slices and the reason for each choice into the item's design file.
+argument-hint: <item>
+disable-model-invocation: true
+allowed-tools: Bash(context-central *)
+---
+
+The work item: $ARGUMENTS
+
+Write the design of a work item that has a spec and no code yet. The spec says what is built and why. The design says how, in this repo, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
+
+## 1. Load the item
+
+Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. Read the state file, the `SPEC.md` beside it and the code map note it names. With no spec, stop and suggest `/context-central:prep <item>`.
+
+## 2. Load the standards
+
+Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the spec touches. Read each standards file, the Design part first. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.
+
+## 3. Read the code the design will meet
+
+Delegate bulk reading to the `context-central:reader` agent. Give it the absolute paths from the code map and the question each one answers. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, and where its tests sit.
+
+## 4. Write the design
+
+Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these parts:
+
+- **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
+- **Interfaces**: each new or changed interface as it will be written in this repo, with what it takes, what it returns and how it fails.
+- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why.
+- **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, with the test seam of the spec it starts from.
+- **Anchors**: `path:line` for each place the build starts from or must not break.
+
+The design names files and lines, which the spec does not, so it carries the commit it was written at. It adds no requirement: something the spec does not ask for goes back to the person as a question, not into the design. Every requirement of the spec lands in at least one slice.
+
+## 5. Show it
+
+Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, and rewrite "Next" for an item that is designed and not built. Then show the person the Choices and the Slices in short, with every point where the design departs from the standards or could not follow the spec.
+
+The person approves by starting the build. Suggest a fresh session: `/clear`, then `/context-central:implement <item>`.

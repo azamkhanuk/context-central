@@ -10,11 +10,11 @@ The work item: $ARGUMENTS
 
 ## 1. Load the item
 
-Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. Read the state file and the `SPEC.md` beside it. With no spec, stop and suggest `/context-central:prep <item>`.
+Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. Read the state file and the `SPEC.md` beside it. With no spec, stop and suggest `/context-central:prep <item>`. When there is a `DESIGN.md` beside the spec, read it too. With none, the build goes from the spec alone.
 
 ## 2. Read the estate's settings
 
-Run `context-central config --get implement` and `context-central config --get repos`. A setting that is absent makes `config --get` exit 1, and a key may be missing inside `implement`: `tests` absent means on, `review` absent means on, `deferTo` absent or empty means nothing to defer to.
+Run `context-central config --get implement` and `context-central config --get repos`. A setting that is absent makes `config --get` exit 1, and a key may be missing inside `implement`: `tests` absent means on, `review` absent means on, `deferTo` absent or empty means nothing to defer to, `reviewRounds` absent means three.
 
 - For each repo the work touches: branch from its `baseBranch`, put the key where `keyPlacement` says, and write commits in its `commitStyle`. Where one of these is unset, follow the repo's recent history.
 - For each of those repos, run `context-central standards <repo>`. It lists the repo's standards files and its recorded checks with the folder they run from. Read the standards files before building, and tell the person which checks are recorded, as they are written, before the first is run. Where none is recorded, work from the instruction files and the repo's recent history as before, and say so once in the report: `/context-central:standards <repo>` records them.
@@ -24,11 +24,11 @@ Run `context-central config --get implement` and `context-central config --get r
 
 ## 3. Build in slices
 
-Order the spec into vertical slices: each one behaviour, working through every layer it touches. Build one slice at a time.
+With a design, build its slices in its order. Without one, order the spec into vertical slices: each one behaviour, working through every layer it touches. Build one slice at a time.
 
 Build to the Design, Code and Tests parts of the repo's standards. When `implement.tests` is on, each slice starts with a failing test at one of the spec's test seams, then the code that passes it. Run the repo's recorded checks after each slice, or the repo's own checks where none is recorded, and keep them green before starting the next.
 
-A slice that shows the spec to be wrong stops the build: say what was found and ask.
+A slice that shows the spec or the design to be wrong stops the build: say what was found and ask.
 
 ## 4. Verify
 
@@ -36,11 +36,13 @@ Run every recorded check from the folder `standards` gave and read what it exits
 
 ## 5. Review
 
-When `implement.review` is on, delegate to the `context-central:reviewer` agent. Give it the repo's absolute path, the diff range (`<base branch>...HEAD`), the spec's absolute path and the absolute paths of the repo's standards files. Fix each finding or say why it stands, then repeat step 4.
+When `implement.review` is on, delegate to the `context-central:reviewer` agent. Give it the repo's absolute path, the diff range (`<base branch>...HEAD`), the spec's absolute path and the absolute paths of the repo's standards files, and the design's when there is one. Fix each finding or say why it stands, then repeat step 4 and send the new diff back to the reviewer.
+
+A round is one run of the reviewer, and `implement.reviewRounds` is the most there may be. A round that brings nothing new ends the rounds. When the last round allowed still leaves a finding that is neither fixed nor answered, stop the build: list those findings and what was tried, and wait for the person.
 
 ## 6. Report
 
-Say what was built, what the verification showed, and what is left.
+Say what was built, what the verification showed, how many review rounds were run, and what is left.
 
 ## 7. Checkpoint
 

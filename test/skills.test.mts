@@ -5,8 +5,8 @@ import { test } from 'node:test'
 import { REPO, acme, disposable, makeTree, run } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
-const SKILLS = ['onboard', 'standards', 'research', 'prep', 'implement', 'checkpoint']
-const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'implement']
+const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
+const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
 const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'standards']
 const SKILL_FIELDS = [
@@ -39,6 +39,7 @@ const FLAGS: Record<string, string[]> = {
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
+const DESIGN_PARTS = ['Shape', 'Interfaces', 'Choices', 'Slices', 'Anchors']
 
 const tree = disposable()
 
@@ -92,6 +93,7 @@ test('the skills that take an argument say which', () => {
   assert.equal(skill('prep')['argument-hint'], '<item>')
   assert.equal(skill('implement')['argument-hint'], '<item>')
   assert.equal(skill('standards')['argument-hint'], '<repo>')
+  assert.equal(skill('design')['argument-hint'], '<item>')
 })
 
 test('every skill is under 120 lines', () => {
@@ -194,7 +196,7 @@ test('the skills say what an unset setting looks like: config --get exits 1', ()
 })
 
 test('implement says what each of its settings defaults to when the estate leaves it out', () => {
-  assert.match(skillText('implement'), /`tests` absent means on, `review` absent means on, `deferTo` absent or empty means nothing to defer to/)
+  assert.match(skillText('implement'), /`tests` absent means on, `review` absent means on, `deferTo` absent or empty means nothing to defer to, `reviewRounds` absent means three\./)
 })
 
 test('checkpoint names the six parts of the state file that work new lays out', () => {
@@ -208,12 +210,12 @@ test('checkpoint names the six parts of the state file that work new lays out', 
   }
 })
 
-test('prep and implement tell an existing item from a near match by the resolver\'s first line', () => {
+test('prep, design and implement tell an existing item from a near match by the resolver\'s first line', () => {
   const root = tree(acme())
 
   assert.equal(run(['resolve', 'PROJ-12'], { cwd: root }).stdout.split('\n')[0], 'Context for work item PROJ-12:')
   assert.equal(run(['resolve', 'PROJ-99 gateway web api'], { cwd: root }).stdout.split('\n')[0], 'Context for repo web:')
-  for (const name of ['prep', 'implement']) assert.ok(skillText(name).includes('`Context for work item <item>:`'), name)
+  for (const name of ['prep', 'design', 'implement']) assert.ok(skillText(name).includes('`Context for work item <item>:`'), name)
 })
 
 test('checkpoint stops where no map covers the folder', () => {
@@ -447,7 +449,7 @@ test('a standards file holds rules about code and nothing else, for the builder 
 
 test('implement hands the reviewer the standards files, and the reviewer names the rule a finding rests on', () => {
   assert.ok(step('implement', '5. Review').includes('the spec\'s absolute path and the absolute paths of the repo\'s standards files'))
-  assert.ok(agentText('reviewer').includes('It may also give the paths of the repo\'s standards files.'))
+  assert.ok(agentText('reviewer').includes('It may also give the paths of the repo\'s standards files'))
   assert.ok(agentText('reviewer').includes('A standards file that is named and cannot be read is a finding.'))
   assert.ok(agentText('reviewer').includes('- the rule it breaks, as the standards file\'s `path:line`, when the finding rests on one'))
 })
@@ -467,4 +469,87 @@ test('checkpoint makes no standards note where the repo has none, and reports th
 
 test('onboard closes by naming the skill that records a repo\'s standards', () => {
   assert.ok(skillText('onboard').trimEnd().endsWith('and that `/context-central:standards <repo>` records how a repo\'s code is written and checked once work starts in it.'))
+})
+
+test('design starts from a spec and stops without one', () => {
+  const load = step('design', '1. Load the item')
+
+  assert.ok(load.includes('Read the state file, the `SPEC.md` beside it and the code map note it names.'))
+  assert.ok(load.includes('With no spec, stop and suggest `/context-central:prep <item>`.'))
+})
+
+test('design loads each repo\'s standards from the plugin, and says so where a repo has none', () => {
+  const standards = step('design', '2. Load the standards')
+
+  assert.ok(standards.includes('`context-central standards <repo>` for each repo the spec touches'))
+  assert.ok(standards.includes('Read each standards file, the Design part first.'))
+  assert.ok(standards.includes('Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.'))
+  assert.match(skillText('design'), /context-central:reader/)
+})
+
+test('design writes five parts beside the spec, with the commit it was written at', () => {
+  const write = step('design', '4. Write the design')
+
+  assert.ok(write.includes('Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date'))
+  for (const part of DESIGN_PARTS) assert.ok(write.includes(`- **${part}**:`), part)
+})
+
+test('design ties each choice to a rule, adds no requirement and leaves none out', () => {
+  const write = step('design', '4. Write the design')
+
+  assert.ok(write.includes('the rule in the standards it follows (as the standards file\'s `path:line`), and the option turned down'))
+  assert.ok(write.includes('A choice that departs from a rule says so and why.'))
+  assert.ok(write.includes('It adds no requirement: something the spec does not ask for goes back to the person as a question, not into the design.'))
+  assert.ok(write.includes('Every requirement of the spec lands in at least one slice.'))
+})
+
+test('a design linked from the state file is a pointer of its item, which is where design puts it', () => {
+  const state = '---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12\n\n## Where the detail lives\n\n- Design: [DESIGN.md](DESIGN.md)\n'
+  const root = tree(acme({ 'work/PROJ-12/STATE.md': state, 'work/PROJ-12/DESIGN.md': '# Design\n' }))
+
+  const pointers = run(['resolve', 'PROJ-12'], { cwd: root }).stdout.split('\n')
+
+  assert.ok(pointers.includes('- work/PROJ-12/DESIGN.md (9 B) linked from the work item'))
+  assert.ok(step('design', '5. Show it').includes('Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`'))
+})
+
+test('design is approved by starting the build, and a small item needs none', () => {
+  const show = step('design', '5. Show it')
+
+  assert.ok(show.includes('every point where the design departs from the standards or could not follow the spec'))
+  assert.ok(show.includes('The person approves by starting the build. Suggest a fresh session: `/clear`, then `/context-central:implement <item>`.'))
+  assert.ok(skillText('design').includes('A small item needs none: `/context-central:implement <item>` builds from the spec alone.'))
+})
+
+test('implement follows a design when there is one, and builds from the spec alone when there is none', () => {
+  assert.ok(step('implement', '1. Load the item').includes('When there is a `DESIGN.md` beside the spec, read it too. With none, the build goes from the spec alone.'))
+  assert.ok(step('implement', '3. Build in slices').startsWith('3. Build in slices\n\nWith a design, build its slices in its order. Without one, order the spec into vertical slices'))
+  assert.ok(step('implement', '3. Build in slices').includes('A slice that shows the spec or the design to be wrong stops the build: say what was found and ask.'))
+})
+
+test('implement stops the review at a ceiling of rounds, three unless the estate says otherwise', () => {
+  const review = step('implement', '5. Review')
+
+  assert.ok(review.includes('and the design\'s when there is one'))
+  assert.ok(review.includes('then repeat step 4 and send the new diff back to the reviewer'))
+  assert.ok(review.includes('A round is one run of the reviewer, and `implement.reviewRounds` is the most there may be.'))
+  assert.ok(review.includes('A round that brings nothing new ends the rounds.'))
+  assert.ok(review.includes('When the last round allowed still leaves a finding that is neither fixed nor answered, stop the build: list those findings and what was tried, and wait for the person.'))
+  assert.ok(step('implement', '6. Report').includes('how many review rounds were run'))
+})
+
+test('the reviewer holds the diff to a design it is given', () => {
+  assert.ok(agentText('reviewer').includes('It may also give the paths of the repo\'s standards files and of a design.'))
+  assert.ok(agentText('reviewer').includes('a choice the design made and the diff did not follow is a finding, and so is a slice the design lists and the diff lacks'))
+})
+
+test('prep names the design step when it hands over', () => {
+  assert.ok(step('prep', '8. Hand over').includes('Where the work needs its structure settled first, suggest `/context-central:design <item>` before the build.'))
+})
+
+test('onboard asks how many review rounds implement allows, and its draft carries three', () => {
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
+
+  assert.match(skillText('onboard'), /^12\. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks\. Recommend three\.$/m)
+  assert.deepEqual(draft.config.implement, { tests: true, review: true, deferTo: '', reviewRounds: 3 })
 })

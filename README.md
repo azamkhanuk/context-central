@@ -41,7 +41,7 @@ Two rules keep it honest:
 2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
 3. **Start a session.** Claude already has the list of work in flight.
 4. **Name the work** in your prompt, by its ticket key or its plain name. Claude is pointed at its state file and the notes behind it.
-5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, and `/context-central:implement` builds it one slice at a time.
+5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. Each runs in a fresh session and hands over through the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
 ## Install
@@ -112,6 +112,7 @@ There are two layouts:
   work/<item>/
     STATE.md           where the item stands and what is next
     SPEC.md            what is being built
+    DESIGN.md          how it will be built, for work that needs it settled first
     notes/             research and working notes
     sources/           full text of tickets, PRs, threads: the deep tier
     evidence/          files that are not text: screenshots, recordings, exports
@@ -290,7 +291,8 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 | `/context-central:standards <repo>` | Drafts one repo's standards note and its checks from what the repo declares, asks what is unsettled, writes both on your yes |
 | `/context-central:research <question> [item]` | Researches from primary sources, marks each claim verified or inferred, writes a note |
 | `/context-central:prep <item>` | Turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
-| `/context-central:implement <item>` | Builds from the state file and spec, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks |
+| `/context-central:design <item>` | Reads the spec, the repo's standards and the code, and writes the item's `DESIGN.md`: the modules, their interfaces, each choice with its reason, and the slices in order. Optional, and approved by starting the build |
+| `/context-central:implement <item>` | Builds from the state file, the spec and the design when there is one, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks. Stops and asks when the allowed review rounds, three unless set, leave a finding standing |
 | `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, the session's terms in the glossary, the rules you stated in the repo's standards note, log line, then `lint` and `graph` |
 
 ## Agents
@@ -299,7 +301,7 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
 | `context-central:fetcher` | Fetches one ticket, PR, thread or meeting, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems |
-| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules and the repo's standards files when it is given them. Never edits |
+| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them. Never edits |
 
 ## Working from a terminal
 

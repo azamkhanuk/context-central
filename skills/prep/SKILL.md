@@ -50,4 +50,4 @@ Rewrite "Where it stands" and "Next" for an item that is specified and not built
 
 ## 8. Hand over
 
-Suggest a fresh session for the build: `/clear`, then `/context-central:implement <item>`. The state file and the spec carry everything the build needs.
+Suggest a fresh session for the build: `/clear`, then `/context-central:implement <item>`. The state file and the spec carry everything the build needs. Where the work needs its structure settled first, suggest `/context-central:design <item>` before the build.
