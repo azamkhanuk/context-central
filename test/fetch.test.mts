@@ -242,7 +242,7 @@ test('a machine without gh is told so', () => {
   const result = run(['fetch', 'pr', '88', '--item', 'PROJ-12'], { cwd: root, env: { PATH: emptyPath } })
 
   assert.equal(result.code, 1)
-  assert.equal(result.stderr, 'context-central fetch: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"\n')
+  assert.equal(result.stderr, 'context-central fetch: connection github is not read by fetch here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login".\n')
 })
 
 test('gh is started by its bare name where the file is gh.exe', EXE_NAMES, () => {

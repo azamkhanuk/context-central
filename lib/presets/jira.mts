@@ -4,8 +4,12 @@ const ANY_KEY = '[A-Z][A-Z0-9]+'
 
 export default {
   program: 'acli',
+  hint: 'install the Atlassian CLI and sign in with "acli jira auth login"',
   kinds: {
-    tickets: { references },
+    tickets: {
+      references,
+      read: ({ id }) => ({ args: ['jira', 'workitem', 'view', id, '--fields', '*all', '--json'] }),
+    },
   },
 } satisfies PresetBody
 

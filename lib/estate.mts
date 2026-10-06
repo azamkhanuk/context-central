@@ -107,6 +107,7 @@ export interface MapLocation {
 
 export interface Estate extends MapLocation {
   config: Settings
+  oldMap: boolean
   unasked: Connection[]
 }
 
@@ -129,7 +130,8 @@ export function loadEstate(startDir: string): Estate | null {
   if (!found) return null
   const written = readWritten(found.configPath)
   const config = validateConfig(written, found.configPath)
-  return { ...found, config, unasked: unaskedOn(written as WrittenSettings, config.connections) }
+  const { connections } = written as WrittenSettings
+  return { ...found, config, oldMap: connections === undefined, unasked: unaskedOn({ connections }, config.connections) }
 }
 
 export function requireEstate(io: Io) {

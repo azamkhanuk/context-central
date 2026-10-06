@@ -2,138 +2,123 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { FETCH_WORDS, PULL_REQUESTS, TICKETS, holding, kindOf, listed, referenceOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
-import { formatBytes, localDate, plural } from '../text.mts'
+import { presetNamed } from '../presets.mts'
+import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
+import type { Connection } from '../connections.mts'
+import type { Estate } from '../estate.mts'
+import type { WorkItem } from '../nodes.mts'
+import type { Laid, Preset, Reading } from '../presets.mts'
 
-interface Authored {
-  author?: { login?: string } | null
+interface Asked {
+  reference: string
+  repo: string | undefined
 }
 
-interface Comment extends Authored {
-  createdAt?: string
-  body?: string | null
-}
+export const summary = 'Read a ticket or a pull request through its connection and save it in full: fetch ticket|pr <reference> --item <item>; --check tries a connection and saves nothing'
 
-interface Review extends Authored {
-  state?: string
-  submittedAt?: string
-  body?: string | null
-}
-
-interface ChangedFile {
-  path: string
-  additions: number
-  deletions: number
-}
-
-interface Fetched extends Authored {
-  number: number
-  title: string
-  state: string
-  url: string
-  body?: string | null
-  headRefName?: string
-  baseRefName?: string
-  files: ChangedFile[]
-  comments: Comment[]
-  reviews: Review[]
-  labels: { name: string }[]
-}
-
-interface Kind {
-  label: string
-  fields: string
-  digest: (fetched: Fetched) => string
-  facts: (fetched: Fetched) => string[]
-  sections: (fetched: Fetched) => string[]
-}
-
-export const summary = 'Save a PR or issue in full and print a digest: fetch pr|issue <ref> --item <item> [--repo <owner/name>]'
-
-const KINDS: Record<string, Kind> = {
-  pr: {
-    label: 'PR',
-    fields: 'number,title,state,author,baseRefName,headRefName,url,body,files,comments,reviews',
-    digest: pr => `${branches(pr)}, ${plural(pr.files.length, 'file')}, ${plural(pr.comments.length, 'comment')}`,
-    facts: pr => [`Branches: ${branches(pr)}`],
-    sections: pr => [
-      section('Reviews', pr.reviews, review => entry([login(review), review.state, review.submittedAt], review.body)),
-      section('Changed files', pr.files, file => `- ${file.path} (+${file.additions} -${file.deletions})`, '\n'),
-    ],
-  },
-  issue: {
-    label: 'Issue',
-    fields: 'number,title,state,author,url,body,comments,labels',
-    digest: issue => plural(issue.comments.length, 'comment'),
-    facts: issue => [`Labels: ${issue.labels.map(label => label.name).join(', ') || 'none'}`],
-    sections: () => [],
-  },
-}
+const USAGE = 'expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --check in place of --item to try the connection and save nothing'
+const ONE_WORD = /^[^\s\p{Cc}]+$/u
+const WORDS: Record<string, { word: string; label: string }> = { [TICKETS]: { word: 'ticket', label: 'Ticket' }, [PULL_REQUESTS]: { word: 'pr', label: 'Pull request' } }
 
 export function run(args: string[], io: Io) {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { item: { type: 'string' }, repo: { type: 'string' } } })
-  const [kindName, ref] = positionals
-  const kind = Object.hasOwn(KINDS, kindName ?? '') && KINDS[kindName]
-  if (!kind || !ref || positionals.length !== 2 || !values.item) {
-    throw new UsageError('expected: fetch pr <ref> --item <item> [--repo <owner/name>], or the same with issue')
-  }
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: { item: { type: 'string' }, repo: { type: 'string' }, connection: { type: 'string' }, check: { type: 'boolean' } },
+  })
+  const [typed, given] = positionals
+  const kind = Object.hasOwn(FETCH_WORDS, typed ?? '') ? FETCH_WORDS[typed] : null
+  const readsItsOwn = kind === TICKETS && values.item !== undefined
+  if (!kind || positionals.length > 2 || Boolean(values.check) === (values.item !== undefined) || (!given && !readsItsOwn)) throw new UsageError(USAGE)
+  if ([given, values.repo].some(value => value !== undefined && !ONE_WORD.test(value))) throw new UsageError('a reference and a repo are each one word, with no space in it')
   const estate = requireEstate(io)
-  const item = findWorkItem(estate, values.item)
-  if (!item) throw new PluginError(`no work item "${values.item}"`)
-  const fetched = gh([kindName, 'view', ref, '--json', kind.fields, ...(values.repo ? ['--repo', values.repo] : [])], io)
+  const item = values.item === undefined ? null : findWorkItem(estate, values.item)
+  if (values.item !== undefined && !item) throw new PluginError(`no work item "${values.item}"`)
+  const asked = { reference: given ?? ownTicket(estate, item), repo: values.repo }
+  const connection = chosen(estate, kind, asked.reference, values.connection)
+  const { preset, reading } = readingOf(connection, kind, asked)
+  const printed = started(preset, reading, connection, io)
   const { day } = localDate(io.env)
-  const text = fullText(kind, fetched, day)
+  const laid = laidOut(preset, reading, printed, day) ?? asPrinted(connection, kind, asked, printed, day)
+  if (!item) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
   const sourcesAbs = join(estate.mapDir, item.dirRel, 'sources')
   mkdirSync(sourcesAbs, { recursive: true })
-  const name = `${nextNumber(sourcesAbs)}-${day}-${kindName}-${fetched.number}-full-text.md`
-  writeFileSync(join(sourcesAbs, name), text, { flag: 'wx' })
-  io.out(`${kind.label} #${fetched.number}: ${fetched.title} [${fetched.state}] ${kind.digest(fetched)}`)
-  io.out(`saved: ${item.dirRel}/sources/${name} (${formatBytes(Buffer.byteLength(text))})`)
+  const name = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
+  writeFileSync(join(sourcesAbs, name), laid.text, { flag: 'wx' })
+  io.out(laid.digest)
+  io.out(`saved: ${item.dirRel}/sources/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
 }
 
-function gh(args: string[], io: Io) {
-  const result = spawnSync('gh', args, { cwd: io.cwd, env: io.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-  if ((result.error as NodeJS.ErrnoException | undefined)?.['code'] === 'ENOENT') throw new PluginError('gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
-  if (result.error) throw new PluginError(`gh failed: ${result.error.message}`)
-  if (result.status !== 0) throw new PluginError(`gh failed: ${firstLine(result.stderr) || `exit ${result.status}`}`)
+function ownTicket(estate: Estate, item: WorkItem | null) {
+  if (!item) throw new UsageError(USAGE)
+  const ticket = item.ticket ?? (referenceOf(holding(listed(estate.config.connections), TICKETS), item.id) ? item.id : null)
+  if (!ticket) throw new PluginError(`${item.id} has no ticket; name the reference to read`)
+  return ticket
+}
+
+function chosen(estate: Estate, kind: string, reference: string, named: string | undefined) {
+  const every = [...listed(estate.config.connections), ...estate.unasked]
+  if (named !== undefined) return theOneNamed(every, kind, named)
+  const candidates = holding(every, kind)
+  const claiming = candidates.find(candidate => referenceOf([candidate], reference))
+  const asBefore = estate.oldMap ? candidates.find(candidate => presetNamed(candidate.entry.preset)?.onOldMaps?.unasked) : undefined
+  const one = claiming ?? asBefore ?? (candidates.length === 1 ? candidates[0] : null)
+  if (one) return one
+  if (candidates.length === 0) throw new PluginError(`no connection holds ${kind}`)
+  throw new PluginError(`more than one connection holds ${kind}: ${candidates.map(candidate => candidate.name).join(', ')}; name one with --connection`)
+}
+
+function theOneNamed(every: Connection[], kind: string, named: string) {
+  const same = every.filter(candidate => candidate.name === named)
+  const connection = same.find(candidate => candidate.entry.holds === kind) ?? same[0]
+  if (!connection) throw new PluginError(`no connection "${named}"`)
+  if (connection.entry.holds !== kind) throw new PluginError(`connection ${named} holds ${connection.entry.holds}, not ${kind}`)
+  return connection
+}
+
+function readingOf(connection: Connection, kind: string, { reference, repo }: Asked) {
+  const preset = presetNamed(connection.entry.preset)
+  const read = kindOf(connection)?.read
+  if (!preset || !read) throw new PluginError(`connection ${connection.name} is not read by fetch: it has no preset that reads ${kind}.${instead(connection)}`)
+  const id = referenceOf([connection], reference)?.id ?? reference
+  return { preset, reading: read({ reference, id, repo, entry: connection.entry }) }
+}
+
+function instead({ entry }: Connection) {
+  if (entry.server) return ` A session reads it through the server ${entry.server}.`
+  if (entry.commands) return " A session reads it with the estate's own command."
+  if (entry.route !== undefined) return ' A session reads it by the route written down.'
+  return entry.how ? ` By hand: ${entry.how}` : ''
+}
+
+function started(preset: Preset, reading: Reading, connection: Connection, io: Io) {
+  const result = spawnSync(preset.program, reading.args, { cwd: io.cwd, env: io.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  if ((result.error as NodeJS.ErrnoException | undefined)?.['code'] === 'ENOENT') {
+    throw new PluginError(`connection ${connection.name} is not read by fetch here: ${preset.program} is not on PATH${preset.hint ? `; ${preset.hint}` : ''}.${instead(connection)}`)
+  }
+  if (result.error) throw new PluginError(`${preset.program} failed: ${result.error.message}`)
+  if (result.status !== 0) throw new PluginError(`${preset.program} failed: ${firstLine(result.stderr) || `exit ${result.status}`}`)
+  return result.stdout
+}
+
+function laidOut(preset: Preset, reading: Reading, printed: string, day: string): Laid | null {
+  if (!reading.layout) return null
   try {
-    return withLists(JSON.parse(result.stdout) as Fetched)
-  } catch {
-    throw new PluginError('gh failed: its answer was not JSON')
+    return reading.layout(printed, day)
+  } catch (error) {
+    throw new PluginError(`${preset.program} failed: its answer could not be read (${(error as Error).message})`)
   }
 }
 
-function withLists(fetched: Fetched): Fetched {
-  const lists = Object.fromEntries((['files', 'comments', 'reviews', 'labels'] satisfies (keyof Fetched)[]).map(key => [key, fetched[key] ?? []]))
-  return { ...fetched, ...lists }
-}
-
-function fullText(kind: Kind, fetched: Fetched, day: string) {
-  const facts = [`URL: ${fetched.url}`, `State: ${fetched.state}`, `Author: ${login(fetched)}`, ...kind.facts(fetched), `Fetched: ${day}`]
-  return [
-    `# ${kind.label} #${fetched.number}: ${fetched.title}`,
-    facts.map(fact => `- ${fact}`).join('\n'),
-    `## Body\n\n${verbatim(fetched.body, '(empty)')}`,
-    section('Comments', fetched.comments, comment => entry([login(comment), comment.createdAt], comment.body)),
-    ...kind.sections(fetched),
-  ]
-    .join('\n\n')
-    .concat('\n')
-}
-
-function section<Item>(title: string, items: Item[], render: (item: Item) => string, separator = '\n\n') {
-  return `## ${title} (${items.length})\n\n${items.map(render).join(separator) || 'None.'}`
-}
-
-function entry(heading: (string | undefined)[], body: string | null | undefined) {
-  return `### ${heading.filter(Boolean).join(', ')}\n\n${verbatim(body, '(no text)')}`
-}
-
-function verbatim(body: string | null | undefined, whenEmpty: string) {
-  return (body ?? '').replace(/\r\n/g, '\n').replace(/^\s*\n/, '').trimEnd() || whenEmpty
+function asPrinted(connection: Connection, kind: string, { reference }: Asked, printed: string, day: string): Laid {
+  const id = referenceOf([connection], reference)?.id ?? reference
+  const head = [`# ${WORDS[kind].label} ${id}`, [`Connection: ${connection.name}`, `Reference: ${reference}`, `Fetched: ${day}`].map(fact => `- ${fact}`).join('\n')]
+  return { id, digest: `${WORDS[kind].word} ${id} read through ${connection.name}`, text: [...head, printed.replace(/\r\n/g, '\n').trimEnd()].join('\n\n').concat('\n') }
 }
 
 function nextNumber(sourcesAbs: string) {
@@ -141,12 +126,8 @@ function nextNumber(sourcesAbs: string) {
   return String(Math.max(0, ...taken) + 1).padStart(2, '0')
 }
 
-function branches(pr: Fetched) {
-  return `${pr.headRefName} -> ${pr.baseRefName}`
-}
-
-function login(authored: Authored) {
-  return authored.author?.login ?? 'unknown'
+function safe(id: string) {
+  return id.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'unnamed'
 }
 
 function firstLine(text: string | null) {
