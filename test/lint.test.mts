@@ -321,3 +321,17 @@ test('standards that all exist leave the map ok', () => {
 
   assert.equal(lint(root).stdout, 'ok\n')
 })
+
+test('a listed standards file that is a folder is warned about as one, and a file listed twice is warned about once', () => {
+  const repos: Json[] = [{ name: 'web' }, { name: 'api', standards: ['api', 'api/docs/review.md', 'api/docs/review.md'] }]
+  const root = tree(acme({}, { repos }))
+
+  assert.equal(lint(root).stdout, 'WARN standards: repo api names api, which is a folder, not a file\nWARN standards: repo api names api/docs/review.md, which does not exist\n')
+})
+
+test('a map kept inside a repo is warned about a missing standards file counted from the estate root', () => {
+  const app = { name: 'app', path: '.', standards: ['CONTRIBUTING.md'] }
+  const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'acme', repos: [app] }, 'CLAUDE.md': '# Acme\n', '.context-central/standards/app.md': '# app\n' }))
+
+  assert.equal(lint(root).stdout, 'WARN standards: repo app names CONTRIBUTING.md, which does not exist\n')
+})

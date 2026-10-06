@@ -25,7 +25,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - `--json` on commands whose output a skill or script parses.
 - The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`.
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub, a repo's standards).
-- Nothing in `lib/`, a skill or an agent names a language, a framework or a build tool. What a repo is built and checked with comes from its own files, its standards note and its recorded checks.
+- The plugin holds no rule for any language, framework or build tool, in `lib/`, a skill or an agent. How a repo's code is written and checked comes from its own files, its standards note and its recorded checks.
 - Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
 - `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release.

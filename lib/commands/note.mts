@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { requireEstate } from '../estate.mts'
+import { NODE_NAME, requireEstate } from '../estate.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -15,7 +15,6 @@ interface Flags {
 
 export const summary = 'Log a line: note <text>. Start a node: note --new <kind>/<name> [--title <title>]'
 
-const NODE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const NUMBERED = /^(\d+)-(.+)\.md$/
 const FIRST_FLAG = /^--(new|title)(=.*)?$/s
 

@@ -89,8 +89,8 @@ function strayFinding({ rel, dirRel }: StrayFile) {
 
 function standardsFindings(estate: Estate, repo: Repo) {
   return standardsFiles(estate, repo)
-    .filter(file => !file.exists)
-    .map(file => finding('WARN', 'standards', file.rel, `repo ${repo.name} names ${file.rel}, which does not exist`))
+    .filter(file => file.state !== 'file')
+    .map(file => finding('WARN', 'standards', file.rel, `repo ${repo.name} names ${file.rel}, which ${file.state === 'folder' ? 'is a folder, not a file' : 'does not exist'}`))
 }
 
 function indexFindings(estate: Estate, count: number) {

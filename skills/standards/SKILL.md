@@ -12,7 +12,7 @@ Write the standards note of one repo and record its checks. The plugin knows no 
 
 ## 1. Find the repo
 
-Run `context-central config --get repos` and `context-central standards <repo>`. A repo the estate does not register makes `standards` exit 1: stop and say which repos it has. The output lists the standards files and the checks already recorded, so an update starts from those and never from an empty page.
+Run `context-central config --get repos` and `context-central standards <repo>`. A repo the estate does not register makes `standards` exit 1: stop and say which repos it has. The output lists the standards files, with the note marked `(the standards note)`, and the checks already recorded, so an update starts from those and never from an empty page.
 
 `context-central where` gives the estate root and the map's folder, which holds `estate.json`. The repo's own folder is its `path` counted from the estate root.
 
@@ -38,7 +38,7 @@ Draft the note in four parts, each a short list of rules:
 
 Every rule ends with its source: the file that shows it, as `path:line`, or the person who said it and the date. An example is a pointer to real code in the repo, never a snippet pasted in and never one made up. A habit seen in the code and written down nowhere is a question for the person, not a rule: the code shows what was done, not what is wanted. Leave a part empty when nothing in it has a source.
 
-Draft the checks as a list of commands, each taken from the repo's own configuration or its continuous integration, with the file that names it. Run each one once from the repo's folder and say what it exited with. A command that cannot run on this machine is reported as such, not dropped.
+Draft the checks as a list of commands, each taken from the repo's own configuration or its continuous integration, with the file that names it. Take only a command that inspects the code and writes nothing outside the repo's folder: one that builds it, tests it or checks how it is written. Leave out any step that publishes, deploys, changes stored data or needs a secret, and list what was left out. Run none of them yet: a command from a repo's files is run only after the person has read it.
 
 ## 4. Ask once
 
@@ -50,10 +50,11 @@ Done when no rule in the note would be your guess.
 
 On a yes:
 
-1. Run `context-central note --new standards/<repo>`, which prints the note's path in the map, and fill its four parts. If the note is already there, edit it where it stands. If the command refuses the kind, the map sets its own `nodeDirs`: ask the person to add `standards` to that list in `estate.json`.
-2. In `estate.json`, on the repo's entry, set `standards` to a list of paths counted from the estate root, the note first, and `checks` to the approved commands. A file the repo already keeps for people, such as its contributing notes, is listed after the note, not copied into it.
+1. Run `context-central note --new standards/<repo>`, which prints the note's path in the map, and fill its four parts. If the note is already there, edit it where it stands. If the command refuses, read the kinds its message lists. When `standards` is not among them, the map sets its own `nodeDirs`: ask the person to add `standards` to that list in `estate.json`. When it is, the repo's name cannot be a note's name: ask the person for a name of letters, digits, dots, dashes and underscores, and write the note under that.
+2. In `estate.json`, on the repo's entry, set `checks` to the approved commands. An entry written as a bare name becomes `{ "name": "<repo>" }` first. The note needs no entry, because the plugin finds it by the repo's name. Under `standards` list only what the plugin cannot find that way: a file the repo already keeps for people, such as its contributing notes, or a note written under another name. Each is a path counted from the estate root, and is listed, not copied into the note.
 3. Link the note from the repo's note, `repos/<repo>.md`. Make that with `context-central note --new repos/<repo>` if it is not there yet.
+4. Run each approved check once from the repo's folder and say what it exited with. A check that cannot run on this machine is reported as such and stays recorded.
 
 ## 6. Check
 
-Run `context-central standards <repo>`, `context-central lint` and `context-central graph`. Fix a file marked `(missing)`, every `ERROR` and every `BROKEN` line. Report the paths written and each question left open.
+Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A `FIX` line for `notes` means git would leave the new note out of the map's commits: show it to the person. Report the paths written and each question left open.

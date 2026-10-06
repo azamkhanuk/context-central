@@ -15,7 +15,7 @@ _Avoid_: dictionary, vocabulary, terminology
 **Node**: One Markdown file in the map about one lasting subject: a repo, an area, a concept, an edge between repos, a decision, or a repo's standards.
 _Avoid_: page, doc, article
 
-**Standards note**: The node under `standards/` for one repo: how its code is designed, written, tested and reviewed, in four parts. Every rule names its source, the file that shows it or the person who said it. The plugin ships none and knows no language.
+**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. Every rule names its source, the file that shows it or the person who said it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
 
 **Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, and work is verified only when every one exits 0.

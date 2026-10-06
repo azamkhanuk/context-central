@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -10,6 +10,10 @@ export const INNER_DIR = '.context-central'
 export const DEFAULT_NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work']
 
 export const CONFIG_MARKER = '"contextCentral"'
+
+export const NODE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+
+const STANDARDS_DIR = 'standards'
 
 const SCHEMA = 1
 const DEFAULT_BUDGETS = {
@@ -93,6 +97,13 @@ interface WrittenSettings {
   writeRules?: WriteRules
 }
 
+export interface StandardsFile {
+  rel: string
+  path: string
+  state: 'file' | 'folder' | 'missing'
+  note: boolean
+}
+
 export interface MapLocation {
   layout: Layout
   configPath: string
@@ -143,11 +154,20 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   return estate.config.nodeDirs.some(under) ? 'node' : null
 }
 
-export function standardsFiles({ estateRoot }: MapLocation, repo: Repo) {
-  return (repo.standards ?? []).map(rel => {
-    const path = resolve(estateRoot, rel)
-    return { rel, path, exists: existsSync(path) }
-  })
+export function standardsFiles({ estateRoot, mapDir }: MapLocation, repo: Repo): StandardsFile[] {
+  const note = NODE_NAME.test(repo.name) ? join(mapDir, STANDARDS_DIR, `${repo.name}.md`) : null
+  const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
+  const found = note !== null && stateOf(note) === 'file' ? [{ rel: relative(estateRoot, note).split(sep).join('/'), path: note }] : []
+  const seen = new Set<string>()
+  return [...found, ...listed]
+    .filter(file => !seen.has(file.path) && seen.add(file.path))
+    .map(file => ({ ...file, state: stateOf(file.path), note: file.path === note && found.length > 0 }))
+}
+
+function stateOf(path: string) {
+  const stat = statSync(path, { throwIfNoEntry: false })
+  if (!stat) return 'missing'
+  return stat.isFile() ? 'file' : 'folder'
 }
 
 export function keyRegexes(config: Settings) {
@@ -218,9 +238,22 @@ function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
   return {
     path: entry.name,
     ...entry,
-    standards: entry.standards === undefined ? undefined : strings(entry.standards, 'standards', inRepo),
-    checks: entry.checks === undefined ? undefined : strings(entry.checks, 'checks', inRepo),
+    standards: entry.standards === undefined ? undefined : pathsInEstate(entry.standards, 'standards', inRepo),
+    checks: entry.checks === undefined ? undefined : singleLines(entry.checks, 'checks', inRepo),
   }
+}
+
+function singleLines(value: unknown, name: string, fail: Fail) {
+  const items = strings(value, name, fail)
+  if (items.some(item => !item.trim() || /[\r\n]/.test(item))) fail(`each entry in "${name}" must be one line of text`)
+  return items
+}
+
+function pathsInEstate(value: unknown, name: string, fail: Fail) {
+  const paths = singleLines(value, name, fail)
+  const outside = paths.find(path => /^([/\\]|[A-Za-z]:)/.test(path) || path.includes('\\') || path.split('/').includes('..'))
+  if (outside !== undefined) fail(`"${name}" holds "${outside}"; a path there is counted from the estate root, with forward slashes and no ".."`)
+  return paths
 }
 
 function keyPatterns(value: unknown, fail: Fail) {

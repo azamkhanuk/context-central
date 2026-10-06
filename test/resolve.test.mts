@@ -715,3 +715,21 @@ test('evidence is never matched on words', () => {
 
   assert.equal(resolve(root, 'how', 'do', 'billing', 'retries', 'behave').stdout, 'No confident match for "how do billing retries behave".\n')
 })
+
+test('a repo\'s standards note is listed straight after its repo note, however many notes the repo note links', () => {
+  const linked = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map(n => [`concepts/idea-${n}.md`, `# Idea ${n}\n`]))
+  const repoNote = `# api\n\n${[1, 2, 3, 4, 5, 6, 7].map(n => `[[concepts/idea-${n}]]`).join(' ')}\n`
+  const root = tree(acme({ ...linked, 'repos/api.md': repoNote, 'standards/api.md': '# api\n' }))
+
+  const lines = run(['resolve', 'api'], { cwd: root }).stdout.split('\n')
+
+  assert.equal(lines[0], 'Context for repo api:')
+  assert.equal(lines[1], `- repos/api.md (${Buffer.byteLength(repoNote)} B) repo note`)
+  assert.equal(lines[2], '- standards/api.md (6 B) standards of the repo')
+})
+
+test('a repo with no standards note is resolved as before', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 2), ['Context for repo api:', `- repos/api.md (${Buffer.byteLength(ACME_FILES['repos/api.md'])} B) repo note`])
+})
