@@ -34,7 +34,7 @@ const FLAGS: Record<string, string[]> = {
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
   fetch: ['item', 'repo', 'connection', 'check'],
-  connections: ['json', 'presets'],
+  connections: ['json', 'presets', 'ticket', 'pr'],
   evidence: ['item', 'as'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
@@ -353,8 +353,44 @@ test('research reads through fetch where a connection allows it and through the 
 })
 
 test('prep reads the ticket of the item before it writes a spec', () => {
-  said('prep', '`context-central fetch ticket --item <item>` saves it and prints a digest')
+  said('prep', 'Start with `context-central fetch ticket --item <item>`')
   said('prep', 'A spec is never written with a ticket unread.')
+})
+
+const TWO_TRACKERS = {
+  tracker: { holds: 'tickets', references: ['PROJ-\\d+'], how: 'open the tracker' },
+  desk: { holds: 'tickets', references: ['DESK-\\d+'], server: 'acme-desk' },
+}
+
+test('research and prep leave the choice of connection to fetch, and take the way to a session from what it answers', () => {
+  const root = tree(acme({ 'work/DESK-7/STATE.md': '---\nitem: DESK-7\ntitle: Rotate the keys\nstatus: active\nticket: "DESK-7"\n---\n# DESK-7: Rotate the keys\n' }, { connections: TWO_TRACKERS }))
+
+  const itsOwn = run(['fetch', 'ticket', '--item', 'DESK-7'], { cwd: root })
+  const unclaimed = run(['fetch', 'ticket', 'OTHER-1', '--check'], { cwd: root })
+
+  assert.equal(itsOwn.stderr, 'context-central fetch: connection desk is not read by fetch: it has no preset that reads tickets. A session reads it through the server acme-desk.\n')
+  assert.equal(unclaimed.stderr, 'context-central fetch: more than one connection holds tickets: tracker, desk; name one with --connection\n')
+  for (const name of ['research', 'prep']) {
+    said(name, 'Never pick the connection yourself')
+    said(name, 'answers that the connection is not read by fetch, the answer names the connection and how a session reads it')
+    said(name, 'answers that more than one connection holds')
+  }
+})
+
+test('research and prep give the fetcher the same kind of path to save to', () => {
+  for (const name of ['research', 'prep']) said(name, '`work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder')
+})
+
+test('the fetcher saves with its file tool, and never hands fetched text to a shell', () => {
+  assert.ok(agentText('fetcher').includes('Save it with your file-writing tool. Never pass fetched text through a shell'))
+})
+
+test('prep and implement ask the plugin which connection a ticket belongs to before anything is posted on it', () => {
+  const root = tree(acme({}, { connections: TWO_TRACKERS }))
+
+  assert.equal(run(['connections', '--ticket', 'DESK-7'], { cwd: root }).stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+  for (const name of ['prep', 'implement']) said(name, '`context-central connections --ticket "<reference>"` names the connection')
+  said('prep', 'never ask the person which it is')
 })
 
 test('implement opens a pull request through the connection that holds it, and checks a pinned account first', () => {
@@ -369,8 +405,8 @@ test("checkpoint reads the state of a PR through its connection and writes the P
 
 test('each working skill says what it does where no connection reaches the thing', () => {
   said('research', 'ask the person to paste the text, and save it in full')
-  said('prep', 'When neither reaches it, ask the person to paste it and save it in full.')
-  said('prep', 'With no connection that holds the ticket, show the text.')
+  said('prep', 'When nothing reaches the ticket, ask the person to paste it and save it in full.')
+  said('prep', 'When it names none, or the item has no ticket, show the text.')
   said('implement', 'With no such connection, say what is ready and leave the opening or the posting to the person.')
   said('checkpoint', 'With no such connection, ask the person or leave the state out.')
 })
@@ -384,6 +420,10 @@ test("the fetcher finds a server's tool with tool search and never assumes its n
 test('onboard adds the servers the session itself holds, recommends at least one connection and accepts none', () => {
   said('onboard', 'the MCP servers and connectors this session itself holds, read from the names in its own tool list')
   said('onboard', 'Recommend at least one connection, so that a session can read the ticket or the pull request behind the work, and accept "none".')
+})
+
+test('onboard asks for what a preset takes, which the plugin lists', () => {
+  said('onboard', 'For a preset, `context-central connections --presets` lists the parameters it takes: ask for each one the candidate does not give.')
 })
 
 test('onboard proves each connection with one read that saves nothing, and offers allow rules for this machine only', () => {
@@ -403,6 +443,6 @@ test("the draft that onboard shows is one the plugin reads, with every connectio
 })
 
 test('a reference in a command that a skill or an agent gives is in quotes, since one may start with a sign the shell reads as a comment', () => {
-  for (const [file, text] of everyFile()) assert.doesNotMatch(text, /(--ticket|fetch (ticket|pr|issue)) <reference>/, file)
+  for (const [file, text] of everyFile()) assert.doesNotMatch(text, /(--ticket|--pr|fetch (ticket|pr|issue)) <reference>/, file)
   assert.match(skillText('research'), /in quotes, since a reference may start with `#`/)
 })
