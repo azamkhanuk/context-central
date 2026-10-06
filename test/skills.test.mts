@@ -34,7 +34,7 @@ const FLAGS: Record<string, string[]> = {
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
   fetch: ['item', 'repo', 'connection', 'check'],
-  connections: ['json', 'presets', 'ticket', 'pr'],
+  connections: ['json', 'presets', 'ticket', 'pr', 'item'],
   evidence: ['item', 'as'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
@@ -362,8 +362,11 @@ const TWO_TRACKERS = {
   desk: { holds: 'tickets', references: ['DESK-\\d+'], server: 'acme-desk' },
 }
 
+const state = (id: string, ticket: string | null) => `---\nitem: ${id}\ntitle: Something\nstatus: active\n${ticket ? `ticket: "${ticket}"\n` : ''}---\n# ${id}: Something\n`
+const twoTrackers = () => tree(acme({ 'work/DESK-7/STATE.md': state('DESK-7', 'DESK-7'), 'work/tidy-up/STATE.md': state('tidy-up', null), 'work/odd/STATE.md': state('odd', 'OTHER-1') }, { connections: TWO_TRACKERS }))
+
 test('research and prep leave the choice of connection to fetch, and take the way to a session from what it answers', () => {
-  const root = tree(acme({ 'work/DESK-7/STATE.md': '---\nitem: DESK-7\ntitle: Rotate the keys\nstatus: active\nticket: "DESK-7"\n---\n# DESK-7: Rotate the keys\n' }, { connections: TWO_TRACKERS }))
+  const root = twoTrackers()
 
   const itsOwn = run(['fetch', 'ticket', '--item', 'DESK-7'], { cwd: root })
   const unclaimed = run(['fetch', 'ticket', 'OTHER-1', '--check'], { cwd: root })
@@ -372,9 +375,14 @@ test('research and prep leave the choice of connection to fetch, and take the wa
   assert.equal(unclaimed.stderr, 'context-central fetch: more than one connection holds tickets: tracker, desk; name one with --connection\n')
   for (const name of ['research', 'prep']) {
     said(name, 'Never pick the connection yourself')
-    said(name, 'answers that the connection is not read by fetch, the answer names the connection and how a session reads it')
+    said(name, 'When its answer says a session reads the connection')
     said(name, 'answers that more than one connection holds')
   }
+})
+
+test('prep lets fetch say whether the item has a ticket at all', () => {
+  assert.equal(run(['fetch', 'ticket', '--item', 'tidy-up'], { cwd: twoTrackers() }).stderr, 'context-central fetch: tidy-up has no ticket; name the reference to read\n')
+  said('prep', 'When fetch answers that the item has no ticket, there is none to read.')
 })
 
 test('research and prep give the fetcher the same kind of path to save to', () => {
@@ -385,16 +393,31 @@ test('the fetcher saves with its file tool, and never hands fetched text to a sh
   assert.ok(agentText('fetcher').includes('Save it with your file-writing tool. Never pass fetched text through a shell'))
 })
 
-test('prep and implement ask the plugin which connection a ticket belongs to before anything is posted on it', () => {
-  const root = tree(acme({}, { connections: TWO_TRACKERS }))
+test("prep and implement ask the plugin which connection the item's ticket belongs to before anything is posted on it", () => {
+  const root = twoTrackers()
 
-  assert.equal(run(['connections', '--ticket', 'DESK-7'], { cwd: root }).stdout, 'desk | tickets | by a session, through the server acme-desk\n')
-  for (const name of ['prep', 'implement']) said(name, '`context-central connections --ticket "<reference>"` names the connection')
-  said('prep', 'never ask the person which it is')
+  assert.equal(run(['connections', '--item', 'DESK-7'], { cwd: root }).stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+  said('prep', "`context-central connections --item <item>` names the connection the item's ticket belongs to")
+  said('implement', 'which `context-central connections --item <item>` names')
+  said('prep', 'never ask the person for what it can answer')
+})
+
+test('prep keeps the connection the person named where no connection claims the ticket', () => {
+  assert.equal(run(['connections', '--item', 'odd'], { cwd: twoTrackers() }).stderr, 'context-central connections: more than one connection holds tickets and none claims "OTHER-1": tracker, desk\n')
+  said('prep', 'When it answers that none claims the ticket, the connection is the one the person named in step 1.')
+})
+
+test('prep and implement look for an entry only where the map records the connection', () => {
+  const unrecorded = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n' }))
+
+  assert.match(run(['connections', '--ticket', '#41'], { cwd: unrecorded }).stdout, / \| not recorded in this map: its preset applies unasked\n$/)
+  assert.equal(run(['config', '--get', 'connections'], { cwd: unrecorded }).stdout, '{}\n')
+  for (const name of ['prep', 'implement']) said(name, 'where the map records the connection')
 })
 
 test('implement opens a pull request through the connection that holds it, and checks a pinned account first', () => {
   said('implement', "A pull request is opened through the connection that holds that repo's pull requests")
+  said('implement', 'where more than one connection holds pull requests, it is the one whose entry names the repo under `repos`')
   said('implement', 'Where a connection pins an account, run `context-central doctor` before the first write and stop on a `FIX` line for connections.')
 })
 
@@ -406,7 +429,7 @@ test("checkpoint reads the state of a PR through its connection and writes the P
 test('each working skill says what it does where no connection reaches the thing', () => {
   said('research', 'ask the person to paste the text, and save it in full')
   said('prep', 'When nothing reaches the ticket, ask the person to paste it and save it in full.')
-  said('prep', 'When it names none, or the item has no ticket, show the text.')
+  said('prep', 'When the item has no ticket, or no connection holds it, show the text.')
   said('implement', 'With no such connection, say what is ready and leave the opening or the posting to the person.')
   said('checkpoint', 'With no such connection, ask the person or leave the state out.')
 })
