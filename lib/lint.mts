@@ -1,15 +1,16 @@
 import { readFileSync, statSync } from 'node:fs'
+import { standardsFiles } from './estate.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
 import { EVIDENCE_DIR, hubPath, inFlight, listNodes, listWorkItems, strayFiles } from './nodes.mts'
 import { formatBytes } from './text.mts'
 import type { Env } from './cli.mts'
-import type { Estate } from './estate.mts'
+import type { Estate, Repo } from './estate.mts'
 import type { Node, StrayFile, WorkItem } from './nodes.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'state' | 'entry' | 'node' | 'evidence' | 'index'
+export type Check = 'hub' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index'
 
 export interface Finding {
   level: Level
@@ -31,6 +32,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
+    ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo)),
     ...indexFindings(estate, itemsInFlight.length),
   ]
 }
@@ -83,6 +85,12 @@ function evidenceSizeFindings(estate: Estate, item: WorkItem) {
 
 function strayFinding({ rel, dirRel }: StrayFile) {
   return finding('WARN', 'evidence', rel, `${rel} is not Markdown and is outside ${dirRel}/${EVIDENCE_DIR}/`)
+}
+
+function standardsFindings(estate: Estate, repo: Repo) {
+  return standardsFiles(estate, repo)
+    .filter(file => !file.exists)
+    .map(file => finding('WARN', 'standards', file.rel, `repo ${repo.name} names ${file.rel}, which does not exist`))
 }
 
 function indexFindings(estate: Estate, count: number) {

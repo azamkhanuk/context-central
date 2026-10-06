@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
+import type { Json } from './helpers.mts'
 
 const tree = disposable()
 
@@ -301,4 +302,22 @@ test('a folder that holds only evidence earns the warning of an item with no ent
   const root = tree(acme({ 'work/PROJ-14/evidence/2026-01-14-b.png': 'x' }))
 
   assert.equal(lint(root).stdout, 'WARN entry: PROJ-14 has no STATE.md and no other entry file\n')
+})
+
+test('a repo whose standards name a file that does not exist earns a warning', () => {
+  const repos: Json[] = [{ name: 'web' }, { name: 'api', standards: ['standards/api.md', 'api/CONTRIBUTING.md'] }]
+  const root = tree(acme({ 'standards/api.md': '# api\n' }, { repos }))
+
+  const result = lint(root)
+
+  assert.equal(result.stdout, 'WARN standards: repo api names api/CONTRIBUTING.md, which does not exist\n')
+  assert.equal(result.code, 0)
+  assert.equal(lint(root, '--strict').code, 1)
+})
+
+test('standards that all exist leave the map ok', () => {
+  const repos: Json[] = [{ name: 'web' }, { name: 'api', standards: ['standards/api.md', 'api/README.md'] }]
+  const root = tree(acme({ 'standards/api.md': '# api\n' }, { repos }))
+
+  assert.equal(lint(root).stdout, 'ok\n')
 })

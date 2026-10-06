@@ -4,7 +4,7 @@ import { lintEstate } from '../lint.mts'
 import type { Io } from '../cli.mts'
 import type { Finding } from '../lint.mts'
 
-export const summary = 'Check the map against its budgets: hub, state files, notes, evidence, index'
+export const summary = 'Check the map against its budgets: hub, state files, notes, evidence, standards, index'
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, strict: { type: 'boolean' } } })

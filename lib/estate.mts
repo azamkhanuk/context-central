@@ -7,7 +7,7 @@ import type { Io } from './cli.mts'
 export const CONFIG_FILE = 'estate.json'
 export const INNER_DIR = '.context-central'
 
-export const DEFAULT_NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'log', 'work']
+export const DEFAULT_NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work']
 
 export const CONFIG_MARKER = '"contextCentral"'
 
@@ -31,6 +31,8 @@ export interface Repo {
   name: string
   path: string
   role?: unknown
+  standards?: string[]
+  checks?: string[]
 }
 
 export interface Tracker {
@@ -69,7 +71,7 @@ export interface Settings {
   writeRules?: WriteRules
 }
 
-type WrittenRepo = Pick<Repo, 'name'> & Partial<Repo>
+type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown }
 
 interface WrittenSettings {
   contextCentral: number
@@ -141,6 +143,13 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   return estate.config.nodeDirs.some(under) ? 'node' : null
 }
 
+export function standardsFiles({ estateRoot }: MapLocation, repo: Repo) {
+  return (repo.standards ?? []).map(rel => {
+    const path = resolve(estateRoot, rel)
+    return { rel, path, exists: existsSync(path) }
+  })
+}
+
 export function keyRegexes(config: Settings) {
   return config.tracker.keyPatterns.map(source => new RegExp(`\\b(?:${source})\\b`, 'gi'))
 }
@@ -205,7 +214,13 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
 function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
   const entry = typeof repo === 'string' ? { name: repo } : repo
   if (!entry || typeof entry.name !== 'string' || !entry.name) fail('each entry in "repos" needs a "name"')
-  return { path: entry.name, ...entry }
+  const inRepo: Fail = message => fail(`repo "${entry.name}": ${message}`)
+  return {
+    path: entry.name,
+    ...entry,
+    standards: entry.standards === undefined ? undefined : strings(entry.standards, 'standards', inRepo),
+    checks: entry.checks === undefined ? undefined : strings(entry.checks, 'checks', inRepo),
+  }
 }
 
 function keyPatterns(value: unknown, fail: Fail) {
