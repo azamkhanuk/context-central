@@ -2,6 +2,25 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
 
+## 0.5.0 - 2026-10-06
+
+- **A standards note for each repo.** `standards/<repo>.md` says how that repo's code is designed, written, tested and reviewed, in four parts, and every rule in it names its source: the file that shows it, or who said it and when. The plugin carries no rule for any language, framework or build tool, and with nothing recorded for a repo every skill works as it did.
+- **Recorded checks.** A repo's entry in `estate.json` may list `checks`, the commands whose exit codes say its code passes, and `standards`, other files the repo already keeps for people. `context-central standards [<repo>]` prints both, with the standards note marked.
+- **A `standards` skill.** `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, puts what the files cannot answer to you as numbered questions, and writes only on a yes. It runs no command taken from a repo's files before you have read it.
+- **A `design` skill.** `/context-central:design <item>` settles how a spec will be built before any code is written: the modules, their interfaces, each choice with its reason, and the slices in order, in the item's `DESIGN.md`. It is optional, and you approve it by starting the build.
+- **`implement` builds to the standards and reviews in rounds.** It counts work as verified only when every recorded check exits 0, follows a design when there is one, and has the reviewer look again after each set of fixes: three rounds at most, unless `implement.reviewRounds` says otherwise. When the last round still brings a finding that needs a fix, it stops and asks. Before, a build was reviewed once and its fixes were not reviewed.
+- **The other parts use them.** `checkpoint` adds a rule to the standards note only when you stated it or accepted a finding. The reviewer holds a diff to the standards and the design it is given. The resolver lists a repo's standards note straight after its repo note, and `lint` warns when a listed standards file is not there.
+- **A file where a folder would go no longer ends in a stack trace.** A command that reads the map passes over it, and a command that writes says in one line which name is a file.
+
+For a map that already exists:
+
+- If it is kept in git behind the allow-list `.gitignore` that `init` writes, add `!/standards/` to that file, or the new folder is left out of its commits. `doctor` says so on a new `notes` line.
+- If it sets `nodeDirs`, add `standards` to that list to have standards notes. A map that leaves the setting out gains the kind.
+- A root-layout estate that already has a folder or a repo named `standards` at its root has its Markdown read as notes from now on, as a folder named `docs` already is. Set `nodeDirs` without `standards` to keep it as it was.
+- A repo entry that already had a key named `standards` or `checks` of another shape makes every command refuse the settings until the key is renamed.
+- An existing hub does not gain the `standards/` line in its list of parts. Add it by hand if you want it there.
+- A `DESIGN.md` beside a spec is now read by `implement` as the design.
+
 ## 0.4.0 - 2026-10-05
 
 - **Checkpoint writes the session's terms to the glossary.** A word, an abbreviation or the name of a system that the estate uses with a meaning of its own goes in the map's `glossary.md` at a checkpoint, when its meaning was stated by the person or in text on disk. A term the person corrected has its entry rewritten where it stands, with the word they ruled out on its `_Avoid_` line. A new entry keeps that line, left empty when no word was ruled out for it.
