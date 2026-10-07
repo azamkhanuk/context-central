@@ -93,8 +93,10 @@ It then:
 3. shows the draft settings
 4. writes the map
 5. proves each connection with one real read, which saves nothing
+6. offers allow rules for the read tools it used, the terminal launcher and the settings that enable the plugin for the map, and writes each only on your yes
+7. runs `doctor` and says what is left for you to do
 
-Restart or `/clear` afterwards so the hub loads.
+Restart or `/clear` afterwards so the hub loads. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
 
 ## A piece of work, step by step
 
@@ -222,14 +224,14 @@ For the invented estate, a ticket `PROJ-12` that went through all five steps:
 
 ```
 work/PROJ-12/
-  STATE.md                                    made at research, as the ticket was new; rewritten at each checkpoint
-  sources/01-2026-01-12-ticket-full-text.md   the ticket in full, saved by fetch at research
-  notes/2026-01-12-research-rate-limits.md    research: one note for each question
-  SPEC.md                                     prep: what is built and why
-  notes/2026-01-13-code-map.md                prep: where in the code, at a commit
-  DESIGN.md                                   design: how it is built, at a commit
-  evidence/2026-01-14-limit-reached.png       implement: what the build showed
-  notes/2026-01-14-evidence.md                checkpoint: what each evidence file shows
+  STATE.md                                            made at research, as the ticket was new; rewritten at each checkpoint
+  sources/01-2026-01-12-ticket-PROJ-12-full-text.md   the ticket in full, saved by fetch at research
+  notes/2026-01-12-research-rate-limits.md            research: one note for each question
+  SPEC.md                                             prep: what is built and why
+  notes/2026-01-13-code-map.md                        prep: where in the code, at a commit
+  DESIGN.md                                           design: how it is built, at a commit
+  evidence/2026-01-14-limit-reached.png               implement: what the build showed
+  notes/2026-01-14-evidence.md                        checkpoint: what each evidence file shows
 ```
 
 Outside the folder, prep and checkpoint add terms to `glossary.md`, checkpoint adds a line to `log/<YYYY-MM>.md`, and a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`.
@@ -237,7 +239,7 @@ Outside the folder, prep and checkpoint add terms to `glossary.md`, checkpoint a
 ### Running it, in order
 
 1. **Install**, once per machine: `claude plugin marketplace add azamkhanuk/context-central`, then `claude plugin install context-central@context-central`.
-2. **Set up the map**, once per estate. Start a session in the folder that holds your checkouts and run `/context-central:onboard`. Answer its one message of questions, say yes to the draft, then restart or `/clear`.
+2. **Set up the map**, once per estate. Start a session in the folder that holds your checkouts and run `/context-central:onboard`. Answer its one message of questions, say yes to the draft, take or decline what it offers, then restart or `/clear`.
 3. **Record each repo's standards**, once per repo, when you want them: `/context-central:standards <repo>`.
 4. **Start a session in a folder the map covers**, such as the estate root or a registered repo. Claude already has the work in flight.
 5. **Research**: `/context-central:research <question> [item]`, once for each question. For a ticket new to the map, the first run makes the work item.
@@ -453,7 +455,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 |---|---|
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
 | `where [--json]` | Show which map covers this folder and whether the hooks answer here |
-| `work new\|list\|done\|reopen` | Create a work item with its state file and, with `--ticket`, its ticket; list work in flight; mark an item done or reopen it |
+| `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all]\|done <item>\|reopen <item>` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item; mark an item done or reopen it |
 | `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, and say which ticket named has no work item |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
@@ -462,8 +464,8 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, legacy hooks, connections |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
-| `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
-| `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. `--check` in place of `--item` tries the connection and saves nothing |
+| `slice <file> --toc\|--heading <text>\|--lines <a>-<b>\|--grep <regex> [--context N] [--max-bytes N]` | Read part of a large file: its headings, one section, a line range, or matches with `--context` lines around each (2). The output is cut at `--max-bytes` (20,000) |
+| `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. With no reference, `fetch ticket --item <item>` reads the item's own ticket. `--check` in place of `--item` tries the connection and saves nothing |
 | `connections [--ticket\|--pr "<reference>"] [--item <item>] [--json]` | List the connections and how this machine reaches each. With a ticket, a pull request or a work item named, only the connection it belongs to. `connections --presets [--json]` lists the presets this version carries and what each takes |
 | `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `standards [<repo>] [--json]` | Print a repo's standards files as absolute paths, its standards note first and marked, with a mark on one that is missing or a folder, and its recorded checks with the folder they run from |
@@ -500,7 +502,7 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 | Agent | What it does |
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
-| `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems |
+| `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems, and does not load `CLAUDE.md` |
 | `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them. Never edits |
 
 ## Working from a terminal

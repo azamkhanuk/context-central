@@ -5,6 +5,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 ## 0.7.0 - 2026-10-07
 
 - **The README walks through a piece of work.** A new part, "A piece of work, step by step", says what each of the five steps starts from, asks and writes: research, the spec, the design, the build with its review rounds, and the checkpoint. It lists the settings the build follows, which the README had not named, shows what a work item's folder holds after the five steps, and ends with the order to run them in, from the install onwards.
+- **Small corrections to the reference parts.** The Commands table says that `work new` takes `--title` and `work list` takes `--all`, that `fetch ticket --item <item>` with no reference reads the item's own ticket, and which flags `slice` takes beyond its four ways of choosing a part. The fetcher's row says it starts without `CLAUDE.md`. "First run" lists what `onboard` offers once it has proved the connections, and that it ends with `doctor`.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
 ## 0.6.0 - 2026-10-07
