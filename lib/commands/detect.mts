@@ -5,9 +5,11 @@ import { parseArgs } from 'node:util'
 import { PluginError } from '../errors.mts'
 import { DEFAULT_NODE_DIRS, findEstate } from '../estate.mts'
 import { describeFile } from '../instructions.mts'
-import { claudeConfigDir, ghAccounts, onPath } from '../machine.mts'
+import { accountsOf, claudeConfigDir, onPath } from '../machine.mts'
+import { PRESETS } from '../presets.mts'
 import { formatBytes, plural } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
+import type { Entry, Preset } from '../presets.mts'
 
 interface Place {
   rel: string
@@ -41,16 +43,19 @@ function detect(dir: string, env: Env) {
   const places = [{ rel: '', abs: dir, names: namesIn(dir) }, ...subfolders(dir)]
   const ask = git(env)
   const checkouts = places.filter(place => place.names.includes('.git'))
+  const repos = checkouts.map(place => describeRepo(place, ask))
+  const tools = { git: Boolean(onPath('git', env)), ...Object.fromEntries(PRESETS.map(preset => [preset.program, Boolean(onPath(preset.program, env))])) }
   return {
     dir,
     existingMap: findEstate(dir),
-    repos: checkouts.map(place => describeRepo(place, ask)),
+    repos,
     instructionFiles: places.flatMap(place => filesNamed(place, name => INSTRUCTION_FILES.includes(name), INSTRUCTION_FILES)).map(sized),
     nodeDirs: DEFAULT_NODE_DIRS.filter(name => isFolder(join(dir, name))).sort(),
     keyCandidates: keyCandidates([...workNames(dir), ...checkouts.flatMap(place => branchNames(place, ask))]),
     mcpServers: places.flatMap(mcpServers),
-    tools: { git: Boolean(onPath('git', env)), gh: Boolean(onPath('gh', env)), acli: Boolean(onPath('acli', env)) },
-    ghAccounts: ghAccounts(env),
+    tools,
+    accounts: Object.fromEntries(PRESETS.filter(preset => preset.accounts).map(preset => [preset.name, accountsOf(preset, env)])),
+    connectionCandidates: PRESETS.flatMap(preset => candidatesOf(preset, repos, tools)),
     configDir: claudeConfigDir(env),
     glossaryCandidates: places.flatMap(place => filesNamed(place, name => GLOSSARY_NAMES.includes(name.toLowerCase()))).map(file => file.rel),
   }
@@ -105,28 +110,46 @@ function describeRepo(place: Place, ask: Ask) {
   return {
     name: basename(place.abs),
     path: place.rel || '.',
-    ...parseRemote(ask(place.abs, 'remote', 'get-url', 'origin')),
+    ...readRemote(ask(place.abs, 'remote', 'get-url', 'origin')),
     defaultBranch: originHead ? originHead.replace(/^origin\//, '') : null,
     currentBranch: ask(place.abs, 'branch', '--show-current') || null,
   }
 }
 
+function readRemote(url: string | null) {
+  const { remote, host } = parseRemote(url)
+  const { org = null, ...parts } = remote ? partsBy(recognising(remote), remote) : {}
+  return { remote, host, system: (remote && recognising(remote)?.name) ?? null, org, ...parts }
+}
+
+function recognising(remote: string) {
+  return PRESETS.find(preset => preset.remote?.(remote)) ?? null
+}
+
+function partsBy(preset: Preset | null, remote: string): Entry {
+  return Object.fromEntries(Object.entries(preset?.remote?.(remote) ?? {}).filter(([part]) => part !== 'repo'))
+}
+
+function candidatesOf(preset: Preset, repos: RepoFacts[], tools: Record<string, boolean>) {
+  const read = repos.filter(repo => repo.system === preset.name).map(repo => partsBy(preset, repo.remote ?? ''))
+  if (read.length === 0 && !tools[preset.program]) return []
+  const agreed = Object.fromEntries(Object.entries(read[0] ?? {}).filter(([part, value]) => read.every(parts => parts[part] === value)))
+  const because = read.length > 0 ? 'a remote reads as it' : 'its tool is on the PATH'
+  return Object.keys(preset.kinds).map(holds => ({ preset: preset.name, holds, because, entry: { holds, preset: preset.name, ...agreed } }))
+}
+
 function parseRemote(url: string | null) {
-  if (!url) return { remote: null, host: null, org: null }
+  if (!url) return { remote: null, host: null }
   const scp = /^[^@/\s]+@([^:/]+):(.+)$/.exec(url)
-  if (scp) return { remote: url, host: scp[1], org: firstSegment(scp[2]) }
+  if (scp) return { remote: url, host: scp[1] }
   try {
     const parsed = new URL(url)
     parsed.password = ''
     if (parsed.protocol.startsWith('http')) parsed.username = ''
-    return { remote: parsed.href, host: parsed.hostname, org: firstSegment(parsed.pathname) }
+    return { remote: parsed.href, host: parsed.hostname }
   } catch {
-    return { remote: url, host: null, org: null }
+    return { remote: url, host: null }
   }
-}
-
-function firstSegment(path: string) {
-  return path.split('/').filter(Boolean)[0] ?? null
 }
 
 function workNames(dir: string) {
@@ -185,7 +208,11 @@ function describe(facts: Facts) {
     `Tools: ${Object.entries(facts.tools)
       .map(([name, present]) => `${name} ${present ? 'yes' : 'no'}`)
       .join(', ')}`,
-    `gh accounts: ${inline(facts.ghAccounts.map(account => (account.active ? `${account.user} (active)` : account.user)))}`,
+    ...Object.entries(facts.accounts).map(([preset, accounts]) => `Accounts (${preset}): ${inline(accounts.map(account => (account.active ? `${account.user} (active)` : account.user)))}`),
+    ...listed(
+      'Connection candidates',
+      facts.connectionCandidates.map(({ preset, holds, because, entry }) => `${[`${holds} by preset ${preset}`, ...Object.entries(entry).filter(([key]) => key !== 'holds' && key !== 'preset').map(([key, value]) => `${key} ${String(value)}`)].join(', ')}: ${because}`),
+    ),
     `Config dir: ${facts.configDir}`,
     `Glossary candidates: ${inline(facts.glossaryCandidates)}`,
   ]

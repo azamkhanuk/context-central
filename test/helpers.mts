@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after } from 'node:test'
@@ -64,6 +64,25 @@ export function hook(event: string, input: unknown, options: RunOptions = {}) {
   return run(['hook', event], { ...options, stdin: JSON.stringify(input) })
 }
 
+export function pluginWith(presets: Record<string, string>) {
+  const plugin = makeTree({})
+  for (const folder of ['bin', 'lib']) cpSync(join(REPO, folder), join(plugin, folder), { recursive: true })
+  rmSync(join(plugin, 'lib', 'presets'), { recursive: true, force: true })
+  mkdirSync(join(plugin, 'lib', 'presets'))
+  for (const [name, text] of Object.entries(presets)) writeFileSync(join(plugin, 'lib', 'presets', `${name}.mts`), text)
+  return plugin
+}
+
+export function runIn(plugin: string, args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions = {}): Result {
+  return spawned(process.execPath, [join(plugin, 'bin', 'context-central'), ...args], { cwd, input: stdin, env })
+}
+
+export function standIns(scripts: TreeFiles) {
+  const dir = makeTree(scripts)
+  for (const name of Object.keys(scripts)) chmodSync(join(dir, name), 0o755)
+  return dir
+}
+
 export const ACME_CONFIG = {
   contextCentral: 1,
   name: 'acme',
@@ -109,10 +128,13 @@ export const INDEX_CLOSING_LINE = "A work item's state file records where it sta
 const ACME_STATE = 'work/PROJ-12/STATE.md'
 const sizeOf = (rel: keyof typeof ACME_FILES) => Buffer.byteLength(ACME_FILES[rel])
 
+export const ACME_CONNECTIONS_LINE = 'Connections: jira holds tickets (preset jira). context-central connections says how this machine reaches each.'
+
 export function acmeIndex(root: string) {
   return [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')}`,
+    ACME_CONNECTIONS_LINE,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${join(root, ACME_STATE)}`,
     INDEX_CLOSING_LINE,

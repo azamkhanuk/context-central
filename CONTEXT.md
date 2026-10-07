@@ -45,7 +45,7 @@ _Avoid_: attachments, assets, artefacts
 **Live index**: The list of work items in flight, one line each, that the session-start hook puts in context. It is built fresh each time, so it holds nothing that can go stale.
 _Avoid_: status board, in-flight table, dashboard
 
-**Resolver**: The part of the plugin that turns a prompt or query into pointers. It answers for a work item, a pull request link, a repo name or free text, and says nothing when it is not confident. On the command line it has a last route, item words: when a query has two or more words of three letters or more that are not stop words, and all of them are in one work item's name and title and in no other's, the answer is that item.
+**Resolver**: The part of the plugin that turns a prompt or query into pointers. It answers for a work item, a link that belongs to a connection, a repo name or free text, and says nothing when it is not confident. Beside its answer it says which ticket named has no work item. On the command line it has a last route, item words: when a query has two or more words of three letters or more that are not stop words, and all of them are in one work item's name and title and in no other's, the answer is that item.
 _Avoid_: router, search, retriever
 
 **Pointer**: One line the resolver returns: a file's path, its size, and why it is listed. A pointer is a fact about where something is, never an instruction to read it.
@@ -53,3 +53,15 @@ _Avoid_: link, reference, result, hit
 
 **Coverage**: Whether the map answers for a given folder: the estate root, a registered repo, a node folder, or anywhere inside an inner-layout repository. Where there is no coverage the hooks stay silent.
 _Avoid_: scope, reach, ownership
+
+**Connection**: A named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate may have any number, and none is required.
+_Avoid_: route, tracker route
+
+**Reference**: Text that names one thing in a connection: a key such as `PROJ-12`, `#41` or `AB#4312`, or a link.
+_Avoid_:
+
+**Ticket**: The thing in a tracker that a work item answers to. A work item is the map's folder for the work, never the ticket itself.
+_Avoid_: work item
+
+**Preset**: What the plugin knows about one vendor's system: how its references look and which commands read from it. It is optional knowledge, kept in one folder with a file for each vendor, and a connection needs none.
+_Avoid_:

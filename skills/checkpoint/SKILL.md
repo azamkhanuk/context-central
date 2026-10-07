@@ -12,7 +12,7 @@ Run `context-central work list`. If it answers `no context map found`, tell the 
 
 ## 2. Establish the facts
 
-Take them from git and files: `git status`, `git log <base branch>..HEAD --oneline`, `git diff --stat`, the PR's state, the last test run. `context-central config --get repos` gives each repo's base branch. Recollection of a long session drifts, so a claim with nothing on disk behind it is written as unverified or left out.
+Take them from git and files: `git status`, `git log <base branch>..HEAD --oneline`, `git diff --stat`, the PR's state, the last test run. `context-central config --get repos` gives each repo's base branch. The PR's state is read through the connection that holds that repo's pull requests, and `context-central connections` says how this machine reaches it. With no such connection, ask the person or leave the state out. Recollection of a long session drifts, so a claim with nothing on disk behind it is written as unverified or left out.
 
 ## 3. Save long text first
 
@@ -25,7 +25,7 @@ A file that is not text and shows what this session saw (a screenshot, a recordi
 Its six parts, each replaced with what is true now:
 
 - **Where it stands**: the present position in a few lines.
-- **Done**: what is finished, with the commit or PR that shows it.
+- **Done**: what is finished, with the commit or PR that shows it. A PR is written as its link, so that the link finds the item later.
 - **Next**: the next action, concrete enough to start cold.
 - **Blocked**: what is waiting, and on whom or what.
 - **Standing traps**: what would catch out someone new to this item.

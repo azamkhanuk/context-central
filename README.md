@@ -11,6 +11,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 - **Points Claude at the right notes.** Name a piece of work, a pull request or a repository in your prompt, and Claude gets a short list of the notes behind it.
 - **Keeps each piece of work in a small state file.** It says where the work stands, what is done and what is next.
 - **Saves long text in full.** Tickets, pull requests and threads are kept whole behind the short files, and read only on request.
+- **Reaches the work wherever it is tracked.** Tickets, pull requests, meetings and chat are recorded as connections, each reached by its own command-line tool, by an MCP server your session holds, or by hand. None is required.
 
 ## How it helps
 
@@ -40,7 +41,7 @@ Two rules keep it honest:
 1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map.
 2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
 3. **Start a session.** Claude already has the list of work in flight.
-4. **Name the work** in your prompt, by its ticket key or its plain name. Claude is pointed at its state file and the notes behind it.
+4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. Claude is pointed at its state file and the notes behind it.
 5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
@@ -85,10 +86,11 @@ Start a session in the folder that holds your checkouts and run:
 
 It then:
 
-1. reads what it can from disk: repositories, instruction files, ticket keys in branch names, tools on `PATH`
+1. reads what it can from disk: repositories, instruction files, ticket keys in branch names, tools on `PATH`, and adds the MCP servers the session holds
 2. asks only what is left unsettled, in one pass
 3. shows the draft settings
 4. writes the map
+5. proves each connection with one real read, which saves nothing
 
 Restart or `/clear` afterwards so the hub loads.
 
@@ -103,7 +105,7 @@ There are two layouts:
 
 ```
 <estate root>/
-  estate.json          settings: repos, tracker, folders left alone, budgets
+  estate.json          settings: repos, connections, folders left alone, budgets
   CLAUDE.md            the hub: routing table, standing rules, where the parts are
   glossary.md          the estate's own terms
   repos/ areas/ concepts/ edges/ decisions/ docs/    nodes, one subject per file
@@ -120,7 +122,7 @@ There are two layouts:
   web/ api/ ...        the checkouts, registered in estate.json
 ```
 
-- A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`).
+- A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`). Its state file can carry its ticket, so a plain name still answers to `#41`.
 - Nodes link to each other with wiki links (`[[concepts/gateway]]`) or relative Markdown links.
 
 ## The three tiers
@@ -156,6 +158,47 @@ Evidence is any file under a work item's `evidence/` folder. The folder is for w
 - `graph` reports an evidence file no note names.
 - `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`.
 - `doctor` says when git and the setting disagree.
+
+## Connections
+
+A connection is a named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate can have any number, and none is required: with no connection every command, hook and skill works as before. One is recommended, so that a session can read the ticket or the pull request behind the work.
+
+They are recorded under `connections` in `estate.json`, by name:
+
+```json
+"connections": {
+  "tracker": { "holds": "tickets", "references": ["PROJ-\\d+"], "server": "issues" },
+  "code": { "holds": "pull-requests", "preset": "<a preset>", "account": "acme-bot" },
+  "notes": { "holds": "meetings", "how": "Ask for the minutes in the channel." }
+}
+```
+
+| Key | What it says |
+|---|---|
+| `holds` | The kind of thing. `tickets` and `pull-requests` have a part in the skills; any other word is carried as written |
+| `references` | Regular expressions for how text names one thing in it. A part named `id` is the thing's own identifier, and a part named `repo` is its repository |
+| `preset` | One of the plugin's presets, with that preset's own parameters beside it |
+| `server` | The name you gave an MCP server or a connector. The session finds the tool when it needs it, so no tool name is recorded |
+| `commands` | Your own command for an action (`read`, `search`, `comment`, `transition`, `open`), as a list of words. A session runs it; the plugin never does |
+| `how` | Anything else, in words, for a connection reached by hand |
+| `account` | The account its tool must run as. `doctor` checks it and never switches it |
+| `repos` | For pull requests: the registered repos it serves, when more than one connection holds them |
+
+**References.** `PROJ-12`, `#41`, `AB#4312` and a link can each name a ticket. A reference is matched whatever its letter case and never inside a longer word. A work item answers to every spelling of its own ticket. That is the `ticket` line in the head of its state file, which `work new <item> --ticket "<reference>"` writes, or its name when the name is itself a reference. In a shell a reference goes in quotes, since `#` starts a comment there.
+
+**Presets.** A preset is what the plugin knows about one vendor's system: how its references look, which program reads from it, and how a checkout's remote reads as it. `context-central connections --presets` lists the ones this version carries, each with the parameters it takes, which are written beside `preset` in the connection's entry. A preset is handed those parameters and nothing else of the entry. A preset is optional knowledge, kept in one folder of the plugin with a file for each vendor, and nothing else in the plugin names a vendor. A connection with no preset is used in every skill like any other.
+
+**How a connection is read.** `context-central connections` lists each one with how this machine reaches it:
+
+- **by fetch**: its preset has a read command and that program is on the `PATH`, so `fetch` saves the full text with no agent
+- **by a session**: through the server named, or with your own command, which the fetcher agent uses
+- **by hand**: the skill asks you to paste the text and saves it in full
+
+`context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, `--pr "<reference>"` the one a pull request belongs to, and `--item <item>` the one a work item's own ticket belongs to. It is the connection `fetch ticket` and `fetch pr` read through: the one whose references claim it or, where none does, the only connection that holds the kind. Where two claim a link, the one that names its repository under `repos` has it, then one that names no repos, and otherwise the one written first. A link's repository is matched to a registered repo by its name. A reference that names no repository belongs to the first written of those that claim it. On a map made before connections the answer can be a preset that applies unasked, and its line says that the map does not record it. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
+
+A developer who has some of an estate's connections and not others is served by those they have. A tool that is missing is a note in `doctor`, never a fault.
+
+**A map made before connections** has no `connections` in its `estate.json` and is read as it always was. Its tracker, its code host and its sources are shown as connections, and a GitHub pull request link and `fetch pr|issue` go on working there whatever it records. To move it over, write `connections` by hand in the shape above. The old `tracker`, `codeHost` and `sources` are then no longer read.
 
 ## Standards and checks
 
@@ -212,6 +255,7 @@ With nothing recorded for a repo, `implement` works from the instruction files a
 On startup, resume, clear, compaction and fork, the hook adds the live index.
 
 - It names the map, the hub, and each work item in flight with its title and state file.
+- Where the map records connections, one line names each, what it holds and the ways recorded for it.
 - After compaction or on resume, the state file of the item the session was working on follows the index.
 - The whole text is cut at 9,500 characters.
 
@@ -219,16 +263,18 @@ On startup, resume, clear, compaction and fork, the hook adds the live index.
 
 The hook adds pointers when the prompt names something the map knows. First match wins:
 
-1. a work item, by ticket key or by name, or else by its name written with spaces or its title word for word
-2. a GitHub pull request link recorded in a work item, or whose repository has a note
+1. a work item, by any spelling of its ticket or by name, or else by its name written with spaces or its title word for word
+2. a link that belongs to a connection: the work item that mentions it, or else the note of the repository it names
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
 
 The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
 
+When a prompt names a ticket that no work item answers to, the hook adds one line saying so and which connection it reads as. A bare number is never reported, a reference is reported once per session, and three are reported at most.
+
 Two limits:
 
-- A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item keys and names, PR links and repo names. It is not matched on its words, a title or a name written with spaces: a pasted log or diff would match those by chance.
+- A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item tickets and names, links and repo names. It is not matched on its words, a title or a name written with spaces, and no ticket without a work item is reported: a pasted log or diff would match those by chance.
 - On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
 
 ### When a large session resumes with an expired cache
@@ -255,20 +301,21 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 |---|---|
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
 | `where [--json]` | Show which map covers this folder and whether the hooks answer here |
-| `work new\|list\|done\|reopen` | Create a work item with its state file, list work in flight, mark an item done or reopen it |
-| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, PR link, repo name or free text |
+| `work new\|list\|done\|reopen` | Create a work item with its state file and, with `--ticket`, its ticket; list work in flight; mark an item done or reopen it |
+| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, and say which ticket named has no work item |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
 | `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files exist |
-| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, legacy hooks, `gh` |
+| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, legacy hooks, connections |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
 | `slice <file> --toc\|--heading\|--lines\|--grep` | Read part of a large file: its headings, one section, a line range, or matches with context |
-| `fetch pr\|issue <ref> --item <item> [--repo <owner/name>]` | Save the full text of a GitHub PR or issue under the item's `sources/`, then print a digest |
+| `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. `--check` in place of `--item` tries the connection and saves nothing |
+| `connections [--ticket\|--pr "<reference>"] [--item <item>] [--json]` | List the connections and how this machine reaches each. With a ticket, a pull request or a work item named, only the connection it belongs to. `connections --presets [--json]` lists the presets this version carries and what each takes |
 | `evidence add <file> --item <item> [--as <what>]` | Copy a file that is not text into the item's `evidence/` under a dated, cleaned name, never overwriting |
 | `standards [<repo>] [--json]` | Print a repo's standards files as absolute paths, its standards note first and marked, with a mark on one that is missing or a folder, and its recorded checks with the folder they run from |
-| `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools |
+| `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools, accounts and connection candidates |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
 | `init --print-settings` | Print the settings that enable the plugin for a map |
 | `wrapper [--write]` | Print a launcher for running the CLI from a terminal, or save it in the map with one for cmd |
@@ -276,7 +323,8 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 
 About `doctor`:
 
-- It prints one line per check, `ok` or `FIX` with what to do, and exits 1 if anything needs fixing.
+- It prints one line per check: `ok`, `FIX` with what to do, or `note` with something worth knowing. It exits 1 only if something needs fixing.
+- Its connections check holds one thing to be a fault: a pinned account that is not the active one. A tool that is not installed, and a map with no connection, are notes.
 - Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time.
 - Name those hooks in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`. The list is empty by default, and the check then passes.
 - A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
@@ -287,10 +335,10 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 
 | Skill | What it does |
 |---|---|
-| `/context-central:onboard` | Detects the estate, asks what is unsettled, writes the map, runs `doctor` |
+| `/context-central:onboard` | Detects the estate, asks what is unsettled, writes the map, proves each connection, runs `doctor` |
 | `/context-central:standards <repo>` | Drafts one repo's standards note and its checks from what the repo declares, asks what is unsettled, writes both on your yes |
 | `/context-central:research <question> [item]` | Researches from primary sources, marks each claim verified or inferred, writes a note |
-| `/context-central:prep <item>` | Turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
+| `/context-central:prep <item>` | Reads the item's ticket, then turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
 | `/context-central:design <item>` | Reads the spec, the repo's standards and the code, and writes the item's `DESIGN.md`: the modules, their interfaces, each choice with its reason, and the slices in order. Optional, and approved by starting the build |
 | `/context-central:implement <item>` | Builds from the state file, the spec and the design when there is one, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks. Stops and asks when the last review round allowed, the third unless set, still brings a finding to fix |
 | `/context-central:checkpoint` | Writes the session back: state file, lasting lessons, the session's terms in the glossary, the rules you stated in the repo's standards note, log line, then `lint` and `graph` |
@@ -300,7 +348,7 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 | Agent | What it does |
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
-| `context-central:fetcher` | Fetches one ticket, PR, thread or meeting, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems |
+| `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems |
 | `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them. Never edits |
 
 ## Working from a terminal
@@ -376,15 +424,18 @@ The map is plain Markdown and stays readable without the plugin.
 
 ## What it does not do
 
-- It does not post to a tracker or a code host. The fetcher only reads; anything written outside the map is yours to approve.
-- It fetches from the command line through `gh` only (GitHub PRs and issues). Other trackers are reached through whatever tools your session already has, by the route recorded in `estate.json`.
+- Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
+- Its own `fetch` reads only with the command of a preset. A connection with no preset is read by a session, through its server or your own command. The plugin never runs a command that `estate.json` names. What it puts into a preset's command from a reference or from the settings is one word that does not start with a dash, so that nothing reaches the tool as a flag.
+- Of the presets' read commands, only GitHub's has been run against the real tool. Jira's and Azure DevOps's were written from their vendors' documentation and tried against stand-ins. `fetch --check` shows whether one works for you.
+- A pull request read by `fetch` holds what the preset's tool returns. Where that leaves out a review's line comments, the fetcher can read them through a server that offers them.
+- On Windows it does not start a tool that is installed only as a `.cmd` or a `.bat` file. `fetch` says so, and a session reads that connection through its own shell or a server.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
-- It does not ingest meetings, ship workflows, or include evals.
+- It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows and no evals.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
 - On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:
   - Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool.
-  - Nothing has shown what `fetch` does with an answer from `gh` there, or what `doctor` and `detect` make of the `gh` accounts.
+  - Nothing has shown what `fetch` does with an answer from a preset's tool there, or what `doctor` and `detect` make of its accounts.
   - Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore.
   - PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.

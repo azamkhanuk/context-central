@@ -8,7 +8,7 @@ import type { Json } from './helpers.mts'
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'standards']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -21,7 +21,7 @@ const AGENT_FIELDS = [
 const FLAGS: Record<string, string[]> = {
   config: ['get'],
   where: ['json'],
-  work: ['title', 'json', 'all'],
+  work: ['title', 'ticket', 'json', 'all'],
   resolve: ['max', 'json', 'absolute'],
   index: ['absolute', 'json'],
   note: ['new', 'title'],
@@ -33,7 +33,8 @@ const FLAGS: Record<string, string[]> = {
   wrapper: ['write'],
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
-  fetch: ['item', 'repo'],
+  fetch: ['item', 'repo', 'connection', 'check'],
+  connections: ['json', 'presets', 'ticket', 'pr', 'item'],
   evidence: ['item', 'as'],
   standards: ['json'],
 }
@@ -184,7 +185,7 @@ test('every setting a skill reads is one the onboard draft writes', () => {
   const keys = SKILLS.flatMap(name => [...skillText(name).matchAll(/context-central config --get ([A-Za-z.]+)/g)].map(match => match[1]))
 
   assert.deepEqual(Object.keys(draft), ['layout', 'git', 'config'])
-  assert.ok(keys.includes('writeRules') && keys.includes('tracker.route') && keys.includes('implement'))
+  assert.ok(keys.includes('writeRules') && keys.includes('connections') && keys.includes('implement'))
   for (const key of keys) assert.equal(run(['config', '--get', key], { cwd: root }).code, 0, key)
 })
 
@@ -329,6 +330,149 @@ test('checkpoint closes by naming the glossary entries it wrote, the terms left 
   assert.ok(closing.includes('each glossary entry added or changed and where its meaning came from'))
   assert.ok(closing.includes('each term left for the person to define'))
   assert.ok(closing.includes('each entry a source disagrees with'))
+})
+
+const said = (name: string, text: string) => assert.ok(skillText(name).includes(text), `${name}: ${text}`)
+
+test('no skill and no agent names a vendor or the program one starts', () => {
+  const presets = run(['connections', '--presets'], { cwd: REPO }).stdout.trimEnd().split('\n').map(line => line.split(' | '))
+  const words = presets.flatMap(([name, , starts]) => [name, ...name.split('-'), starts.replace(/^starts /, '')])
+
+  assert.ok(words.length >= 3)
+  for (const [file, text] of everyFile()) {
+    assert.deepEqual(words.filter(word => new RegExp(`(?<![A-Za-z0-9])${word}(?![A-Za-z0-9])`, 'i').test(text)), [], file)
+  }
+})
+
+test('research makes the work item for a ticket that no work item answers to, in the words the resolver uses', () => {
+  const root = tree(acme())
+
+  assert.equal(run(['resolve', 'PROJ-99'], { cwd: root }).stdout, 'PROJ-99 reads as a ticket of connection jira. No work item answers to it.\n')
+  said('research', 'When the answer says a reference reads as a ticket and no work item answers to it, the ticket is new to the map.')
+  said('research', '`context-central work new <item> --ticket "<reference>"`')
+})
+
+test('research reads through fetch where a connection allows it and through the fetcher with the entry of the connection otherwise', () => {
+  said('research', '`context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>`')
+  said('research', "Give it the connection's entry from `context-central config --get connections`")
+})
+
+test('prep reads the ticket of the item before it writes a spec', () => {
+  said('prep', 'Start with `context-central fetch ticket --item <item>`')
+  said('prep', 'A spec is never written with a ticket unread.')
+})
+
+const TWO_TRACKERS = {
+  tracker: { holds: 'tickets', references: ['PROJ-\\d+'], how: 'open the tracker' },
+  desk: { holds: 'tickets', references: ['DESK-\\d+'], server: 'acme-desk' },
+}
+
+const state = (id: string, ticket: string | null) => `---\nitem: ${id}\ntitle: Something\nstatus: active\n${ticket ? `ticket: "${ticket}"\n` : ''}---\n# ${id}: Something\n`
+const twoTrackers = () => tree(acme({ 'work/DESK-7/STATE.md': state('DESK-7', 'DESK-7'), 'work/tidy-up/STATE.md': state('tidy-up', null), 'work/odd/STATE.md': state('odd', 'OTHER-1') }, { connections: TWO_TRACKERS }))
+
+test('research and prep leave the choice of connection to fetch, and take the way to a session from what it answers', () => {
+  const root = twoTrackers()
+
+  const itsOwn = run(['fetch', 'ticket', '--item', 'DESK-7'], { cwd: root })
+  const unclaimed = run(['fetch', 'ticket', 'OTHER-1', '--check'], { cwd: root })
+
+  assert.equal(itsOwn.stderr, 'context-central fetch: connection desk is not read by fetch: it has no preset that reads tickets. A session reads it through the server acme-desk.\n')
+  assert.equal(unclaimed.stderr, 'context-central fetch: more than one connection holds tickets: tracker, desk; name one with --connection\n')
+  for (const name of ['research', 'prep']) {
+    said(name, 'Never pick the connection yourself')
+    said(name, 'When its answer says a session reads the connection')
+    said(name, 'answers that more than one connection holds')
+  }
+})
+
+test('prep lets fetch say whether the item has a ticket at all', () => {
+  assert.equal(run(['fetch', 'ticket', '--item', 'tidy-up'], { cwd: twoTrackers() }).stderr, 'context-central fetch: tidy-up has no ticket; name the reference to read\n')
+  said('prep', 'When fetch answers that the item has no ticket, there is none to read.')
+})
+
+test('research and prep give the fetcher the same kind of path to save to', () => {
+  for (const name of ['research', 'prep']) said(name, '`work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder')
+})
+
+test('the fetcher saves with its file tool, and never hands fetched text to a shell', () => {
+  assert.ok(agentText('fetcher').includes('Save it with your file-writing tool. Never pass fetched text through a shell'))
+})
+
+test("prep and implement ask the plugin which connection the item's ticket belongs to before anything is posted on it", () => {
+  const root = twoTrackers()
+
+  assert.equal(run(['connections', '--item', 'DESK-7'], { cwd: root }).stdout, 'desk | tickets | by a session, through the server acme-desk\n')
+  said('prep', "`context-central connections --item <item>` names the connection the item's ticket belongs to")
+  said('implement', 'which `context-central connections --item <item>` names')
+  said('prep', 'never ask the person for what it can answer')
+})
+
+test('prep keeps the connection the person named where no connection claims the ticket', () => {
+  assert.equal(run(['connections', '--item', 'odd'], { cwd: twoTrackers() }).stderr, 'context-central connections: more than one connection holds tickets and none claims "OTHER-1": tracker, desk\n')
+  said('prep', 'When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now.')
+})
+
+test('prep and implement look for an entry only where the map records the connection', () => {
+  const unrecorded = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n' }))
+
+  assert.match(run(['connections', '--ticket', '#41'], { cwd: unrecorded }).stdout, / \| not recorded in this map: its preset applies unasked\n$/)
+  assert.equal(run(['config', '--get', 'connections'], { cwd: unrecorded }).stdout, '{}\n')
+  for (const name of ['prep', 'implement']) said(name, 'where the map records the connection')
+})
+
+test('implement opens a pull request through the connection that holds it, and checks a pinned account first', () => {
+  said('implement', "A pull request is opened through the connection that holds that repo's pull requests")
+  said('implement', 'where more than one connection holds pull requests, it is the one whose entry names the repo under `repos`')
+  said('implement', 'Where a connection pins an account, run `context-central doctor` before the first write and stop on a `FIX` line for connections.')
+})
+
+test("checkpoint reads the state of a PR through its connection and writes the PR as its link", () => {
+  said('checkpoint', "The PR's state is read through the connection that holds that repo's pull requests")
+  said('checkpoint', 'A PR is written as its link, so that the link finds the item later.')
+})
+
+test('each working skill says what it does where no connection reaches the thing', () => {
+  said('research', 'ask the person to paste the text, and save it in full')
+  said('prep', 'When nothing reaches the ticket, ask the person to paste it and save it in full.')
+  said('prep', 'When the item has no ticket, or no connection holds it, show the text.')
+  said('implement', 'With no such connection, say what is ready and leave the opening or the posting to the person.')
+  said('checkpoint', 'With no such connection, ask the person or leave the state out.')
+})
+
+test("the fetcher finds a server's tool with tool search and never assumes its name", () => {
+  assert.ok(agentText('fetcher').includes("Find its tool for reading that kind of thing with tool search, by the server's name and what the connection holds"))
+  assert.ok(agentText('fetcher').includes("A tool's name differs from one machine to the next, so never assume one."))
+  assert.ok(agentText('fetcher').includes("a PR's review threads where the tool offers them"))
+})
+
+test('onboard adds the servers the session itself holds, recommends at least one connection and accepts none', () => {
+  said('onboard', 'the MCP servers and connectors this session itself holds, read from the names in its own tool list')
+  said('onboard', 'Recommend at least one connection, so that a session can read the ticket or the pull request behind the work, and accept "none".')
+})
+
+test('onboard asks for what a preset takes, which the plugin lists', () => {
+  said('onboard', 'For a preset, `context-central connections --presets` lists the parameters it takes: ask for each one the candidate does not give.')
+})
+
+test('onboard proves each connection with one read that saves nothing, and offers allow rules for this machine only', () => {
+  said('onboard', '`context-central fetch ticket "<reference>" --check` or `context-central fetch pr "<reference>" --check`, which runs the read and saves nothing')
+  said('onboard', 'Say which connections were proven and which were not.')
+  said('onboard', 'for `.claude/settings.local.json` on this machine only')
+})
+
+test("the draft that onboard shows is one the plugin reads, with every connection it holds", () => {
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
+  const root = tree(makeTree({ 'estate.json': draft.config, 'CLAUDE.md': '# Acme\n' }))
+
+  const listed = run(['connections'], { cwd: root, env: { PATH: tree(makeTree({})) } })
+
+  assert.equal(listed.stderr, '')
+  assert.equal(listed.stdout, 'tracker | tickets | by a session, through the server the name of the server\ncode | pull-requests | by hand | as the pinned account\nnotes | meetings | by hand: how a person gets at them\n')
+})
+
+test('a reference in a command that a skill or an agent gives is in quotes, since one may start with a sign the shell reads as a comment', () => {
+  for (const [file, text] of everyFile()) assert.doesNotMatch(text, /(--ticket|--pr|fetch (ticket|pr|issue)) <reference>/, file)
+  assert.match(skillText('research'), /in quotes, since a reference may start with `#`/)
 })
 
 test('standards names the four parts that a new standards note lays out, and so do checkpoint and the reviewer', () => {

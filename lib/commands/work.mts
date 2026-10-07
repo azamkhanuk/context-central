@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
+import { listed, ticketOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems, makeFolder } from '../nodes.mts'
@@ -21,6 +22,7 @@ interface Listed {
   id: string
   title: string
   status: string
+  ticket: string | null
   entry: Pick<EntryFile, 'rel' | 'kind' | 'bytes'> | null
   notes: number
   deep: Size
@@ -30,8 +32,9 @@ interface Listed {
 export const summary = 'Work items: new <item>, list, done <item>, reopen <item>'
 
 const ITEM_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const TICKET = /^[^\s"\p{Cc}-][^\s"\p{Cc}]*$/u
 const ACTIONS: Record<string, Action> = {
-  new: { flags: ['title'] },
+  new: { flags: ['title', 'ticket'] },
   list: { flags: ['json', 'all'] },
   done: { flags: [], needsItem: true },
   reopen: { flags: [], needsItem: true },
@@ -41,7 +44,7 @@ export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { title: { type: 'string' }, json: { type: 'boolean' }, all: { type: 'boolean' } },
+    options: { title: { type: 'string' }, ticket: { type: 'string' }, json: { type: 'boolean' }, all: { type: 'boolean' } },
   })
   const [action, id] = positionals
   if (!Object.hasOwn(ACTIONS, action ?? '')) throw new UsageError('expected one of: new <item>, list, done <item>, reopen <item>')
@@ -49,27 +52,30 @@ export function run(args: string[], io: Io) {
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].flags.includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   const estate = requireEstate(io)
-  if (action === 'new') return create(estate, id, values.title, io)
+  if (action === 'new') return create(estate, id, values, io)
   if (action === 'list') return list(estate, values, io)
   return setStatus(estate, id, action === 'done' ? 'done' : 'active', io)
 }
 
-function create(estate: Estate, id: string, title: string | undefined, io: Io) {
+function create(estate: Estate, id: string, { title, ticket }: { title?: string; ticket?: string }, io: Io) {
   if (!id || !ITEM_NAME.test(id)) throw new UsageError('an item name is letters, digits, dots, dashes and underscores, for example PROJ-12 or portal-split')
+  if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one word with no double quote in it and no dash at its start, for example PROJ-12, #41 or a link')
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
   for (const folder of ['notes', 'sources', EVIDENCE_DIR]) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
-  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id))
+  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
   io.out(`${dirRel}/STATE.md`)
 }
 
 function list(estate: Estate, { json, all }: { json?: boolean; all?: boolean }, io: Io) {
+  const recorded = listed(estate.config.connections)
   const items = listWorkItems(estate)
     .filter(item => all || inFlight(item))
     .map((item): Listed => ({
       id: item.id,
       title: item.title,
       status: item.status,
+      ticket: ticketOf(recorded, item),
       entry: item.entry && { rel: item.entry.rel, kind: item.entry.kind, bytes: item.entry.bytes },
       notes: item.files.length,
       deep: { count: item.deep.count, bytes: item.deep.bytes },

@@ -67,12 +67,12 @@ export function decisionTemplate(number: string, title: string) {
   return `# ${number}: ${title}\n\n## Context\n\n## Decision\n\n## Consequences\n`
 }
 
-export function stateTemplate(id: string, title: string) {
+export function stateTemplate(id: string, title: string, ticket: string | null = null) {
   return `---
 item: ${id}
 title: ${title}
 status: active
----
+${ticket ? `ticket: "${ticket}"\n` : ''}---
 # ${id}: ${title}
 
 ## Where it stands

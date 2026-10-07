@@ -384,6 +384,73 @@ test('a config with a byte-order mark gives the index and no message about its J
   assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
 
+const DESK_API_NOTE = '# api\n\nThe back end.\n'
+const deskMap = () => tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', repos: [{ name: 'api' }], connections: { desk: { holds: 'tickets', references: ['#(?<id>\\d+)'] } } }, 'CLAUDE.md': '# Acme\n', 'repos/api.md': DESK_API_NOTE, 'api/README.md': '# api\n' }))
+const NO_ITEM_FOR_99 = '#99 reads as a ticket of connection desk. No work item answers to it.'
+const apiPointers = (root: string) => `Context for repo api:\n- ${join(root, 'repos/api.md')} (${Buffer.byteLength(DESK_API_NOTE)} B) repo note`
+
+test('a short prompt that names a ticket no work item answers to is told so, once a session', () => {
+  const root = deskMap()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  const prompt = { cwd: root, prompt: 'what does #99 ask for' }
+
+  const first = fire('user-prompt-submit', { ...prompt, session_id: 's1' }, env)
+  const second = fire('user-prompt-submit', { ...prompt, session_id: 's1' }, env)
+  const other = fire('user-prompt-submit', { ...prompt, session_id: 's2' }, env)
+
+  assert.equal(context(first), NO_ITEM_FOR_99)
+  silent(second)
+  assert.equal(context(other), NO_ITEM_FOR_99)
+})
+
+test('a long prompt is not told of a ticket that no work item answers to', () => {
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: deskMap(), prompt: `${PASTED} and #99` }))
+})
+
+test('the line follows the pointers when the prompt also names something the map knows', () => {
+  const root = deskMap()
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'is #99 about the api' })
+
+  assert.equal(context(result), `${apiPointers(root)}\n${NO_ITEM_FOR_99}`)
+})
+
+test('pointers given earlier in the session do not hold back a ticket that no work item answers to', () => {
+  const root = deskMap()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+
+  const first = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'look at the api' }, env)
+  const second = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'is #99 about the api' }, env)
+
+  assert.equal(context(first), apiPointers(root))
+  assert.equal(context(second), NO_ITEM_FOR_99)
+})
+
+test('a ticket said to have no work item does not become the active item', () => {
+  const root = deskMap()
+  const dir = stateDir()
+
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what does #99 ask for' }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 's1.json'), 'utf8')) as unknown, { delivered: ['reference:desk:99'], active: null })
+})
+
+test('a ticket named after three that were already told of is still told of', () => {
+  const root = deskMap()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what of #91 #92 #93' }, env)
+  const second = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'and #91 #92 #93 #94' }, env)
+
+  assert.equal(context(second), '#94 reads as a ticket of connection desk. No work item answers to it.')
+})
+
+test('a prompt that ends where a pattern could match nothing is met with silence', () => {
+  const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', connections: { desk: { holds: 'tickets', references: ['(DESK-\\d+)?'] } } }, 'CLAUDE.md': '# Acme\n' }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what now?' }))
+})
+
 test('a prompt that names a repo is pointed at its standards note', () => {
   const root = tree(acme({ 'standards/api.md': '# api\n' }))
 

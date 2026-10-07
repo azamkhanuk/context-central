@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { INDEX_CLOSING_LINE, acme, acmeIndex, disposable, makeTree, run } from './helpers.mts'
+import { ACME_CONNECTIONS_LINE, INDEX_CLOSING_LINE, acme, acmeIndex, disposable, makeTree, run } from './helpers.mts'
 import type { Env } from './helpers.mts'
 
 const tree = disposable()
@@ -197,6 +197,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
   const index = [
     `Context map "Acme estate": ${root}`,
     `Hub: ${join(root, 'CLAUDE.md')} (missing)`,
+    ACME_CONNECTIONS_LINE,
     'Work in flight (1):',
     `- PROJ-12 | Rate limit the gateway | ${join(root, 'work/PROJ-12/STATE.md')}`,
     INDEX_CLOSING_LINE,
@@ -207,7 +208,7 @@ test('the index is measured with the mark it carries when the hub is missing', (
 
 test('the index is measured as cut when its budget shortens the list', () => {
   const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Split the portal\n', 'work/PROJ-14/STATE.md': '# PROJ-14: Retire the old gateway\n' }, { budgets: { indexChars: 120 } }))
-  const index = [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
+  const index = [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, ACME_CONNECTIONS_LINE, 'Work in flight (3):', '- and 3 more: context-central work list', INDEX_CLOSING_LINE].join('\n')
 
   assert.deepEqual(budgetJson(root, 'web').plugin, { indexChars: index.length })
 })

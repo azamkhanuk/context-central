@@ -3,31 +3,42 @@ import { readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
+import { accountFault, listed, reachOf, whyNotStarted } from '../connections.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
 import { lintEstate } from '../lint.mts'
-import { claudeConfigDir, ghAccounts, onPath } from '../machine.mts'
+import { claudeConfigDir } from '../machine.mts'
 import { hubPath, listWorkItems } from '../nodes.mts'
+import { presetNamed } from '../presets.mts'
 import { evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
+import type { Connection } from '../connections.mts'
 import type { Estate, Repo } from '../estate.mts'
 
 interface Result {
   check: string
   ok: boolean
   fix: string | null
+  note: string | null
 }
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, hooks, gh'
+interface Note {
+  note: string
+}
+
+type Finding = string | Note | null | undefined
+
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, hooks, connections'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 // Elsewhere a backslash in a hook command is an escape, not a separator.
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
+const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
-const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, hooks, gh }
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, hooks, connections }
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
@@ -43,12 +54,14 @@ function checks(io: Io) {
   return [...first, ...Object.entries(ESTATE_CHECKS).map(([name, check]) => result(name, check(estate, io)))]
 }
 
-function result(check: string, fix: string | null | undefined): Result {
-  return { check, ok: !fix, fix: fix ?? null }
+function result(check: string, finding: Finding): Result {
+  if (finding && typeof finding === 'object') return { check, ok: true, fix: null, note: finding.note }
+  return { check, ok: !finding, fix: finding ?? null, note: null }
 }
 
-function describe({ check, ok, fix }: Result) {
-  return ok ? `ok   ${check}` : `FIX  ${check}: ${fix}`
+function describe({ check, ok, fix, note }: Result) {
+  if (!ok) return `FIX  ${check}: ${fix}`
+  return note ? `note ${check}: ${note}` : `ok   ${check}`
 }
 
 function load(io: Io): { estate?: Estate; fix?: string } {
@@ -156,13 +169,22 @@ function hooks(estate: Estate, io: Io) {
   return `an older hook (${names.join(', ')}) for this estate is still set in ${files.join(', ')}; remove it so prompts are not resolved twice`
 }
 
-function gh(estate: Estate, io: Io) {
-  const { codeHost, tracker } = estate.config
-  const user = codeHost?.ghUser
-  if (!user && codeHost?.type !== 'github' && tracker.type !== 'github') return null
-  if (!onPath('gh', io.env)) return 'gh is not on PATH; install the GitHub CLI'
-  if (!user || activeAccounts(io.env).includes(user.toLowerCase())) return null
-  return `the active gh account is not ${user}; run gh auth switch --user ${user}, or start each gh command with GH_TOKEN=$(gh auth token --user ${user})`
+function connections(estate: Estate, io: Io): Finding {
+  const found = listed(estate.config.connections)
+  const fault = found.map(connection => accountFault(connection, io.env)).find(Boolean)
+  if (fault) return fault
+  if (found.length === 0) return { note: NONE_RECORDED }
+  const notes = found.flatMap(connection => notesOn(connection, io.env))
+  return notes.length > 0 ? { note: notes.join('; ') } : null
+}
+
+function notesOn(connection: Connection, env: Env) {
+  const { name, entry } = connection
+  const preset = presetNamed(entry.preset)
+  if (entry.preset && !preset) return [`${name} names the preset ${entry.preset}, which this version does not carry`]
+  const reach = reachOf(connection, env)
+  if (!preset || !reach.missing || reach.by !== 'hand' || entry.how) return []
+  return [`${name} is not reached here: ${whyNotStarted(preset, env)}`]
 }
 
 function repoExists(estate: Estate, repo: Repo) {
@@ -187,10 +209,4 @@ function namesPath(command: string, estateRoot: string, homeDir: string) {
   const underHome = path === home || path.startsWith(`${home}/`)
   const spellings = [path, ...(underHome ? HOME_SPELLINGS.map(written => `${written}${path.slice(home.length)}`) : [])]
   return spellings.some(spelling => new RegExp(`${spelling.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[/"'\\s]|$)`).test(oneSeparator(command)))
-}
-
-function activeAccounts(env: Env) {
-  return ghAccounts(env)
-    .filter(account => account.active)
-    .map(account => account.user.toLowerCase())
 }

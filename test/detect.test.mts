@@ -16,7 +16,8 @@ type Facts = {
   keyCandidates: unknown
   mcpServers: unknown
   tools: { gh: unknown }
-  ghAccounts: unknown
+  accounts: { github: unknown }
+  connectionCandidates: unknown
   configDir: unknown
   glossaryCandidates: unknown
   existingMap: unknown
@@ -84,8 +85,9 @@ test('a bare folder reports nothing found, and which tools are missing', () => {
     nodeDirs: [],
     keyCandidates: [],
     mcpServers: [],
-    tools: { git: true, gh: false, acli: false },
-    ghAccounts: [],
+    tools: { git: true, az: false, gh: false, acli: false },
+    accounts: { github: [] },
+    connectionCandidates: [],
     configDir: join(root, 'home', '.claude'),
     glossaryCandidates: [],
   })
@@ -97,12 +99,13 @@ test('each checkout one level down is reported with its remote and branches', ()
   makeRepo(root, 'api')
 
   assert.deepEqual(detectJson(root).repos, [
-    { name: 'api', path: 'api', remote: null, host: null, org: null, defaultBranch: null, currentBranch: 'main' },
+    { name: 'api', path: 'api', remote: null, host: null, system: null, org: null, defaultBranch: null, currentBranch: 'main' },
     {
       name: 'web',
       path: 'web',
       remote: 'git@github.com:acme/web.git',
       host: 'github.com',
+      system: 'github',
       org: 'acme',
       defaultBranch: 'main',
       currentBranch: 'feature/PROJ-14-limits',
@@ -117,7 +120,7 @@ test('the folder itself is reported when it is a checkout', () => {
   const result = run(['detect', 'solo', '--json'], { cwd: root, env: { PATH: toolsDir(), HOME: join(root, 'home') } })
 
   assert.deepEqual((JSON.parse(result.stdout) as Facts).repos, [
-    { name: 'solo', path: '.', remote: 'https://github.com/acme/solo.git', host: 'github.com', org: 'acme', defaultBranch: null, currentBranch: 'main' },
+    { name: 'solo', path: '.', remote: 'https://github.com/acme/solo.git', host: 'github.com', system: 'github', org: 'acme', defaultBranch: null, currentBranch: 'main' },
   ])
 })
 
@@ -143,7 +146,8 @@ test('a password held in an ssh remote address is never printed', () => {
     path: 'api',
     remote: 'ssh://git@git.acme.example:22/acme/api.git',
     host: 'git.acme.example',
-    org: 'acme',
+    system: null,
+    org: null,
     defaultBranch: null,
     currentBranch: 'main',
   })
@@ -242,7 +246,7 @@ test('gh accounts are listed with the active one marked, and no token', NEEDS_ST
   const result = detect(root, { tools: toolsDir({ gh: GH_TWO_ACCOUNTS }), args: ['--json'] })
   const facts = JSON.parse(result.stdout) as Facts
 
-  assert.deepEqual(facts.ghAccounts, [
+  assert.deepEqual(facts.accounts.github, [
     { user: 'someone', active: true },
     { user: 'another', active: false },
   ])
@@ -253,19 +257,19 @@ test('gh accounts are listed with the active one marked, and no token', NEEDS_ST
 test('a tool is found under its name ending in .exe', EXE_NAMES, () => {
   const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
-  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.exe': '' }) }).tools, { git: true, gh: true, acli: false })
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.exe': '' }) }).tools, { git: true, az: false, gh: true, acli: false })
 })
 
 test('a tool is found under its name ending in .com', EXE_NAMES, () => {
   const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
-  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'acli.com': '' }) }).tools, { git: true, gh: false, acli: true })
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'acli.com': '' }) }).tools, { git: true, az: false, gh: false, acli: true })
 })
 
 test('a tool that is only a .cmd, a .bat or a file with no extension reads as missing', EXE_NAMES, () => {
   const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
-  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.cmd': '', 'gh.bat': '', gh: '', acli: '' }) }).tools, { git: true, gh: false, acli: false })
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ 'gh.cmd': '', 'gh.bat': '', gh: '', acli: '' }) }).tools, { git: true, az: false, gh: false, acli: false })
 })
 
 test('a glossary already on disk is offered as a candidate', () => {
@@ -307,8 +311,11 @@ test('without --json the same facts are short lines', NEEDS_STAND_IN, () => {
       'Key candidates (1):',
       '- PROJ-\\d+ seen 1 time, for example PROJ-12',
       'MCP servers: none',
-      'Tools: git yes, gh yes, acli no',
-      'gh accounts: someone (active), another',
+      'Tools: git yes, az no, gh yes, acli no',
+      'Accounts (github): someone (active), another',
+      'Connection candidates (2):',
+      '- tickets by preset github, org acme: a remote reads as it',
+      '- pull-requests by preset github, org acme: a remote reads as it',
       `Config dir: ${join(root, 'home', '.claude')}`,
       'Glossary candidates: none',
       '',
@@ -323,4 +330,66 @@ test('a folder that does not exist is refused', () => {
 
   assert.equal(result.code, 1)
   assert.match(result.stderr, /missing is not a folder/)
+})
+
+for (const [remote, parts] of [
+  ['https://acme@dev.azure.com/acme/Shop/_git/api', { host: 'dev.azure.com', system: 'azure-devops', org: 'acme', project: 'Shop' }],
+  ['git@ssh.dev.azure.com:v3/acme/Shop/api', { host: 'ssh.dev.azure.com', system: 'azure-devops', org: 'acme', project: 'Shop' }],
+  ['https://acme.visualstudio.com/Shop/_git/api', { host: 'acme.visualstudio.com', system: 'azure-devops', org: 'acme', project: 'Shop' }],
+  ['git@github.com:acme/api.git', { host: 'github.com', system: 'github', org: 'acme' }],
+  ['git@github.com-personal:acme/api.git', { host: 'github.com-personal', system: 'github', org: 'acme' }],
+  ['git@code.acme.example:acme/api.git', { host: 'code.acme.example', system: null, org: null }],
+  ['https://notgithub.com/acme/api.git', { host: 'notgithub.com', system: null, org: null }],
+  ['https://git.acme.example/mirrors/github.com/acme/api', { host: 'git.acme.example', system: null, org: null }],
+  ['https://github.com-mirror.example/acme/api', { host: 'github.com-mirror.example', system: null, org: null }],
+  ['https://notdev.azure.com/acme/Shop/_git/api', { host: 'notdev.azure.com', system: null, org: null }],
+  ['ssh://git@github.com:22/acme/api.git', { host: 'github.com', system: 'github', org: 'acme' }],
+] satisfies [string, { [part: string]: string | null }][]) {
+  test(`the remote ${remote} is read by the preset that recognises it, or by none`, () => {
+    const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+    makeRepo(root, 'api', { remote })
+
+    const { name, path, remote: shown, defaultBranch, currentBranch, ...read } = detectJson(root).repos[0] as { [part: string]: unknown }
+
+    assert.deepEqual(read, parts)
+    assert.deepEqual([name, path, defaultBranch, currentBranch], ['api', 'api', null, 'main'])
+    assert.equal(typeof shown, 'string')
+  })
+}
+
+test('a remote that a preset recognises makes a candidate of each kind of thing the preset holds', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+  makeRepo(root, 'api', { remote: 'https://acme@dev.azure.com/acme/Shop/_git/api' })
+
+  assert.deepEqual(detectJson(root).connectionCandidates, [
+    { preset: 'azure-devops', holds: 'tickets', because: 'a remote reads as it', entry: { holds: 'tickets', preset: 'azure-devops', org: 'acme', project: 'Shop' } },
+    { preset: 'azure-devops', holds: 'pull-requests', because: 'a remote reads as it', entry: { holds: 'pull-requests', preset: 'azure-devops', org: 'acme', project: 'Shop' } },
+  ])
+})
+
+test("a preset's tool on the PATH makes a candidate too, with nothing filled in", NEEDS_STAND_IN, () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  assert.deepEqual(detectJson(root, { tools: toolsDir({ acli: '#!/bin/sh\n' }) }).connectionCandidates, [
+    { preset: 'jira', holds: 'tickets', because: 'its tool is on the PATH', entry: { holds: 'tickets', preset: 'jira' } },
+  ])
+})
+
+test('with no remote a preset recognises and none of their tools, there is no candidate', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+  makeRepo(root, 'api', { remote: 'git@code.acme.example:acme/api.git' })
+
+  assert.deepEqual(detectJson(root).connectionCandidates, [])
+  assert.match(detect(root).stdout, /^Connection candidates: none$/m)
+})
+
+test('a part that the remotes of one system do not agree on is left out of its candidates', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n', 'web/README.md': '# web\n' }))
+  makeRepo(root, 'api', { remote: 'https://dev.azure.com/acme/Shop/_git/api' })
+  makeRepo(root, 'web', { remote: 'https://dev.azure.com/acme/Front/_git/web' })
+
+  assert.deepEqual(detectJson(root).connectionCandidates, [
+    { preset: 'azure-devops', holds: 'tickets', because: 'a remote reads as it', entry: { holds: 'tickets', preset: 'azure-devops', org: 'acme' } },
+    { preset: 'azure-devops', holds: 'pull-requests', because: 'a remote reads as it', entry: { holds: 'pull-requests', preset: 'azure-devops', org: 'acme' } },
+  ])
 })

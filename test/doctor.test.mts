@@ -39,8 +39,11 @@ github.com
   ✓ Logged in to github.com as acme-bot (oauth_token)
 OUT`
 const GIT_OUTSIDE_A_REPOSITORY = 'echo "fatal: not a git repository" >&2; exit 128'
-const GITHUB = { codeHost: { type: 'github' } }
-const GITHUB_AS_BOT = { codeHost: { type: 'github', ghUser: 'acme-bot' } }
+const NO_TRACKER = { tracker: { type: 'none', keyPatterns: [] } }
+const GITHUB = { ...NO_TRACKER, codeHost: { type: 'github' } }
+const GITHUB_AS_BOT = { ...NO_TRACKER, codeHost: { type: 'github', ghUser: 'acme-bot' } }
+const BY_A_SERVER = { connections: { desk: { holds: 'tickets', server: 'issues' } } }
+const connectionsLine = (result: Result) => result.stdout.split('\n').find(line => line.includes('connections'))
 const LEGACY = { legacyHooks: ['old-resolver.mjs'] }
 const commandHook = (command: string) => ({ hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command }] }] } })
 const LEGACY_HOOK = commandHook('node ~/tools/old-resolver.mjs resolve')
@@ -51,11 +54,11 @@ const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.m
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
 test('a healthy map passes every check', () => {
-  const root = tree(acme())
+  const root = tree(acme({}, BY_A_SERVER))
 
   const result = doctor(root)
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   hooks', 'ok   gh', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   hooks', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -295,19 +298,19 @@ test('hooks that are not legacy hooks, and legacy names outside a hook command, 
   assert.equal(result.code, 0)
 })
 
-test('a GitHub estate without gh on the path is a fix', () => {
+test('a GitHub estate without gh on the path is noted, and is no fault', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root)
 
-  assert.match(result.stdout, /^FIX {2}gh: gh is not on PATH; install the GitHub CLI$/m)
-  assert.equal(result.code, 1)
+  assert.equal(connectionsLine(result), 'note connections: github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
+  assert.equal(result.code, 0)
 })
 
-test('a GitHub tracker needs gh as well', () => {
+test('a GitHub tracker without gh on the path is noted as well', () => {
   const root = tree(acme({}, { tracker: { type: 'github' } }))
 
-  assert.match(doctor(root).stdout, /^FIX {2}gh: gh is not on PATH;/m)
+  assert.equal(connectionsLine(doctor(root)), 'note connections: github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
 })
 
 test('a GitHub estate with gh on the path is fine', NEEDS_STAND_IN, () => {
@@ -315,7 +318,7 @@ test('a GitHub estate with gh on the path is fine', NEEDS_STAND_IN, () => {
 
   const result = doctor(root, sandbox({ gh: GH_PRESENT }))
 
-  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.match(result.stdout, /^ok {3}connections$/m)
   assert.equal(result.code, 0)
 })
 
@@ -324,7 +327,7 @@ test('a GitHub estate with gh.exe on the path is fine', EXE_NAMES, () => {
 
   const result = doctor(root, { ...sandbox(), PATH: tree(makeTree({ 'gh.exe': '' })) })
 
-  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.match(result.stdout, /^ok {3}connections$/m)
   assert.equal(result.code, 0)
 })
 
@@ -333,7 +336,7 @@ test('the configured gh account being the active one is fine', NEEDS_STAND_IN, (
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_ACME_BOT }))
 
-  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.match(result.stdout, /^ok {3}connections$/m)
   assert.equal(result.code, 0)
 })
 
@@ -343,18 +346,18 @@ test('a different active gh account is a fix that gives the token prefix', NEEDS
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_SOMEONE_ELSE }))
 
   assert.equal(
-    result.stdout.split('\n').find(line => line.includes(' gh')),
-    'FIX  gh: the active gh account is not acme-bot; run gh auth switch --user acme-bot, or start each gh command with GH_TOKEN=$(gh auth token --user acme-bot)',
+    connectionsLine(result),
+    'FIX  connections: the active gh account is not acme-bot; run gh auth switch --user acme-bot, or start each gh command with GH_TOKEN=$(gh auth token --user acme-bot)',
   )
   assert.equal(result.code, 1)
 })
 
 test('the gh account matches whatever its letter case', NEEDS_STAND_IN, () => {
-  const root = tree(acme({}, { codeHost: { type: 'github', ghUser: 'Acme-Bot' } }))
+  const root = tree(acme({}, { ...NO_TRACKER, codeHost: { type: 'github', ghUser: 'Acme-Bot' } }))
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_ACME_BOT }))
 
-  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.match(result.stdout, /^ok {3}connections$/m)
 })
 
 test('a gh from before account switching, logged in as the configured account, is fine', NEEDS_STAND_IN, () => {
@@ -362,7 +365,7 @@ test('a gh from before account switching, logged in as the configured account, i
 
   const result = doctor(root, sandbox({ gh: GH_BEFORE_ACCOUNT_SWITCHING }))
 
-  assert.match(result.stdout, /^ok {3}gh$/m)
+  assert.match(result.stdout, /^ok {3}connections$/m)
 })
 
 test('a gh from before account switching, logged in as someone else, is a fix', NEEDS_STAND_IN, () => {
@@ -370,16 +373,49 @@ test('a gh from before account switching, logged in as someone else, is a fix', 
 
   const result = doctor(root, sandbox({ gh: GH_BEFORE_ACCOUNT_SWITCHING }))
 
-  assert.match(result.stdout, /^FIX {2}gh: the active gh account is not acme-deploy;/m)
+  assert.match(result.stdout, /^FIX {2}connections: the active gh account is not acme-deploy;/m)
 })
 
-test('a gh account in the config needs gh even when no code host type is given', () => {
-  const root = tree(acme({}, { codeHost: { ghUser: 'acme-bot' } }))
+test('a gh account in the config is a GitHub connection even when no code host type is given', () => {
+  const root = tree(acme({}, { ...NO_TRACKER, codeHost: { ghUser: 'acme-bot' } }))
 
   const result = doctor(root)
 
-  assert.match(result.stdout, /^FIX {2}gh: gh is not on PATH; install the GitHub CLI$/m)
-  assert.equal(result.code, 1)
+  assert.equal(connectionsLine(result), 'note connections: github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"')
+  assert.equal(result.code, 0)
+})
+
+test('a map that records no connection is told that one is recommended, as a note', () => {
+  const result = doctor(tree(acme({}, NO_TRACKER)))
+
+  assert.equal(connectionsLine(result), 'note connections: none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work')
+  assert.equal(result.code, 0)
+})
+
+test('a connection reached by a server, by its own command or by hand needs nothing on the path', () => {
+  const connections = { desk: { holds: 'tickets', server: 'issues' }, forge: { holds: 'pull-requests', commands: { read: ['forge', 'show', '{id}'] } }, notes: { holds: 'meetings', how: 'Ask in the channel.' }, wiki: { holds: 'documents' } }
+
+  assert.equal(connectionsLine(doctor(tree(acme({}, { connections })))), 'ok   connections')
+})
+
+test('a preset name this version does not carry is noted', () => {
+  const result = doctor(tree(acme({}, { connections: { desk: { holds: 'tickets', preset: 'no-such-desk', server: 'issues' } } })))
+
+  assert.equal(connectionsLine(result), 'note connections: desk names the preset no-such-desk, which this version does not carry')
+  assert.equal(result.code, 0)
+})
+
+test('an old map whose tracker has a route written down is reached by it, and nothing is noted', () => {
+  const result = doctor(tree(acme({}, { tracker: { type: 'jira', keyPatterns: ['PROJ-\\d+'], route: { via: 'the tracker server' } } })))
+
+  assert.equal(connectionsLine(result), 'ok   connections')
+})
+
+test('an old map whose tracker has a preset and no other way is noted where its tool is missing', () => {
+  const result = doctor(tree(acme()))
+
+  assert.equal(connectionsLine(result), 'note connections: jira is not reached here: acli is not on PATH; install the Atlassian CLI and sign in with "acli jira auth login"')
+  assert.equal(result.code, 0)
 })
 
 test('a registered repo path that holds a file, not a folder, is a fix', () => {
@@ -409,25 +445,25 @@ test('a hub path that is a folder is a fix, not a crash', () => {
   assert.equal(result.stderr, '')
 })
 
-test('json lists every check with its fix', () => {
+test('json lists every check with its fix and its note', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox(), '--json')
 
   assert.deepEqual(JSON.parse(result.stdout) as unknown, [
-    { check: 'node', ok: true, fix: null },
-    { check: 'config', ok: true, fix: null },
-    { check: 'hub', ok: true, fix: null },
-    { check: 'lint', ok: true, fix: null },
-    { check: 'links', ok: true, fix: null },
-    { check: 'repos', ok: true, fix: null },
-    { check: 'git', ok: true, fix: null },
-    { check: 'notes', ok: true, fix: null },
-    { check: 'evidence', ok: true, fix: null },
-    { check: 'hooks', ok: true, fix: null },
-    { check: 'gh', ok: false, fix: 'gh is not on PATH; install the GitHub CLI' },
+    { check: 'node', ok: true, fix: null, note: null },
+    { check: 'config', ok: true, fix: null, note: null },
+    { check: 'hub', ok: true, fix: null, note: null },
+    { check: 'lint', ok: true, fix: null, note: null },
+    { check: 'links', ok: true, fix: null, note: null },
+    { check: 'repos', ok: true, fix: null, note: null },
+    { check: 'git', ok: true, fix: null, note: null },
+    { check: 'notes', ok: true, fix: null, note: null },
+    { check: 'evidence', ok: true, fix: null, note: null },
+    { check: 'hooks', ok: true, fix: null, note: null },
+    { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
   ])
-  assert.equal(result.code, 1)
+  assert.equal(result.code, 0)
 })
 
 const TRACE = 'work/PROJ-12/evidence/2026-01-14-trace.json'
