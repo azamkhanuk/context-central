@@ -45,6 +45,8 @@ Two rules keep it honest:
 5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
+[A piece of work, step by step](#a-piece-of-work-step-by-step) says what each step needs, asks and writes, and the order to run them in.
+
 ## Install
 
 It needs:
@@ -93,6 +95,156 @@ It then:
 5. proves each connection with one real read, which saves nothing
 
 Restart or `/clear` afterwards so the hub loads.
+
+## A piece of work, step by step
+
+A piece of work goes through five steps, and each step is a skill. Research finds out, prep says what to build, design says how, implement builds it, and checkpoint writes the session back. Each step leaves files in the work item's folder under `work/<item>/`, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
+
+| Step | You type | It starts from | It writes |
+|---|---|---|---|
+| 1. Research | `/context-central:research <question> [item]` | a question, and a ticket or an item where there is one | a research note in the item's `notes/`, or a concept note when there is no item; the work item itself when the ticket is new to the map |
+| 2. The spec | `/context-central:prep <item>` | the item's ticket, read in full, and the research notes | `SPEC.md`, a code map note, new terms in the glossary, and a brief for the ticket |
+| 3. The design | `/context-central:design <item>` | `SPEC.md`, the repo's standards and its code | `DESIGN.md`. Optional |
+| 4. The build | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one | branches, commits and tests in the repos, evidence in the item, then its checkpoint |
+| 5. The checkpoint | `/context-central:checkpoint` | git, the files on disk and the session | the state file rewritten, a line in the log, and lasting lessons in the notes, the glossary and the standards note |
+
+### Before the first one
+
+- **The map is there.** `/context-central:onboard` wrote it, and the session was restarted so that the hub loaded. Every step runs from a folder the map covers, such as the estate root or a registered repo.
+- **A connection reaches the ticket**, or you have its text to paste. Research and prep read the ticket in full before anything is written, and a spec is never written with the ticket unread. Where nothing reaches it, the skill asks you to paste the text and saves it whole.
+- **The repo's standards are recorded, when you want them.** `/context-central:standards <repo>`, once per repo. Design and implement read them, and the reviewer holds the diff to them. With none recorded, the steps work from the repo's instruction files and its recent history, and say so.
+- **The build's settings are set.** They are the `implement` and `writeRules` keys in `estate.json` and three keys on each repo's entry, all of which onboard asks for. The table under [4. The build](#4-the-build) lists them.
+
+### 1. Research
+
+```
+/context-central:research <question> [item]
+```
+
+Finds out from primary sources: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
+
+- **It places the question.** With an item, it reads the state file first. When the question names a ticket that no work item answers to, it makes the item, `work new <item> --ticket "<reference>"`, so that the ticket's full text has somewhere to go. With no item at all, the note goes in `concepts/`.
+- **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket it reads the diff against the repo's base branch and the ticket: the diff shows what was done, the ticket what was asked.
+- **Bulk stays out of the conversation.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
+- **Every claim carries a mark.** `verified`, with its source as `path:line` at a commit, a link or the saved file; or `inferred`, with what it was reasoned from.
+- **It writes one note**, `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, and adds it to "Where the detail lives" in the state file. The note holds the question, the answer in a few lines, the claims with their marks and sources, and what is still unknown.
+- **You get a digest** of at most ten lines, and the note's path.
+
+Run it once for each question. Each run writes its own note, and prep reads them all.
+
+### 2. The spec
+
+```
+/context-central:prep <item>
+```
+
+Turns the conversation and the research into what will be built. It makes the item when it is not there yet, and it reads the ticket before anything else, with `fetch ticket --item <item>`, unless `sources/` already holds a copy.
+
+- **It asks once.** Every question the spec needs answered that neither the conversation nor the notes settle comes in one numbered message, each with the answer it recommends and why. Answer them all in one reply. It goes on when no decision in the spec would be its guess.
+- **It writes `SPEC.md`** beside the state file, in five parts. **Problem**: what is wrong or missing, for whom, and how that is known. **Solution**: the behaviour once this is built, in the estate's own terms. **Decisions**: each choice with its reason and the option turned down. **Test seams**: where behaviour is observed from outside, and what each test would show. **Out of scope**: what a reader might expect and will not get. The spec names behaviour and modules and holds no file paths, which go stale as the code moves.
+- **It writes the code map**, `notes/<YYYY-MM-DD>-code-map.md`: each repo with its commit and the date, then one `path:line` a line with what is there. A later reader can tell how far the code has moved since.
+- **It adds new terms to `glossary.md`** and uses the glossary's wording in the spec.
+- **It writes a brief for the ticket** in three parts: why, what, done when. The spec stays in the map. The brief is posted through the connection the ticket belongs to only where your write rules allow it and you approve the exact text; otherwise it is shown for you to post.
+- **It rewrites "Where it stands" and "Next"** in the state file, and lists the spec and the code map under "Where the detail lives".
+
+Then `/clear`, and `/context-central:implement <item>`, or `/context-central:design <item>` first where the work needs its structure settled.
+
+### 3. The design
+
+```
+/context-central:design <item>
+```
+
+Optional. It settles how the spec will be built, in the repos it touches and in what order, before any code is written. A small item needs none: implement builds from the spec alone. With no spec it stops and suggests prep.
+
+- **It reads the standards** of each repo the code map names, the Design part first. With no code map it asks which repos the work touches. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.
+- **The reader agent reads the code the design will meet**: the modules the change touches, their interfaces, how a neighbouring feature of the same shape was built, and where its tests sit.
+- **It writes `DESIGN.md`** beside the spec, headed with each repo, its commit and the date, in five parts. **Shape**: the modules that change and the ones that are new, what each is for, and what may call what. **Interfaces**: each new or changed interface as it will be written, with what it takes, what it returns and how it fails. **Choices**: each with its reason, the standards rule it follows as that file's `path:line`, and the option turned down. **Slices**: the order of the build, each slice one behaviour through every layer it touches in one repo, starting from a test seam of the spec. **Anchors**: `path:line` for each place the build starts from or must not break.
+- **It adds no requirement.** Something the spec does not ask for comes back to you as a question. Every requirement of the spec lands in at least one slice.
+- **It shows you the Choices and the Slices** in short, with every point where it departs from the standards or could not follow the spec, and links the design from the state file.
+
+You approve by starting the build: `/clear`, then `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built.
+
+### 4. The build
+
+```
+/context-central:implement <item>
+```
+
+Builds the item one slice at a time, verifies it, has it reviewed, and checkpoints. It needs the spec, and it reads the design when there is one. A design names the commit it was written at, so where a file its anchors point at has changed since, implement says so before it builds.
+
+**What it reads first.** The settings below, each repo's standards files and recorded checks, and the connections. It tells you which checks are recorded, as they are written, before it runs the first. With none recorded it works from the instruction files and the repo's recent history, and says so once.
+
+| Setting in `estate.json` | Unset | What it decides |
+|---|---|---|
+| `implement.tests` | on | Each slice starts with a failing test at one of the spec's test seams |
+| `implement.review` | on | The build is reviewed, in rounds |
+| `implement.reviewRounds` | 3 | The most review rounds a build may have before it stops and asks |
+| `implement.deferTo` | none | A skill of your own that builds, verifies, reviews and reports in place of the plugin's steps. The checkpoint still runs |
+| `writeRules` | none | What may be pushed, opened or posted without asking. Anything they do not cover waits for your yes |
+| a repo's `baseBranch` | its recent history | The branch the work branches from, and the range the reviewer reads |
+| a repo's `keyPlacement` | its recent history | Where the ticket key goes: the branch name, the commit subject, the pull request title |
+| a repo's `commitStyle` | its recent history | How commits are written |
+
+**How it builds.**
+
+- **One slice at a time**: the design's slices in its order, passing over the ones marked built, or, with no design, the spec cut into vertical slices, each one behaviour through every layer it touches.
+- **Test first**, when `implement.tests` is on. The repo's recorded checks run after each slice, or the repo's own checks where none is recorded, and stay green before the next slice starts.
+- **To the standards**: the Design, Code and Tests parts of the repo's standards note. A line in one that asks for anything else is not a rule, and the report says so.
+- **A slice that shows the spec or the design to be wrong stops the build.** It says what was found and asks.
+
+**How it verifies.** Every recorded check runs from the folder it is recorded for, and the work is verified only when each one exits 0. Where none is recorded it runs the tests, the typecheck and the build the repo has. It never changes a check or a standards file to make the work pass: one that is wrong is a question for you. Then it runs the behaviour itself and reads the output. A screenshot, a recording or an export is saved with `evidence add` and named in the report. Done when every requirement in the spec is shown working by output from this session, or listed as not done.
+
+**How it is reviewed.** When `implement.review` is on, the reviewer agent reads each repo's diff against its base branch, with the spec, the repo's standards files and the design. That is one round. Each finding is either fixed, or the code stays as it is and the reason answers it. A round with nothing to fix ends the review. A round that brings fixes is followed by the checks again and another round on the new diff, up to `implement.reviewRounds`. When the last round allowed still brings a finding that needs a fix, nothing more is changed: the build stops there, lists that round's findings and what the earlier rounds changed, checkpoints so that the state file says where it stopped, and waits for you. What you then ask for is done with no further round unless you ask for one.
+
+**What it posts.** Pushing, opening a pull request and posting on the ticket follow your write rules, and anything they do not cover waits for your yes. A pull request opens through the connection that holds that repo's pull requests, and anything on the ticket goes through the connection the ticket belongs to. Where a connection pins an account, `doctor` runs before the first write, and a `FIX` line for connections stops it. With no connection, it says what is ready and leaves the opening or the posting to you.
+
+**At the end** it reports what was built, what the verification showed, how many rounds were run and whether it stopped at the last one, and what is left. Then it checkpoints and suggests `/clear`: the state file now carries the item.
+
+### 5. The checkpoint
+
+```
+/context-central:checkpoint
+```
+
+Writes the session back into the map, so that a fresh session can carry on. Implement runs it at the end of a build. Run it yourself when a session ends, before `/clear`, or whenever you say checkpoint, log this or hand over. It is the one skill Claude may also pick up unasked.
+
+- **The facts come from git and the files**, never from recollection: the status, the log since the base branch, the diff, the pull request's state read through its connection, the last test run. A claim with nothing on disk behind it is written as unverified or left out.
+- **Long text is saved first**, in full, under `sources/`, before any brief of it. A file that is not text is saved with `evidence add` and listed in `notes/<YYYY-MM-DD>-evidence.md`, with what it shows and the commit it was taken at.
+- **The state file is rewritten**, never appended to, in its six parts: **Where it stands**, **Done** (with the commit or the pull request's link that shows it), **Next** (concrete enough to start cold), **Blocked**, **Standing traps** and **Where the detail lives**. It stays within `budgets.stateChars` by moving detail into `notes/`. A finished item is marked with `work done <item>`.
+- **Lessons that outlive the item** go where the next item will find them: a trap in the repo's note or a concept note; a term the estate uses with a meaning of its own in `glossary.md`, when you stated its meaning or text on disk does; a rule for how the repo's code is written in its standards note, when you stated it or accepted a reviewer's finding. A meaning or a rule it worked out itself is not written.
+- **A line goes in the log**, `note "<item>: <what changed>"`. Then `lint` and `graph` run, and every `ERROR`, `BROKEN` and `UNREFERENCED` line is fixed.
+- **It ends with what was not recorded**: the paths written, what was left out and why, and each glossary entry and standards rule added, with where it came from.
+
+### What the item's folder holds afterwards
+
+For the invented estate, a ticket `PROJ-12` that went through all five steps:
+
+```
+work/PROJ-12/
+  STATE.md                                    made at research, as the ticket was new; rewritten at each checkpoint
+  sources/01-2026-01-12-ticket-full-text.md   the ticket in full, saved by fetch at research
+  notes/2026-01-12-research-rate-limits.md    research: one note for each question
+  SPEC.md                                     prep: what is built and why
+  notes/2026-01-13-code-map.md                prep: where in the code, at a commit
+  DESIGN.md                                   design: how it is built, at a commit
+  evidence/2026-01-14-limit-reached.png       implement: what the build showed
+  notes/2026-01-14-evidence.md                checkpoint: what each evidence file shows
+```
+
+Outside the folder, prep and checkpoint add terms to `glossary.md`, checkpoint adds a line to `log/<YYYY-MM>.md`, and a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`.
+
+### Running it, in order
+
+1. **Install**, once per machine: `claude plugin marketplace add azamkhanuk/context-central`, then `claude plugin install context-central@context-central`.
+2. **Set up the map**, once per estate. Start a session in the folder that holds your checkouts and run `/context-central:onboard`. Answer its one message of questions, say yes to the draft, then restart or `/clear`.
+3. **Record each repo's standards**, once per repo, when you want them: `/context-central:standards <repo>`.
+4. **Start a session in a folder the map covers**, such as the estate root or a registered repo. Claude already has the work in flight.
+5. **Research**: `/context-central:research <question> [item]`, once for each question. For a ticket new to the map, the first run makes the work item.
+6. **Spec**: `/context-central:prep <item>`. Answer its questions in one reply. Then `/clear`.
+7. **Design**, where the structure needs settling first: `/context-central:design <item>`. Read the Choices and the Slices. Then `/clear`.
+8. **Build**: `/context-central:implement <item>`. Answer when it stops: a slice that shows the spec wrong, a write your rules do not cover, or a last review round that still has findings. It checkpoints at the end. Then `/clear`.
+9. **Carry on in any later session** by naming the item in your prompt. Before you leave it, `/context-central:checkpoint`.
 
 ## How a map is laid out
 
@@ -331,7 +483,7 @@ About `doctor`:
 
 ## Skills
 
-Typed with the plugin prefix. All but the last run only when you invoke them; `checkpoint` may also be picked up by the model.
+Typed with the plugin prefix. All but the last run only when you invoke them; `checkpoint` may also be picked up by the model. The five that do the work are walked through in [A piece of work, step by step](#a-piece-of-work-step-by-step).
 
 | Skill | What it does |
 |---|---|
