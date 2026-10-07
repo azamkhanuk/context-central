@@ -2,6 +2,11 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
 
+## 0.7.0 - 2026-10-07
+
+- **The README walks through a piece of work.** A new part, "A piece of work, step by step", says what each of the five steps starts from, asks and writes: research, the spec, the design, the build with its review rounds, and the checkpoint. It lists the settings the build follows, which the README had not named, shows what a work item's folder holds after the five steps, and ends with the order to run them in, from the install onwards.
+- Nothing changes in what the commands, the hooks, the skills or the agents do.
+
 ## 0.6.0 - 2026-10-07
 
 - **Connections.** An estate records each outside system it uses under `connections` in `estate.json`. An entry has a name and says what it holds (tickets, pull requests, meetings, chat or any other word), how a reference to it looks, and how it is reached: by a preset, by an MCP server your session holds, by your own command, or by hand. An estate can have any number, and none is required: with none, every command, hook and skill works as it did. One is recommended, so that a session can read the ticket or the pull request behind the work.
