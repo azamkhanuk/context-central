@@ -24,12 +24,14 @@ Delegate bulk reading to the `context-central:reader` agent. Give it each repo's
 
 ## 4. Write the design
 
-Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these parts:
+Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these seven parts in this order:
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails.
 - **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why.
 - **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from.
+- **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.
+- **If time is short**: the order in which the work is cut, and what is never cut, or `none`.
 - **Anchors**: `path:line`, counted from the root of the repo it names, for each place the build starts from or must not break.
 
 The design names files and lines, which the spec does not, so it carries the commit it was written at. It adds no requirement: something the spec does not ask for goes back to the person as a question, not into the design. Every requirement of the spec lands in at least one slice.

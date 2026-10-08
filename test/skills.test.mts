@@ -40,7 +40,7 @@ const FLAGS: Record<string, string[]> = {
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
-const DESIGN_PARTS = ['Shape', 'Interfaces', 'Choices', 'Slices', 'Anchors']
+const DESIGN_PARTS = ['Shape', 'Interfaces', 'Choices', 'Slices', 'Checks beyond this machine', 'If time is short', 'Anchors']
 
 const tree = disposable()
 
@@ -647,7 +647,7 @@ test('design loads each repo\'s standards from the plugin, and says so where a r
   assert.match(skillText('design'), /context-central:reader/)
 })
 
-test('design writes five parts beside the spec, with the commit it was written at', () => {
+test('design writes seven parts beside the spec, with the commit it was written at', () => {
   const write = step('design', '4. Write the design')
 
   assert.ok(write.includes('Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date'))
@@ -737,4 +737,32 @@ test('onboard asks how many review rounds implement allows, and its draft carrie
 
   assert.match(skillText('onboard'), /^\d+\. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks\. Recommend three\.$/m)
   assert.deepEqual(draft.config.implement, { tests: true, review: true, deferTo: '', reviewRounds: 3 })
+})
+
+test('the terms file defines the failing inputs, and the reviewer follows each changed path with them', () => {
+  const terms = readFileSync(join(REPO, 'CONTEXT.md'), 'utf8')
+
+  assert.ok(terms.includes('**Failing inputs**: The inputs a design lists for how an interface fails and a slice\'s tests cover: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused.'))
+  assert.ok(agentText('reviewer').includes('follow each changed path with the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused'))
+})
+
+test('the design term names seven parts, the built line and the revision', () => {
+  const terms = readFileSync(join(REPO, 'CONTEXT.md'), 'utf8')
+
+  assert.ok(terms.includes('**Design**: A work item\'s `DESIGN.md`: how its spec will be built in this repo, in seven parts: Shape, Interfaces, Choices, Slices, Checks beyond this machine, If time is short and Anchors.'))
+  assert.ok(terms.includes('The build marks each slice built with its commit, and a departure from the design revises it where it stands, dated.'))
+})
+
+test('design writes seven parts in order, with checks beyond this machine and if time is short before the anchors', () => {
+  const write = step('design', '4. Write the design')
+  const at = DESIGN_PARTS.map(part => write.indexOf(`- **${part}**:`))
+
+  assert.deepEqual([...at].sort((a, b) => a - b), at)
+  assert.ok(at.every(index => index >= 0))
+  assert.ok(write.includes('- **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.'))
+  assert.ok(write.includes('- **If time is short**: the order in which the work is cut, and what is never cut, or `none`.'))
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+  assert.ok(readme.includes('in seven parts'))
+  assert.ok(readme.includes('**Checks beyond this machine**: what it assumes and only a system this machine cannot reach can show'))
+  assert.ok(readme.includes('**If time is short**: the cut order and what is never cut'))
 })
