@@ -813,3 +813,13 @@ test('the reviewer reads a dated revision as the design, and a listed failing in
   assert.ok(agentText('reviewer').includes('Where the design lists failing inputs for an interface the diff builds, a listed input with no test is a finding.'))
   assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('a dated revision is the design and a listed failing input with no test is a finding'))
 })
+
+test('checkpoint carries open triggers and unrun checks beyond this machine into the state file', () => {
+  const rewrite = step('checkpoint', '4. Rewrite the state file')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(rewrite.includes('- **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run.'))
+  assert.ok(rewrite.includes('- **Standing traps**: what would catch out someone new to this item, and each open trigger from the design\'s Choices.'))
+  assert.ok(readme.includes('**Next** (concrete enough to start cold, with each check beyond this machine still to run)'))
+  assert.ok(readme.includes('**Standing traps** (with each open trigger from the design)'))
+})

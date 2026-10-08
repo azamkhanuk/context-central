@@ -26,9 +26,9 @@ Its six parts, each replaced with what is true now:
 
 - **Where it stands**: the present position in a few lines.
 - **Done**: what is finished, with the commit or PR that shows it. A PR is written as its link, so that the link finds the item later.
-- **Next**: the next action, concrete enough to start cold.
+- **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run.
 - **Blocked**: what is waiting, and on whom or what.
-- **Standing traps**: what would catch out someone new to this item.
+- **Standing traps**: what would catch out someone new to this item, and each open trigger from the design's Choices.
 - **Where the detail lives**: paths to the spec, the design when there is one, the notes, the saved sources and the evidence note.
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
