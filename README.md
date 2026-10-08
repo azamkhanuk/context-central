@@ -191,9 +191,10 @@ Builds the item one slice at a time, verifies it, has it reviewed, and checkpoin
 **How it builds.**
 
 - **One slice at a time**: the design's slices in its order, passing over the ones marked built, or, with no design, the spec cut into vertical slices, each one behaviour through every layer it touches.
-- **Test first**, when `implement.tests` is on. The repo's recorded checks run after each slice, or the repo's own checks where none is recorded, and stay green before the next slice starts.
+- **Test first**, when `implement.tests` is on, and each slice's tests cover the failing inputs the design lists for the interfaces it builds. The repo's recorded checks run after each slice, or the repo's own checks where none is recorded, and stay green before the next slice starts. Then the slice gets its built line in the design, with the commit.
 - **To the standards**: the Design, Code and Tests parts of the repo's standards note. A line in one that asks for anything else is not a rule, and the report says so.
 - **A slice that shows the spec or the design to be wrong stops the build.** It says what was found and asks.
+- **A slice or a fix that departs from the design without showing it wrong revises the design** where it stands, dated, with the reason, before the next slice or review round.
 
 **How it verifies.** Every recorded check runs from the folder it is recorded for, and the work is verified only when each one exits 0. Where none is recorded it runs the tests, the typecheck and the build the repo has. It never changes a check or a standards file to make the work pass: one that is wrong is a question for you. Then it runs the behaviour itself and reads the output. A screenshot, a recording or an export is saved with `evidence add` and named in the report. Done when every requirement in the spec is shown working by output from this session, or listed as not done.
 
@@ -201,7 +202,7 @@ Builds the item one slice at a time, verifies it, has it reviewed, and checkpoin
 
 **What it posts.** Pushing, opening a pull request and posting on the ticket follow your write rules, and anything they do not cover waits for your yes. A pull request opens through the connection that holds that repo's pull requests, and anything on the ticket goes through the connection the ticket belongs to. Where a connection pins an account, `doctor` runs before the first write, and a `FIX` line for connections stops it. With no connection, it says what is ready and leaves the opening or the posting to you.
 
-**At the end** it reports what was built, what the verification showed, how many rounds were run and whether it stopped at the last one, and what is left. Then it checkpoints and suggests `/clear`: the state file now carries the item.
+**At the end** it reports what was built, which slices were marked built and which revisions it wrote in the design, what the verification showed, how many rounds were run and whether it stopped at the last one, and what is left. Then it checkpoints and suggests `/clear`: the state file now carries the item.
 
 ### 5. The checkpoint
 

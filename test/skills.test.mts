@@ -792,3 +792,18 @@ test('design names what each slice builds and covers, leaves no seam uncovered u
   assert.ok(readme.includes('each slice names the Interfaces headings it builds and the seams it covers, and every seam is covered by a slice or named under the one that covers it'))
   assert.ok(readme.includes('design: how it is built, at a commit, each slice marked built as it lands'))
 })
+
+test('implement proves the failing inputs in each slice, marks the slice built when the checks are green, and revises the design on a departure', () => {
+  const build = step('implement', '3. Build in slices')
+  const review = step('implement', '5. Review')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(build.includes('and its tests cover, for each interface the slice builds, the failing inputs the design lists for it'))
+  assert.ok(build.includes('When they are green and there is a design, end the slice in the design with its line, `Built at <short commit>.`'))
+  assert.ok(build.includes('A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice.'))
+  assert.ok(build.indexOf('stops the build') < build.indexOf('revises the design'))
+  assert.ok(review.includes('A fix that departs from the design revises it where it stands, dated, with the reason, before the next round.'))
+  assert.ok(step('implement', '6. Report').includes('which slices were marked built and which revisions the build wrote in the design'))
+  assert.ok(readme.includes('each slice\'s tests cover the failing inputs the design lists for the interfaces it builds'))
+  assert.ok(readme.includes('**A slice or a fix that departs from the design without showing it wrong revises the design**'))
+})
