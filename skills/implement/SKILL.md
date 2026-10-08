@@ -29,7 +29,7 @@ Run `context-central config --get implement`, `context-central config --get repo
 
 With a design, build its slices in its order, passing over any it marks as built. Without one, order the spec into vertical slices: each one behaviour, working through every layer it touches. Build one slice at a time.
 
-Build to the Design, Code and Tests parts of the repo's standards. When `implement.tests` is on, each slice starts with a failing test at one of the spec's test seams, then the code that passes it, and its tests cover, for each interface the slice builds, the failing inputs the design lists for it. Run the repo's recorded checks after each slice, or the repo's own checks where none is recorded, and keep them green before starting the next. When they are green and there is a design, end the slice in the design with its line, `Built at <short commit>.`
+Build to the Design, Code and Tests parts of the repo's standards. When `implement.tests` is on, each slice starts with a failing test at one of the spec's test seams, then the code that passes it, and its tests cover, for each interface the slice builds, the failing inputs the design lists for it. Run the repo's recorded checks after each slice, or the repo's own checks where none is recorded, and keep them green before starting the next. When they are green and there is a design, commit the slice, then end it in the design with its line, `Built at <short commit>.`
 
 A slice that shows the spec or the design to be wrong stops the build: say what was found and ask. A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice.
 
@@ -39,9 +39,9 @@ Run every recorded check from the folder `standards` gave and read what it exits
 
 ## 5. Review
 
-When `implement.review` is on, review in rounds. A round is one run of the `context-central:reviewer` agent for each repo the work touches. Give it that repo's absolute path, the diff range (`<base branch>...HEAD`), the spec's absolute path, the absolute paths of the repo's standards files, and the design's when there is one. When the work touches more than one repo, tell each run which the others are.
+When `implement.review` is on, review in rounds. A round is one run of the `context-central:reviewer` agent for each repo the work touches. Give it that repo's absolute path, the diff range (`<base branch>...HEAD`), the spec's absolute path, the absolute paths of the repo's standards files, and the design's when there is one, with whether `implement.tests` is on. When the work touches more than one repo, tell each run which the others are.
 
-After a round, take each finding: it needs a fix, or the code stays as it is and you say why, which answers it. A round with nothing to fix ends the review. A fix that departs from the design revises it where it stands, dated, with the reason, before the next round.
+After a round, take each finding: it needs a fix, or the code stays as it is and you say why, which answers it. A round with nothing to fix ends the review. A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the design wrong stops the build: say what was found and ask.
 
 `implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else. When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff. When the last round allowed brings one, make no fix: stop the build there, list that round's findings and what the earlier rounds changed, run step 7 so the state file says where the build stopped, and wait for the person. What the person then asks for is done with no further round unless they ask for one, and steps 6 and 7 follow it.
 
