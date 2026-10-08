@@ -766,3 +766,12 @@ test('design writes seven parts in order, with checks beyond this machine and if
   assert.ok(readme.includes('**Checks beyond this machine**: what it assumes and only a system this machine cannot reach can show'))
   assert.ok(readme.includes('**If time is short**: the cut order and what is never cut'))
 })
+
+test('design writes how an interface fails against the failing inputs, from the source of the dependency it rests on', () => {
+  const read = step('design', '3. Read the code the design will meet')
+  const write = step('design', '4. Write the design')
+
+  assert.ok(read.includes('and, for each interface whose failures rest on a dependency, that dependency\'s source at the version the repo pins, or a run of it'))
+  assert.ok(write.includes('- **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails against the failing inputs, as the source of the dependency it rests on at the version the repo pins, or a run of it, shows. What neither shows goes under Checks beyond this machine.'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('how it fails against the failing inputs, as the dependency\'s source at the pinned version or a run of it shows'))
+})
