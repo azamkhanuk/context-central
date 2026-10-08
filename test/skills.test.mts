@@ -782,3 +782,13 @@ test('design records the smaller option of each choice, and the trigger when it 
   assert.ok(write.includes('Each names the smaller option weighed; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`'))
   assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('the smaller option weighed, and the trigger that reopens one turned down for now'))
 })
+
+test('design names what each slice builds and covers, leaves no seam uncovered unseen, and gives a built slice its line', () => {
+  const write = step('design', '4. Write the design')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(write.includes('with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice or named under the slice that covers it. A built slice ends with one line, `Built at <short commit>.`'))
+  assert.ok(write.includes('A seam with no slice and no reason is a question too.'))
+  assert.ok(readme.includes('each slice names the Interfaces headings it builds and the seams it covers, and every seam is covered by a slice or named under the one that covers it'))
+  assert.ok(readme.includes('design: how it is built, at a commit, each slice marked built as it lands'))
+})
