@@ -28,7 +28,7 @@ Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-pa
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails against the failing inputs, as the source of the dependency it rests on at the version the repo pins, or a run of it, shows. What neither shows goes under Checks beyond this machine.
-- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why.
+- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why. Each names the smaller option weighed; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`
 - **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from.
 - **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.
 - **If time is short**: the order in which the work is cut, and what is never cut, or `none`.

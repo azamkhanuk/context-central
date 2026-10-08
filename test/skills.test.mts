@@ -775,3 +775,10 @@ test('design writes how an interface fails against the failing inputs, from the 
   assert.ok(write.includes('- **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails against the failing inputs, as the source of the dependency it rests on at the version the repo pins, or a run of it, shows. What neither shows goes under Checks beyond this machine.'))
   assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('how it fails against the failing inputs, as the dependency\'s source at the pinned version or a run of it shows'))
 })
+
+test('design records the smaller option of each choice, and the trigger when it is turned down for now', () => {
+  const write = step('design', '4. Write the design')
+
+  assert.ok(write.includes('Each names the smaller option weighed; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('the smaller option weighed, and the trigger that reopens one turned down for now'))
+})
