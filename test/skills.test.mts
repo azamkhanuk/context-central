@@ -823,3 +823,9 @@ test('checkpoint carries open triggers and unrun checks beyond this machine into
   assert.ok(readme.includes('**Next** (concrete enough to start cold, with each check beyond this machine still to run)'))
   assert.ok(readme.includes('**Standing traps** (with each open trigger from the design)'))
 })
+
+test('the README says a smaller departure revises the design in place, beside the rule to run design again', () => {
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(readme.includes('Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design in a smaller way revises it in place, dated, so the design you read is the one the code was built to.'))
+})

@@ -165,7 +165,7 @@ Optional. It settles how the spec will be built, in the repos it touches and in 
 - **It adds no requirement.** Something the spec does not ask for comes back to you as a question. Every requirement of the spec lands in at least one slice.
 - **It shows you the Choices and the Slices** in short, with every point where it departs from the standards or could not follow the spec, and links the design from the state file.
 
-You approve by starting the build: `/clear`, then `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built.
+You approve by starting the build: `/clear`, then `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design in a smaller way revises it in place, dated, so the design you read is the one the code was built to.
 
 ### 4. The build
 
