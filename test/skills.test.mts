@@ -807,3 +807,9 @@ test('implement proves the failing inputs in each slice, marks the slice built w
   assert.ok(readme.includes('each slice\'s tests cover the failing inputs the design lists for the interfaces it builds'))
   assert.ok(readme.includes('**A slice or a fix that departs from the design without showing it wrong revises the design**'))
 })
+
+test('the reviewer reads a dated revision as the design, and a listed failing input with no test as a finding', () => {
+  assert.ok(agentText('reviewer').includes('A dated revision in the design is the design, not a finding.'))
+  assert.ok(agentText('reviewer').includes('Where the design lists failing inputs for an interface the diff builds, a listed input with no test is a finding.'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('a dated revision is the design and a listed failing input with no test is a finding'))
+})
