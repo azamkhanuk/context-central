@@ -2,6 +2,24 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
 
+## 0.7.0 - 2026-10-08
+
+- **The design has seven parts.** Two are new. **Checks beyond this machine** lists what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared. **If time is short** gives the order in which the work is cut and what is never cut. Either may say `none`.
+- **How an interface fails is written against the failing inputs.** The design step reads the source of the dependency an interface rests on, at the version the repo pins, or runs it, and writes how the interface fails on the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. What neither the source nor a run shows goes under Checks beyond this machine. `CONTEXT.md` defines the term, and the reviewer follows each changed path with the same inputs.
+- **A choice records the smaller option.** Each choice names the smaller option weighed, and one turned down for now says, on one line, why not now and what reopens it. Checkpoint carries each open trigger into the state file's Standing traps, and each check beyond this machine not yet run into Next.
+- **A slice says what it builds and covers.** Each slice names the Interfaces headings it builds and the test seams it covers. Every seam of the spec is covered by a slice or named under the one that covers it, and a seam with no slice and no reason is a question for you.
+- **The build proves the failing inputs and marks each slice built.** A slice's tests cover the failing inputs the design lists for the interfaces it builds. When the checks are green, the slice ends in the design with `Built at <short commit>.`, which is the line implement passes over on a second run.
+- **A departure revises the design in place.** A slice or a review fix that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice or round. A slice that shows the design wrong still stops the build. The reviewer reads a dated revision as the design, and where the design lists failing inputs for an interface the diff builds, a listed input with no test is a finding.
+- **Why.** One live build of a design was read for this release. The code never drifted from the design. The design drifted behind the code after review fixes, and every real defect was a failure mode the design and the code both missed.
+
+Not shown:
+
+- No build has yet written a built line or a revision into a design through the released skill, and no real build has run with these rules. What a stand-in run showed is in the release's pull request.
+
+For a map that already exists:
+
+- A design written before this release has five parts. Implement reads it as before, writes a built line where a slice ends, and asks nothing about the two parts it lacks. Run design again to add them.
+
 ## 0.6.1 - 2026-10-07
 
 - **The README walks through a piece of work.** A new part, "A piece of work, step by step", says what each of the five steps starts from, asks and writes: research, the spec, the design, the build with its review rounds, and the checkpoint. It lists the settings the build follows, which the README had not named, shows what a work item's folder holds after the five steps, and ends with the order to run them in, from the install onwards.
