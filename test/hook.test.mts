@@ -468,6 +468,14 @@ test('a prompt that names a repo is pointed at its standards note', () => {
   assert.equal(pointers[2], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
 })
 
+test('a prompt that names a work item is pointed at the standards of the repo the item links', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const pointers = context(fire('user-prompt-submit', { cwd: root, prompt: 'PROJ-12' })).split('\n')
+
+  assert.equal(pointers[5], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
+})
+
 test('a file where the work folder would be still gets a session its index', () => {
   const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme', title: 'Acme estate' }, 'CLAUDE.md': '# Acme estate\n', work: 'a file\n' }))
 

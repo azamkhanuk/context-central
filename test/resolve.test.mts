@@ -814,6 +814,53 @@ const answer = (root: string, ...words: string[]) => {
   return found && [found.by, found.key, ...found.pointers.map(pointer => pointer.why)]
 }
 
+test("a repo note a work item links brings the repo's standards note straight after it", () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const lines = resolve(root, 'PROJ-12').stdout.split('\n')
+
+  assert.deepEqual(lines.slice(3, 6), [
+    `- concepts/gateway.md (${sizeOf('concepts/gateway.md')} B) linked from the work item`,
+    `- repos/api.md (${sizeOf('repos/api.md')} B) linked from the work item`,
+    '- standards/api.md (6 B) standards of the repo',
+  ])
+})
+
+test('a repo note a work item names brings the standards note too, and a repo with none brings nothing', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n', 'work/PROJ-21/STATE.md': '# PROJ-21: Two repos\n\nTouches web and api.\n' }))
+
+  assert.deepEqual(resolved(root, 'PROJ-21').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-21/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/web.md', 'named in the work item'],
+    ['standards/web.md', 'standards of the repo'],
+    ['repos/api.md', 'named in the work item'],
+  ])
+})
+
+test('a standards note the work item links itself is listed once, as the standards', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n', 'work/PROJ-22/STATE.md': '# PROJ-22: Links both\n\nSee [[standards/api]] and [[repos/api]].\n' }))
+
+  assert.deepEqual(resolved(root, 'PROJ-22').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-22/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/api.md', 'linked from the work item'],
+    ['standards/api.md', 'standards of the repo'],
+  ])
+})
+
+test('a repo note the limit leaves out brings no standards note, and one shown brings its own without using up the limit', () => {
+  const ideas = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [`concepts/idea-${n}.md`, `# Idea ${n}\n`]))
+  const state = `# PROJ-23: Many links\n\n${[1, 2, 3, 4, 5, 6].map(n => `[[concepts/idea-${n}]]`).join(' ')} [[repos/api]]\n`
+  const root = tree(acme({ ...ideas, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': state }))
+
+  const cut = resolved(root, 'PROJ-23')
+  const whole = resolved(root, 'PROJ-23', '--max', '7')
+
+  assert.deepEqual(rels(cut).slice(1), [1, 2, 3, 4, 5, 6].map(n => `concepts/idea-${n}.md`))
+  assert.equal(cut.more, 1)
+  assert.deepEqual(rels(whole).slice(7), ['repos/api.md', 'standards/api.md'])
+  assert.equal(whole.more, 0)
+})
+
 test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {
   const root = tree(acme(KNOWN))
 

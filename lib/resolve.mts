@@ -63,6 +63,7 @@ interface Scored {
 }
 
 const KIND_RANK = ['concepts', 'edges', 'areas', 'repos', 'standards', 'decisions', 'docs']
+const STANDARDS_WHY = 'standards of the repo'
 const MIN_ID_LENGTH = 5
 const MORE_MAX = 20
 const LABEL_CHARS = 80
@@ -388,7 +389,8 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
     ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
   const { linked, named } = behind(estate, entry)
-  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel)
+  const standards = standardsOf(estate, [...linked, ...named])
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel && !standards.includes(rel))
   const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
   return resolution({
@@ -398,6 +400,7 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
     name: item.id,
     label: `work item ${item.id}`,
     ...listed,
+    pointers: withStandards(estate, listed.pointers),
     notes: otherNotes(estate, item, listed.pointers),
     deep: deepTier(estate, item),
     evidence: evidenceOf(estate, item),
@@ -421,11 +424,26 @@ function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   if (!existsSync(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
   const standards = standardsNote(estate, name)
-  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, 'standards of the repo')] : [])]
+  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, STANDARDS_WHY)] : [])]
   const rest = linkedFrom(estate, note)
     .filter(linked => linked !== standards)
     .map(linked => pointer(estate, linked, 'linked from the repo note'))
   return resolution({ by, key: `repo:${name}`, name, label: `repo ${name}`, ...capped(first, rest, max) })
+}
+
+function standardsOf(estate: Estate, rels: string[]) {
+  return rels.flatMap(rel => {
+    const repo = estate.config.repos.find(candidate => rel === `repos/${candidate.name}.md`)
+    const note = repo && standardsNote(estate, repo.name)
+    return note ? [note] : []
+  })
+}
+
+function withStandards(estate: Estate, pointers: Pointer[]) {
+  return pointers.flatMap(listed => {
+    const [note] = standardsOf(estate, [listed.rel])
+    return note ? [listed, pointer(estate, note, STANDARDS_WHY)] : [listed]
+  })
 }
 
 function standardsNote(estate: Estate, name: string) {
