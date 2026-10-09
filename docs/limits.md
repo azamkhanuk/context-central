@@ -1,0 +1,24 @@
+# What it does not do
+
+- Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
+- Its own `fetch` reads only with the command of a preset. A connection with no preset is read by a session, through its server or your own command. The plugin never runs a command that `estate.json` names. What it puts into a preset's command from a reference or from the settings is one word that does not start with a dash, so that nothing reaches the tool as a flag.
+- Of the presets' read commands, only GitHub's has been run against the real tool. Jira's and Azure DevOps's were written from their vendors' documentation and tried against stand-ins. `fetch --check` shows whether one works for you.
+- A pull request read by `fetch` holds what the preset's tool returns. Where that leaves out a review's line comments, the fetcher can read them through a server that offers them.
+- On Windows it does not start a tool that is installed only as a `.cmd` or a `.bat` file. `fetch` says so, and a session reads that connection through its own shell or a server.
+- It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
+- It does not move or rewrite the files of an older item. Adoption lays a state file beside them and changes nothing else.
+- It does not find a pull request written as a repo and a number. A link finds its work item once the item's state file or notes hold it, which checkpoint writes.
+- It does not write to a glossary inside a repo, and it does not turn an estate's own glossary into its entry format.
+- It does not check where the plugin is enabled. `doctor` cannot tell you that a session started inside a repo is not given the plugin, or that a folder has not been trusted.
+- It does not renew a launcher you saved. `wrapper --write` says when one differs, and the renewing is yours.
+- It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows and no evals.
+- It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
+- It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
+- On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:
+  - Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool.
+  - Nothing has shown what `fetch` does with an answer from a preset's tool there, or what `doctor` and `detect` make of its accounts.
+  - Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore.
+  - PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell.
+  - The cmd launcher's choice of an install by project folder has run there only against a record of a copy installed for the person.
+- It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
+- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.

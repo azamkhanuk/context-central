@@ -49,3 +49,4 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 
 - Code needs no comments. One line only where the code cannot hold the reason. None in tests.
 - Text a person or the model reads is plain British English, with no em dashes and no emojis.
+- The README is the short version: what the plugin does, the install and the five steps. The detail of each part is in its own file under `docs/`, which the README links, and new detail goes there. A test holds the links.
