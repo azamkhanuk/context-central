@@ -40,7 +40,7 @@ const FLAGS: Record<string, string[]> = {
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
-const DESIGN_PARTS = ['Shape', 'Interfaces', 'Choices', 'Slices', 'Anchors']
+const DESIGN_PARTS = ['Shape', 'Interfaces', 'Choices', 'Slices', 'Checks beyond this machine', 'If time is short', 'Anchors']
 
 const tree = disposable()
 
@@ -647,7 +647,7 @@ test('design loads each repo\'s standards from the plugin, and says so where a r
   assert.match(skillText('design'), /context-central:reader/)
 })
 
-test('design writes five parts beside the spec, with the commit it was written at', () => {
+test('design writes seven parts beside the spec, with the commit it was written at', () => {
   const write = step('design', '4. Write the design')
 
   assert.ok(write.includes('Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date'))
@@ -737,4 +737,97 @@ test('onboard asks how many review rounds implement allows, and its draft carrie
 
   assert.match(skillText('onboard'), /^\d+\. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks\. Recommend three\.$/m)
   assert.deepEqual(draft.config.implement, { tests: true, review: true, deferTo: '', reviewRounds: 3 })
+})
+
+test('the terms file defines the failing inputs, and the reviewer follows each changed path with them', () => {
+  const terms = readFileSync(join(REPO, 'CONTEXT.md'), 'utf8')
+
+  assert.ok(terms.includes('**Failing inputs**: The inputs a design lists for how an interface fails and a slice\'s tests cover: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused.'))
+  assert.ok(agentText('reviewer').includes('follow each changed path with the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused'))
+})
+
+test('the design term names seven parts, the built line and the revision', () => {
+  const terms = readFileSync(join(REPO, 'CONTEXT.md'), 'utf8')
+
+  assert.ok(terms.includes('**Design**: A work item\'s `DESIGN.md`: how its spec will be built in this repo, in seven parts: Shape, Interfaces, Choices, Slices, Checks beyond this machine, If time is short and Anchors.'))
+  assert.ok(terms.includes('The build marks each slice built with its commit, and a departure from the design that does not show it wrong revises it where it stands, dated.'))
+})
+
+test('design writes seven parts in order, with checks beyond this machine and if time is short before the anchors', () => {
+  const write = step('design', '4. Write the design')
+  const at = DESIGN_PARTS.map(part => write.indexOf(`- **${part}**:`))
+
+  assert.deepEqual([...at].sort((a, b) => a - b), at)
+  assert.ok(at.every(index => index >= 0))
+  assert.ok(write.includes('- **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.'))
+  assert.ok(write.includes('- **If time is short**: the order in which the work is cut, and what is never cut, or `none`.'))
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+  assert.ok(readme.includes('in seven parts'))
+  assert.ok(readme.includes('**Checks beyond this machine**: what it assumes and only a system this machine cannot reach can show'))
+  assert.ok(readme.includes('**If time is short**: the cut order and what is never cut'))
+})
+
+test('design writes how an interface fails against the failing inputs, from the source of the dependency it rests on', () => {
+  const read = step('design', '3. Read the code the design will meet')
+  const write = step('design', '4. Write the design')
+
+  assert.ok(read.includes('and, for each interface whose failures rest on a dependency, that dependency\'s source at the version the repo pins, or a run of it'))
+  assert.ok(write.includes('- **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency\'s source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused, with a failure that rests on a dependency written as its source at the pinned version or a run of it shows'))
+})
+
+test('design records the smaller option of each choice, and the trigger when it is turned down for now', () => {
+  const write = step('design', '4. Write the design')
+
+  assert.ok(write.includes('Each names the smaller option weighed, or `none`; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('the smaller option weighed or `none`, and the trigger that reopens one turned down for now'))
+})
+
+test('design names what each slice builds and covers, leaves no seam uncovered unseen, and gives a built slice its line', () => {
+  const write = step('design', '4. Write the design')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(write.includes('with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice, named under the slice that covers it, or named as not covered with the reason. A built slice ends with one line, `Built at <short commit>.`'))
+  assert.ok(write.includes('A seam with no slice and no reason is a question too.'))
+  assert.ok(readme.includes('each slice names the Interfaces headings it builds and the seams it covers, and every seam is started from by a slice, named under the one that covers it, or named as not covered with the reason'))
+  assert.ok(readme.includes('design: how it is built, at a commit, each slice marked built as it lands'))
+})
+
+test('implement proves the failing inputs in each slice, marks the slice built when the checks are green, and revises the design on a departure', () => {
+  const build = step('implement', '3. Build in slices')
+  const review = step('implement', '5. Review')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(build.includes('and its tests cover, for each interface the slice builds, the failing inputs the design lists for it'))
+  assert.ok(build.includes('When they are green, commit the slice and, with a design, end it in the design with its line, `Built at <short commit>.`'))
+  assert.ok(build.includes('A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice or, after the last slice, before the first review round.'))
+  assert.ok(build.includes('stops the build') && build.indexOf('stops the build') < build.indexOf('revises the design'))
+  assert.ok(review.includes('A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the spec or the design wrong stops the build: say what was found and ask.'))
+  assert.ok(step('implement', '6. Report').includes('which slices were marked built and which revisions the build wrote in the design'))
+  assert.ok(readme.includes('each slice\'s tests cover the failing inputs the design lists for the interfaces it builds'))
+  assert.ok(readme.includes('**A slice or a fix that departs from the design without showing it wrong revises the design**'))
+  assert.ok(readme.includes('built lines and revisions in `DESIGN.md`, evidence in the item'))
+})
+
+test('the reviewer reads a dated revision as the design, and a listed failing input with no test as a finding', () => {
+  assert.ok(agentText('reviewer').includes('A dated revision in the design is the design, not a finding.'))
+  assert.ok(agentText('reviewer').includes('Where the design lists failing inputs for an interface the diff builds and your prompt says tests are on, a listed input with no test is a finding.'))
+  assert.ok(step('implement', '5. Review').includes('with whether `implement.tests` is on'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('a dated revision is the design and, when tests are on, a listed failing input with no test is a finding'))
+})
+
+test('checkpoint carries open triggers and unrun checks beyond this machine into the state file', () => {
+  const rewrite = step('checkpoint', '4. Rewrite the state file')
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(rewrite.includes('- **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run.'))
+  assert.ok(rewrite.includes('- **Standing traps**: what would catch out someone new to this item, and each open trigger from the design\'s Choices.'))
+  assert.ok(readme.includes('**Next** (concrete enough to start cold, with each check beyond this machine still to run)'))
+  assert.ok(readme.includes('**Standing traps** (with each open trigger from the design)'))
+})
+
+test('the README says a departure that does not show the design wrong revises it in place, beside the rule to run design again', () => {
+  const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
+
+  assert.ok(readme.includes('Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design without showing it wrong revises it in place, dated, so the design you read is the one the code was built to.'))
 })

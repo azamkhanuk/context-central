@@ -1,6 +1,6 @@
 ---
 name: design
-description: Settle how a specified work item will be built before any code is written. Writes the modules, their interfaces, the order of the slices and the reason for each choice into the item's design file.
+description: Settle how a specified work item will be built before any code is written. Writes the modules, their interfaces and how each fails, each choice with its reason and the smaller option, the slices in order, the checks beyond this machine and what is cut if time is short into the item's design file.
 argument-hint: <item>
 disable-model-invocation: true
 allowed-tools: Bash(context-central *)
@@ -20,19 +20,21 @@ Run `context-central config --get repos`, then `context-central standards <repo>
 
 ## 3. Read the code the design will meet
 
-Delegate bulk reading to the `context-central:reader` agent. Give it each repo's absolute path, the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, and where its tests sit.
+Delegate bulk reading to the `context-central:reader` agent. Give it each repo's absolute path, the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
 
 ## 4. Write the design
 
-Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these parts:
+Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these seven parts in this order:
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
-- **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails.
-- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why.
-- **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from.
+- **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.
+- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why. Each names the smaller option weighed, or `none`; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`
+- **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice, named under the slice that covers it, or named as not covered with the reason. A built slice ends with one line, `Built at <short commit>.`
+- **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.
+- **If time is short**: the order in which the work is cut, and what is never cut, or `none`.
 - **Anchors**: `path:line`, counted from the root of the repo it names, for each place the build starts from or must not break.
 
-The design names files and lines, which the spec does not, so it carries the commit it was written at. It adds no requirement: something the spec does not ask for goes back to the person as a question, not into the design. Every requirement of the spec lands in at least one slice.
+The design names files and lines, which the spec does not, so it carries the commit it was written at. It adds no requirement: something the spec does not ask for goes back to the person as a question, not into the design. Every requirement of the spec lands in at least one slice. A seam with no slice and no reason is a question too.
 
 ## 5. Show it
 
