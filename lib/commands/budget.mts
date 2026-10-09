@@ -57,7 +57,7 @@ function measure(dir: string, env: Env) {
     lineLimit,
     total: { bytes, files: files.length, tokens: { low: nearestHundred(bytes / 4), high: nearestHundred(bytes / 2.7) } },
     notLoaded: { pathScopedRules: userRules.scoped + projectRules.scoped },
-    plugin: estate ? { indexChars: buildIndex(estate, { absolute: true }).length } : null,
+    plugin: estate ? { indexChars: buildIndex(estate, { absolute: true, startDir: dir }).length } : null,
   }
 }
 
