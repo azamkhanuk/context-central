@@ -1,6 +1,6 @@
 {
   "name": "context-central",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "One central place for all the context behind your work in Claude Code: a map that routes each task to the right notes and keeps work in flight in small state files.",
   "author": { "name": "Azam Khan" },
   "license": "MIT",
