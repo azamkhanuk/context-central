@@ -4,7 +4,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 
 ## 0.8.2 - 2026-10-10
 
-- **The opening image of the README is redrawn** as one diagram of the whole loop: the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
+- **The opening image of the README is redrawn** as one diagram of the whole loop: the connections that bring tickets, pull requests and threads into the map, the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
 ## 0.8.1 - 2026-10-09
