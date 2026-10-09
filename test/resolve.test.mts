@@ -889,3 +889,52 @@ test('an identifier answers only where no route of today does', () => {
   assert.equal(resolved(root, 'web').key, 'repo:web')
   assert.equal(resolved(root, 'billing', 'retries').by, 'text')
 })
+
+test("a node is found by its file name when that is the whole of the question's counted words", () => {
+  const root = tree(acme())
+
+  const result = resolve(root, 'what', 'is', 'the', 'gateway')
+
+  assert.equal(result.stdout, ['Context for "what is the gateway":', `- concepts/gateway.md (${sizeOf('concepts/gateway.md')} B) named: gateway`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'Gateway'), ['name', 'node:concepts/gateway.md', 'named: gateway'])
+  assert.equal(answer(root, 'the', 'gateway', 'rules'), null)
+})
+
+test('a node is found by its title, which is the title in its frontmatter before its first heading', () => {
+  const root = tree(acme({ 'concepts/caps.md': '---\ntitle: Throttling\n---\n# Ceilings\n', 'concepts/queue.md': '# Backlog\n' }))
+
+  assert.deepEqual(answer(root, 'throttling'), ['name', 'node:concepts/caps.md', 'named: throttling'])
+  assert.deepEqual(answer(root, 'the', 'backlog'), ['name', 'node:concepts/queue.md', 'named: backlog'])
+  assert.equal(answer(root, 'ceilings'), null)
+})
+
+test("a numbered node's name counts with its number and without it", () => {
+  const root = tree(smallMap({ 'decisions/0007-doorway.md': '# 0007: Doorway\n' }))
+
+  assert.deepEqual(answer(root, 'doorway'), ['name', 'node:decisions/0007-doorway.md', 'named: doorway'])
+  assert.deepEqual(answer(root, '0007', 'doorway'), ['name', 'node:decisions/0007-doorway.md', 'named: 0007 doorway'])
+  assert.equal(answer(root, '0008', 'doorway'), null)
+})
+
+test('several nodes of one name are all listed, up to the limit', () => {
+  const root = tree(acme({ 'docs/gateway.md': '# Running it\n', 'areas/edge.md': '# Gateway\n' }))
+
+  assert.deepEqual(answer(root, 'gateway'), ['name', 'node:concepts/gateway.md,areas/edge.md,docs/gateway.md', 'named: gateway', 'named: gateway', 'named: gateway'])
+  assert.deepEqual(rels(resolved(root, 'gateway', '--max', '2')), ['concepts/gateway.md', 'areas/edge.md'])
+})
+
+test('a name answers only where it leaves a counted word, and never from the work folder or the log', () => {
+  const root = tree(acme({ 'concepts/todo.md': '# To do\n', 'log/2026-01.md': '# January\n', 'work/PROJ-12/notes/plan.md': '# Plan\n' }))
+
+  assert.equal(answer(root, 'to', 'do'), null)
+  assert.equal(answer(root, 'january'), null)
+  assert.equal(answer(root, 'plan'), null)
+})
+
+test('a name answers only where no route of today does, and after an identifier', () => {
+  const root = tree(acme({ 'work/gateway/STATE.md': '# gateway: Replace the gateway\n', 'docs/limits.md': '---\naliases: caps\n---\n# Limits\n', 'concepts/caps.md': '# Caps\n' }))
+
+  assert.equal(resolved(root, 'gateway').key, 'item:gateway')
+  assert.equal(resolved(root, 'web').key, 'repo:web')
+  assert.deepEqual(answer(root, 'caps'), ['id', 'node:docs/limits.md', 'known as: caps'])
+})

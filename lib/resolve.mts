@@ -3,7 +3,7 @@ import { join, posix, relative, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
 import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
-import { formatBytes, parseFrontmatter, plural } from './text.mts'
+import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
 import type { MapFile, Node, NodeRef, NodeText, WorkItem } from './nodes.mts'
@@ -19,7 +19,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name'
 
 export interface Resolution {
   by: Route
@@ -50,6 +50,7 @@ interface Profile {
 
 interface Known {
   rel: string
+  names: string[][]
   identifiers: string[]
   numbered: { kinds: string[][]; number: number } | null
 }
@@ -78,7 +79,7 @@ const UNANSWERED_MAX = 3
 const DIGITS_ALONE = /^\d+$/
 const NUMBERED = /^(\d+)-/
 const DATED = /^\d{4}-\d{2}-\d{2}/
-const BY_WORDS: Route[] = ['text', 'id']
+const BY_WORDS: Route[] = ['text', 'id', 'name']
 const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
@@ -88,7 +89,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -223,9 +224,21 @@ function isNumber(run: string | undefined, number: number) {
   return run !== undefined && DIGITS_ALONE.test(run) && Number(run) === number
 }
 
+function byNodeName(estate: Estate, query: string, max: number) {
+  const asked = countedRuns(query)
+  if (asked.length === 0) return null
+  const named = knownNodes(estate).filter(node => node.names.some(name => name.join(' ') === asked.join(' ')))
+  return nodesFound(
+    'name',
+    query,
+    named.map(node => pointer(estate, node.rel, `named: ${asked.join(' ')}`)),
+    max,
+  )
+}
+
 function nodesFound(by: Route, query: string, found: Pointer[], max: number) {
   if (found.length === 0) return null
-  const pointers = found.slice(0, max)
+  const pointers = found.sort((a, b) => rank(a.rel) - rank(b.rel)).slice(0, max)
   return resolution({ by, key: `node:${pointers.map(listed => listed.rel).join(',')}`, label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
 }
 
@@ -242,12 +255,18 @@ function knownNodes(estate: Estate) {
 
 function knownAs(node: Node): Known[] {
   try {
-    const { data } = parseFrontmatter(readFileSync(node.path, 'utf8'))
+    const { data, body } = parseFrontmatter(readFileSync(node.path, 'utf8'))
     const written = [data.id ?? '', ...(data.aliases ?? '').split(',')].map(one => one.trim().replace(/^[\[\s"']+|[\]\s"']+$/g, ''))
-    return [{ rel: node.rel, identifiers: written.filter(one => runsOf(one).some(run => !DIGITS_ALONE.test(run))), numbered: numberOf(node) }]
+    const numbered = numberOf(node)
+    const names = [posix.basename(node.id), data.title ?? firstHeading(body) ?? ''].map(countedRuns)
+    return [{ rel: node.rel, names: numbered ? [...names, ...names.map(withoutNumber)] : names, identifiers: written.filter(one => runsOf(one).some(run => !DIGITS_ALONE.test(run))), numbered }]
   } catch {
     return []
   }
+}
+
+function withoutNumber(runs: string[]) {
+  return DIGITS_ALONE.test(runs[0] ?? '') ? runs.slice(1) : runs
 }
 
 function numberOf(node: Node) {

@@ -493,3 +493,21 @@ test('a long prompt that holds an identifier is met with silence', () => {
 
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${PASTED} as ADR-12 says` }))
 })
+
+test('a short prompt whose counted words are a node\'s name is given that node, and a long one is met with silence', () => {
+  const root = tree(acme())
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what is the gateway?' })
+
+  assert.equal(context(result), ['Context for "what is the gateway?":', `- ${join(root, 'concepts/gateway.md')} (${Buffer.byteLength(ACME_FILES['concepts/gateway.md'])} B) named: gateway`].join('\n'))
+  silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}gateway` }))
+})
+
+test('a node given by its identifier is not given again by its name in the same session', () => {
+  const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n', 'decisions/0007-doorway.md': '---\nid: ADR-12\n---\n# 0007: Doorway\n' }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.match(context(ask('ADR-12')), /known as: ADR-12$/)
+  silent(ask('doorway'))
+})
