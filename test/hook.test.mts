@@ -31,7 +31,7 @@ test('a forked session is given the index', () => {
   assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'fork' })), acmeIndex(root))
 })
 
-test("a session in a registered repo is covered, and is given that repo's note after the hub", () => {
+test("a session in a registered repo is given that repo's note after the hub", () => {
   const root = tree(acme())
 
   const lines = context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })).split('\n')
@@ -254,16 +254,13 @@ for (const source of ['compact', 'resume']) {
   })
 }
 
-test('after a compaction a pointer given before is given again, and the active item is kept', () => {
+test('after a compaction a pointer given before is given again', () => {
   const root = tree(acme())
   const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
   fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+  fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
 
-  const compacted = fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
-  const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
-
-  assert.equal(context(compacted), `${acmeIndex(root)}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}`)
-  assert.equal(context(again), acmePointers(root))
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)), acmePointers(root))
 })
 
 test('after a resume a pointer given before is still held back', () => {

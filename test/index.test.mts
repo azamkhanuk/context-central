@@ -160,7 +160,7 @@ test('a repo with no standards note is named with its note alone', () => {
   assert.equal(index(join(root, 'api')).stdout.split('\n')[2], 'Repo api: repos/api.md')
 })
 
-test('the root of a root-layout estate, and a repo with no note, get no repo line', () => {
+test('no repo line is given at the root of a root-layout estate or inside a repo with no note', () => {
   const root = tree(acme({ 'billing/README.md': '# billing\n' }, { repos: [...ACME_CONFIG.repos, { name: 'billing' }] }))
 
   assert.equal(index(root).stdout.split('\n')[2], ACME_CONNECTIONS_LINE)
@@ -188,7 +188,7 @@ test('in a map kept inside a repo the line is given at the estate root and below
   assert.equal(index(join(root, 'src')).stdout.split('\n')[2], 'Repo solo: repos/solo.md')
 })
 
-test('the index as JSON carries the repo the folder is in, and null elsewhere', () => {
+test('the index as JSON carries the repo the folder is in, or null', () => {
   const root = tree(acme({ 'standards/web.md': '# web\n' }))
 
   assert.deepEqual((JSON.parse(index(join(root, 'web'), '--json').stdout) as { repo: unknown }).repo, {
@@ -201,7 +201,7 @@ test('the index as JSON carries the repo the folder is in, and null elsewhere', 
   assert.equal((JSON.parse(index(root, '--json').stdout) as { repo: unknown }).repo, null)
 })
 
-test('the repo line counts against the budget, and a work item row is what gives way', () => {
+test('the budget drops a work item row before the repo line', () => {
   const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Cache the gateway\n' }))
   const expected = [
     `Context map "Acme estate": ${root}`,
