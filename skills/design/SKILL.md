@@ -1,6 +1,6 @@
 ---
 name: design
-description: Settle how a specified work item will be built before any code is written. Writes the modules, their interfaces, the order of the slices and the reason for each choice into the item's design file.
+description: Settle how a specified work item will be built before any code is written. Writes the modules, their interfaces and how each fails, each choice with its reason and the smaller option, the slices in order, the checks beyond this machine and what is cut if time is short into the item's design file.
 argument-hint: <item>
 disable-model-invocation: true
 allowed-tools: Bash(context-central *)

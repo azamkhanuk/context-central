@@ -179,7 +179,7 @@ Builds the item one slice at a time, verifies it, has it reviewed, and checkpoin
 
 | Setting in `estate.json` | Unset | What it decides |
 |---|---|---|
-| `implement.tests` | on | Each slice starts with a failing test at one of the spec's test seams |
+| `implement.tests` | on | Each slice starts with a failing test at one of the spec's test seams, and its tests cover the failing inputs the design lists for what it builds |
 | `implement.review` | on | The build is reviewed, in rounds |
 | `implement.reviewRounds` | 3 | The most review rounds a build may have before it stops and asks |
 | `implement.deferTo` | none | A skill of your own that builds, verifies, reviews and reports in place of the plugin's steps. The checkpoint still runs |
@@ -247,7 +247,7 @@ Outside the folder, prep and checkpoint add terms to `glossary.md`, checkpoint a
 5. **Research**: `/context-central:research <question> [item]`, once for each question. For a ticket new to the map, the first run makes the work item.
 6. **Spec**: `/context-central:prep <item>`. Answer its questions in one reply. Then `/clear`.
 7. **Design**, where the structure needs settling first: `/context-central:design <item>`. Read the Choices and the Slices. Then `/clear`.
-8. **Build**: `/context-central:implement <item>`. Answer when it stops: a slice that shows the spec wrong, a write your rules do not cover, or a last review round that still has findings. It checkpoints at the end. Then `/clear`.
+8. **Build**: `/context-central:implement <item>`. Answer when it stops: a slice or a review fix that shows the spec or the design wrong, a write your rules do not cover, or a last review round that still has findings. It checkpoints at the end. Then `/clear`.
 9. **Carry on in any later session** by naming the item in your prompt. Before you leave it, `/context-central:checkpoint`.
 
 ## How a map is laid out
@@ -270,7 +270,7 @@ There are two layouts:
   work/<item>/
     STATE.md           where the item stands and what is next
     SPEC.md            what is being built
-    DESIGN.md          how it will be built, for work that needs it settled first
+    DESIGN.md          how it will be built, for work that needs it settled first, each slice marked built as it lands
     notes/             research and working notes
     sources/           full text of tickets, PRs, threads: the deep tier
     evidence/          files that are not text: screenshots, recordings, exports
