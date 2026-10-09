@@ -94,6 +94,8 @@ Offer `context-central wrapper --write`, which lets the person run the CLI from 
 
 Run `context-central init --print-settings` and show the JSON. Ask where it goes: `.claude/settings.json` (shared with everyone who uses the map) or `.claude/settings.local.json` (this machine only). Either sits in the folder sessions start from: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.
 
+Then say what decides whether the plugin loads. Claude Code reads project settings only from the folder a session starts in, and applies those that add a marketplace only once that folder's trust prompt has been accepted in a session with a person in it: in a headless run of a folder nobody has trusted, nothing loads. The printed entry turns auto-update on, so a release reaches everyone who has the plugin this way. For layout `root`, a session started inside a repo is not given the plugin by the estate root's settings. Offer the two ways round: install it for the person, with `claude plugin install context-central@context-central`, or put the same JSON in each registered repo as well, asking for each, as above, whether shared or for this machine only.
+
 ## 8. Settings a map-root session will not load
 
 Layout `root` only. A session started at the estate root loads none of the repos' own settings. Read each registered repo's `.claude/settings.json`, `.claude/settings.local.json` and `.mcp.json`, and list every `permissions.deny` rule, `permissions.ask` rule and MCP server name found, by repo. Offer to copy them up into the map's settings and `.mcp.json`; copy only what the person picks.

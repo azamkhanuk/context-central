@@ -398,14 +398,14 @@ test('init without answers is wrong usage', () => {
   assert.equal(run(['init'], { cwd: root }).code, 2)
 })
 
-test('the settings to approve name the marketplace, the plugin and the one permission', () => {
+test('the settings to approve name the marketplace with auto-update on, the plugin and the one permission', () => {
   const plugin = tree(makeTree({ '.claude-plugin/plugin.json': { name: 'context-central', repository: 'https://github.com/acme/context-central' } }))
 
   const result = run(['init', '--print-settings'], { cwd: plugin, env: { CONTEXT_CENTRAL_PLUGIN_ROOT: plugin } })
 
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
-    extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' } } },
+    extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' }, autoUpdate: true } },
     enabledPlugins: { 'context-central@context-central': true },
     permissions: { allow: ['Bash(context-central *)'] },
   })

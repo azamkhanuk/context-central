@@ -74,7 +74,22 @@ Or both at once from inside a session (Claude Code v2.1.275 or later):
 
 **Trying a local clone.** The repository is its own marketplace. Give `claude plugin marketplace add` the path of the clone. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
 
-**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself.
+**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin` turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
+
+**What decides whether it loads.** There are three ways to have the plugin. They differ in when it loads, how a release reaches it and whether a [launcher](#working-from-a-terminal) finds it.
+
+| How you have it | It loads | A release reaches it | A launcher finds it |
+|---|---|---|---|
+| Installed for you, which is what `claude plugin install` does unless told otherwise | in every session under that Claude Code config directory | by `claude plugin update`, or by itself once auto-update is on | from any map |
+| Installed for one project, with `--scope project` or `--scope local` | in sessions started in that project | the same | when the launcher's own file is inside that project |
+| Enabled from project settings, as [Two accounts on one machine](#two-accounts-on-one-machine) sets out | in sessions started in that folder, once its trust prompt has been accepted | by itself: the printed settings turn auto-update on | only where Claude Code has recorded an install for that project; otherwise set `CONTEXT_CENTRAL_CLI` |
+
+Two rules of Claude Code decide the last row, and both are easy to trip on:
+
+- **Project settings are read only from the folder a session starts in.** Claude Code does not look in the folders above. With a map at the estate root, a session started inside one of the repos is given the hub, which tells it to use the plugin, and is not given the plugin. Install the plugin for yourself, or put the same settings in that repo as well.
+- **Project settings that add a marketplace apply only in a folder a person has trusted.** Nothing loads until the folder's trust prompt has been accepted in a session with a person in it, and nothing ever loads in a headless run of a folder nobody has trusted. Claude Code passes over the settings there without a message.
+
+Both are taken from Claude Code's documentation. The checks of this repository cannot show either, since each needs a person at the prompt.
 
 **Releases.** [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
@@ -531,7 +546,9 @@ Outside a session the CLI is not on your `PATH`, so the map can hold a small lau
 
 **Worth knowing:**
 
-- When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- A plugin has an install record for each install: one for each project it was installed for, and one for you. A launcher takes the record of the project its own file sits in, or of the nearest folder above it that has one. With none it takes yours, and it never starts a copy that belongs to another project.
+- Where it finds neither, it says the plugin was not found. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- A launcher saved by an earlier release keeps that release's rule. `wrapper --write` says when a saved launcher differs from the one it would write: delete it and run the command again to renew it.
 - With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash.
 - PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried.
 - The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
@@ -565,9 +582,9 @@ Put the printed JSON in one of:
 - the map's `.claude/settings.json`, shared with everyone who clones the map
 - the map's `.claude/settings.local.json`, for this machine only
 
-It declares the marketplace, enables `context-central@context-central`, and allows `Bash(context-central *)`.
+It declares the marketplace with auto-update on, enables `context-central@context-central`, and allows `Bash(context-central *)`. With auto-update on, a release reaches everyone who has the plugin this way, and the plugin's own version still decides when there is one to fetch.
 
-The command only prints: `.claude/` is a protected path, so the write is yours to approve. Claude Code applies project settings after you accept the trust prompt for the folder.
+The command only prints: `.claude/` is a protected path, so the write is yours to approve. [What decides whether it loads](#install) says when Claude Code then applies those settings: only in sessions started in that folder, and only once a person has accepted its trust prompt.
 
 ## Turning it off
 

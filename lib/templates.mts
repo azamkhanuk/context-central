@@ -136,7 +136,7 @@ export function gitattributesTemplate() {
 
 export function settingsTemplate(repo: string) {
   return {
-    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo } } },
+    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo }, autoUpdate: true } },
     enabledPlugins: { [`${PLUGIN}@${MARKETPLACE}`]: true },
     permissions: { allow: [`Bash(${PLUGIN} *)`] },
   }
