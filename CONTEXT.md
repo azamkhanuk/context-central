@@ -24,8 +24,11 @@ _Avoid_: edge cases, error paths, negative tests
 **Review round**: One run of the reviewer for each repo a build touches. The estate sets how many a build may have, three unless it says otherwise, and a build whose last round still brings a finding that needs a fix stops and asks.
 _Avoid_: iteration, loop, pass
 
-**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it. The plugin ships none and knows no language.
+**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it, and the note names the commit its lines were read at. A repo's own instruction files are listed under `standards` on its entry and never copied into it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
+
+**Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. A repo's are listed under `standards` on its entry, never copied into its standards note.
+_Avoid_: memory files, context files, agent instructions
 
 **Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, and work is verified only when every one exits 0.
 _Avoid_: quality gate, pipeline, score
@@ -51,7 +54,7 @@ _Avoid_: archive, raw notes, attachments
 **Evidence**: Any file under a work item's `evidence/` folder. The folder is for what was seen and is not text: a screenshot, a recording, an export. The commands count every file there, whatever its kind, and never open one. A note names each.
 _Avoid_: attachments, assets, artefacts
 
-**Live index**: The list of work items in flight, one line each, that the session-start hook puts in context. It is built fresh each time, so it holds nothing that can go stale.
+**Live index**: The list of work items in flight, one line each, that the session-start hook puts in context, with one line for the repo the session starts in, where that repo has a note. It is built fresh each time, so it holds nothing that can go stale.
 _Avoid_: status board, in-flight table, dashboard
 
 **Resolver**: The part of the plugin that turns a prompt or query into pointers. It answers for a work item, a link that belongs to a connection, a repo name or free text, and says nothing when it is not confident. Beside its answer it says which ticket named has no work item. On the command line it has one more route, item words: when a query has two or more words of three letters or more that are not stop words, and all of them are in one work item's name and title and in no other's, the answer is that item. Only where none of these answers, it answers for a node's identifier, then a node's name, then a term of the glossary.
