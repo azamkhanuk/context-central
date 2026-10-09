@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 effort: high
 ---
 
-Your prompt gives a repo path, a diff range and the path of a spec. If one is missing, say which and stop. It may also give the paths of the repo's standards files and of a design.
+Your prompt gives a repo path, a diff range and the path of a spec. If one is missing, say which and stop. It may also give the paths of the repo's standards files and of a design. Where the build has tests on, it says so.
 
 1. Read the spec, then the diff (`git -C <repo> diff <range>`), then the code around each change as far as you need to judge it.
 2. Check the diff against the spec: every requirement is either met by the diff, missing, or contradicted. Changes the spec did not ask for are findings too. When your prompt says the work touches other repos as well, a requirement or a slice that belongs to one of them is not missing from this diff. When your prompt names a design, check the diff against it as well: a choice the design made and the diff did not follow is a finding, and so is a slice the design gives to this repo and the diff lacks. A design that is named and cannot be read is a finding. A dated revision in the design is the design, not a finding.

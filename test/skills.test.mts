@@ -779,8 +779,8 @@ test('design writes how an interface fails against the failing inputs, from the 
 test('design records the smaller option of each choice, and the trigger when it is turned down for now', () => {
   const write = step('design', '4. Write the design')
 
-  assert.ok(write.includes('Each names the smaller option weighed; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`'))
-  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('the smaller option weighed, and the trigger that reopens one turned down for now'))
+  assert.ok(write.includes('Each names the smaller option weighed, or `none`; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`'))
+  assert.ok(readFileSync(join(REPO, 'README.md'), 'utf8').includes('the smaller option weighed or `none`, and the trigger that reopens one turned down for now'))
 })
 
 test('design names what each slice builds and covers, leaves no seam uncovered unseen, and gives a built slice its line', () => {
@@ -789,7 +789,7 @@ test('design names what each slice builds and covers, leaves no seam uncovered u
 
   assert.ok(write.includes('with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice, named under the slice that covers it, or named as not covered with the reason. A built slice ends with one line, `Built at <short commit>.`'))
   assert.ok(write.includes('A seam with no slice and no reason is a question too.'))
-  assert.ok(readme.includes('each slice names the Interfaces headings it builds and the seams it covers, and every seam is covered by a slice, named under the one that covers it, or named as not covered with the reason'))
+  assert.ok(readme.includes('each slice names the Interfaces headings it builds and the seams it covers, and every seam is started from by a slice, named under the one that covers it, or named as not covered with the reason'))
   assert.ok(readme.includes('design: how it is built, at a commit, each slice marked built as it lands'))
 })
 
@@ -801,7 +801,7 @@ test('implement proves the failing inputs in each slice, marks the slice built w
   assert.ok(build.includes('and its tests cover, for each interface the slice builds, the failing inputs the design lists for it'))
   assert.ok(build.includes('When they are green and there is a design, commit the slice, then end it in the design with its line, `Built at <short commit>.`'))
   assert.ok(build.includes('A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice.'))
-  assert.ok(build.indexOf('stops the build') < build.indexOf('revises the design'))
+  assert.ok(build.includes('stops the build') && build.indexOf('stops the build') < build.indexOf('revises the design'))
   assert.ok(review.includes('A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the design wrong stops the build: say what was found and ask.'))
   assert.ok(step('implement', '6. Report').includes('which slices were marked built and which revisions the build wrote in the design'))
   assert.ok(readme.includes('each slice\'s tests cover the failing inputs the design lists for the interfaces it builds'))
@@ -825,7 +825,7 @@ test('checkpoint carries open triggers and unrun checks beyond this machine into
   assert.ok(readme.includes('**Standing traps** (with each open trigger from the design)'))
 })
 
-test('the README says a smaller departure revises the design in place, beside the rule to run design again', () => {
+test('the README says a departure that does not show the design wrong revises it in place, beside the rule to run design again', () => {
   const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
 
   assert.ok(readme.includes('Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design without showing it wrong revises it in place, dated, so the design you read is the one the code was built to.'))
