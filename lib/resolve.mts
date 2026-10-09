@@ -446,9 +446,12 @@ function standardsOf(estate: Estate, rels: string[]) {
 }
 
 function withStandards(estate: Estate, pointers: Pointer[]) {
+  const given = new Set<string>()
   return pointers.flatMap(listed => {
     const [note] = standardsOf(estate, [listed.rel])
-    return note ? [listed, pointer(estate, note, STANDARDS_WHY)] : [listed]
+    if (!note || given.has(note)) return [listed]
+    given.add(note)
+    return [listed, pointer(estate, note, STANDARDS_WHY)]
   })
 }
 

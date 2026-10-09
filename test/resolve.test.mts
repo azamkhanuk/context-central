@@ -868,6 +868,22 @@ test('a standards note takes no place against the limit on linked notes', () => 
   assert.equal(whole.more, 0)
 })
 
+test("a standards note two repos share is listed once in a work item's pointers", () => {
+  const root = tree(
+    acme(
+      { 'repos/a b.md': '# a b\n', 'repos/c d.md': '# c d\n', 'standards/shared.md': '# Shared\n', 'work/PROJ-25/STATE.md': '# PROJ-25: Two repos\n\nTouches a b and c d.\n' },
+      { repos: [{ name: 'a b', standards: ['standards/shared.md'] }, { name: 'c d', standards: ['standards/shared.md'] }] },
+    ),
+  )
+
+  assert.deepEqual(resolved(root, 'PROJ-25').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-25/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/a b.md', 'named in the work item'],
+    ['standards/shared.md', 'standards of the repo'],
+    ['repos/c d.md', 'named in the work item'],
+  ])
+})
+
 test('a standards note the item links itself is counted among the notes not listed when its repo note is left out', () => {
   const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]', '[[standards/api]]') }))
 
