@@ -2,7 +2,7 @@
 
 A Claude Code plugin that gives all the context behind your work one central place: a map of plain Markdown notes about your repositories and the work in flight.
 
-![Mind map of how context-central works: the hub and the live index are always loaded, the state file and notes are read when named, the deep tier and evidence are read on request, two hooks bring it in, and the skills do the work](docs/how-it-works.png)
+![How context-central works: connections such as GitHub, Jira, Azure DevOps or anything else you use bring tickets, pull requests and threads into the map, saved in full. The map holds three tiers, and a session is given the hub and the live index at the start, the state file and the notes when your prompt names the work, and the deep tier and evidence only when asked. Five skills do the work, each starting from the files the last one wrote, and every step writes its files back to the map](docs/how-it-works.png)
 
 ## What it does
 

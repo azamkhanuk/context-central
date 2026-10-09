@@ -2,6 +2,12 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.8.2 - 2026-10-10
+
+- **The opening image of the README is redrawn** as one diagram of the whole loop: the connections that bring tickets, pull requests and threads into the map, the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
+- **Every image is drawn at the README's own width.** The opening image and the eight panels that 0.8.1 added were drawn twice as wide as the page shows them, so their text came out at about half the size of the text around it. They are redrawn 880 pixels wide, with text at about the size of the README's own.
+- Nothing changes in what the commands, the hooks, the skills or the agents do.
+
 ## 0.8.1 - 2026-10-09
 
 - **The README shows each step as a diagram.** Eight panels under `docs/`: the five steps of a piece of work and what each writes, one for each of research, prep, design, the build and the checkpoint, one for standards and checks, and one for how a reference is read through a connection. Each sits beside the part of the README it shows.
