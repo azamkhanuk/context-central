@@ -107,7 +107,7 @@ A piece of work goes through five steps, and each step is a skill. Research find
 | 1. Research | `/context-central:research <question> [item]` | a question, and a ticket or an item where there is one | a research note in the item's `notes/`, or a concept note when there is no item; the work item itself when the ticket is new to the map |
 | 2. The spec | `/context-central:prep <item>` | the item's ticket, read in full, and the research notes | `SPEC.md`, a code map note, new terms in the glossary, and a brief for the ticket |
 | 3. The design | `/context-central:design <item>` | `SPEC.md`, the repo's standards and its code | `DESIGN.md`, in seven parts. Optional |
-| 4. The build | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one | branches, commits and tests in the repos, evidence in the item, then its checkpoint |
+| 4. The build | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one | branches, commits and tests in the repos, built lines and revisions in `DESIGN.md`, evidence in the item, then its checkpoint |
 | 5. The checkpoint | `/context-central:checkpoint` | git, the files on disk and the session | the state file rewritten, a line in the log, and lasting lessons in the notes, the glossary and the standards note |
 
 ### Before the first one

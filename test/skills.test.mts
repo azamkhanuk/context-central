@@ -750,7 +750,7 @@ test('the design term names seven parts, the built line and the revision', () =>
   const terms = readFileSync(join(REPO, 'CONTEXT.md'), 'utf8')
 
   assert.ok(terms.includes('**Design**: A work item\'s `DESIGN.md`: how its spec will be built in this repo, in seven parts: Shape, Interfaces, Choices, Slices, Checks beyond this machine, If time is short and Anchors.'))
-  assert.ok(terms.includes('The build marks each slice built with its commit, and a departure from the design revises it where it stands, dated.'))
+  assert.ok(terms.includes('The build marks each slice built with its commit, and a departure from the design that does not show it wrong revises it where it stands, dated.'))
 })
 
 test('design writes seven parts in order, with checks beyond this machine and if time is short before the anchors', () => {
@@ -799,13 +799,14 @@ test('implement proves the failing inputs in each slice, marks the slice built w
   const readme = readFileSync(join(REPO, 'README.md'), 'utf8')
 
   assert.ok(build.includes('and its tests cover, for each interface the slice builds, the failing inputs the design lists for it'))
-  assert.ok(build.includes('When they are green and there is a design, commit the slice, then end it in the design with its line, `Built at <short commit>.`'))
-  assert.ok(build.includes('A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice.'))
+  assert.ok(build.includes('When they are green, commit the slice and, with a design, end it in the design with its line, `Built at <short commit>.`'))
+  assert.ok(build.includes('A slice that departs from the design without showing it wrong revises the design where it stands, dated, with the reason, before the next slice or, after the last slice, before the first review round.'))
   assert.ok(build.includes('stops the build') && build.indexOf('stops the build') < build.indexOf('revises the design'))
-  assert.ok(review.includes('A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the design wrong stops the build: say what was found and ask.'))
+  assert.ok(review.includes('A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the spec or the design wrong stops the build: say what was found and ask.'))
   assert.ok(step('implement', '6. Report').includes('which slices were marked built and which revisions the build wrote in the design'))
   assert.ok(readme.includes('each slice\'s tests cover the failing inputs the design lists for the interfaces it builds'))
   assert.ok(readme.includes('**A slice or a fix that departs from the design without showing it wrong revises the design**'))
+  assert.ok(readme.includes('built lines and revisions in `DESIGN.md`, evidence in the item'))
 })
 
 test('the reviewer reads a dated revision as the design, and a listed failing input with no test as a finding', () => {
