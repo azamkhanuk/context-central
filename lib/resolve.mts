@@ -2,11 +2,12 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
-import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
-import { formatBytes, parseFrontmatter, plural } from './text.mts'
+import { glossaryPath, glossaryTerms } from './glossary.mts'
+import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
+import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
-import type { MapFile, Node, NodeText, WorkItem } from './nodes.mts'
+import type { MapFile, Node, NodeRef, NodeText, WorkItem } from './nodes.mts'
 
 export interface Pointer extends MapFile {
   why: string
@@ -19,7 +20,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term'
 
 export interface Resolution {
   by: Route
@@ -48,6 +49,13 @@ interface Profile {
   all: Set<string>
 }
 
+interface Known {
+  rel: string
+  names: string[][]
+  identifiers: string[]
+  numbered: { kinds: string[][]; number: number } | null
+}
+
 interface Scored {
   rel: string
   score: number
@@ -70,6 +78,11 @@ const RUN = /[\p{L}\p{N}]+/gu
 const MIN_PHRASE_RUNS = 2
 const UNANSWERED_MAX = 3
 const DIGITS_ALONE = /^\d+$/
+const NUMBERED = /^(\d+)-/
+const DATED = /^\d{4}-\d{2}-\d{2}/
+const BY_WORDS: Route[] = ['text', 'id', 'name', 'term']
+const BY_NODE: Route[] = ['id', 'name']
+const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
   `about after all also and any are because been before but can could did does for from get had has have her here him his how into its
@@ -78,12 +91,22 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
   }
   return null
+}
+
+export function undelivered(found: Resolution, told: string[]): Resolution[] {
+  if (!BY_NODE.includes(found.by)) return told.includes(found.key) ? [] : [found]
+  const pointers = found.pointers.filter(listed => !told.includes(nodeKey([listed])))
+  return pointers.length > 0 ? [{ ...found, pointers }] : []
+}
+
+export function deliveredAs(found: Resolution) {
+  return BY_NODE.includes(found.by) ? found.pointers.map(listed => nodeKey([listed])) : [found.key]
 }
 
 export function formatPointers(resolution: Resolution, { absolute = false }: { absolute?: boolean } = {}) {
@@ -109,6 +132,11 @@ export function unansweredIn(estate: Estate, query: string, told: string[] = [])
 
 export function formatUnanswered({ text, connection }: Unanswered) {
   return `${text} reads as a ticket of connection ${connection}. No work item answers to it.`
+}
+
+export function pointedTo(estate: Estate, entry: NodeRef) {
+  const { linked, named } = behind(estate, readNode(estate, entry))
+  return [...linked, ...named]
 }
 
 function resolution({ by, key, item = null, name = null, label, pointers, more, notes = null, deep = null, evidence = null }: Pick<Resolution, 'by' | 'key' | 'label' | 'pointers' | 'more'> & Partial<Resolution>): Resolution {
@@ -189,6 +217,95 @@ function byItemWords(estate: Estate, query: string, max: number) {
   return holding.length === 1 ? itemResolution(estate, holding[0], 'item', max) : null
 }
 
+function byIdentifier(estate: Estate, query: string, max: number) {
+  if (countedRuns(query).length === 0) return null
+  const asked = runsOf(query)
+  const found = knownNodes(estate).flatMap(node => {
+    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0) ?? numberedIn(node, asked)
+    return identifier ? [pointer(estate, node.rel, `known as: ${identifier}`)] : []
+  })
+  return nodesFound('id', query, found, max)
+}
+
+function numberedIn({ numbered }: Known, asked: string[]) {
+  const kind = numbered?.kinds.find(runs => asked.some((_, at) => runs.every((run, offset) => asked[at + offset] === run) && isNumber(asked[at + runs.length], numbered.number)))
+  return kind && numbered ? `${kind.join(' ')} ${numbered.number}` : null
+}
+
+function isNumber(run: string | undefined, number: number) {
+  return run !== undefined && DIGITS_ALONE.test(run) && Number(run) === number
+}
+
+function byNodeName(estate: Estate, query: string, max: number) {
+  const asked = countedRuns(query)
+  if (asked.length === 0) return null
+  const named = knownNodes(estate).filter(node => node.names.some(name => name.join(' ') === asked.join(' ')))
+  return nodesFound(
+    'name',
+    query,
+    named.map(node => pointer(estate, node.rel, `named: ${asked.join(' ')}`)),
+    max,
+  )
+}
+
+function byGlossaryTerm(estate: Estate, query: string) {
+  const asked = countedRuns(query).join(' ')
+  const found = asked ? glossaryTerms(estate).find(({ term }) => countedRuns(term).join(' ') === asked) : undefined
+  if (!found) return null
+  const rel = relative(estate.mapDir, glossaryPath(estate)).split(sep).join('/')
+  return resolution({ by: 'term', key: `term:${found.term}`, label: `"${brief(query)}"`, pointers: [pointer(estate, rel, `defines: ${found.term}, line ${found.line}`)], more: 0 })
+}
+
+function nodesFound(by: Route, query: string, found: Pointer[], max: number) {
+  if (found.length === 0) return null
+  const pointers = found.sort((a, b) => rank(a.rel) - rank(b.rel)).slice(0, max)
+  return resolution({ by, key: nodeKey(pointers), label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
+}
+
+function nodeKey(pointers: Pointer[]) {
+  return `node:${pointers.map(listed => listed.rel).join(',')}`
+}
+
+function knownNodes(estate: Estate) {
+  const held = known.get(estate)
+  if (held) return held
+  const inWork = `${estate.config.workDir}/`
+  const nodes = listNodes(estate)
+    .filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
+    .flatMap(knownAs)
+  known.set(estate, nodes)
+  return nodes
+}
+
+function knownAs(node: Node): Known[] {
+  try {
+    const { data, body } = parseFrontmatter(readFileSync(node.path, 'utf8'))
+    const written = [data.id ?? '', ...(data.aliases ?? '').split(',')].map(one => one.trim().replace(/^[\[\s"']+|[\]\s"']+$/g, ''))
+    const numbered = numberOf(node)
+    const names = [posix.basename(node.id), data.title ?? firstHeading(body) ?? ''].map(countedRuns)
+    return [{ rel: node.rel, names: numbered ? [...names, ...names.map(withoutNumber)] : names, identifiers: written.filter(one => runsOf(one).some(run => !DIGITS_ALONE.test(run))), numbered }]
+  } catch {
+    return []
+  }
+}
+
+function withoutNumber(runs: string[]) {
+  return DIGITS_ALONE.test(runs[0] ?? '') ? runs.slice(1) : runs
+}
+
+function numberOf(node: Node) {
+  const name = posix.basename(node.rel)
+  const number = DATED.test(name) ? null : NUMBERED.exec(name)
+  const kind = runsOf(node.kind)
+  const last = kind.at(-1)
+  if (!number || last === undefined) return null
+  return { kinds: [kind, [...kind.slice(0, -1), last.replace(/s$/, '')]], number: Number(number[1]) }
+}
+
+function countedRuns(text: string) {
+  return runsOf(text).filter(run => /\d/.test(run) || (run.length > 2 && !STOP_WORDS.has(run)))
+}
+
 function countedWords(query: string) {
   return [...new Set(wordsOf(query))].filter(word => !STOP_WORDS.has(word))
 }
@@ -264,13 +381,15 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
   if (!item.entry) return null
   const entry = readNode(estate, item.entry)
   const specRel = `${item.dirRel}/SPEC.md`
+  const olderRel = item.older && entry.links.includes(item.older.rel) ? item.older.rel : null
   const lead = [
     pointer(estate, entry.rel, item.entry.kind === 'state' ? 'state file: where the work stands and what is next' : 'entry note of the work item'),
     ...(item.files.some(file => file.rel === specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
-  const linked = linkedFrom(estate, entry).filter(rel => rel !== specRel)
-  const named = namedRepoNotes(estate, entry.text).filter(rel => rel !== entry.rel && !linked.includes(rel))
-  const rest = [...linked.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
+  const { linked, named } = behind(estate, entry)
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel)
+  const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
   return resolution({
     by,
@@ -283,6 +402,11 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
     deep: deepTier(estate, item),
     evidence: evidenceOf(estate, item),
   })
+}
+
+function behind(estate: Estate, entry: NodeText) {
+  const linked = linkedFrom(estate, entry)
+  return { linked, named: namedRepoNotes(estate, entry.text).filter(rel => rel !== entry.rel && !linked.includes(rel)) }
 }
 
 function otherNotes(estate: Estate, item: WorkItem, pointers: Pointer[]): Counted | null {
@@ -311,8 +435,9 @@ function standardsNote(estate: Estate, name: string) {
 }
 
 function linkedFrom(estate: Estate, node: NodeText) {
+  const hub = relative(estate.mapDir, hubPath(estate)).split(sep).join('/')
   return [...new Set(node.links)]
-    .filter(rel => rel !== node.rel && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
+    .filter(rel => rel !== node.rel && rel !== hub && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
     .sort((a, b) => rank(a) - rank(b))
 }
 
@@ -370,8 +495,9 @@ function commonDir(dirs: string[]) {
 function moreLine(resolution: Resolution) {
   const { by, name, more, pointers } = resolution
   const one = more === 1
-  const kind = by === 'text' ? 'matching' : 'linked'
-  const rerun = by === 'text' ? 'a higher --max' : `context-central resolve ${name} --max ${Math.max(MORE_MAX, pointers.length + more)}`
+  const byWords = BY_WORDS.includes(by)
+  const kind = byWords ? 'matching' : 'linked'
+  const rerun = byWords ? 'a higher --max' : `context-central resolve ${name} --max ${Math.max(MORE_MAX, pointers.length + more)}`
   return `${one ? `1 more ${kind} note is` : `${more} more ${kind} notes are`} not listed; ${rerun} lists ${one ? 'it' : 'them'}.`
 }
 

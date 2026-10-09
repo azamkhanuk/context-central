@@ -2,13 +2,13 @@ import { spawnSync } from 'node:child_process'
 import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, accountFault, chosenAmong, kindOf, listed, parametersOf, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
+import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, chosenAmong, kindOf, listed, notRunningAs, parametersOf, pinnedAccount, pinnedToken, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { findWorkItem, makeFolder } from '../nodes.mts'
+import { findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { formatBytes, localDate } from '../text.mts'
-import type { Io } from '../cli.mts'
+import type { Env, Io } from '../cli.mts'
 import type { Connection } from '../connections.mts'
 import type { Estate } from '../estate.mts'
 import type { WorkItem } from '../nodes.mts'
@@ -39,18 +39,19 @@ export function run(args: string[], io: Io) {
   const estate = requireEstate(io)
   const item = values.item === undefined ? null : findWorkItem(estate, values.item)
   if (values.item !== undefined && !item) throw new PluginError(`no work item "${values.item}"`)
+  const sourcesRel = item && `${folderToSaveIn(estate, item)}/sources`
   const asked = { reference: given ?? ownTicket(estate, item), repo: values.repo }
   const connection = chosen(estate, kind, typed, asked.reference, values.connection)
   const { preset, reading } = readingOf(connection, kind, asked)
   const printed = started(preset, reading, connection, io)
   const { day } = localDate(io.env)
   const laid = laidOut(preset, reading, printed, day) ?? asPrinted(connection, kind, asked, printed, day)
-  if (!item) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
-  const sourcesAbs = makeFolder(estate.mapDir, `${item.dirRel}/sources`)
+  if (!sourcesRel) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
+  const sourcesAbs = makeFolder(estate.mapDir, sourcesRel)
   const name = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
   writeFileSync(join(sourcesAbs, name), laid.text, { flag: 'wx' })
   io.out(laid.digest)
-  io.out(`saved: ${item.dirRel}/sources/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
+  io.out(`saved: ${sourcesRel}/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
 }
 
 function ownTicket(estate: Estate, item: WorkItem | null) {
@@ -107,16 +108,21 @@ function instead({ entry }: Connection) {
 }
 
 function started(preset: Preset, reading: Reading, connection: Connection, io: Io) {
-  const result = spawnSync(preset.program, reading.args, { cwd: io.cwd, env: io.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  const result = spawnSync(preset.program, reading.args, { cwd: io.cwd, env: asPinned(connection, io.env), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   if ((result.error as NodeJS.ErrnoException | undefined)?.['code'] === 'ENOENT') {
     throw new PluginError(`connection ${connection.name} is not read by fetch here: ${whyNotStarted(preset, io.env)}.${instead(connection)}`)
   }
   if (result.error) throw new PluginError(`${preset.program} failed: ${result.error.message}`)
-  if (result.status !== 0) {
-    const fault = accountFault(connection, io.env)
-    throw new PluginError(`${preset.program} failed: ${firstLine(result.stderr) || `exit ${result.status}`}${fault ? `; ${fault}` : ''}`)
-  }
+  if (result.status !== 0) throw new PluginError(`${preset.program} failed: ${firstLine(result.stderr) || `exit ${result.status}`}`)
   return result.stdout
+}
+
+function asPinned(connection: Connection, env: Env): Env {
+  const held = pinnedToken(connection, env)
+  if (held) return { ...env, [held.variable]: held.token }
+  const pinned = pinnedAccount(connection, env)
+  if (pinned && !pinned.runs) throw new PluginError(`connection ${notRunningAs(connection, pinned)}`)
+  return env
 }
 
 function laidOut(preset: Preset, reading: Reading, printed: string, day: string): Laid | null {

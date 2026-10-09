@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, acme, disposable, makeTree, run } from './helpers.mts'
+import type { Json } from './helpers.mts'
 
 const tree = disposable()
 
@@ -56,7 +57,7 @@ test('the map can live in a folder inside a repository', () => {
 test('from inside the map folder of a map kept in a repository, the estate root is still the repository', () => {
   const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, '.context-central/work/PROJ-1/STATE.md': '# PROJ-1\n' }))
   const where = (dir: string) => JSON.parse(run(['where', '--json'], { cwd: join(root, dir) }).stdout) as Where
-  const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside' }
+  const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside', glossary: join(root, '.context-central', 'glossary.md'), glossaryRepo: null }
 
   assert.deepEqual(where('.context-central'), inRepository)
   assert.deepEqual(where('.context-central/work/PROJ-1'), inRepository)
@@ -218,4 +219,49 @@ test('a byte-order mark at the start of the config is ignored', () => {
   const result = run(['config', '--get', 'name'], { cwd: root })
 
   assert.deepEqual(result, { code: 0, stdout: 'acme\n', stderr: '' })
+})
+
+const glossaryOf = (root: string) => {
+  const { glossary, glossaryRepo } = JSON.parse(run(['where', '--json'], { cwd: root }).stdout) as { glossary: unknown, glossaryRepo: unknown }
+  return [glossary, glossaryRepo]
+}
+
+test("where says where the glossary is: the map's own unless the estate names another, counted from the estate root", () => {
+  const own = tree(acme())
+  const named = tree(acme({}, { glossary: 'docs/terms.md' }))
+
+  assert.equal(run(['where'], { cwd: own }).stdout.split('\n')[2], `glossary: ${join(own, 'glossary.md')}`)
+  assert.deepEqual(glossaryOf(named), [join(named, 'docs', 'terms.md'), null])
+})
+
+test('a glossary inside a registered repo is said to be inside it', () => {
+  const root = tree(acme({}, { glossary: 'web/docs/glossary.md' }))
+
+  assert.equal(run(['where'], { cwd: root }).stdout.split('\n')[2], `glossary: ${join(root, 'web', 'docs', 'glossary.md')}, inside repo web`)
+  assert.deepEqual(glossaryOf(root), [join(root, 'web', 'docs', 'glossary.md'), 'web'])
+})
+
+test("in a map kept inside a repository, the map's own glossary is not inside the repo, and another file of that repository is", () => {
+  const solo = (glossary?: string) => tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.' }], ...(glossary ? { glossary } : {}) } }))
+
+  assert.equal(glossaryOf(solo())[1], null)
+  assert.equal(glossaryOf(solo('.context-central/docs/terms.md'))[1], null)
+  assert.equal(glossaryOf(solo('CONTEXT.md'))[1], 'solo')
+})
+
+test("where the estate root is itself a registered repo, a glossary in the map's own folder is not inside it", () => {
+  const whole: { [key: string]: Json } = { repos: [{ name: 'web' }, { name: 'estate', path: '.' }] }
+
+  assert.equal(glossaryOf(tree(acme({}, whole)))[1], null)
+  assert.equal(glossaryOf(tree(acme({}, { ...whole, glossary: 'terms.md' })))[1], null)
+  assert.equal(glossaryOf(tree(acme({}, { ...whole, glossary: 'web/terms.md' })))[1], 'web')
+})
+
+test('a glossary path that would leave the estate is refused', () => {
+  for (const outside of ['/etc/terms.md', '../terms.md', 'docs/../../terms.md', 'C:/notes/terms.md', 'docs\\terms.md']) {
+    const result = run(['where'], { cwd: tree(acme({}, { glossary: outside })) })
+
+    assert.equal(result.code, 1, outside)
+    assert.ok(result.stderr.endsWith(`estate.json: "glossary" holds "${outside}"; a path there is counted from the estate root, with forward slashes and no ".."\n`), result.stderr)
+  }
 })

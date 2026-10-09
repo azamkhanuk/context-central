@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
@@ -158,6 +158,26 @@ test('a start-here file is the entry when there is no state file', () => {
 
   assert.equal(item?.entry.kind, 'start-here')
   assert.equal(item?.notes, 1)
+})
+
+test('a README or an index directly under the work folder is no work item, whatever its letter case', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n\nHow this folder is kept.\n', 'work/Index.md': '# Index\n' }))
+
+  assert.deepEqual(list(root, '--all').map(item => item.id), ['PROJ-12'])
+})
+
+test('a file or a folder under the work folder that notNodes lists is no work item', () => {
+  const root = tree(acme({ 'work/archive/2019.md': '# 2019\n', 'work/template.md': '# Template\n' }, { notNodes: ['work/archive', 'work/template.md'] }))
+
+  assert.deepEqual(list(root, '--all').map(item => item.id), ['PROJ-12'])
+})
+
+test('a folder named README is still a work item, and the stray file beside it is not its note', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n', 'work/README/notes/plan.md': '# Plan\n' }))
+
+  const item = list(root, '--all').find(found => found.id === 'README')
+
+  assert.deepEqual([item?.entry, item?.notes], [null, 1])
 })
 
 test('a full-text note counts as the deep tier wherever it sits', () => {
@@ -404,4 +424,264 @@ test('a new work item is refused in plain words when a file stands where a folde
 
   assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: noFolder }), { code: 1, stdout: '', stderr: `context-central work: work ${NOT_A_FOLDER}\n` })
   assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: taken }), { code: 1, stdout: '', stderr: `context-central work: work/PROJ-13 ${NOT_A_FOLDER}\n` })
+})
+
+const OLD_NOTE = '# PROJ-7: Old shape\n\nWritten before state files. The change is in web only. See [[concepts/gateway]] and [the edge](../edges/web-api.md).\n'
+const adopt = (root: string, ...args: string[]) => run(['work', 'adopt', ...args], { cwd: root, env: { TZ: 'UTC' } })
+const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
+const pointers = (root: string, id: string) => (JSON.parse(run(['resolve', id, '--json'], { cwd: root }).stdout) as { pointers: { rel: string, why: string }[] }).pointers.map(found => [found.rel, found.why])
+
+test('adopting a single note lays a state file out beside it and leaves the note as it was', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE }))
+
+  const result = adopt(root, 'PROJ-7')
+
+  assert.deepEqual(result, { code: 0, stdout: 'work/PROJ-7/STATE.md\n', stderr: '' })
+  assert.equal(read(root, 'work/PROJ-7.md'), OLD_NOTE)
+  const state = read(root, 'work/PROJ-7/STATE.md')
+  assert.match(state, /^---\nitem: PROJ-7\ntitle: Old shape\nstatus: active\nticket: "PROJ-7"\n---\n# PROJ-7: Old shape\n/)
+  for (const part of ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']) assert.match(state, new RegExp(`^## ${part}$`, 'm'))
+  for (const folder of ['notes', 'sources', 'evidence']) assert.equal(existsSync(join(root, 'work/PROJ-7', folder)), true, folder)
+})
+
+test('an adopted state file gives the day, links the older file and links each node that file pointed to', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE }))
+
+  adopt(root, 'PROJ-7')
+
+  const state = read(root, 'work/PROJ-7/STATE.md')
+  assert.match(state, /^## Where it stands\n\nAdopted on 2026-01-15\. What is known of this item is in its older entry file, \[PROJ-7\.md\]\(\.\.\/PROJ-7\.md\), which is left as it was\.\n\n## Done$/m)
+  assert.ok(
+    state.includes(
+      [
+        '## Where the detail lives',
+        '',
+        '- Older entry file: [PROJ-7.md](../PROJ-7.md).',
+        '- It pointed to [concepts/gateway.md](../../concepts/gateway.md).',
+        '- It pointed to [edges/web-api.md](../../edges/web-api.md).',
+        '- It pointed to [repos/web.md](../../repos/web.md).',
+        '- Spec: `SPEC.md` beside this file, once written.',
+      ].join('\n'),
+    ),
+  )
+})
+
+test('after adoption the state file is the entry, the older file is a note of the item, and the pointers of before are still given', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE }))
+  const before = pointers(root, 'PROJ-7')
+
+  adopt(root, 'PROJ-7')
+
+  const item = list(root).find(found => found.id === 'PROJ-7')
+  assert.deepEqual([item?.entry.kind, item?.notes], ['state', 1])
+  assert.deepEqual(before, [
+    ['work/PROJ-7.md', 'entry note of the work item'],
+    ['concepts/gateway.md', 'linked from the work item'],
+    ['edges/web-api.md', 'linked from the work item'],
+    ['repos/web.md', 'named in the work item'],
+  ])
+  assert.deepEqual(pointers(root, 'PROJ-7'), [
+    ['work/PROJ-7/STATE.md', 'state file: where the work stands and what is next'],
+    ['work/PROJ-7.md', 'older entry file of the work item'],
+    ['concepts/gateway.md', 'linked from the work item'],
+    ['edges/web-api.md', 'linked from the work item'],
+    ['repos/web.md', 'linked from the work item'],
+  ])
+})
+
+test('an adopted item earns no warning, and no link of the map is broken by it', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE, 'concepts/shape.md': '# The old shape\n\nSee [[work/PROJ-7]] and [[concepts/gateway]].\n' }))
+
+  adopt(root, 'PROJ-7')
+
+  assert.equal(run(['lint'], { cwd: root }).stdout, 'ok\n')
+  assert.doesNotMatch(run(['graph'], { cwd: root }).stdout, /BROKEN/)
+})
+
+test('adopting an item kept as a start-here file links that file from beside it', () => {
+  const start = '# Start here\n\nRead [the notes](01-notes.md).\n'
+  const root = tree(acme({ 'work/PROJ-9/00-START-HERE.md': start, 'work/PROJ-9/01-notes.md': '# Notes\n' }))
+
+  const result = adopt(root, 'PROJ-9')
+
+  assert.equal(result.stdout, 'work/PROJ-9/STATE.md\n')
+  assert.equal(read(root, 'work/PROJ-9/00-START-HERE.md'), start)
+  const state = read(root, 'work/PROJ-9/STATE.md')
+  assert.match(state, /^- Older entry file: \[00-START-HERE\.md\]\(00-START-HERE\.md\)\.$/m)
+  assert.match(state, /^- It pointed to \[01-notes\.md\]\(01-notes\.md\)\.$/m)
+})
+
+test('adopting an item kept as a README in its folder leaves the README where it is', () => {
+  const readme = '# PROJ-20: Retire the old portal\n'
+  const root = tree(acme({ 'work/PROJ-20/README.md': readme }))
+
+  assert.equal(adopt(root, 'PROJ-20').stdout, 'work/PROJ-20/STATE.md\n')
+  assert.equal(read(root, 'work/PROJ-20/README.md'), readme)
+  assert.equal(list(root).find(found => found.id === 'PROJ-20')?.entry.kind, 'state')
+})
+
+test('adopting a note that sits beside a folder of the same name writes the state file into the folder', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-7/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(adopt(root, 'PROJ-7').stdout, 'work/PROJ-7/STATE.md\n')
+  const item = list(root).find(found => found.id === 'PROJ-7')
+  assert.deepEqual([item?.entry.kind, item?.notes], ['state', 2])
+})
+
+test('adopting an item with no entry file gives it the state file a new item gets', () => {
+  const root = tree(acme({ 'work/PROJ-30/notes/2026-01-02-idea.md': '# An idea\n' }))
+
+  assert.equal(adopt(root, 'PROJ-30').stdout, 'work/PROJ-30/STATE.md\n')
+  const state = read(root, 'work/PROJ-30/STATE.md')
+  assert.match(state, /^## Where it stands\n\n## Done$/m)
+  assert.match(state, /^## Where the detail lives\n\n- Spec: /m)
+})
+
+test('adopting a finished item keeps it finished', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': '---\nstatus: done\n---\n# PROJ-7: Old shape\n' }))
+
+  adopt(root, 'PROJ-7')
+
+  assert.match(read(root, 'work/PROJ-7/STATE.md'), /^status: done$/m)
+  assert.deepEqual(list(root).map(item => item.id), ['PROJ-12'])
+})
+
+test('adopting an item that has a state file says so and changes nothing', () => {
+  const root = tree(acme())
+
+  const result = adopt(root, 'PROJ-12')
+
+  assert.deepEqual(result, { code: 0, stdout: 'PROJ-12 has a state file already\n', stderr: '' })
+  assert.equal(read(root, 'work/PROJ-12/STATE.md'), ACME_FILES['work/PROJ-12/STATE.md'])
+})
+
+test('adopting an item that does not exist is refused, and with no item it is wrong usage', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(adopt(root, 'PROJ-99'), { code: 1, stdout: '', stderr: 'context-central work: no work item "PROJ-99"\n' })
+  assert.equal(adopt(root).code, 2)
+})
+
+test('a state file named in another letter case stops adoption, and nothing is written', () => {
+  const kept = '# PROJ-30, kept by hand\n'
+  const root = tree(acme({ 'work/PROJ-30/state.md': kept, 'work/PROJ-30/README.md': '# PROJ-30: Old shape\n' }))
+
+  const result = adopt(root, 'PROJ-30')
+
+  assert.deepEqual(result, {
+    code: 1,
+    stdout: '',
+    stderr: "context-central work: work/PROJ-30/state.md has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again\n",
+  })
+  assert.equal(read(root, 'work/PROJ-30/state.md'), kept)
+  assert.deepEqual(readdirSync(join(root, 'work/PROJ-30')).sort(), ['README.md', 'state.md'])
+})
+
+test('a name with a space or a bracket in it is written as a link the map can follow', () => {
+  const root = tree(acme({ 'work/Old portal (v2).md': '# Old portal\n\nSee [the plan](../docs/The%20plan.md).\n', 'docs/The plan.md': '# The plan\n' }))
+
+  assert.equal(adopt(root, 'Old portal (v2)').stdout, 'work/Old portal (v2)/STATE.md\n')
+  const state = read(root, 'work/Old portal (v2)/STATE.md')
+  assert.match(state, /^- Older entry file: \[Old portal \(v2\)\.md\]\(\.\.\/Old%20portal%20%28v2%29\.md\)\.$/m)
+  assert.match(state, /^- It pointed to \[docs\/The plan\.md\]\(\.\.\/\.\.\/docs\/The%20plan\.md\)\.$/m)
+  assert.doesNotMatch(run(['graph'], { cwd: root }).stdout, /BROKEN/)
+})
+
+test('the older file is listed after the state file even when it pointed to more nodes than the limit', () => {
+  const names = ['one', 'two', 'three', 'four', 'five', 'six', 'seven']
+  const notes = Object.fromEntries(names.map(name => [`concepts/${name}.md`, `# ${name}\n`]))
+  const root = tree(acme({ ...notes, 'work/PROJ-7.md': `# PROJ-7: Old shape\n\n${names.map(name => `[[concepts/${name}]]`).join(' ')}\n` }))
+
+  adopt(root, 'PROJ-7')
+
+  const found = JSON.parse(run(['resolve', 'PROJ-7', '--json'], { cwd: root }).stdout) as { pointers: { rel: string }[], more: number }
+  assert.deepEqual(found.pointers.slice(0, 2).map(pointer => pointer.rel), ['work/PROJ-7/STATE.md', 'work/PROJ-7.md'])
+  assert.deepEqual([found.pointers.length, found.more], [8, 1])
+})
+
+test('adoption is refused in plain words when a file stands where a folder of the item would go', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-7/notes': 'a file\n' }))
+
+  assert.deepEqual(adopt(root, 'PROJ-7'), { code: 1, stdout: '', stderr: `context-central work: work/PROJ-7/notes ${NOT_A_FOLDER}\n` })
+  assert.equal(existsSync(join(root, 'work/PROJ-7/STATE.md')), false)
+})
+
+test('adopting every older item gives each a state file, finished ones too, and prints a line for each', () => {
+  const files = { 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-8.md': '---\nstatus: done\n---\n# PROJ-8: Shipped\n', 'work/PROJ-9/00-START-HERE.md': '# Start here\n', 'work/PROJ-30/notes/2026-01-02-idea.md': '# An idea\n' }
+  const root = tree(acme(files))
+
+  const result = adopt(root, '--all')
+
+  assert.deepEqual(result, { code: 0, stdout: 'work/PROJ-7/STATE.md\nwork/PROJ-8/STATE.md\nwork/PROJ-9/STATE.md\n', stderr: '' })
+  assert.deepEqual(
+    list(root, '--all').map(item => [item.id, item.status, item.entry?.kind ?? null]),
+    [
+      ['PROJ-7', 'active', 'state'],
+      ['PROJ-8', 'done', 'state'],
+      ['PROJ-9', 'active', 'state'],
+      ['PROJ-12', 'active', 'state'],
+      ['PROJ-30', 'active', null],
+    ],
+  )
+})
+
+test('with no older item, adopting all says so', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(adopt(root, '--all'), { code: 0, stdout: 'No older items.\n', stderr: '' })
+})
+
+test('adopt takes an item or --all, never both, and no other flag', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE }))
+
+  assert.equal(adopt(root, 'PROJ-7', '--all').code, 2)
+  assert.equal(adopt(root, 'PROJ-7', '--json').code, 2)
+  assert.equal(existsSync(join(root, 'work/PROJ-7/STATE.md')), false)
+})
+
+test('adopting all goes on past an item it must refuse, names it on the error stream and exits 1', () => {
+  const files = { 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-8/state.md': '# kept by hand\n', 'work/PROJ-8/README.md': '# PROJ-8: Old shape\n', 'work/PROJ-9.md': '# PROJ-9: Older still\n' }
+  const root = tree(acme(files))
+
+  const result = adopt(root, '--all')
+
+  assert.deepEqual(result, {
+    code: 1,
+    stdout: 'work/PROJ-7/STATE.md\nwork/PROJ-9/STATE.md\n',
+    stderr: "context-central work: work/PROJ-8/state.md has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again\n",
+  })
+})
+
+test('a new work item is refused where notNodes lists its folder, and a state file kept there is left as it is', () => {
+  const kept = '# kept by hand\n'
+  const root = tree(acme({ 'work/secret/STATE.md': kept }, { notNodes: ['work/secret'] }))
+
+  const result = run(['work', 'new', 'secret', '--title', 'Again'], { cwd: root })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central work: work/secret is under a notNodes entry, so a work item made there would never be listed\n' })
+  assert.equal(read(root, 'work/secret/STATE.md'), kept)
+  assert.deepEqual(readdirSync(join(root, 'work/secret')), ['STATE.md'])
+})
+
+test('a folder notNodes lists is no part of the work item whose single note sits beside it, and adoption leaves it alone', () => {
+  const kept = '# kept by hand\n'
+  const note = '# arch: The archive\n'
+  const root = tree(acme({ 'work/arch.md': note, 'work/arch/STATE.md': kept, 'work/arch/notes/plan.md': '# Plan\n', 'work/arch/export.csv': 'a,b\n' }, { notNodes: ['work/arch'] }))
+
+  const item = list(root).find(found => found.id === 'arch')
+
+  assert.deepEqual([item?.entry, item?.notes], [{ rel: 'work/arch.md', kind: 'note', bytes: sizeOf(note) }, 0])
+  assert.deepEqual(adopt(root, 'arch'), { code: 1, stdout: '', stderr: 'context-central work: work/arch is under a notNodes entry, so a work item made there would never be listed\n' })
+  assert.equal(read(root, 'work/arch/STATE.md'), kept)
+  assert.deepEqual(readdirSync(join(root, 'work/arch')).sort(), ['STATE.md', 'export.csv', 'notes'])
+  assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /export\.csv/)
+})
+
+test('a new work item cannot take one of the two names kept for a file that is not work', () => {
+  const root = tree(acme())
+
+  for (const name of ['README.md', 'index.md']) {
+    assert.deepEqual(run(['work', 'new', name], { cwd: root }), { code: 1, stdout: '', stderr: `context-central work: work/${name} is a name kept for a file that is not work, so a work item made there would never be listed\n` }, name)
+  }
+  assert.deepEqual(readdirSync(join(root, 'work')), ['PROJ-12'])
 })

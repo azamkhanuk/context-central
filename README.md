@@ -74,7 +74,22 @@ Or both at once from inside a session (Claude Code v2.1.275 or later):
 
 **Trying a local clone.** The repository is its own marketplace. Give `claude plugin marketplace add` the path of the clone. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
 
-**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself.
+**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin` turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
+
+**What decides whether it loads.** There are three ways to have the plugin. They differ in when it loads, how a release reaches it and whether a [launcher](#working-from-a-terminal) finds it.
+
+| How you have it | It loads | A release reaches it | A launcher finds it |
+|---|---|---|---|
+| Installed for you, which is what `claude plugin install` does unless told otherwise | in every session under that Claude Code config directory | by `claude plugin update`, or by itself once auto-update is on | from any map |
+| Installed for one project, with `--scope project` or `--scope local` | in sessions started in that project, once its folder has been trusted | the same | when the launcher's own file is inside that project |
+| Enabled from project settings, as [Two accounts on one machine](#two-accounts-on-one-machine) sets out | in sessions started in that folder, once its trust prompt has been accepted | by itself: the printed settings turn auto-update on | only where Claude Code has recorded an install for that project; otherwise set `CONTEXT_CENTRAL_CLI` |
+
+Two rules of Claude Code decide the last two rows, and both are easy to trip on:
+
+- **Project settings are read only from the folder a session starts in.** Claude Code does not look in the folders above. With a map at the estate root, a session started inside one of the repos is given the hub, which tells it to use the plugin, and is not given the plugin. Install the plugin for yourself, or put the same settings in that repo as well.
+- **Project settings that add a marketplace apply only in a folder a person has trusted.** Nothing loads until the folder's trust prompt has been accepted in a session with a person in it, and nothing ever loads in a headless run of a folder nobody has trusted. Claude Code passes over the settings there without a message.
+
+Both are taken from Claude Code's documentation. The checks of this repository cannot show either, since each needs a person at the prompt.
 
 **Releases.** [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
@@ -145,7 +160,7 @@ Turns the conversation and the research into what will be built. It makes the it
 - **It asks once.** Every question the spec needs answered that neither the conversation nor the notes settle comes in one numbered message, each with the answer it recommends and why. Answer them all in one reply. It goes on when no decision in the spec would be its guess.
 - **It writes `SPEC.md`** beside the state file, in five parts. **Problem**: what is wrong or missing, for whom, and how that is known. **Solution**: the behaviour once this is built, in the estate's own terms. **Decisions**: each choice with its reason and the option turned down. **Test seams**: where behaviour is observed from outside, and what each test would show. **Out of scope**: what a reader might expect and will not get. The spec names behaviour and modules and holds no file paths, which go stale as the code moves.
 - **It writes the code map**, `notes/<YYYY-MM-DD>-code-map.md`: each repo with its commit and the date, then one `path:line` a line with what is there. A later reader can tell how far the code has moved since.
-- **It adds new terms to `glossary.md`** and uses the glossary's wording in the spec.
+- **It adds new terms to the estate's glossary** and uses the glossary's wording in the spec.
 - **It writes a brief for the ticket** in three parts: why, what, done when. The spec stays in the map. The brief is posted through the connection the ticket belongs to only where your write rules allow it and you approve the exact text; otherwise it is shown for you to post.
 - **It rewrites "Where it stands" and "Next"** in the state file, and lists the spec and the code map under "Where the detail lives".
 
@@ -215,8 +230,9 @@ Writes the session back into the map, so that a fresh session can carry on. Impl
 
 - **The facts come from git and the files**, never from recollection: the status, the log since the base branch, the diff, the pull request's state read through its connection, the last test run. A claim with nothing on disk behind it is written as unverified or left out.
 - **Long text is saved first**, in full, under `sources/`, before any brief of it. A file that is not text is saved with `evidence add` and listed in `notes/<YYYY-MM-DD>-evidence.md`, with what it shows and the commit it was taken at.
+- **An older item is adopted first.** Where the item is kept as a note of its own with no state file, `work adopt` lays a state file beside that note, and the note is left as it is.
 - **The state file is rewritten**, never appended to, in its six parts: **Where it stands**, **Done** (with the commit or the pull request's link that shows it), **Next** (concrete enough to start cold, with each check beyond this machine still to run), **Blocked**, **Standing traps** (with each open trigger from the design) and **Where the detail lives**. It stays within `budgets.stateChars` by moving detail into `notes/`. A finished item is marked with `work done <item>`.
-- **Lessons that outlive the item** go where the next item will find them: a trap in the repo's note or a concept note; a term the estate uses with a meaning of its own in `glossary.md`, when you stated its meaning or text on disk does; a rule for how the repo's code is written in its standards note, when you stated it or accepted a reviewer's finding. A meaning or a rule it worked out itself is not written.
+- **Lessons that outlive the item** go where the next item will find them: a trap in the repo's note or a concept note; a term the estate uses with a meaning of its own in the estate's glossary, when you stated its meaning or text on disk does; a rule for how the repo's code is written in its standards note, when you stated it or accepted a reviewer's finding. A meaning or a rule it worked out itself is not written.
 - **A line goes in the log**, `note "<item>: <what changed>"`. Then `lint` and `graph` run, and every `ERROR`, `BROKEN` and `UNREFERENCED` line is fixed.
 - **It ends with what was not recorded**: the paths written, what was left out and why, and each glossary entry and standards rule added, with where it came from.
 
@@ -236,7 +252,7 @@ work/PROJ-12/
   notes/2026-01-14-evidence.md                        checkpoint: what each evidence file shows
 ```
 
-Outside the folder, prep and checkpoint add terms to `glossary.md`, checkpoint adds a line to `log/<YYYY-MM>.md`, and a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`.
+Outside the folder, prep and checkpoint add terms to the estate's glossary, checkpoint adds a line to `log/<YYYY-MM>.md`, and a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`.
 
 ### Running it, in order
 
@@ -263,7 +279,7 @@ There are two layouts:
 <estate root>/
   estate.json          settings: repos, connections, folders left alone, budgets
   CLAUDE.md            the hub: routing table, standing rules, where the parts are
-  glossary.md          the estate's own terms
+  glossary.md          the estate's own terms, unless estate.json names another file for them
   repos/ areas/ concepts/ edges/ decisions/ docs/    nodes, one subject per file
   standards/<repo>.md  how one repo's code is designed, written, tested and reviewed
   log/2026-01.md       dated one-line notes
@@ -280,6 +296,12 @@ There are two layouts:
 
 - A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`). Its state file can carry its ticket, so a plain name still answers to `#41`.
 - Nodes link to each other with wiki links (`[[concepts/gateway]]`) or relative Markdown links.
+- A node may sit in a folder below its kind, to any depth: `note --new docs/runbooks/month-end` makes one. A decision and a standards note take no folder.
+- A file named `README.md` or `index.md` directly under `work/` is neither a work item nor a node, in any letter case. Neither is anything under `work/` that `notNodes` lists: no command makes a work item in a folder listed there, or saves anything for one there. A note that links to such a file still gives it as a pointer.
+
+**An older item.** A work item kept as a note of its own, with no state file, is still a work item: a single note `work/<item>.md`, or a folder that holds a `00-START-HERE.md` or a `README.md`. `context-central work adopt <item>` gives it a state file beside that note, and `work adopt --all` does so for every one. Adoption moves nothing and changes no file that is there. The state file links the older note and every note it pointed to, so a session is given what it was given before, with the state file first and the older note after it and the spec, whatever the limit. Checkpoint, prep, design and research adopt the item they are working on before they write to it, and never write to the older note. Where the item's folder holds a file with the state file's name in another letter case, such as a hand-kept `state.md`, the command stops and names it: on a disk that ignores letter case the state file would land on that file.
+
+**The glossary.** The estate's terms live in the map's own `glossary.md`, or in a file the estate already keeps. Name that file with `"glossary"` in `estate.json`, as a path from the estate root. `init` then lays out none, and the plugin never creates, moves or reformats the file. `context-central where` says where the glossary is. Where it is inside a registered repo, prep and checkpoint read it, write nothing to it and list the terms in their report: writing would change that repo's work tree on whatever branch it is on.
 
 ## The three tiers
 
@@ -337,7 +359,7 @@ They are recorded under `connections` in `estate.json`, by name:
 | `server` | The name you gave an MCP server or a connector. The session finds the tool when it needs it, so no tool name is recorded |
 | `commands` | Your own command for an action (`read`, `search`, `comment`, `transition`, `open`), as a list of words. A session runs it; the plugin never does |
 | `how` | Anything else, in words, for a connection reached by hand |
-| `account` | The account its tool must run as. `doctor` checks it and never switches it |
+| `account` | The account its tool must run as. `fetch` reads only as it, `doctor` says whether it can, and neither switches the account that is active on the machine |
 | `repos` | For pull requests: the registered repos it serves, when more than one connection holds them |
 
 **References.** `PROJ-12`, `#41`, `AB#4312` and a link can each name a ticket. A reference is matched whatever its letter case and never inside a longer word. A work item answers to every spelling of its own ticket. That is the `ticket` line in the head of its state file, which `work new <item> --ticket "<reference>"` writes, or its name when the name is itself a reference. In a shell a reference goes in quotes, since `#` starts a comment there.
@@ -351,6 +373,14 @@ They are recorded under `connections` in `estate.json`, by name:
 - **by hand**: the skill asks you to paste the text and saves it in full
 
 `context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, `--pr "<reference>"` the one a pull request belongs to, and `--item <item>` the one a work item's own ticket belongs to. It is the connection `fetch ticket` and `fetch pr` read through: the one whose references claim it or, where none does, the only connection that holds the kind. Where two claim a link, the one that names its repository under `repos` has it, then one that names no repos, and otherwise the one written first. A link's repository is matched to a registered repo by its name. A reference that names no repository belongs to the first written of those that claim it. On a map made before connections the answer can be a preset that applies unasked, and its line says that the map does not record it. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
+
+**A pinned account.** Where a connection names an `account`, `fetch` reads only as that account. Where its preset's tool can hand out one account's token, `fetch` asks for the pinned account's and gives it to the tool it starts, in that tool's environment and nowhere else, whichever account is active. Where the tool hands out none, the read goes ahead only if the tool already runs as that account on the connection's own host. Otherwise `fetch` reads nothing, saves nothing and exits 1. `doctor` answers for each pinned connection:
+
+- `ok`: the tool runs as the pinned account
+- `note`: another account is active and the tool holds the pinned one. `fetch` reads as it, and the note says how to run one command of your own as it
+- `FIX`: the tool cannot run as it here. The line says how to sign the account in, that signing in makes it the active one, and how to put the former one back
+
+No advice from the plugin tells you to change the machine's active account for good. On a map shared with people who have not signed the pinned account in, a read that once went ahead as whoever was active now stops, and `doctor` shows that `FIX`.
 
 A developer who has some of an estate's connections and not others is served by those they have. A tool that is missing is a note in `doctor`, never a fault.
 
@@ -423,15 +453,20 @@ The hook adds pointers when the prompt names something the map knows. First matc
 2. a link that belongs to a connection: the work item that mentions it, or else the note of the repository it names
 3. a registered repository name
 4. free text that matches a node on at least two words with a clear score
+5. a node's identifier: the `id` in its frontmatter or one of its `aliases`, written on one line with commas between them, or for a numbered node its kind and its number, as in "decision 7"
+6. a node's name: its file name or its title, when that is the whole of the prompt's counted words
+7. a term of the glossary, when that is the whole of the prompt's counted words
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session.
+Routes 5 to 7 are tried only where the four before them have no answer, so a prompt that had an answer keeps it. They leave out the work folder, the log and the deep tier. A prompt's counted words are its runs of letters and digits, without stop words and runs of one or two letters; a run that holds a digit always counts. An identifier of one word answers only when it is the whole prompt, and a number alone names nothing.
+
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
 
 When a prompt names a ticket that no work item answers to, the hook adds one line saying so and which connection it reads as. A bare number is never reported, a reference is reported once per session, and three are reported at most.
 
 Two limits:
 
-- A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item tickets and names, links and repo names. It is not matched on its words, a title or a name written with spaces, and no ticket without a work item is reported: a pasted log or diff would match those by chance.
-- On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it.
+- A prompt longer than `budgets.hookTextChars` (600 characters) is matched only on work item tickets and names, links and repo names. It is not matched on its words, a title or a name written with spaces, nor on an identifier, a node's name or a term, and no ticket without a work item is reported: a pasted log or diff would match those by chance.
+- On the command line `resolve` has one more route after free text: when two or more words of the query all sit in the name and title of one work item, and of no other, the answer is that item. The hook never uses it. Routes 5 to 7 come after it there.
 
 ### When a large session resumes with an expired cache
 
@@ -456,16 +491,16 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | Command | What it does |
 |---|---|
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
-| `where [--json]` | Show which map covers this folder and whether the hooks answer here |
-| `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all]\|done <item>\|reopen <item>` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item; mark an item done or reopen it |
-| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, and say which ticket named has no work item |
+| `where [--json]` | Show which map covers this folder, where the estate's glossary is and whether the hooks answer here |
+| `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all]\|done <item>\|reopen <item>\|adopt <item>\|adopt --all` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item; mark an item done or reopen it; give an older item, or with `--all` every one, a state file beside its own note |
+| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, or else the node an identifier or a name finds or the glossary for a term, and say which ticket named has no work item |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
-| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files exist |
+| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files and a glossary the estate names exist |
 | `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, legacy hooks, connections |
 | `note <text...>` | Append a dated line to this month's log |
-| `note --new <kind>/<name> [--title <title>]` | Create a node from a small template |
+| `note --new <kind>/[<folder>/]<name> [--title <title>]` | Create a node from a small template, in a folder below its kind when one is given |
 | `slice <file> --toc\|--heading <text>\|--lines <a>-<b>\|--grep <regex> [--context N] [--max-bytes N]` | Read part of a large file: its headings, one section, a line range, or matches with `--context` lines around each (2). The output is cut at `--max-bytes` (20,000) |
 | `fetch ticket\|pr "<reference>" --item <item> [--connection <name>] [--repo <repo>]` | Read a ticket or a pull request with the command of its connection's preset, save the full text under the item's `sources/`, then print a digest. With no reference, `fetch ticket --item <item>` reads the item's own ticket. `--check` in place of `--item` tries the connection and saves nothing |
 | `connections [--ticket\|--pr "<reference>"] [--item <item>] [--json]` | List the connections and how this machine reaches each. With a ticket, a pull request or a work item named, only the connection it belongs to. `connections --presets [--json]` lists the presets this version carries and what each takes |
@@ -473,14 +508,14 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `standards [<repo>] [--json]` | Print a repo's standards files as absolute paths, its standards note first and marked, with a mark on one that is missing or a folder, and its recorded checks with the folder they run from |
 | `detect [dir] [--json]` | Report what can be read from disk before asking anyone: repos, instruction files, key patterns, tools, accounts and connection candidates |
 | `init [dir] --from <answers.json> [--dry-run]` | Write a new map from an answers file, never overwriting |
-| `init --print-settings` | Print the settings that enable the plugin for a map |
-| `wrapper [--write]` | Print a launcher for running the CLI from a terminal, or save it in the map with one for cmd |
+| `init --print-settings` | Print the settings that enable the plugin for a map, with auto-update on for its marketplace |
+| `wrapper [--write]` | Print a launcher for running the CLI from a terminal, or save it in the map with one for cmd. A launcher already there is kept, and said to differ when it is not the one this release writes |
 | `budget [dir] [--json]` | Show what a session started in a folder loads at launch from instruction files |
 
 About `doctor`:
 
 - It prints one line per check: `ok`, `FIX` with what to do, or `note` with something worth knowing. It exits 1 only if something needs fixing.
-- Its connections check holds one thing to be a fault: a pinned account that is not the active one. A tool that is not installed, and a map with no connection, are notes.
+- Its connections check holds one thing to be a fault: a pinned account that the tool cannot run as here. Another account being active is a note where the tool holds the pinned one. A tool that is not installed, and a map with no connection, are notes too.
 - Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time.
 - Name those hooks in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`. The list is empty by default, and the check then passes.
 - A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
@@ -531,7 +566,9 @@ Outside a session the CLI is not on your `PATH`, so the map can hold a small lau
 
 **Worth knowing:**
 
-- When the plugin is enabled from project settings there is no install record. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- A plugin has an install record for each install: one for each project it was installed for, and one for you. A launcher takes the record of the project its own file sits in, or of the nearest folder above it that has one. With none it takes yours, and it never starts a copy that belongs to another project.
+- Where it finds neither, it says the plugin was not found. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- A launcher saved by an earlier release keeps that release's rule. `wrapper --write` says when a saved launcher differs from the one it would write: delete it and run the command again to renew it.
 - With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash.
 - PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried.
 - The cmd launcher looks for the install record in `CLAUDE_CONFIG_DIR`, or else in `.claude` under your Windows profile folder.
@@ -565,9 +602,9 @@ Put the printed JSON in one of:
 - the map's `.claude/settings.json`, shared with everyone who clones the map
 - the map's `.claude/settings.local.json`, for this machine only
 
-It declares the marketplace, enables `context-central@context-central`, and allows `Bash(context-central *)`.
+It declares the marketplace with auto-update on, enables `context-central@context-central`, and allows `Bash(context-central *)`. With auto-update on, a release reaches everyone who has the plugin this way, and the plugin's own version still decides when there is one to fetch.
 
-The command only prints: `.claude/` is a protected path, so the write is yours to approve. Claude Code applies project settings after you accept the trust prompt for the folder.
+The command only prints: `.claude/` is a protected path, so the write is yours to approve. [What decides whether it loads](#install) says when Claude Code then applies those settings: only in sessions started in that folder, and only once a person has accepted its trust prompt.
 
 ## Turning it off
 
@@ -586,6 +623,11 @@ The map is plain Markdown and stays readable without the plugin.
 - A pull request read by `fetch` holds what the preset's tool returns. Where that leaves out a review's line comments, the fetcher can read them through a server that offers them.
 - On Windows it does not start a tool that is installed only as a `.cmd` or a `.bat` file. `fetch` says so, and a session reads that connection through its own shell or a server.
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer.
+- It does not move or rewrite the files of an older item. Adoption lays a state file beside them and changes nothing else.
+- It does not find a pull request written as a repo and a number. A link finds its work item once the item's state file or notes hold it, which checkpoint writes.
+- It does not write to a glossary inside a repo, and it does not turn an estate's own glossary into its entry format.
+- It does not check where the plugin is enabled. `doctor` cannot tell you that a session started inside a repo is not given the plugin, or that a folder has not been trusted.
+- It does not renew a launcher you saved. `wrapper --write` says when one differs, and the renewing is yours.
 - It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows and no evals.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
@@ -594,6 +636,7 @@ The map is plain Markdown and stays readable without the plugin.
   - Nothing has shown what `fetch` does with an answer from a preset's tool there, or what `doctor` and `detect` make of its accounts.
   - Of `doctor`'s check on what git ignores, one case ran there with real `git`: checkouts the map's repository does not ignore.
   - PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell.
+  - The cmd launcher's choice of an install by project folder has run there only against a record of a copy installed for the person.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 

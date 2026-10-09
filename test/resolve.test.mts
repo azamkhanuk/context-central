@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { statSync } from 'node:fs'
+import { chmodSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, notOnWindows, run } from './helpers.mts'
 import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -190,6 +190,45 @@ test('an entry file that is not a state file is called an entry note', () => {
     resolved(root, 'PROJ-7').pointers.map(pointer => [pointer.rel, pointer.why]),
     [['work/PROJ-7.md', 'entry note of the work item']],
   )
+})
+
+test("a state file that links its item's older entry file has that file listed straight after it", () => {
+  const state = '# PROJ-9: Split the portal\n\nSee [[concepts/gateway]] and [where it began](00-START-HERE.md).\n'
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': state, 'work/PROJ-9/00-START-HERE.md': '# Start here\n' }))
+
+  const resolution = resolved(root, 'PROJ-9')
+
+  assert.deepEqual(
+    resolution.pointers.map(pointer => [pointer.rel, pointer.why]),
+    [
+      ['work/PROJ-9/STATE.md', 'state file: where the work stands and what is next'],
+      ['work/PROJ-9/00-START-HERE.md', 'older entry file of the work item'],
+      ['concepts/gateway.md', 'linked from the work item'],
+    ],
+  )
+})
+
+test('an older entry file the state file does not link stays among the other notes of the item', () => {
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': '# PROJ-9: Split the portal\n', 'work/PROJ-9/00-START-HERE.md': '# Start here\n' }))
+
+  const resolution = resolved(root, 'PROJ-9')
+
+  assert.deepEqual(rels(resolution), ['work/PROJ-9/STATE.md'])
+  assert.deepEqual(resolution.notes, { count: 1, bytes: 13, rel: 'work/PROJ-9', path: join(root, 'work/PROJ-9') })
+})
+
+test('a link to the hub is not a pointer of a work item or of a repo note', () => {
+  const state = '# PROJ-9: Split the portal\n\nSee [the hub](../../CLAUDE.md) and [[concepts/gateway]].\n'
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': state, 'repos/web.md': '# web\n\nRouted from [the hub](../CLAUDE.md). Talks to [[repos/api]].\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'PROJ-9')), ['work/PROJ-9/STATE.md', 'concepts/gateway.md'])
+  assert.deepEqual(rels(resolved(root, 'web')), ['repos/web.md', 'repos/api.md'])
+})
+
+test('a hub kept among the notes is left out of linked pointers too', () => {
+  const root = tree(acme({ 'docs/index.md': '# Acme estate\n', 'work/PROJ-9/STATE.md': '# PROJ-9: Split the portal\n\nSee [[docs/index]] and [[concepts/gateway]].\n' }, { hub: 'docs/index.md' }))
+
+  assert.deepEqual(rels(resolved(root, 'PROJ-9')), ['work/PROJ-9/STATE.md', 'concepts/gateway.md'])
 })
 
 test('linked notes are ranked by kind, with the log and the deep tier left out', () => {
@@ -766,4 +805,219 @@ test('a folder where the standards note would be is not a note', () => {
   const root = tree(acme({ 'standards/api.md/readme.md': '# not a note\n' }))
 
   assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 3), ['Context for repo api:', `- repos/api.md (${Buffer.byteLength(ACME_FILES['repos/api.md'])} B) repo note`, ''])
+})
+
+const ONE_GATEWAY = '---\nid: ADR-12\naliases: gateway-rfc, rfc7\n---\n# 0007: One gateway\n\nEvery call goes through it.\n'
+const KNOWN = { 'decisions/0007-one-gateway.md': ONE_GATEWAY }
+const answer = (root: string, ...words: string[]) => {
+  const found = resolved(root, ...words) as Resolution | null
+  return found && [found.by, found.key, ...found.pointers.map(pointer => pointer.why)]
+}
+
+test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {
+  const root = tree(acme(KNOWN))
+
+  const result = resolve(root, 'adr-12')
+
+  assert.equal(result.stdout, ['Context for "adr-12":', `- decisions/0007-one-gateway.md (${Buffer.byteLength(ONE_GATEWAY)} B) known as: ADR-12`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'what', 'did', 'ADR', '12', 'settle'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: ADR-12'])
+})
+
+test('a node is found by each of its aliases, and one of a single word only when it is the whole question', () => {
+  const root = tree(acme(KNOWN))
+
+  assert.deepEqual(answer(root, 'the', 'gateway-rfc', 'again'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: gateway-rfc'])
+  assert.deepEqual(answer(root, 'RFC7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
+  assert.equal(answer(root, 'see', 'rfc7', 'again'), null)
+})
+
+test('an id or an alias of digits alone names nothing', () => {
+  const root = tree(acme({ 'concepts/limits.md': '---\nid: 41\naliases: 0041\n---\n# Per-route caps\n' }))
+
+  assert.equal(answer(root, '41'), null)
+  assert.equal(answer(root, 'see', '0041', 'please'), null)
+})
+
+test('a numbered node is known by its kind and its number, with or without the final s and the leading zeros', () => {
+  const root = tree(acme(KNOWN))
+
+  assert.deepEqual(answer(root, 'decision', '7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: decision 7'])
+  assert.deepEqual(answer(root, 'what', 'did', 'decisions', '0007', 'say'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: decisions 7'])
+  assert.equal(answer(root, 'decision', '8'), null)
+})
+
+test('a number alone names nothing, and a file that starts with a date is not a numbered node', () => {
+  const root = tree(acme({ ...KNOWN, 'docs/2026-01-05-retro.md': '# Looking back\n' }))
+
+  assert.equal(answer(root, '7'), null)
+  assert.equal(answer(root, '0007'), null)
+  assert.equal(answer(root, 'doc', '2026'), null)
+  assert.equal(answer(root, 'docs', '2026'), null)
+})
+
+test('nodes that share an identifier are all listed, and those beyond the limit are counted', () => {
+  const root = tree(acme({ ...KNOWN, 'concepts/edge-gateway.md': '---\naliases: gateway-rfc\n---\n# The edge\n' }))
+
+  assert.deepEqual(answer(root, 'gateway-rfc'), ['id', 'node:concepts/edge-gateway.md,decisions/0007-one-gateway.md', 'known as: gateway-rfc', 'known as: gateway-rfc'])
+  assert.equal(resolve(root, 'gateway-rfc', '--max', '1').stdout.split('\n')[2], '1 more matching note is not listed; a higher --max lists it.')
+})
+
+test('an identifier answers only where it leaves a counted word in the question', () => {
+  const root = tree(acme({ 'concepts/list.md': '---\naliases: to-do\n---\n# What is left\n' }))
+
+  assert.equal(answer(root, 'to-do'), null)
+})
+
+test('an identifier in the work folder, the log or the deep tier is never matched', () => {
+  const marked = (id: string) => `---\nid: ${id}\n---\n# Marked\n`
+  const root = tree(acme({ 'work/PROJ-12/notes/marked.md': marked('NOTE-1'), 'log/2026-01.md': marked('LOG-1'), 'docs/sources/marked.md': marked('DEEP-1') }))
+
+  assert.equal(answer(root, 'note-1'), null)
+  assert.equal(answer(root, 'log-1'), null)
+  assert.equal(answer(root, 'deep-1'), null)
+})
+
+test('an identifier answers only where no route of today does', () => {
+  const root = tree(
+    acme({
+      'concepts/billing-retries.md': `---\nid: proj-12-design\naliases: billing-retries, web\n---\n${BILLING_NOTE}`,
+      'docs/billing-runbook.md': BILLING_RUNBOOK,
+    }),
+  )
+
+  assert.equal(resolved(root, 'proj-12-design').key, 'item:PROJ-12')
+  assert.equal(resolved(root, 'web').key, 'repo:web')
+  assert.equal(resolved(root, 'billing', 'retries').by, 'text')
+})
+
+test("a node is found by its file name when that is the whole of the question's counted words", () => {
+  const root = tree(acme())
+
+  const result = resolve(root, 'what', 'is', 'the', 'gateway')
+
+  assert.equal(result.stdout, ['Context for "what is the gateway":', `- concepts/gateway.md (${sizeOf('concepts/gateway.md')} B) named: gateway`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'Gateway'), ['name', 'node:concepts/gateway.md', 'named: gateway'])
+  assert.equal(answer(root, 'the', 'gateway', 'rules'), null)
+})
+
+test('a node is found by its title, which is the title in its frontmatter before its first heading', () => {
+  const root = tree(acme({ 'concepts/caps.md': '---\ntitle: Throttling\n---\n# Ceilings\n', 'concepts/queue.md': '# Backlog\n' }))
+
+  assert.deepEqual(answer(root, 'throttling'), ['name', 'node:concepts/caps.md', 'named: throttling'])
+  assert.deepEqual(answer(root, 'the', 'backlog'), ['name', 'node:concepts/queue.md', 'named: backlog'])
+  assert.equal(answer(root, 'ceilings'), null)
+})
+
+test("a numbered node's name counts with its number and without it", () => {
+  const root = tree(smallMap({ 'decisions/0007-doorway.md': '# 0007: Doorway\n' }))
+
+  assert.deepEqual(answer(root, 'doorway'), ['name', 'node:decisions/0007-doorway.md', 'named: doorway'])
+  assert.deepEqual(answer(root, '0007', 'doorway'), ['name', 'node:decisions/0007-doorway.md', 'named: 0007 doorway'])
+  assert.equal(answer(root, '0008', 'doorway'), null)
+})
+
+test('several nodes of one name are all listed, up to the limit', () => {
+  const root = tree(acme({ 'docs/gateway.md': '# Running it\n', 'areas/edge.md': '# Gateway\n' }))
+
+  assert.deepEqual(answer(root, 'gateway'), ['name', 'node:concepts/gateway.md,areas/edge.md,docs/gateway.md', 'named: gateway', 'named: gateway', 'named: gateway'])
+  assert.deepEqual(rels(resolved(root, 'gateway', '--max', '2')), ['concepts/gateway.md', 'areas/edge.md'])
+})
+
+test('a name answers only where it leaves a counted word, and never from the work folder or the log', () => {
+  const root = tree(acme({ 'concepts/todo.md': '# To do\n', 'log/2026-01.md': '# January\n', 'work/PROJ-12/notes/plan.md': '# Plan\n' }))
+
+  assert.equal(answer(root, 'to', 'do'), null)
+  assert.equal(answer(root, 'january'), null)
+  assert.equal(answer(root, 'plan'), null)
+})
+
+test('a name answers only where no route of today does, and after an identifier', () => {
+  const root = tree(acme({ 'work/gateway/STATE.md': '# gateway: Replace the gateway\n', 'docs/limits.md': '---\naliases: caps\n---\n# Limits\n', 'concepts/caps.md': '# Caps\n' }))
+
+  assert.equal(resolved(root, 'gateway').key, 'item:gateway')
+  assert.equal(resolved(root, 'web').key, 'repo:web')
+  assert.deepEqual(answer(root, 'caps'), ['id', 'node:docs/limits.md', 'known as: caps'])
+})
+
+const GLOSSARY = [
+  '# Glossary',
+  '',
+  "The estate's terms.",
+  '',
+  '```',
+  '**Example**: What it means.',
+  '```',
+  '',
+  '**Rate limit**: The most calls a client may make in a minute.',
+  '_Avoid_: throttle',
+  '',
+  '- **Token bucket:** How the limit is counted.',
+  '',
+  '## Cut-over',
+  '',
+  'The day billing moves.',
+  '',
+].join('\n')
+
+test('a term of the glossary is found, alone or inside a question, with the line it is on', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  const result = resolve(root, 'what', 'is', 'a', 'token', 'bucket')
+
+  assert.equal(result.stdout, ['Context for "what is a token bucket":', `- glossary.md (${Buffer.byteLength(GLOSSARY)} B) defines: Token bucket, line 12`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'Token', 'Bucket'), ['term', 'term:Token bucket', 'defines: Token bucket, line 12'])
+})
+
+test('a heading below the first is a term, and the first heading and a line in a code block are not', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  assert.deepEqual(answer(root, 'cut-over'), ['term', 'term:Cut-over', 'defines: Cut-over, line 14'])
+  assert.equal(answer(root, 'glossary'), null)
+  assert.equal(answer(root, 'example'), null)
+})
+
+test('a term must be the whole of the question, and a map with no glossary has none', () => {
+  assert.equal(answer(tree(acme({ 'glossary.md': GLOSSARY })), 'token', 'bucket', 'sizes'), null)
+  assert.equal(answer(tree(acme()), 'token', 'bucket'), null)
+})
+
+test('on the command line a term that is also the words of one item still answers with the item', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  assert.equal(resolved(root, 'rate', 'limit').key, 'item:PROJ-12')
+})
+
+test('a term answers after a node of the same name', () => {
+  const root = tree(acme({ 'glossary.md': `${GLOSSARY}\n**Gateway**: The one door.\n` }))
+
+  assert.deepEqual(answer(root, 'gateway'), ['name', 'node:concepts/gateway.md', 'named: gateway'])
+})
+
+test("a term is found in the glossary the estate names, which is given by its path from the map's folder", () => {
+  const terms = '# Terms\n\n**Token bucket**: How the limit is counted.\n'
+  const named = tree(acme({ 'docs/terms.md': terms }, { glossary: 'docs/terms.md' }))
+  const outside = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo', glossary: 'CONTEXT.md' }, 'CONTEXT.md': terms }))
+
+  assert.deepEqual(rels(resolved(named, 'token', 'bucket')), ['docs/terms.md'])
+  assert.deepEqual(rels(resolved(outside, 'token', 'bucket')), ['../CONTEXT.md'])
+})
+
+test('a glossary that cannot be read as a file gives no term', () => {
+  const root = tree(acme({ 'glossary.md/kept.md': '**Token bucket**: Not a glossary.\n' }))
+
+  assert.equal(answer(root, 'token', 'bucket'), null)
+})
+
+test('bold text in an indented code block is no term, and bold text set in by less than four spaces is', () => {
+  const root = tree(acme({ 'glossary.md': '# Glossary\n\n    **Token bucket**: shown as an example.\n\n   **Cut-over**: The day billing moves.\n' }))
+
+  assert.equal(answer(root, 'token', 'bucket'), null)
+  assert.deepEqual(answer(root, 'cut-over'), ['term', 'term:Cut-over', 'defines: Cut-over, line 5'])
+})
+
+test('a node that cannot be read is passed over, and the others that share its identifier are still found', notOnWindows('Windows has no file mode that stops a read'), () => {
+  const root = tree(acme({ 'concepts/ingress.md': '---\naliases: rfc9\n---\n# Ingress\n', 'docs/porch.md': '---\naliases: rfc9\n---\n# Porch\n' }))
+  chmodSync(join(root, 'concepts/ingress.md'), 0o000)
+
+  assert.deepEqual(rels(resolved(root, 'rfc9')), ['docs/porch.md'])
 })

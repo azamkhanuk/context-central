@@ -3,7 +3,7 @@ import { basename, extname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { EVIDENCE_DIR, findWorkItem, makeFolder } from '../nodes.mts'
+import { EVIDENCE_DIR, findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
 
@@ -22,8 +22,9 @@ export function run(args: string[], io: Io) {
   const item = findWorkItem(estate, values.item)
   if (!item) throw new PluginError(`no work item "${values.item}"`)
   const extension = EXTENSION.test(extname(from)) ? extname(from) : ''
-  const rel = `${item.dirRel}/${EVIDENCE_DIR}/${dated(values.as ?? basename(from, extension), localDate(io.env).day)}${extension.toLowerCase()}`
-  makeFolder(estate.mapDir, `${item.dirRel}/${EVIDENCE_DIR}`)
+  const folder = `${folderToSaveIn(estate, item)}/${EVIDENCE_DIR}`
+  const rel = `${folder}/${dated(values.as ?? basename(from, extension), localDate(io.env).day)}${extension.toLowerCase()}`
+  makeFolder(estate.mapDir, folder)
   copy(from, join(estate.mapDir, rel), rel)
   io.out(`saved: ${rel} (${formatBytes(size)})`)
 }

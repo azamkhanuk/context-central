@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mts'
@@ -154,6 +154,14 @@ test('a prompt that matches nothing is met with silence', () => {
   const root = tree(acme())
 
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what time is it' }))
+})
+
+test('a prompt that mentions a readme is answered by the repo it names, though the work folder holds a README', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n\nHow this folder is kept.\n' }))
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'tidy the readme for web' })
+
+  assert.equal(context(result).split('\n')[0], 'Context for repo web:')
 })
 
 test('the same answer is given once in a session, and again in another session', () => {
@@ -466,4 +474,142 @@ test('a file where the work folder would be still gets a session its index', () 
   const started = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
 
   assert.equal(context(started), [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.'].join('\n'))
+})
+
+const ONE_GATEWAY = '---\nid: ADR-12\n---\n# 0007: One gateway\n\nEvery call goes through it.\n'
+const gatewayPointer = (root: string, why: string) => `- ${join(root, 'decisions/0007-one-gateway.md')} (${Buffer.byteLength(ONE_GATEWAY)} B) ${why}`
+
+test('a short prompt that names a node by its identifier is given that node, once in a session', () => {
+  const root = tree(acme({ 'decisions/0007-one-gateway.md': ONE_GATEWAY }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.equal(context(ask('what did ADR-12 settle')), ['Context for "what did ADR-12 settle":', gatewayPointer(root, 'known as: ADR-12')].join('\n'))
+  silent(ask('and why did ADR-12 say so'))
+})
+
+test('a long prompt that holds an identifier is met with silence', () => {
+  const root = tree(acme({ 'decisions/0007-one-gateway.md': ONE_GATEWAY }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${PASTED} as ADR-12 says` }))
+})
+
+test('a short prompt whose counted words are a node\'s name is given that node, and a long one is met with silence', () => {
+  const root = tree(acme())
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what is the gateway?' })
+
+  assert.equal(context(result), ['Context for "what is the gateway?":', `- ${join(root, 'concepts/gateway.md')} (${Buffer.byteLength(ACME_FILES['concepts/gateway.md'])} B) named: gateway`].join('\n'))
+  silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}gateway` }))
+})
+
+test('a node given by its identifier is not given again by its name in the same session', () => {
+  const root = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n', 'decisions/0007-doorway.md': '---\nid: ADR-12\n---\n# 0007: Doorway\n' }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.match(context(ask('ADR-12')), /known as: ADR-12$/)
+  silent(ask('doorway'))
+})
+
+const TERMS = '# Glossary\n\n**Rate limit**: The most calls a client may make in a minute.\n'
+
+test('a short prompt that is a term of the glossary is given the glossary, once in a session, where the command line gives the item', () => {
+  const root = tree(acme({ 'glossary.md': TERMS }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.equal(context(ask('what is the rate limit?')), ['Context for "what is the rate limit?":', `- ${join(root, 'glossary.md')} (${Buffer.byteLength(TERMS)} B) defines: Rate limit, line 3`].join('\n'))
+  silent(ask('rate limit'))
+  silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}rate limit` }))
+})
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const TEST_CLOCK = Date.parse('2026-01-15T12:00:00Z')
+
+function aged(path: string, days: number) {
+  const then = new Date(TEST_CLOCK - days * DAY_MS)
+  utimesSync(path, then, then)
+}
+
+function recordsAged(days: { [name: string]: number }) {
+  const temp = tree(makeTree({}))
+  const dir = join(temp, 'context-central')
+  mkdirSync(dir)
+  for (const [name, age] of Object.entries(days)) {
+    writeFileSync(join(dir, name), '{"delivered":[],"active":null}\n')
+    aged(join(dir, name), age)
+  }
+  return { dir, env: { TMPDIR: temp, TEMP: temp, TMP: temp } }
+}
+
+test('saving a record removes the records no session has used for fourteen days, and nothing else', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 'old.json': 15, 'recent.json': 13, 'young.json': 1, 'kept.txt': 30 })
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['kept.txt', 'recent.json', 's1.json', 'young.json'])
+})
+
+test("a prompt keeps its session's record from the sweep, though it gets no answer", () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 's1.json': 15, 's2.json': 15 })
+
+  silent(hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what time is it' }, { env }))
+  hook('user-prompt-submit', { session_id: 's3', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['s1.json', 's3.json'])
+})
+
+test('a folder of records named by CONTEXT_CENTRAL_STATE_DIR is never swept', () => {
+  const root = tree(acme())
+  const { dir } = recordsAged({ 'old.json': 15 })
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env: { CONTEXT_CENTRAL_STATE_DIR: dir } })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['old.json', 's1.json'])
+})
+
+test('a sweep that cannot remove something still lets the hook answer, and says nothing', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({})
+  mkdirSync(join(dir, 'stuck.json'))
+  aged(join(dir, 'stuck.json'), 15)
+
+  const result = hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual([result.code, result.stderr, context(result)], [0, '', acmePointers(root)])
+})
+
+test('one record that cannot be removed does not keep the sweep from the records after it', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 'old.json': 15 })
+  mkdirSync(join(dir, '0-stuck.json'))
+  aged(join(dir, '0-stuck.json'), 15)
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['0-stuck.json', 's1.json'])
+})
+
+const SHARED = {
+  'estate.json': { contextCentral: 1, name: 'acme' },
+  'CLAUDE.md': '# Acme\n',
+  'concepts/doorway.md': '---\naliases: front-gate\n---\n# Doorway\n',
+  'docs/porch.md': '---\naliases: front-gate\n---\n# Porch\n',
+}
+const given = (result: Result) => context(result).split('\n').slice(1).map(line => line.split(' ')[1])
+
+test('a node given among others that share its identifier is not given again by its name, and the other way round', () => {
+  const root = tree(makeTree(SHARED))
+  const asked = (session: string, dir: string) => (prompt: string) => fire('user-prompt-submit', { session_id: session, cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+  const first = asked('s1', stateDir())
+  const second = asked('s2', stateDir())
+
+  assert.deepEqual(given(first('front-gate')), [join(root, 'concepts/doorway.md'), join(root, 'docs/porch.md')])
+  silent(first('doorway'))
+  assert.deepEqual(given(second('porch')), [join(root, 'docs/porch.md')])
+  assert.deepEqual(given(second('front-gate')), [join(root, 'concepts/doorway.md')])
+  silent(second('front-gate'))
 })

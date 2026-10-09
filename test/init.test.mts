@@ -398,14 +398,14 @@ test('init without answers is wrong usage', () => {
   assert.equal(run(['init'], { cwd: root }).code, 2)
 })
 
-test('the settings to approve name the marketplace, the plugin and the one permission', () => {
+test('the settings to approve name the marketplace with auto-update on, the plugin and the one permission', () => {
   const plugin = tree(makeTree({ '.claude-plugin/plugin.json': { name: 'context-central', repository: 'https://github.com/acme/context-central' } }))
 
   const result = run(['init', '--print-settings'], { cwd: plugin, env: { CONTEXT_CENTRAL_PLUGIN_ROOT: plugin } })
 
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
-    extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' } } },
+    extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' }, autoUpdate: true } },
     enabledPlugins: { 'context-central@context-central': true },
     permissions: { allow: ['Bash(context-central *)'] },
   })
@@ -439,4 +439,24 @@ test('a config already there with a byte-order mark is read, and the rest of the
 
   assert.equal(result.stderr, '')
   assert.deepEqual(lines(result.stdout).slice(0, 2), ['kept estate.json', 'created repos/'])
+})
+
+test('a map whose estate names its own glossary gets none laid out, and the file named is never made', () => {
+  const root = answers({ config: { ...CONFIG, glossary: 'docs/terms.md' } })
+
+  const result = init(root)
+
+  assert.equal(lines(result.stdout).includes('created glossary.md'), false)
+  assert.deepEqual([existsSync(join(root, 'glossary.md')), existsSync(join(root, 'docs/terms.md'))], [false, false])
+  assert.match(read(root, 'CLAUDE.md'), /^- `docs\/terms\.md`: the estate's terms\.$/m)
+})
+
+test("the block added to a hub that is there names the estate's own glossary, counted from the estate root in either layout", () => {
+  const lived = answers({ layout: 'inner', config: { ...CONFIG, glossary: 'CONTEXT.md' } }, { 'CLAUDE.md': '# Our rules\n', 'CONTEXT.md': '# Terms\n' })
+
+  init(lived)
+
+  assert.match(read(lived, 'CLAUDE.md'), /the estate's terms in `CONTEXT\.md`\./)
+  assert.equal(read(lived, 'CONTEXT.md'), '# Terms\n')
+  assert.equal(existsSync(join(lived, '.context-central/glossary.md')), false)
 })

@@ -70,7 +70,7 @@ function steps(dir: string, { layout, git, config: answered }: Answers): Step[] 
     { rel: configRel, content: `${JSON.stringify(written, null, 2)}\n` },
     ...config.nodeDirs.map(nodeDir => ({ rel: `${inMap(nodeDir)}/` })),
     { rel: config.hub, content: hubTemplate(config, inMap), append: mapBlock(config, inMap) },
-    { rel: inMap('glossary.md'), content: glossaryTemplate() },
+    ...(config.glossary ? [] : [{ rel: inMap('glossary.md'), content: glossaryTemplate() }]),
     ...(git ? (layout === 'root' ? gitSteps(config) : innerGitSteps(config, inMap)) : []),
   ]
 }

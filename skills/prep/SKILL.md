@@ -10,7 +10,11 @@ The work item: $ARGUMENTS
 
 ## 1. Load the item
 
-Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path. Read the state file and the research notes it points to.
+Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path.
+
+For an item that was there already, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: stop and say what it said. When it adopted the item, say so in step 8.
+
+Read the state file and the research notes it points to, and the older note where the state file links one.
 
 Read the item's ticket before anything else, unless its `sources/` already holds a copy. Start with `context-central fetch ticket --item <item>`: it finds the item's ticket and the connection that ticket belongs to, and where that connection is read by fetch it saves the ticket and prints a digest. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system.
 
@@ -45,7 +49,7 @@ Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head i
 
 ## 5. Glossary
 
-Add each new domain term to `glossary.md` in the map, in that file's entry format, and use the glossary's wording in the spec.
+`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the hand-over. Use the glossary's wording in the spec.
 
 ## 6. Tracker brief
 

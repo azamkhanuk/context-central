@@ -208,6 +208,15 @@ test('a map with nothing to report passes strict', () => {
   assert.equal(result.code, 0)
 })
 
+test('a README or an index directly under the work folder is no node, so strict has nothing to report', () => {
+  const root = tree(makeTree({ ...TIDY, 'work/README.md': '# Work\n', 'work/index.md': '# Index\n' }))
+
+  const result = graph(root, '--strict')
+
+  assert.equal(result.stdout, '2 nodes, 1 link\n')
+  assert.equal(result.code, 0)
+})
+
 test('the same link written twice counts once', () => {
   const root = tree(makeTree({ ...TIDY, 'concepts/gateway.md': '# The gateway\n\nSee [[edges/web-api]] and [the edge](../edges/web-api.md).\n' }))
 

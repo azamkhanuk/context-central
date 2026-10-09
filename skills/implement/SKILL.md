@@ -23,7 +23,7 @@ Run `context-central config --get implement`, `context-central config --get repo
 - Pushing, opening a PR and posting to the tracker follow `context-central config --get writeRules`. Anything those rules do not cover waits for the person's yes.
 - A pull request is opened through the connection that holds that repo's pull requests: where more than one connection holds pull requests, it is the one whose entry names the repo under `repos`. Anything posted on the ticket goes through the connection the item's ticket belongs to, which `context-central connections --item <item>` names. With `--pr "<reference>"` in place of `--item <item>` it names the one a pull request link belongs to. Never pick a connection yourself where the plugin can say.
 - A connection is used by the tool its preset starts, by the server's own tool found with tool search, or by the estate's own command. Its entry is in `context-central config --get connections`, where the map records the connection. With no such connection, say what is ready and leave the opening or the posting to the person.
-- Where a connection pins an account, run `context-central doctor` before the first write and stop on a `FIX` line for connections.
+- Where a connection pins an account, run `context-central doctor` before the first write and stop on a `FIX` line for connections. Where its `note` line for connections says how a command of your own is run as the pinned account, start every command for that connection that way: another account is active on the machine, and it is left as it is.
 
 ## 3. Build in slices
 

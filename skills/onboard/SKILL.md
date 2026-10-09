@@ -34,12 +34,13 @@ Send every unsettled question in one message, numbered, each with the answer you
 9. Write rules: what may be posted outside the map (ticket comments, transitions, PR comments, pushes) and which of those need approval each time.
 10. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks. Recommend three.
 11. Estate skills the plugin should defer to for implementing.
+12. The estate's glossary: a file it already keeps, from `glossaryCandidates`, or the map's own. Recommend a candidate only where it holds the estate's terms.
 
 Done when every question has an answer or an explicit "none".
 
 ## 3. Draft the config
 
-Show the draft in this shape and wait for a yes. Omit a key that has no value. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `account`, `repos`.
+Show the draft in this shape and wait for a yes. Omit a key that has no value. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `account`, `repos`.
 
 ```json
 {
@@ -93,13 +94,15 @@ Offer `context-central wrapper --write`, which lets the person run the CLI from 
 
 Run `context-central init --print-settings` and show the JSON. Ask where it goes: `.claude/settings.json` (shared with everyone who uses the map) or `.claude/settings.local.json` (this machine only). Either sits in the folder sessions start from: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.
 
+Then say what decides whether the plugin loads. Claude Code reads project settings only from the folder a session starts in, and applies those that add a marketplace only once that folder's trust prompt has been accepted in a session with a person in it: in a headless run of a folder nobody has trusted, nothing loads. The printed entry turns auto-update on, so a release reaches everyone who has the plugin this way. For layout `root`, a session started inside a repo is not given the plugin by the estate root's settings. Offer the two ways round: install it for the person, with `claude plugin install context-central@context-central`, or put the same JSON in each registered repo as well, asking for each, as above, whether shared or for this machine only. A copy installed for the person loads in every session with no trust prompt to wait for, and a release reaches it by `claude plugin update context-central@context-central`, or by itself where auto-update is on. One installed for a single project, with `--scope project` or `--scope local`, loads in sessions started in that project once its folder has been trusted, and is updated the same way. A launcher finds a copy only where Claude Code has recorded an install: the one for the project the launcher's own file sits in, or else the person's. With neither, `CONTEXT_CENTRAL_CLI` names the plugin's `bin/context-central` file.
+
 ## 8. Settings a map-root session will not load
 
 Layout `root` only. A session started at the estate root loads none of the repos' own settings. Read each registered repo's `.claude/settings.json`, `.claude/settings.local.json` and `.mcp.json`, and list every `permissions.deny` rule, `permissions.ask` rule and MCP server name found, by repo. Offer to copy them up into the map's settings and `.mcp.json`; copy only what the person picks.
 
 ## 9. Glossary
 
-Seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
+Where the glossary is the map's own, seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define. Where the estate named its own, seed nothing: `context-central where` says where it is. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
 
 ## 10. Check
 

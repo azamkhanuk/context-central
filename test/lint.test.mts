@@ -134,12 +134,19 @@ test('an item in flight without a state file earns a warning naming its entry fi
 
   const result = lint(root)
 
-  assert.equal(result.stdout, 'WARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B\n')
+  assert.equal(result.stdout, 'WARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one\n')
   assert.equal(result.code, 0)
 })
 
 test('a finished item without a state file is left alone', () => {
   const root = tree(acme({ 'work/PROJ-7.md': '---\nstatus: done\n---\n# PROJ-7: Old shape\n' }))
+
+  assert.equal(lint(root).stdout, 'ok\n')
+})
+
+test('a README, an index and a file notNodes lists, directly under the work folder, earn no warning', () => {
+  const files = { 'work/README.md': '# Work\n', 'work/index.md': '# Index\n', 'work/template.md': '# Template\n' }
+  const root = tree(acme(files, { notNodes: ['work/template.md'] }))
 
   assert.equal(lint(root).stdout, 'ok\n')
 })
@@ -196,7 +203,7 @@ test('errors and warnings are listed together, one line each', () => {
 
   assert.equal(
     result.stdout,
-    'ERROR state: work/PROJ-13/STATE.md is 405 characters (budget 400)\nWARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B\n',
+    'ERROR state: work/PROJ-13/STATE.md is 405 characters (budget 400)\nWARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one\n',
   )
   assert.equal(result.code, 1)
 })
@@ -207,7 +214,7 @@ test('json lists each finding with its level, check and file', () => {
   const result = lint(root, '--json')
 
   assert.deepEqual(JSON.parse(result.stdout) as unknown, [
-    { level: 'WARN', check: 'entry', rel: 'work/PROJ-7.md', message: 'entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B' },
+    { level: 'WARN', check: 'entry', rel: 'work/PROJ-7.md', message: 'entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one' },
   ])
 })
 
@@ -343,4 +350,18 @@ test('a file where a node folder would be is passed over, not read as a folder',
 
   assert.equal(result.stdout, 'ok\n')
   assert.equal(result.code, 0)
+})
+
+test("a glossary the estate names and that is not there is an error, and one that is there is not", () => {
+  const missing = tree(acme({}, { glossary: 'docs/terms.md' }))
+  const there = tree(acme({ 'docs/terms.md': '# Terms\n' }, { glossary: 'docs/terms.md' }))
+
+  assert.deepEqual(lint(missing), { code: 1, stdout: 'ERROR glossary: docs/terms.md does not exist\n', stderr: '' })
+  assert.equal(lint(there).stdout, 'ok\n')
+})
+
+test('the warning for an item whose folder notNodes lists names no command, since none could give it a state file there', () => {
+  const root = tree(acme({ 'work/arch.md': '# arch: The archive\n', 'work/arch/kept.md': '# Kept\n' }, { notNodes: ['work/arch'] }))
+
+  assert.equal(lint(root).stdout, 'WARN entry: arch has no STATE.md; its entry file work/arch.md is 20 B\n')
 })

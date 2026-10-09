@@ -14,6 +14,8 @@ Write the design of a work item that has a spec, before its code is written, or 
 
 Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. Read the state file, the `SPEC.md` beside it and the code map note, when the state file names one. With no spec, stop and suggest `/context-central:prep <item>`. When `DESIGN.md` is already there, this is a revision: read it, keep what still holds, change it where it stands, and mark a slice that is already built as built.
 
+Run `context-central work adopt <item>` before anything is written to the item. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: stop and say what it said. When it adopted the item, say so in step 5.
+
 ## 2. Load the standards
 
 Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the work touches. The repos are the ones the code map is headed with. With no code map, ask the person which repos the work touches. Read each standards file, the Design part first. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.

@@ -26,7 +26,7 @@ type RepoFacts = ReturnType<typeof describeRepo>
 export const summary = 'Report what a folder already holds: checkouts, instruction files, key patterns, tools'
 
 const INSTRUCTION_FILES = ['CLAUDE.md', 'CLAUDE.local.md', 'AGENTS.md']
-const GLOSSARY_NAMES = ['context.md', 'glossary.md']
+const isGlossaryName = (name: string) => name.toLowerCase() === 'context.md' || name.toLowerCase().endsWith('glossary.md')
 const SKIPPED_FOLDERS = ['.git', 'node_modules']
 const KEY = /\b([A-Z][A-Z0-9]+)-\d+\b/g
 const MAX_EXAMPLES = 3
@@ -57,7 +57,7 @@ function detect(dir: string, env: Env) {
     accounts: Object.fromEntries(PRESETS.filter(preset => preset.accounts).map(preset => [preset.name, accountsOf(preset, env)])),
     connectionCandidates: PRESETS.flatMap(preset => candidatesOf(preset, repos, tools)),
     configDir: claudeConfigDir(env),
-    glossaryCandidates: places.flatMap(place => filesNamed(place, name => GLOSSARY_NAMES.includes(name.toLowerCase()))).map(file => file.rel),
+    glossaryCandidates: places.flatMap(place => filesNamed(place, isGlossaryName)).map(file => file.rel),
   }
 }
 

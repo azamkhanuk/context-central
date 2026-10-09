@@ -1,9 +1,9 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
-import { makeFolder } from '../nodes.mts'
+import { makeFolder, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -60,17 +60,28 @@ function underDay(text: string, day: string, entry: string) {
 
 function create(estate: Estate, target: string, title: string | undefined, io: Io) {
   const kinds = estate.config.nodeDirs.filter(dir => dir !== estate.config.workDir && dir !== 'log')
-  const [kind, named = '', ...rest] = target.split('/')
-  const name = named.replace(/\.md$/, '')
-  if (!kinds.includes(kind) || !name || rest.length > 0 || !NODE_NAME.test(name)) {
-    throw new UsageError(`expected --new <kind>/<name>, where the kind is one of: ${kinds.join(', ')}`)
-  }
-  const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, name, title || name)
+  const expected = `expected --new <kind>/<name>, where the kind is one of: ${kinds.join(', ')}`
+  const [kind, ...parts] = target.replace(/\.md$/, '').split('/')
+  const name = parts.at(-1)
+  if (!kinds.includes(kind) || name === undefined) throw new UsageError(expected)
+  const broken = brokenRule(estate, kind, parts)
+  if (broken) throw new UsageError(`${broken}: ${expected}`)
+  const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, parts.join('/'), title || name)
+  if (underNotNodes(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
   const path = join(estate.mapDir, rel)
   if (existsSync(path)) throw new PluginError(`${rel} already exists`)
-  makeFolder(estate.mapDir, kind)
+  makeFolder(estate.mapDir, posix.dirname(rel))
   writeFileSync(path, text, { flag: 'wx' })
   io.out(rel)
+}
+
+function brokenRule(estate: Estate, kind: string, parts: string[]) {
+  const odd = parts.find(part => !NODE_NAME.test(part))
+  if (odd !== undefined) return `"${odd}" is not a name`
+  if (parts.length > 1 && kind === 'decisions') return 'a decision takes no folder'
+  if (parts.length > 1 && kind === 'standards') return 'a standards note takes no folder'
+  const deep = parts.slice(0, -1).find(part => estate.config.deepDirs.includes(part))
+  return deep === undefined ? null : `"${deep}" is kept for the deep tier`
 }
 
 function node(kind: string, name: string, title: string) {
