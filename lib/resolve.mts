@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
+import { glossaryPath, glossaryTerms } from './glossary.mts'
 import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
@@ -19,7 +20,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term'
 
 export interface Resolution {
   by: Route
@@ -79,7 +80,7 @@ const UNANSWERED_MAX = 3
 const DIGITS_ALONE = /^\d+$/
 const NUMBERED = /^(\d+)-/
 const DATED = /^\d{4}-\d{2}-\d{2}/
-const BY_WORDS: Route[] = ['text', 'id', 'name']
+const BY_WORDS: Route[] = ['text', 'id', 'name', 'term']
 const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
@@ -89,7 +90,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -234,6 +235,14 @@ function byNodeName(estate: Estate, query: string, max: number) {
     named.map(node => pointer(estate, node.rel, `named: ${asked.join(' ')}`)),
     max,
   )
+}
+
+function byGlossaryTerm(estate: Estate, query: string) {
+  const asked = countedRuns(query).join(' ')
+  const found = asked ? glossaryTerms(estate).find(({ term }) => countedRuns(term).join(' ') === asked) : undefined
+  if (!found) return null
+  const rel = relative(estate.mapDir, glossaryPath(estate)).split(sep).join('/')
+  return resolution({ by: 'term', key: `term:${found.term}`, label: `"${brief(query)}"`, pointers: [pointer(estate, rel, `defines: ${found.term}, line ${found.line}`)], more: 0 })
 }
 
 function nodesFound(by: Route, query: string, found: Pointer[], max: number) {

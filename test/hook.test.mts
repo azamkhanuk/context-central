@@ -511,3 +511,15 @@ test('a node given by its identifier is not given again by its name in the same 
   assert.match(context(ask('ADR-12')), /known as: ADR-12$/)
   silent(ask('doorway'))
 })
+
+const TERMS = '# Glossary\n\n**Rate limit**: The most calls a client may make in a minute.\n'
+
+test('a short prompt that is a term of the glossary is given the glossary, once in a session, where the command line gives the item', () => {
+  const root = tree(acme({ 'glossary.md': TERMS }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.equal(context(ask('what is the rate limit?')), ['Context for "what is the rate limit?":', `- ${join(root, 'glossary.md')} (${Buffer.byteLength(TERMS)} B) defines: Rate limit, line 3`].join('\n'))
+  silent(ask('rate limit'))
+  silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}rate limit` }))
+})

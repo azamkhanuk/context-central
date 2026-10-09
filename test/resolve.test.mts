@@ -938,3 +938,57 @@ test('a name answers only where no route of today does, and after an identifier'
   assert.equal(resolved(root, 'web').key, 'repo:web')
   assert.deepEqual(answer(root, 'caps'), ['id', 'node:docs/limits.md', 'known as: caps'])
 })
+
+const GLOSSARY = [
+  '# Glossary',
+  '',
+  "The estate's terms.",
+  '',
+  '```',
+  '**Example**: What it means.',
+  '```',
+  '',
+  '**Rate limit**: The most calls a client may make in a minute.',
+  '_Avoid_: throttle',
+  '',
+  '- **Token bucket:** How the limit is counted.',
+  '',
+  '## Cut-over',
+  '',
+  'The day billing moves.',
+  '',
+].join('\n')
+
+test('a term of the glossary is found, alone or inside a question, with the line it is on', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  const result = resolve(root, 'what', 'is', 'a', 'token', 'bucket')
+
+  assert.equal(result.stdout, ['Context for "what is a token bucket":', `- glossary.md (${Buffer.byteLength(GLOSSARY)} B) defines: Token bucket, line 12`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'Token', 'Bucket'), ['term', 'term:Token bucket', 'defines: Token bucket, line 12'])
+})
+
+test('a heading below the first is a term, and the first heading and a line in a code block are not', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  assert.deepEqual(answer(root, 'cut-over'), ['term', 'term:Cut-over', 'defines: Cut-over, line 14'])
+  assert.equal(answer(root, 'glossary'), null)
+  assert.equal(answer(root, 'example'), null)
+})
+
+test('a term must be the whole of the question, and a map with no glossary has none', () => {
+  assert.equal(answer(tree(acme({ 'glossary.md': GLOSSARY })), 'token', 'bucket', 'sizes'), null)
+  assert.equal(answer(tree(acme()), 'token', 'bucket'), null)
+})
+
+test('on the command line a term that is also the words of one item still answers with the item', () => {
+  const root = tree(acme({ 'glossary.md': GLOSSARY }))
+
+  assert.equal(resolved(root, 'rate', 'limit').key, 'item:PROJ-12')
+})
+
+test('a term answers after a node of the same name', () => {
+  const root = tree(acme({ 'glossary.md': `${GLOSSARY}\n**Gateway**: The one door.\n` }))
+
+  assert.deepEqual(answer(root, 'gateway'), ['name', 'node:concepts/gateway.md', 'named: gateway'])
+})
