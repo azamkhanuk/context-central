@@ -508,6 +508,14 @@ test('a tool that answers the token call with its usual text hands out no token'
   assert.deepEqual(result, { code: 1, stdout: '', stderr: REFUSED })
 })
 
+test('a token call that gives no answer in five seconds counts as no token', NEEDS_STAND_IN, () => {
+  const slow = `#!/bin/sh\nif [ "$1" = token ]; then exec /bin/sleep 7; fi\n${DESK_TOKEN_STAND_IN.split('\n').slice(1).join('\n')}`
+  const desk = tree(standIns({ acmedesk: slow, answer: TICKET_TEXT, accounts: '* dev-one\n', held: 'acme-bot\n' }))
+
+  assert.deepEqual(pinnedFetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check']), { code: 1, stdout: '', stderr: REFUSED })
+  assert.equal(noted(desk, 'args'), null)
+})
+
 test('a connection with no pinned account is read as before, and no token is asked for', NEEDS_STAND_IN, () => {
   const desk = deskHolding('acme-bot\n')
 

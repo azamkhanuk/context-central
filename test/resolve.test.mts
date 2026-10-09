@@ -1001,3 +1001,9 @@ test("a term is found in the glossary the estate names, which is given by its pa
   assert.deepEqual(rels(resolved(named, 'token', 'bucket')), ['docs/terms.md'])
   assert.deepEqual(rels(resolved(outside, 'token', 'bucket')), ['../CONTEXT.md'])
 })
+
+test('a glossary that cannot be read as a file gives no term', () => {
+  const root = tree(acme({ 'glossary.md/kept.md': '**Token bucket**: Not a glossary.\n' }))
+
+  assert.equal(answer(root, 'token', 'bucket'), null)
+})
