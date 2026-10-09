@@ -134,7 +134,7 @@ test('an item in flight without a state file earns a warning naming its entry fi
 
   const result = lint(root)
 
-  assert.equal(result.stdout, 'WARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B\n')
+  assert.equal(result.stdout, 'WARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one\n')
   assert.equal(result.code, 0)
 })
 
@@ -203,7 +203,7 @@ test('errors and warnings are listed together, one line each', () => {
 
   assert.equal(
     result.stdout,
-    'ERROR state: work/PROJ-13/STATE.md is 405 characters (budget 400)\nWARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B\n',
+    'ERROR state: work/PROJ-13/STATE.md is 405 characters (budget 400)\nWARN entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one\n',
   )
   assert.equal(result.code, 1)
 })
@@ -214,7 +214,7 @@ test('json lists each finding with its level, check and file', () => {
   const result = lint(root, '--json')
 
   assert.deepEqual(JSON.parse(result.stdout) as unknown, [
-    { level: 'WARN', check: 'entry', rel: 'work/PROJ-7.md', message: 'entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B' },
+    { level: 'WARN', check: 'entry', rel: 'work/PROJ-7.md', message: 'entry: PROJ-7 has no STATE.md; its entry file work/PROJ-7.md is 20 B; context-central work adopt PROJ-7 gives it one' },
   ])
 })
 

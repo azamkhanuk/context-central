@@ -68,7 +68,7 @@ function stateFindings(estate: Estate, item: WorkItem) {
 function entryFindings(item: WorkItem) {
   if (item.entry?.kind === 'state') return []
   if (!item.entry) return [finding('WARN', 'entry', null, `${item.id} has no STATE.md and no other entry file`)]
-  return [finding('WARN', 'entry', item.entry.rel, `${item.id} has no STATE.md; its entry file ${item.entry.rel} is ${formatBytes(item.entry.bytes)}`)]
+  return [finding('WARN', 'entry', item.entry.rel, `${item.id} has no STATE.md; its entry file ${item.entry.rel} is ${formatBytes(item.entry.bytes)}; context-central work adopt ${item.id} gives it one`)]
 }
 
 function nodeFindings(estate: Estate, node: Node) {

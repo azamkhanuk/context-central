@@ -605,3 +605,49 @@ test('adoption is refused in plain words when a file stands where a folder of th
   assert.deepEqual(adopt(root, 'PROJ-7'), { code: 1, stdout: '', stderr: `context-central work: work/PROJ-7/notes ${NOT_A_FOLDER}\n` })
   assert.equal(existsSync(join(root, 'work/PROJ-7/STATE.md')), false)
 })
+
+test('adopting every older item gives each a state file, finished ones too, and prints a line for each', () => {
+  const files = { 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-8.md': '---\nstatus: done\n---\n# PROJ-8: Shipped\n', 'work/PROJ-9/00-START-HERE.md': '# Start here\n', 'work/PROJ-30/notes/2026-01-02-idea.md': '# An idea\n' }
+  const root = tree(acme(files))
+
+  const result = adopt(root, '--all')
+
+  assert.deepEqual(result, { code: 0, stdout: 'work/PROJ-7/STATE.md\nwork/PROJ-8/STATE.md\nwork/PROJ-9/STATE.md\n', stderr: '' })
+  assert.deepEqual(
+    list(root, '--all').map(item => [item.id, item.status, item.entry?.kind ?? null]),
+    [
+      ['PROJ-7', 'active', 'state'],
+      ['PROJ-8', 'done', 'state'],
+      ['PROJ-9', 'active', 'state'],
+      ['PROJ-12', 'active', 'state'],
+      ['PROJ-30', 'active', null],
+    ],
+  )
+})
+
+test('with no older item, adopting all says so', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(adopt(root, '--all'), { code: 0, stdout: 'No older items.\n', stderr: '' })
+})
+
+test('adopt takes an item or --all, never both, and no other flag', () => {
+  const root = tree(acme({ 'work/PROJ-7.md': OLD_NOTE }))
+
+  assert.equal(adopt(root, 'PROJ-7', '--all').code, 2)
+  assert.equal(adopt(root, 'PROJ-7', '--json').code, 2)
+  assert.equal(existsSync(join(root, 'work/PROJ-7/STATE.md')), false)
+})
+
+test('adopting all goes on past an item it must refuse, names it on the error stream and exits 1', () => {
+  const files = { 'work/PROJ-7.md': OLD_NOTE, 'work/PROJ-8/state.md': '# kept by hand\n', 'work/PROJ-8/README.md': '# PROJ-8: Old shape\n', 'work/PROJ-9.md': '# PROJ-9: Older still\n' }
+  const root = tree(acme(files))
+
+  const result = adopt(root, '--all')
+
+  assert.deepEqual(result, {
+    code: 1,
+    stdout: 'work/PROJ-7/STATE.md\nwork/PROJ-9/STATE.md\n',
+    stderr: "context-central work: work/PROJ-8/state.md has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again\n",
+  })
+})

@@ -30,7 +30,7 @@ interface Listed {
   evidence: Size
 }
 
-export const summary = 'Work items: new <item>, list, done <item>, reopen <item>, adopt <item>'
+export const summary = 'Work items: new <item>, list, done <item>, reopen <item>, adopt <item> or --all'
 
 const ITEM_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const FOLDERS = ['notes', 'sources', EVIDENCE_DIR]
@@ -40,7 +40,7 @@ const ACTIONS: Record<string, Action> = {
   list: { flags: ['json', 'all'] },
   done: { flags: [], needsItem: true },
   reopen: { flags: [], needsItem: true },
-  adopt: { flags: [], needsItem: true },
+  adopt: { flags: ['all'] },
 }
 
 export function run(args: string[], io: Io) {
@@ -50,14 +50,14 @@ export function run(args: string[], io: Io) {
     options: { title: { type: 'string' }, ticket: { type: 'string' }, json: { type: 'boolean' }, all: { type: 'boolean' } },
   })
   const [action, id] = positionals
-  if (!Object.hasOwn(ACTIONS, action ?? '')) throw new UsageError('expected one of: new <item>, list, done <item>, reopen <item>, adopt <item>')
+  if (!Object.hasOwn(ACTIONS, action ?? '')) throw new UsageError('expected one of: new <item>, list, done <item>, reopen <item>, adopt <item> or --all')
   if (ACTIONS[action].needsItem && !id) throw new UsageError(`expected an item: work ${action} <item>`)
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].flags.includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   const estate = requireEstate(io)
   if (action === 'new') return create(estate, id, values, io)
   if (action === 'list') return list(estate, values, io)
-  if (action === 'adopt') return adopt(estate, id, io)
+  if (action === 'adopt') return adopt(estate, id, values.all, io)
   return setStatus(estate, id, action === 'done' ? 'done' : 'active', io)
 }
 
@@ -71,10 +71,28 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   io.out(`${dirRel}/STATE.md`)
 }
 
-function adopt(estate: Estate, id: string, io: Io) {
+function adopt(estate: Estate, id: string | undefined, all: boolean | undefined, io: Io) {
+  if (Boolean(id) === Boolean(all)) throw new UsageError('expected an item or --all: work adopt <item>, or work adopt --all')
+  if (!id) return adoptAll(estate, io)
   const item = findWorkItem(estate, id)
   if (!item) throw new PluginError(`no work item "${id}"`)
   io.out(adopted(estate, item, io.env))
+}
+
+function adoptAll(estate: Estate, io: Io) {
+  const older = listWorkItems(estate).filter(item => item.entry && item.entry.kind !== 'state')
+  if (older.length === 0) return void io.out('No older items.')
+  let refused = 0
+  for (const item of older) {
+    try {
+      io.out(adopted(estate, item, io.env))
+    } catch (error) {
+      if (!(error instanceof PluginError)) throw error
+      io.err(`context-central work: ${error.message}`)
+      refused += 1
+    }
+  }
+  return refused > 0 ? 1 : 0
 }
 
 function adopted(estate: Estate, item: WorkItem, env: Env) {
