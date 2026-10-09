@@ -5,6 +5,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 ## 0.8.1 - 2026-10-09
 
 - **The README shows each step as a diagram.** Eight panels under `docs/`: the five steps of a piece of work and what each writes, one for each of research, prep, design, the build and the checkpoint, one for standards and checks, and one for how a reference is read through a connection. Each sits beside the part of the README it shows.
+- **The opening image is redrawn** as a panel of the same kind. It names the seven skills, where the mind map before it named five.
 - **The walk-through is shorter where a diagram carries it.** The parts of the spec and of the design are tables. The table of steps no longer lists what each step writes, and "How it builds" is three points. "Running it, in order" is gone: "How it works for you" and the table of steps give the order.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
