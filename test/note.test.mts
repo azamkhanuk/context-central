@@ -114,7 +114,7 @@ test('a new standards note has a part for each phase and says where a rule comes
   assert.equal(result.stdout, 'standards/api.md\n')
   assert.equal(
     read(root, 'standards/api.md'),
-    '# api\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n',
+    '# api\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of `api` at `<commit>`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n',
   )
 })
 
