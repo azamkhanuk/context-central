@@ -153,11 +153,9 @@ if [ -z "$cli" ]; then
   installed="\${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json"
   if [ -f "$installed" ]; then
     root=$(node -e '
-      const plugins = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).plugins || {}
-      const key = Object.keys(plugins).find(name => name.startsWith("${PLUGIN}@"))
-      const install = key && [].concat(plugins[key])[0]
-      if (install && install.installPath) console.log(install.installPath)
-    ' "$installed" 2>/dev/null)
+      ${CHOOSE_INSTALL}
+      console.log(choose(process.argv[1], process.argv[2]))
+    ' "$installed" "$0" 2>/dev/null)
     if [ -n "$root" ]; then cli="$root/bin/${PLUGIN}"; fi
   fi
 fi
@@ -175,11 +173,24 @@ const NO_PLUGIN = [
   `${PLUGIN}: the plugin was not found. Add its marketplace with claude plugin marketplace add, then: claude plugin install ${PLUGIN}@${MARKETPLACE}`,
   `Or set CONTEXT_CENTRAL_CLI to the path of its bin/${PLUGIN} file.`,
 ]
+// One text for both launchers: sh wraps it in single quotes and cmd in double, so every string in it is in backticks and it holds no percent sign.
+const CHOOSE_INSTALL = [
+  'const choose = (record, launcher) => { const fs = require(`fs`), path = require(`path`)',
+  'const real = file => { try { return fs.realpathSync.native(file) } catch (error) { return `` } }',
+  `const read = () => { try { const plugins = JSON.parse(fs.readFileSync(record, \`utf8\`)).plugins || {}; return Object.keys(plugins).filter(name => name.startsWith(\`${PLUGIN}@\`)).reduce((all, name) => all.concat(plugins[name]), []).filter(install => install && install.installPath) } catch (error) { return [] } }`,
+  'const installs = read()',
+  'const projects = installs.filter(install => install.projectPath).map(install => [real(install.projectPath), install.installPath])',
+  'const person = installs.find(install => install.scope === `user`)',
+  'let dir = real(launcher)',
+  'while (dir && path.dirname(dir) !== dir) { dir = path.dirname(dir); const own = projects.find(([folder]) => folder === dir); if (own) return own[1] }',
+  'return person ? person.installPath : `` }',
+].join('; ')
 // cmd reads what a program prints in the console code page, which garbles a path outside ASCII, so node finds the bin script and runs it.
 const RUN_BIN_SCRIPT = [
   "const fs = require('fs')",
-  "const [record, ...args] = process.argv.slice(1)",
-  `const installed = () => { try { const plugins = JSON.parse(fs.readFileSync(record, 'utf8')).plugins || {}; const key = Object.keys(plugins).find(name => name.startsWith('${PLUGIN}@')); const install = key && [].concat(plugins[key])[0]; return install && install.installPath ? require('path').join(install.installPath, 'bin', '${PLUGIN}') : '' } catch { return '' } }`,
+  "const [record, launcher, ...args] = process.argv.slice(1)",
+  CHOOSE_INSTALL,
+  `const installed = () => { const root = choose(record, launcher); return root ? require('path').join(root, 'bin', '${PLUGIN}') : '' }`,
   'const isFile = file => { try { return fs.statSync(file).isFile() } catch { return false } }',
   'const cli = process.env.CONTEXT_CENTRAL_CLI || installed()',
   "if (cli && isFile(cli)) process.exit(require('child_process').spawnSync(process.execPath, [cli, ...args], { stdio: 'inherit' }).status ?? 1)",
@@ -194,7 +205,7 @@ export function cmdLauncherTemplate() {
     'where node >nul 2>nul || goto no_node',
     'set "config=%CLAUDE_CONFIG_DIR%"',
     'if not defined config set "config=%USERPROFILE%\\.claude"',
-    `node -e "${RUN_BIN_SCRIPT}" -- "%config%\\plugins\\installed_plugins.json" %*`,
+    `node -e "${RUN_BIN_SCRIPT}" -- "%config%\\plugins\\installed_plugins.json" "%~f0" %*`,
     'exit /b %errorlevel%',
     ':no_node',
     `>&2 echo ${NO_NODE}`,

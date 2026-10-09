@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { acme, disposable, makeTree, notOnWindows, onlyOnWindows, run } from './helpers.mts'
@@ -255,6 +255,82 @@ test('an installed list without this plugin counts as nothing installed', () => 
 
   assert.equal(result.code, 1)
   assert.match(result.stderr, /the plugin was not found/)
+})
+
+type Install = { scope: string, installPath: string, projectPath?: string }
+
+function estateMachine(records: (root: string) => Install[]) {
+  const root = tree(
+    makeTree({
+      'estate/map/bin/context-central': run(['wrapper']).stdout,
+      'estate/map/estate.json': { contextCentral: 1, name: 'acme' },
+      'own/bin/context-central': STUB_CLI,
+      'inner/bin/context-central': STUB_CLI,
+      'other/bin/context-central': STUB_CLI,
+      'person/bin/context-central': STUB_CLI,
+      'elsewhere/.keep': '',
+    }),
+  )
+  mkdirSync(join(root, 'config/plugins'), { recursive: true })
+  writeFileSync(join(root, 'config/plugins/installed_plugins.json'), `${JSON.stringify({ version: 2, plugins: { 'context-central@context-central': records(root) } })}\n`)
+  return root
+}
+
+function started(root: string, launcher = join(root, 'estate/map/bin/context-central'), cwd = root) {
+  const result = spawnSync('sh', [launcher, 'index'], { cwd, encoding: 'utf8', env: { PATH, HOME: join(root, 'home'), CLAUDE_CONFIG_DIR: join(root, 'config') } })
+  return result.status === 0 ? (JSON.parse(result.stdout) as { cli: string }).cli : `exit ${result.status}: ${result.stderr.split('\n')[0]}`
+}
+
+const forOther = (root: string) => ({ scope: 'local', projectPath: join(root, 'elsewhere'), installPath: join(root, 'other') })
+const forEstate = (root: string) => ({ scope: 'project', projectPath: join(root, 'estate'), installPath: join(root, 'own') })
+const forMap = (root: string) => ({ scope: 'local', projectPath: join(root, 'estate/map'), installPath: join(root, 'inner') })
+const forPerson = (root: string) => ({ scope: 'user', installPath: join(root, 'person') })
+const NOT_FOUND_LINE = 'exit 1: context-central: the plugin was not found. Add its marketplace with claude plugin marketplace add, then: claude plugin install context-central@context-central'
+
+test('a launcher starts the copy installed for the project it sits in, though another project is recorded first', () => {
+  const root = estateMachine(root => [forOther(root), forEstate(root), forPerson(root)])
+
+  assert.equal(started(root), join(root, 'own/bin/context-central'))
+})
+
+test('of two projects a launcher sits in, the nearer one is taken', () => {
+  const root = estateMachine(root => [forEstate(root), forMap(root)])
+
+  assert.equal(started(root), join(root, 'inner/bin/context-central'))
+})
+
+test('with no copy for its own project, a launcher starts the one installed for the person', () => {
+  const root = estateMachine(root => [forOther(root), forPerson(root)])
+
+  assert.equal(started(root), join(root, 'person/bin/context-central'))
+})
+
+test("a launcher never starts another project's copy: with no other, the plugin is not found", () => {
+  const root = estateMachine(root => [forOther(root)])
+
+  assert.equal(started(root), NOT_FOUND_LINE)
+})
+
+test('a record of a project folder that is no longer there is passed over, and the rest still count', () => {
+  const gone = (root: string) => ({ scope: 'local', projectPath: join(root, 'removed'), installPath: join(root, 'other') })
+
+  assert.match(started(estateMachine(root => [gone(root), forEstate(root)])), /own[\\/]bin[\\/]context-central$/)
+  assert.match(started(estateMachine(root => [gone(root), forPerson(root)])), /person[\\/]bin[\\/]context-central$/)
+})
+
+test('a launcher goes by where its own file is, not by the folder it is run from', () => {
+  const root = estateMachine(root => [forOther(root), forEstate(root)])
+
+  assert.equal(started(root, join(root, 'estate/map/bin/context-central'), join(root, 'elsewhere')), join(root, 'own/bin/context-central'))
+  assert.equal(started(root, 'context-central', join(root, 'estate/map/bin')), join(root, 'own/bin/context-central'))
+})
+
+test('a launcher reached through a link is followed to its own file', notOnWindows('making a link needs a right that a Windows account may not have'), () => {
+  const root = estateMachine(root => [forOther(root), forEstate(root)])
+  mkdirSync(join(root, 'elsewhere/bin'))
+  symlinkSync(join(root, 'estate/map/bin/context-central'), join(root, 'elsewhere/bin/context-central'))
+
+  assert.equal(started(root, join(root, 'elsewhere/bin/context-central')), join(root, 'own/bin/context-central'))
 })
 
 const CMD = onlyOnWindows('only Windows has cmd and PowerShell to run the cmd launcher')
