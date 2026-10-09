@@ -23,7 +23,7 @@ interface HookAnswer {
   systemMessage?: string
 }
 
-type Handler = (estate: Estate, input: HookInput, env: Env) => HookAnswer | null
+type Handler = (estate: Estate, input: HookInput, env: Env, startDir: string) => HookAnswer | null
 
 export const summary = 'Answer a Claude Code hook: session-start or user-prompt-submit'
 
@@ -51,7 +51,7 @@ function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
   if (!found || inAnotherMap(found, input.cwd)) return null
   try {
     const estate = loadEstate(startDir)!
-    return coverage(estate, startDir) ? handler(estate, input, env) : null
+    return coverage(estate, startDir) ? handler(estate, input, env, startDir) : null
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
     return { systemMessage: `context-central: ${error.message}` }
@@ -71,10 +71,10 @@ function real(path: string) {
   }
 }
 
-function sessionStart(estate: Estate, input: HookInput, env: Env): HookAnswer {
+function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: string): HookAnswer {
   if (input.source === 'clear') resetSession(env, input.session_id)
   if (input.source === 'compact') forgetDelivered(env, input.session_id)
-  const index = buildIndex(estate, { absolute: true })
+  const index = buildIndex(estate, { absolute: true, startDir })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
   return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: truncate(text, CONTEXT_CHARS, CUT) }, ...resumeNotice(estate, input) }
 }

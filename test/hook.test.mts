@@ -31,10 +31,19 @@ test('a forked session is given the index', () => {
   assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'fork' })), acmeIndex(root))
 })
 
-test('a session in a registered repo is covered', () => {
+test("a session in a registered repo is covered, and is given that repo's note after the hub", () => {
   const root = tree(acme())
 
-  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })), acmeIndex(root))
+  const lines = context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })).split('\n')
+
+  assert.equal(lines[2], `Repo web: ${join(root, 'repos/web.md')}`)
+  assert.deepEqual([...lines.slice(0, 2), ...lines.slice(3)], acmeIndex(root).split('\n'))
+})
+
+test('a session started inside a repo that has a standards note is given both', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n' }))
+
+  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })).split('\n')[2], `Repo web: ${join(root, 'repos/web.md')}; standards: ${join(root, 'standards/web.md')}`)
 })
 
 test('outside any map the hooks say nothing', () => {
