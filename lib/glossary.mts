@@ -9,7 +9,7 @@ export interface Term {
 }
 
 const FENCE = /^ *(```|~~~)/
-const BOLD = /^\s*(?:[-*+]\s+|\d+[.)]\s+)?\*\*(.+?)\*\*/
+const BOLD = /^ {0,3}(?:[-*+]\s+|\d+[.)]\s+)?\*\*(.+?)\*\*/
 const HEADING = /^#{1,6}\s+(.+?)\s*$/
 
 export function glossaryPath({ config, estateRoot, mapDir }: Estate) {

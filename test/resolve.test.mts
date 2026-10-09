@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { statSync } from 'node:fs'
+import { chmodSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, notOnWindows, run } from './helpers.mts'
 import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -1006,4 +1006,18 @@ test('a glossary that cannot be read as a file gives no term', () => {
   const root = tree(acme({ 'glossary.md/kept.md': '**Token bucket**: Not a glossary.\n' }))
 
   assert.equal(answer(root, 'token', 'bucket'), null)
+})
+
+test('bold text in an indented code block is no term, and bold text set in by less than four spaces is', () => {
+  const root = tree(acme({ 'glossary.md': '# Glossary\n\n    **Token bucket**: shown as an example.\n\n   **Cut-over**: The day billing moves.\n' }))
+
+  assert.equal(answer(root, 'token', 'bucket'), null)
+  assert.deepEqual(answer(root, 'cut-over'), ['term', 'term:Cut-over', 'defines: Cut-over, line 5'])
+})
+
+test('a node that cannot be read is passed over, and the others that share its identifier are still found', notOnWindows('Windows has no file mode that stops a read'), () => {
+  const root = tree(acme({ 'concepts/ingress.md': '---\naliases: rfc9\n---\n# Ingress\n', 'docs/porch.md': '---\naliases: rfc9\n---\n# Porch\n' }))
+  chmodSync(join(root, 'concepts/ingress.md'), 0o000)
+
+  assert.deepEqual(rels(resolved(root, 'rfc9')), ['docs/porch.md'])
 })
