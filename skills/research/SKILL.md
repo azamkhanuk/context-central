@@ -40,6 +40,8 @@ Done when every claim in the answer carries one mark and its source.
 
 ## 4. Write the note
 
+With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the answer says what the command said. When it adopted the item, the answer says so.
+
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
 

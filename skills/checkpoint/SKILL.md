@@ -8,7 +8,9 @@ Write this session back into the map. The state file is a snapshot a cold sessio
 
 ## 1. Find the item
 
-Run `context-central work list`. If it answers `no context map found`, tell the person there is no map here to write to and stop. Otherwise pick the item this session worked on, then `context-central resolve <item> --absolute` for its state file. If the work has no item and is worth carrying on, create one with `context-central work new <item> --title "<title>"`. If it is not, skip to step 5.
+Run `context-central work list`. If it answers `no context map found`, tell the person there is no map here to write to and stop. Otherwise pick the item this session worked on. If the work has no item and is worth carrying on, create one with `context-central work new <item> --title "<title>"`. If it is not, skip to step 5.
+
+Run `context-central work adopt <item>` before anything is written to the item. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item, skip to step 5 and say in the closing report what it said. Then `context-central resolve <item> --absolute` gives the state file.
 
 ## 2. Establish the facts
 
@@ -53,4 +55,4 @@ Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `B
 
 ## 8. Say what was not recorded
 
-End with the paths written, and anything from the session that was left out and why. Name each glossary entry added or changed and where its meaning came from, each term left for the person to define, and each entry a source disagrees with. Name each standards rule added or changed and who stated it.
+End with the paths written, and anything from the session that was left out and why. Say when this session adopted the item. Name each glossary entry added or changed and where its meaning came from, each term left for the person to define, and each entry a source disagrees with. Name each standards rule added or changed and who stated it.
