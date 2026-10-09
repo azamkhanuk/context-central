@@ -651,3 +651,14 @@ test('adopting all goes on past an item it must refuse, names it on the error st
     stderr: "context-central work: work/PROJ-8/state.md has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again\n",
   })
 })
+
+test('a new work item is refused where notNodes lists its folder, and a state file kept there is left as it is', () => {
+  const kept = '# kept by hand\n'
+  const root = tree(acme({ 'work/secret/STATE.md': kept }, { notNodes: ['work/secret'] }))
+
+  const result = run(['work', 'new', 'secret', '--title', 'Again'], { cwd: root })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central work: work/secret is under a notNodes entry, so a work item made there would never be listed\n' })
+  assert.equal(read(root, 'work/secret/STATE.md'), kept)
+  assert.deepEqual(readdirSync(join(root, 'work/secret')), ['STATE.md'])
+})

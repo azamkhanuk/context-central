@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util'
 import { listed, ticketOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems, makeFolder } from '../nodes.mts'
+import { EVIDENCE_DIR, findWorkItem, inFlight, leftOut, listWorkItems, makeFolder } from '../nodes.mts'
 import { pointedTo } from '../resolve.mts'
 import { stateTemplate } from '../templates.mts'
 import { formatBytes, localDate, plural, setFrontmatter } from '../text.mts'
@@ -66,8 +66,9 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one word with no double quote in it and no dash at its start, for example PROJ-12, #41 or a link')
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
+  if (leftOut(estate.config, dirRel)) throw new PluginError(`${dirRel} is under a notNodes entry, so a work item made there would never be listed`)
   for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
-  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
+  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })), { flag: 'wx' })
   io.out(`${dirRel}/STATE.md`)
 }
 
