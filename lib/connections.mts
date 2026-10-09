@@ -52,6 +52,7 @@ export interface Pinned {
   active: string[]
   runs: boolean
   program: string
+  runAs: string
   signIn: string
 }
 
@@ -218,7 +219,13 @@ export function pinnedAccount(connection: Connection, env: Env): Pinned | null {
     .filter(account => account.active)
     .map(account => account.user)
   const runs = active.some(user => user.toLowerCase() === pin.account.toLowerCase())
-  return { account: pin.account, active, runs, program: pin.preset.program, signIn: pin.accounts.signIn(pin.account, parametersOf(connection), active) }
+  const parameters = parametersOf(connection)
+  const { runAs, signIn } = pin.accounts
+  return { account: pin.account, active, runs, program: pin.preset.program, runAs: runAs(pin.account, parameters), signIn: signIn(pin.account, parameters, active) }
+}
+
+export function readAs({ name }: Connection, { account, active, runAs }: Pinned) {
+  return `fetch reads ${name} as ${account}${active.length > 0 ? ` while ${active.join(' and ')} is active` : ''}; ${runAs}`
 }
 
 export function notRunningAs({ name }: Connection, { account, program, signIn }: Pinned) {
@@ -228,15 +235,6 @@ export function notRunningAs({ name }: Connection, { account, program, signIn }:
 function pinOf({ entry }: Connection, env: Env) {
   const preset = presetNamed(entry.preset)
   return entry.account && preset?.accounts && onPath(preset.program, env) ? { account: entry.account, preset, accounts: preset.accounts } : null
-}
-
-export function accountFault({ entry }: Connection, env: Env) {
-  const preset = presetNamed(entry.preset)
-  if (!entry.account || !preset?.accounts || !onPath(preset.program, env)) return null
-  const active = accountsOf(preset, env)
-    .filter(account => account.active)
-    .map(account => account.user.toLowerCase())
-  return active.includes(entry.account.toLowerCase()) ? null : preset.accounts.fix(entry.account)
 }
 
 function patternsOf(connection: Connection) {

@@ -90,12 +90,11 @@ export default {
     args: ['auth', 'status'],
     read: accountsIn,
     token: (wanted, entry) => ({ args: ['auth', 'token', '--user', wanted, ...hostFlag(entry)], variable: tokenVariable(entry) }),
+    runAs: (wanted, entry) => `start a gh command of your own with ${tokenVariable(entry)}=$(gh auth token${onHost(entry)} --user ${wanted}) in front of it, and that command alone runs as ${wanted}`,
     signIn: (wanted, entry, [former]) => {
-      const host = hostFlag(entry).map(word => ` ${word}`).join('')
-      const back = former ? `; that makes it the active account, and gh auth switch${host} --user ${former} puts ${former} back` : ''
-      return `sign ${wanted} in with gh auth login${host}${back}`
+      const back = former ? `; that makes it the active account, and gh auth switch${onHost(entry)} --user ${former} puts ${former} back` : ''
+      return `sign ${wanted} in with gh auth login${onHost(entry)}${back}`
     },
-    fix: wanted => `the active gh account is not ${wanted}; run gh auth switch --user ${wanted}, or start each gh command with GH_TOKEN=$(gh auth token --user ${wanted})`,
   },
   onOldMaps: { accountKey: 'ghUser', unasked: true },
 } satisfies PresetBody
@@ -122,6 +121,12 @@ function tokenVariable(entry: Entry) {
 
 function hostFlag({ host }: Entry) {
   return typeof host === 'string' && host ? ['--hostname', host] : []
+}
+
+function onHost(entry: Entry) {
+  return hostFlag(entry)
+    .map(word => ` ${word}`)
+    .join('')
 }
 
 function repoAt({ host, org }: Entry) {

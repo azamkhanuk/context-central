@@ -34,6 +34,17 @@ github.com
   ✓ Logged in to github.com account acme-bot (keyring)
   - Active account: false
 OUT`
+const GH_HOLDS_ACME_BOT = `if [ "$1 $2" = "auth token" ]; then echo word-for-the-pinned-account; exit 0; fi
+${GH_ACTIVE_SOMEONE_ELSE}`
+const GH_WITH_THE_NETWORK_CUT = `if [ "$1 $2" = "auth token" ]; then echo word-for-the-pinned-account; exit 0; fi
+/bin/cat <<'OUT'
+github.com
+  X Failed to log in to github.com account acme-bot (keyring)
+  - Active account: true
+OUT
+exit 1`
+const RUN_AS_ACME_BOT = 'start a gh command of your own with GH_TOKEN=$(gh auth token --user acme-bot) in front of it, and that command alone runs as acme-bot'
+const signInAs = (account: string) => `sign ${account} in with gh auth login; that makes it the active account, and gh auth switch --user someone-else puts someone-else back`
 const GH_BEFORE_ACCOUNT_SWITCHING = `/bin/cat <<'OUT' >&2
 github.com
   ✓ Logged in to github.com as acme-bot (oauth_token)
@@ -340,14 +351,52 @@ test('the configured gh account being the active one is fine', NEEDS_STAND_IN, (
   assert.equal(result.code, 0)
 })
 
-test('a different active gh account is a fix that gives the token prefix', NEEDS_STAND_IN, () => {
+test('a pinned gh account that gh neither runs as nor holds is a fix that says how to sign it in and put the other back', NEEDS_STAND_IN, () => {
   const root = tree(acme({}, GITHUB_AS_BOT))
+
+  const result = doctor(root, sandbox({ gh: GH_ACTIVE_SOMEONE_ELSE }))
+
+  assert.equal(connectionsLine(result), `FIX  connections: github is pinned to acme-bot, and gh does not run as it here; ${signInAs('acme-bot')}`)
+  assert.equal(result.code, 1)
+})
+
+test('a pinned gh account that gh holds while another is active is a note, and no fault', NEEDS_STAND_IN, () => {
+  const root = tree(acme({}, GITHUB_AS_BOT))
+
+  const result = doctor(root, sandbox({ gh: GH_HOLDS_ACME_BOT }))
+
+  assert.equal(connectionsLine(result), `note connections: fetch reads github as acme-bot while someone-else is active; ${RUN_AS_ACME_BOT}`)
+  assert.equal(result.code, 0)
+})
+
+test('with the network cut, gh names nobody as logged in, and the pinned account it holds is still a note', NEEDS_STAND_IN, () => {
+  const root = tree(acme({}, GITHUB_AS_BOT))
+
+  const result = doctor(root, sandbox({ gh: GH_WITH_THE_NETWORK_CUT }))
+
+  assert.equal(connectionsLine(result), `note connections: fetch reads github as acme-bot; ${RUN_AS_ACME_BOT}`)
+  assert.equal(result.code, 0)
+})
+
+test('of two connections pinned to two accounts, the one gh runs as is passed over and the one it holds is noted', NEEDS_STAND_IN, () => {
+  const connections = { code: { holds: 'pull-requests', preset: 'github', account: 'acme-bot' }, issues: { holds: 'tickets', preset: 'github', account: 'someone-else' } }
+  const root = tree(acme({}, { connections }))
+
+  const result = doctor(root, sandbox({ gh: GH_HOLDS_ACME_BOT }))
+
+  assert.equal(connectionsLine(result), `note connections: fetch reads code as acme-bot while someone-else is active; ${RUN_AS_ACME_BOT}`)
+  assert.equal(result.code, 0)
+})
+
+test('two pinned accounts that gh cannot run as are one fix that names both connections', NEEDS_STAND_IN, () => {
+  const connections = { code: { holds: 'pull-requests', preset: 'github', account: 'acme-deploy' }, issues: { holds: 'tickets', preset: 'github', account: 'acme-ops' } }
+  const root = tree(acme({}, { connections }))
 
   const result = doctor(root, sandbox({ gh: GH_ACTIVE_SOMEONE_ELSE }))
 
   assert.equal(
     connectionsLine(result),
-    'FIX  connections: the active gh account is not acme-bot; run gh auth switch --user acme-bot, or start each gh command with GH_TOKEN=$(gh auth token --user acme-bot)',
+    `FIX  connections: code is pinned to acme-deploy, and gh does not run as it here; ${signInAs('acme-deploy')}; issues is pinned to acme-ops, and gh does not run as it here; ${signInAs('acme-ops')}`,
   )
   assert.equal(result.code, 1)
 })
@@ -373,7 +422,7 @@ test('a gh from before account switching, logged in as someone else, is a fix', 
 
   const result = doctor(root, sandbox({ gh: GH_BEFORE_ACCOUNT_SWITCHING }))
 
-  assert.match(result.stdout, /^FIX {2}connections: the active gh account is not acme-deploy;/m)
+  assert.match(result.stdout, /^FIX {2}connections: github is pinned to acme-deploy, and gh does not run as it here; sign acme-deploy in with gh auth login;/m)
 })
 
 test('a gh account in the config is a GitHub connection even when no code host type is given', () => {

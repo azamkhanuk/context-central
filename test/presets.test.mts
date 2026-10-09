@@ -38,12 +38,12 @@ const DESK = `export default {
   accounts: {
     args: ['whoami'],
     read: printed => printed.split('\\n').filter(Boolean).map(line => ({ user: line.replace(/^\\* /, ''), active: line.startsWith('* ') })),
-    fix: wanted => 'the active desk account is not ' + wanted + '; run acmedesk login ' + wanted,
+    runAs: wanted => 'start an acmedesk command of your own with DESK_TOKEN=$(acmedesk token ' + wanted + ') in front of it',
     signIn: (wanted, entry, active) => 'sign it in with acmedesk login ' + wanted + (active.length > 0 ? ', then acmedesk login ' + active[0] + ' puts ' + active[0] + ' back' : ''),
   },
 }
 `
-const DESK_WITH_TOKEN = DESK.replace("    fix: wanted", "    token: (wanted, entry) => ({ args: ['token', wanted, ...(entry.board ? ['--board', entry.board] : [])], variable: 'DESK_TOKEN' }),\n    fix: wanted")
+const DESK_WITH_TOKEN = DESK.replace("    runAs: wanted", "    token: (wanted, entry) => ({ args: ['token', wanted, ...(entry.board ? ['--board', entry.board] : [])], variable: 'DESK_TOKEN' }),\n    runAs: wanted")
 const DESK_STAND_IN = `#!/bin/sh
 here="\${0%/*}"
 if [ "$1" = whoami ]; then
@@ -396,11 +396,25 @@ test('doctor is content with a connection whose preset program is on the PATH', 
   assert.equal(doctorLine(connected(), deskOnPath()), 'ok   connections')
 })
 
-test("a pinned account that is not the active one is a fault, said in the preset's words", NEEDS_STAND_IN, () => {
+test("a pinned account the tool does not run as is a fault, said in the preset's words", NEEDS_STAND_IN, () => {
   const result = runIn(withDesk(), ['doctor'], { cwd: connected(BOT), env: { PATH: deskAnswering(TICKET_TEXT, '* dev-one\nacme-bot\n') } })
 
-  assert.equal(result.stdout.split('\n').find(line => line.includes('connections')), 'FIX  connections: the active desk account is not acme-bot; run acmedesk login acme-bot')
+  assert.equal(
+    result.stdout.split('\n').find(line => line.includes('connections')),
+    'FIX  connections: desk is pinned to acme-bot, and acmedesk does not run as it here; sign it in with acmedesk login acme-bot, then acmedesk login dev-one puts dev-one back',
+  )
   assert.equal(result.code, 1)
+})
+
+test("a pinned account the tool holds while another is active is noted, with the preset's way to run one command as it", NEEDS_STAND_IN, () => {
+  const env = { HOME: tree(makeTree({ '.keep': '' })), PATH: [deskHolding('acme-bot\n'), '/usr/bin', '/bin'].join(delimiter) }
+
+  const result = runIn(TOKEN_PLUGIN, ['doctor'], { cwd: connected(BOT), env })
+
+  assert.equal(
+    result.stdout.split('\n').find(line => line.includes('connections')),
+    'note connections: fetch reads desk as acme-bot while dev-one is active; start an acmedesk command of your own with DESK_TOKEN=$(acmedesk token acme-bot) in front of it',
+  )
 })
 
 test('a pinned account that is the active one, whatever its letter case, is fine', NEEDS_STAND_IN, () => {

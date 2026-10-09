@@ -3,7 +3,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
-import { accountFault, listed, reachOf, whyNotStarted } from '../connections.mts'
+import { listed, notRunningAs, pinnedAccount, pinnedToken, reachOf, readAs, whyNotStarted } from '../connections.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
@@ -171,11 +171,18 @@ function hooks(estate: Estate, io: Io) {
 
 function connections(estate: Estate, io: Io): Finding {
   const found = listed(estate.config.connections)
-  const fault = found.map(connection => accountFault(connection, io.env)).find(Boolean)
-  if (fault) return fault
+  const pins = found.map(connection => pinFinding(connection, io.env))
+  const faults = pins.flatMap(pin => (pin?.fix ? [pin.fix] : []))
+  if (faults.length > 0) return faults.join('; ')
   if (found.length === 0) return { note: NONE_RECORDED }
-  const notes = found.flatMap(connection => notesOn(connection, io.env))
+  const notes = [...pins.flatMap(pin => (pin?.note ? [pin.note] : [])), ...found.flatMap(connection => notesOn(connection, io.env))]
   return notes.length > 0 ? { note: notes.join('; ') } : null
+}
+
+function pinFinding(connection: Connection, env: Env): { fix?: string; note?: string } | null {
+  const pinned = pinnedAccount(connection, env)
+  if (!pinned || pinned.runs) return null
+  return pinnedToken(connection, env) ? { note: readAs(connection, pinned) } : { fix: notRunningAs(connection, pinned) }
 }
 
 function notesOn(connection: Connection, env: Env) {
