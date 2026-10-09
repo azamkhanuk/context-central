@@ -7,7 +7,7 @@ import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-type Pointer = { rel: string, why: string }
+type Pointer = { rel: string, path: string, why: string }
 type Resolution = {
   by: unknown
   key: unknown
@@ -859,6 +859,34 @@ test('a repo note the limit leaves out brings no standards note, and one shown b
   assert.equal(cut.more, 1)
   assert.deepEqual(rels(whole).slice(7), ['repos/api.md', 'standards/api.md'])
   assert.equal(whole.more, 0)
+})
+
+test('in a root-layout estate a link from a repo note to a file of a repo is listed', () => {
+  const root = tree(acme({ 'repos/web.md': '# web\n\nSee [the readme](../web/README.md).\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'web')), ['repos/web.md', 'web/README.md'])
+})
+
+test('in a map kept inside a repo, a link into the repo is listed, and one that leaves the estate or reaches the hub is not', () => {
+  const root = tree(
+    makeTree({
+      'repo/.context-central/estate.json': { contextCentral: 1, name: 'inner', repos: [{ name: 'inner', path: '.' }] },
+      'repo/CLAUDE.md': '# Inner\n',
+      'repo/.context-central/repos/inner.md': '# inner\n\nSee [[concepts/core]], [the readme](../../lib/README.md), [the hub](../../CLAUDE.md) and [outside](../../../outside.md).\n',
+      'repo/.context-central/concepts/core.md': '# Core\n',
+      'repo/lib/README.md': '# lib\n',
+      'outside.md': '# Outside\n',
+    }),
+  )
+
+  const result = resolved(join(root, 'repo'), 'inner')
+
+  assert.deepEqual(result.pointers.map(({ rel, why }) => [rel, why]), [
+    ['repos/inner.md', 'repo note'],
+    ['concepts/core.md', 'linked from the repo note'],
+    ['../lib/README.md', 'linked from the repo note'],
+  ])
+  assert.equal(result.pointers[2].path, join(root, 'repo', 'lib', 'README.md'))
 })
 
 test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {

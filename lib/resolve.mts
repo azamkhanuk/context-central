@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, posix, relative, sep } from 'node:path'
+import { join, posix, relative, resolve as resolvePath, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
@@ -455,8 +455,13 @@ function standardsNote(estate: Estate, name: string) {
 function linkedFrom(estate: Estate, node: NodeText) {
   const hub = relative(estate.mapDir, hubPath(estate)).split(sep).join('/')
   return [...new Set(node.links)]
-    .filter(rel => rel !== node.rel && rel !== hub && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
+    .filter(rel => rel !== node.rel && rel !== hub && insideEstate(estate, rel) && !rel.startsWith('log/') && !isDeep(estate.config, rel))
     .sort((a, b) => rank(a) - rank(b))
+}
+
+function insideEstate({ estateRoot, mapDir }: Estate, rel: string) {
+  const path = resolvePath(mapDir, rel)
+  return path === estateRoot || path.startsWith(estateRoot + sep)
 }
 
 function rank(rel: string) {
