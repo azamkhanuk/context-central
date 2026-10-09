@@ -245,6 +245,28 @@ for (const source of ['compact', 'resume']) {
   })
 }
 
+test('after a compaction a pointer given before is given again, and the active item is kept', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  const compacted = fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
+  const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  assert.equal(context(compacted), `${acmeIndex(root)}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}`)
+  assert.equal(context(again), acmePointers(root))
+})
+
+test('after a resume a pointer given before is still held back', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  fire('session-start', { session_id: 's1', cwd: root, source: 'resume' }, env)
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env))
+})
+
 test('a new session does not carry the state file even when an item is active', () => {
   const root = tree(acme())
   const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
