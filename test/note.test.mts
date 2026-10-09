@@ -118,6 +118,16 @@ test('a new standards note has a part for each phase and says where a rule comes
   )
 })
 
+test('a standards note made with a title still names the repo on its commit line', () => {
+  const root = tree(acme())
+
+  note(root, ['--new', 'standards/web', '--title', 'The web front end'])
+
+  const text = read(root, 'standards/web.md')
+  assert.ok(text.startsWith('# The web front end\n'))
+  assert.ok(text.includes('The lines are those of `web` at `<commit>`, on <date>.'))
+})
+
 test('a new edge note is a table of crossings, each marked verified or inferred', () => {
   const root = tree(acme())
 
