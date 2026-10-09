@@ -78,8 +78,12 @@ export function truncate(text: string, max: number, suffix = '') {
   return (lastBreak > 0 ? room.slice(0, lastBreak) : room) + suffix
 }
 
+export function clock(env: Env) {
+  return env.CONTEXT_CENTRAL_NOW ? new Date(env.CONTEXT_CENTRAL_NOW) : new Date()
+}
+
 export function localDate(env: Env) {
-  const now = env.CONTEXT_CENTRAL_NOW ? new Date(env.CONTEXT_CENTRAL_NOW) : new Date()
+  const now = clock(env)
   const pad = (number: number) => String(number).padStart(2, '0')
   const month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
   return { month, day: `${month}-${pad(now.getDate())}` }

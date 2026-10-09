@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mts'
@@ -522,4 +522,62 @@ test('a short prompt that is a term of the glossary is given the glossary, once 
   assert.equal(context(ask('what is the rate limit?')), ['Context for "what is the rate limit?":', `- ${join(root, 'glossary.md')} (${Buffer.byteLength(TERMS)} B) defines: Rate limit, line 3`].join('\n'))
   silent(ask('rate limit'))
   silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}rate limit` }))
+})
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const TEST_CLOCK = Date.parse('2026-01-15T12:00:00Z')
+
+function aged(path: string, days: number) {
+  const then = new Date(TEST_CLOCK - days * DAY_MS)
+  utimesSync(path, then, then)
+}
+
+function recordsAged(days: { [name: string]: number }) {
+  const temp = tree(makeTree({}))
+  const dir = join(temp, 'context-central')
+  mkdirSync(dir)
+  for (const [name, age] of Object.entries(days)) {
+    writeFileSync(join(dir, name), '{"delivered":[],"active":null}\n')
+    aged(join(dir, name), age)
+  }
+  return { dir, env: { TMPDIR: temp, TEMP: temp, TMP: temp } }
+}
+
+test('saving a record removes the records no session has used for fourteen days, and nothing else', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 'old.json': 15, 'recent.json': 13, 'young.json': 1, 'kept.txt': 30 })
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['kept.txt', 'recent.json', 's1.json', 'young.json'])
+})
+
+test("a prompt keeps its session's record from the sweep, though it gets no answer", () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 's1.json': 15, 's2.json': 15 })
+
+  silent(hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what time is it' }, { env }))
+  hook('user-prompt-submit', { session_id: 's3', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['s1.json', 's3.json'])
+})
+
+test('a folder of records named by CONTEXT_CENTRAL_STATE_DIR is never swept', () => {
+  const root = tree(acme())
+  const { dir } = recordsAged({ 'old.json': 15 })
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env: { CONTEXT_CENTRAL_STATE_DIR: dir } })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['old.json', 's1.json'])
+})
+
+test('a sweep that cannot remove something still lets the hook answer, and says nothing', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({})
+  mkdirSync(join(dir, 'stuck.json'))
+  aged(join(dir, 'stuck.json'), 15)
+
+  const result = hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual([result.code, result.stderr, context(result)], [0, '', acmePointers(root)])
 })

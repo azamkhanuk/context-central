@@ -4,7 +4,7 @@ import { coverage, findEstate, loadEstate } from '../estate.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
 import { formatPointers, formatUnanswered, resolveQuery, unansweredIn } from '../resolve.mts'
-import { loadSession, resetSession, saveSession } from '../session.mts'
+import { loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
@@ -98,6 +98,7 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   // A pasted log or diff matches notes and titles by chance, so only a short prompt is matched on its words.
   const short = input.prompt.length <= estate.config.budgets.hookTextChars
   const session = loadSession(env, input.session_id)
+  touchSession(env, input.session_id)
   const isNew = ({ key }: { key: string }) => !session.delivered.includes(key)
   const resolution = [resolveQuery(estate, input.prompt, { plainWords: short })].filter(found => found !== null).filter(isNew)
   const unanswered = short ? unansweredIn(estate, input.prompt, session.delivered) : []
