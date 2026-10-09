@@ -121,6 +121,10 @@ export function formatPointers(resolution: Resolution, { absolute = false }: { a
   return lines.join('\n')
 }
 
+export function isReferenceKey(key: string) {
+  return key.startsWith('reference:')
+}
+
 export function unansweredIn(estate: Estate, query: string, told: string[] = []): Unanswered[] {
   const tickets = holding(listed(estate.config.connections), TICKETS)
   if (tickets.length === 0) return []

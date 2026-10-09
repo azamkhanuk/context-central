@@ -57,10 +57,11 @@ function sweep(saved: string, before: number) {
   }
 }
 
-export function forgetDelivered(env: Env, id: unknown) {
+export function forgetDelivered(env: Env, id: unknown, keep: (key: string) => boolean) {
   const file = recordPath(env, id)
   if (!file || !existsSync(file)) return
-  saveSession(env, id, { delivered: [], active: loadSession(env, id).active })
+  const held = loadSession(env, id)
+  saveSession(env, id, { delivered: held.delivered.filter(keep), active: held.active })
 }
 
 export function resetSession(env: Env, id: unknown) {

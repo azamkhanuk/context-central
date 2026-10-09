@@ -254,6 +254,15 @@ for (const source of ['compact', 'resume']) {
   })
 }
 
+test('after a compaction a ticket said to have no work item is not said again', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-99' }, env)
+  fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-99' }, env))
+})
+
 test('after a compaction a pointer given before is given again', () => {
   const root = tree(acme())
   const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
