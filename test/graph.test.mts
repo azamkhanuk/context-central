@@ -162,6 +162,19 @@ test('a hub outside the note folders saves the notes it links to by relative pat
   assert.doesNotMatch(graph(root).stdout, /ORPHAN repos\/web\.md/)
 })
 
+test("in a map inside a repo, a note's link to a file of the repo is checked like any other link", () => {
+  const root = tree(
+    makeTree({
+      '.context-central/estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.' }] },
+      '.context-central/repos/solo.md': '# solo\n\nSee [the readme](../../lib/README.md) and [gone](../../lib/gone.md).\n',
+      'CLAUDE.md': '# Solo\n\nStart at [solo](.context-central/repos/solo.md).\n',
+      'lib/README.md': '# lib\n',
+    }),
+  )
+
+  assert.equal(graph(root).stdout, '1 node, 1 link\nBROKEN repos/solo.md -> ../../lib/gone.md\n')
+})
+
 test("in a map inside a repo, the hub's relative links are read from the repo's root", () => {
   const root = tree(
     makeTree({
