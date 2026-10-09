@@ -5,6 +5,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 ## 0.8.2 - 2026-10-10
 
 - **The opening image of the README is redrawn** as one diagram of the whole loop: the connections that bring tickets, pull requests and threads into the map, the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
+- **Every image is drawn at the README's own width.** The opening image and the eight panels that 0.8.1 added were drawn twice as wide as the page shows them, so their text came out at about half the size of the text around it. They are redrawn 880 pixels wide, with text at about the size of the README's own.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
 ## 0.8.1 - 2026-10-09
