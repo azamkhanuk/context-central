@@ -67,16 +67,25 @@ export function decisionTemplate(number: string, title: string) {
   return `# ${number}: ${title}\n\n## Context\n\n## Decision\n\n## Consequences\n`
 }
 
-export function stateTemplate(id: string, title: string, ticket: string | null = null) {
+export interface Adopted {
+  status: string
+  day: string
+  older: string | null
+  linked: string[]
+}
+
+export function stateTemplate(id: string, title: string, ticket: string | null = null, from: Adopted | null = null) {
+  const stands = from?.older ? `\nAdopted on ${from.day}. What is known of this item is in its older entry file, ${link(from.older)}, which is left as it was.\n` : ''
+  const detail = from?.older ? [`- Older entry file: ${link(from.older)}.`, ...from.linked.map(path => `- It pointed to ${link(path)}.`), ''].join('\n') : ''
   return `---
 item: ${id}
 title: ${title}
-status: active
+status: ${from?.status ?? 'active'}
 ${ticket ? `ticket: "${ticket}"\n` : ''}---
 # ${id}: ${title}
 
 ## Where it stands
-
+${stands}
 ## Done
 
 ## Next
@@ -87,10 +96,15 @@ ${ticket ? `ticket: "${ticket}"\n` : ''}---
 
 ## Where the detail lives
 
-- Spec: \`SPEC.md\` beside this file, once written.
+${detail}- Spec: \`SPEC.md\` beside this file, once written.
 - Notes: \`notes/\`. Full text of tickets, PRs, threads and meetings: \`sources/\`.
 - Evidence that is not text (screenshots, recordings, exports): \`evidence/\`, each file named in a note.
 `
+}
+
+function link(path: string) {
+  const target = path.replace(/[\s()#%]/g, char => (char === '(' || char === ')' ? `%${char.charCodeAt(0).toString(16)}` : encodeURIComponent(char)))
+  return `[${path.replace(/^(\.\.\/)+/, '')}](${target})`
 }
 
 export function glossaryTemplate() {

@@ -192,6 +192,31 @@ test('an entry file that is not a state file is called an entry note', () => {
   )
 })
 
+test("a state file that links its item's older entry file has that file listed straight after it", () => {
+  const state = '# PROJ-9: Split the portal\n\nSee [[concepts/gateway]] and [where it began](00-START-HERE.md).\n'
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': state, 'work/PROJ-9/00-START-HERE.md': '# Start here\n' }))
+
+  const resolution = resolved(root, 'PROJ-9')
+
+  assert.deepEqual(
+    resolution.pointers.map(pointer => [pointer.rel, pointer.why]),
+    [
+      ['work/PROJ-9/STATE.md', 'state file: where the work stands and what is next'],
+      ['work/PROJ-9/00-START-HERE.md', 'older entry file of the work item'],
+      ['concepts/gateway.md', 'linked from the work item'],
+    ],
+  )
+})
+
+test('an older entry file the state file does not link stays among the other notes of the item', () => {
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': '# PROJ-9: Split the portal\n', 'work/PROJ-9/00-START-HERE.md': '# Start here\n' }))
+
+  const resolution = resolved(root, 'PROJ-9')
+
+  assert.deepEqual(rels(resolution), ['work/PROJ-9/STATE.md'])
+  assert.deepEqual(resolution.notes, { count: 1, bytes: 13, rel: 'work/PROJ-9', path: join(root, 'work/PROJ-9') })
+})
+
 test('linked notes are ranked by kind, with the log and the deep tier left out', () => {
   const root = tree(acme(RANKED_FILES))
 

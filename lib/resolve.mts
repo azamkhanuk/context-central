@@ -6,7 +6,7 @@ import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds }
 import { formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
-import type { MapFile, Node, NodeText, WorkItem } from './nodes.mts'
+import type { MapFile, Node, NodeRef, NodeText, WorkItem } from './nodes.mts'
 
 export interface Pointer extends MapFile {
   why: string
@@ -109,6 +109,11 @@ export function unansweredIn(estate: Estate, query: string, told: string[] = [])
 
 export function formatUnanswered({ text, connection }: Unanswered) {
   return `${text} reads as a ticket of connection ${connection}. No work item answers to it.`
+}
+
+export function pointedTo(estate: Estate, entry: NodeRef) {
+  const { linked, named } = behind(estate, readNode(estate, entry))
+  return [...linked, ...named]
 }
 
 function resolution({ by, key, item = null, name = null, label, pointers, more, notes = null, deep = null, evidence = null }: Pick<Resolution, 'by' | 'key' | 'label' | 'pointers' | 'more'> & Partial<Resolution>): Resolution {
@@ -264,13 +269,15 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
   if (!item.entry) return null
   const entry = readNode(estate, item.entry)
   const specRel = `${item.dirRel}/SPEC.md`
+  const olderRel = item.older && entry.links.includes(item.older.rel) ? item.older.rel : null
   const lead = [
     pointer(estate, entry.rel, item.entry.kind === 'state' ? 'state file: where the work stands and what is next' : 'entry note of the work item'),
     ...(item.files.some(file => file.rel === specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
-  const linked = linkedFrom(estate, entry).filter(rel => rel !== specRel)
-  const named = namedRepoNotes(estate, entry.text).filter(rel => rel !== entry.rel && !linked.includes(rel))
-  const rest = [...linked.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
+  const { linked, named } = behind(estate, entry)
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel)
+  const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
   return resolution({
     by,
@@ -283,6 +290,11 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
     deep: deepTier(estate, item),
     evidence: evidenceOf(estate, item),
   })
+}
+
+function behind(estate: Estate, entry: NodeText) {
+  const linked = linkedFrom(estate, entry)
+  return { linked, named: namedRepoNotes(estate, entry.text).filter(rel => rel !== entry.rel && !linked.includes(rel)) }
 }
 
 function otherNotes(estate: Estate, item: WorkItem, pointers: Pointer[]): Counted | null {

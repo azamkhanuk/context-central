@@ -1,15 +1,16 @@
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, ticketOf } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, listWorkItems, makeFolder } from '../nodes.mts'
+import { pointedTo } from '../resolve.mts'
 import { stateTemplate } from '../templates.mts'
-import { formatBytes, plural, setFrontmatter } from '../text.mts'
-import type { Io } from '../cli.mts'
+import { formatBytes, localDate, plural, setFrontmatter } from '../text.mts'
+import type { Env, Io } from '../cli.mts'
 import type { Estate } from '../estate.mts'
-import type { EntryFile, FileGroup, MapFile } from '../nodes.mts'
+import type { EntryFile, FileGroup, MapFile, WorkItem } from '../nodes.mts'
 
 interface Action {
   flags: string[]
@@ -29,15 +30,17 @@ interface Listed {
   evidence: Size
 }
 
-export const summary = 'Work items: new <item>, list, done <item>, reopen <item>'
+export const summary = 'Work items: new <item>, list, done <item>, reopen <item>, adopt <item>'
 
 const ITEM_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const FOLDERS = ['notes', 'sources', EVIDENCE_DIR]
 const TICKET = /^[^\s"\p{Cc}-][^\s"\p{Cc}]*$/u
 const ACTIONS: Record<string, Action> = {
   new: { flags: ['title', 'ticket'] },
   list: { flags: ['json', 'all'] },
   done: { flags: [], needsItem: true },
   reopen: { flags: [], needsItem: true },
+  adopt: { flags: [], needsItem: true },
 }
 
 export function run(args: string[], io: Io) {
@@ -47,13 +50,14 @@ export function run(args: string[], io: Io) {
     options: { title: { type: 'string' }, ticket: { type: 'string' }, json: { type: 'boolean' }, all: { type: 'boolean' } },
   })
   const [action, id] = positionals
-  if (!Object.hasOwn(ACTIONS, action ?? '')) throw new UsageError('expected one of: new <item>, list, done <item>, reopen <item>')
+  if (!Object.hasOwn(ACTIONS, action ?? '')) throw new UsageError('expected one of: new <item>, list, done <item>, reopen <item>, adopt <item>')
   if (ACTIONS[action].needsItem && !id) throw new UsageError(`expected an item: work ${action} <item>`)
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].flags.includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   const estate = requireEstate(io)
   if (action === 'new') return create(estate, id, values, io)
   if (action === 'list') return list(estate, values, io)
+  if (action === 'adopt') return adopt(estate, id, io)
   return setStatus(estate, id, action === 'done' ? 'done' : 'active', io)
 }
 
@@ -62,9 +66,41 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one word with no double quote in it and no dash at its start, for example PROJ-12, #41 or a link')
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
-  for (const folder of ['notes', 'sources', EVIDENCE_DIR]) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
+  for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
   writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
   io.out(`${dirRel}/STATE.md`)
+}
+
+function adopt(estate: Estate, id: string, io: Io) {
+  const item = findWorkItem(estate, id)
+  if (!item) throw new PluginError(`no work item "${id}"`)
+  io.out(adopted(estate, item, io.env))
+}
+
+function adopted(estate: Estate, item: WorkItem, env: Env) {
+  const already = `${item.id} has a state file already`
+  if (item.entry?.kind === 'state') return already
+  const stateRel = `${item.dirRel}/STATE.md`
+  const inTheWay = namesIn(join(estate.mapDir, item.dirRel)).find(name => name !== 'STATE.md' && name.toLowerCase() === 'state.md')
+  if (inTheWay) throw new PluginError(`${item.dirRel}/${inTheWay} has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again`)
+  for (const folder of FOLDERS) makeFolder(estate.mapDir, `${item.dirRel}/${folder}`)
+  const fromFolder = (rel: string) => posix.relative(item.dirRel, rel)
+  const from = { status: item.status, day: localDate(env).day, older: item.entry ? fromFolder(item.entry.rel) : null, linked: item.entry ? pointedTo(estate, item.entry).map(fromFolder) : [] }
+  try {
+    writeFileSync(join(estate.mapDir, stateRel), stateTemplate(item.id, item.title, ticketOf(listed(estate.config.connections), item), from), { flag: 'wx' })
+  } catch (error) {
+    if (findWorkItem(estate, item.id)?.entry?.kind === 'state') return already
+    throw new PluginError(`${stateRel} could not be written: ${(error as Error).message}`)
+  }
+  return stateRel
+}
+
+function namesIn(dir: string) {
+  try {
+    return readdirSync(dir)
+  } catch {
+    return []
+  }
 }
 
 function list(estate: Estate, { json, all }: { json?: boolean; all?: boolean }, io: Io) {

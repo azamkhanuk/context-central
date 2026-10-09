@@ -50,6 +50,7 @@ interface WorkItemBody {
   title: string
   status: string
   ticket: string | null
+  older: EntryFile | null
   files: Node[]
   deep: FileGroup<Node>
   evidence: FileGroup<MapFile> & { rel: string }
@@ -198,7 +199,7 @@ function workItem(estate: Estate, id: string): WorkItem | null {
     : []
   const evidence = isFolder(join(estate.mapDir, evidenceRel)) ? walk(estate.mapDir, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
   const note = existsSync(join(estate.mapDir, noteRel)) && !leftOut(estate.config, noteRel) ? describe(estate, noteRel) : null
-  const entry = pickEntry(inFolder, dirRel, note)
+  const [entry = null, next = null] = entryFiles(inFolder, dirRel, note)
   if (!entry && inFolder.length === 0 && evidence.length === 0) return null
   const head: Parsed = entry ? parseFrontmatter(readFileSync(entry.path, 'utf8')) : { data: {}, body: '' }
   const deep = inFolder.filter(file => file.deep)
@@ -209,22 +210,22 @@ function workItem(estate: Estate, id: string): WorkItem | null {
     status: head.data.status ?? 'active',
     ticket: head.data.ticket || null,
     entry,
+    older: entry?.kind === 'state' ? next : null,
     files: [...(note ? [note] : []), ...inFolder].filter(file => !file.deep && file.rel !== entry?.rel),
     deep: group(deep),
     evidence: { ...group(evidence), rel: evidenceRel },
   }
 }
 
-function pickEntry(inFolder: Node[], dirRel: string, note: Node | null): EntryFile | null {
+function entryFiles(inFolder: Node[], dirRel: string, note: Node | null): EntryFile[] {
   const inDir = (name: string) => inFolder.find(file => file.rel === `${dirRel}/${name}`)
-  const candidates: ([Node, EntryKind] | [null | undefined, EntryKind])[] = [
+  const candidates: [Node | null | undefined, EntryKind][] = [
     [inDir('STATE.md'), 'state'],
     [inDir('00-START-HERE.md'), 'start-here'],
     [note, 'note'],
     [inDir('README.md'), 'readme'],
   ]
-  const [file, kind] = candidates.find(([candidate]) => candidate) ?? []
-  return file ? { ...file, kind } : null
+  return candidates.flatMap(([file, kind]) => (file ? [{ ...file, kind }] : []))
 }
 
 function fromMap(estate: Estate, written: string) {
