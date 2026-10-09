@@ -66,12 +66,14 @@ test('the saved launcher can be run by its owner and read by everyone', notOnWin
   assert.equal(statSync(join(root, 'bin/context-central')).mode & 0o777, 0o755)
 })
 
-test('--write never overwrites a launcher that is already there', () => {
+const DIFFERS = '(differs from the one this release writes: delete it and run this again to renew it)'
+
+test('--write never overwrites a launcher that is already there, and says when it is not the one this release writes', () => {
   const root = tree(acme({ 'bin/context-central': '#!/bin/sh\necho mine\n' }))
 
   const result = run(['wrapper', '--write'], { cwd: root })
 
-  assert.equal(result.stdout, 'kept bin/context-central\ncreated bin/context-central.cmd\ncreated bin/.gitattributes\n')
+  assert.equal(result.stdout, `kept bin/context-central ${DIFFERS}\ncreated bin/context-central.cmd\ncreated bin/.gitattributes\n`)
   assert.equal(readFileSync(join(root, 'bin/context-central'), 'utf8'), '#!/bin/sh\necho mine\n')
 })
 
@@ -92,7 +94,7 @@ test('a cmd launcher or an attributes file already there is kept while the rest 
 
   const result = run(['wrapper', '--write'], { cwd: root })
 
-  assert.equal(result.stdout, 'created bin/context-central\nkept bin/context-central.cmd\nkept bin/.gitattributes\n')
+  assert.equal(result.stdout, `created bin/context-central\nkept bin/context-central.cmd ${DIFFERS}\nkept bin/.gitattributes\n`)
   assert.equal(readFileSync(join(root, 'bin/context-central.cmd'), 'utf8'), '@echo mine\r\n')
   assert.equal(readFileSync(join(root, 'bin/.gitattributes'), 'utf8'), '* text\n')
 })
