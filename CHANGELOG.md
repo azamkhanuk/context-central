@@ -1,6 +1,50 @@
 # Changelog
 
-Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one.
+Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
+
+## 0.8.0 - 2026-10-09
+
+A second person put the plugin on an estate that already had its own notes, glossary, accounts and installs, and wrote down what went wrong. This release closes those gaps, in the order of the harm.
+
+Safe on an estate that is not new:
+
+- **An older work item is adopted, never rewritten.** `work adopt <item>` gives a work item kept as a single note, a start-here file or a README a state file beside that note, and `work adopt --all` does so for every one. It moves nothing and changes no file that is there. The state file links the older note and everything that note pointed to, and the resolver lists the older note straight after the state file, whatever the limit. Checkpoint, prep, design and research adopt the item they are working on before they write to it, and never write to the older note. Before this, a checkpoint could write a hand-kept note anew as a summary.
+- **A stray file is not work.** A `README.md` or an `index.md` directly under the work folder is neither a work item nor a node, and neither is anything there that `notNodes` lists. A README there used to be work in flight in every session, and answered any prompt that mentioned a readme.
+- **`fetch` reads only as the pinned account.** Where a preset says how its tool hands out one account's token, `fetch` asks for the pinned account's and gives it to the tool it starts, in that tool's environment and nowhere else, whichever account is active. With no token, the read goes ahead only if the tool already runs as that account on the connection's own host. Otherwise nothing is read or saved. GitHub's preset hands out a token.
+- **`doctor` gives a pinned account three answers.** `ok` where the tool runs as it. A `note` where another account is active and the tool holds the pinned one, saying how to run one command of your own as it. `FIX` where the tool cannot run as it here, saying how to sign it in and how to put the former account back. No advice tells you to switch the machine's active account, and `implement` starts its commands the way the note says.
+- **A launcher starts the copy of the plugin that belongs to its map.** It takes the install record whose project folder is the nearest at or above its own file, then the copy installed for you, and never another project's. `wrapper --write` says when a saved launcher is not the one this release writes.
+
+The map finds what is in it:
+
+- **A node is found by an identifier.** That is the `id` in its frontmatter or one of its `aliases`, and for a numbered node its kind and number, so "decision 7" finds a decision.
+- **A node is found by its name.** Its file name or its title answers when that is the whole of the question, so a name of one word now finds its note.
+- **A term of the glossary is found**, with the line it is on.
+- **The three come after every route there was.** No prompt that had an answer gets another. They answer only a short prompt, and leave out the work folder, the log and the deep tier.
+- **The hub is not a linked pointer.** A link to the hub no longer takes one of the pointers given for a work item or a repo note.
+
+Less friction when an estate is adopted:
+
+- **The glossary can be a file the estate already keeps.** Name it with `glossary` in `estate.json`, counted from the estate root. `init` then lays out none and never changes that file, `where` says where the glossary is, and `lint` reports one that is named and not there. A glossary inside a registered repo is read and never written to: prep and checkpoint list the terms in their report instead.
+- **A node can be made in a folder below its kind**, to any depth: `note --new docs/runbooks/month-end`. A decision and a standards note take no folder.
+- **The install text says what decides whether the plugin loads.** The README and onboard say, for each way of having the plugin, when it loads, how a release reaches it and whether a launcher finds it. `init --print-settings` now prints auto-update for the marketplace, so a release reaches everyone who enabled the plugin from project settings.
+- **Old session records are swept.** A record of what a session was given is removed once no session has used it for fourteen days.
+
+Not shown:
+
+- That the plugin loads from project settings once a person accepts the folder's trust prompt, and that auto-update moves a copy to a new release. Both are as Claude Code documents them, and no check of this repository can show either.
+- A GitHub Enterprise host. The token call for a named host, and an account listing that covers two hosts, were run against a stand-in for the tool.
+- On Windows, the cmd launcher's choice of an install by project folder. It has run there only against a record of a copy installed for the person.
+- The skills' new steps, beyond one headless run: a checkpoint on a throwaway map that held one hand-kept note left the note's bytes as they were and laid a state file beside it.
+
+For a map that already exists:
+
+- A prompt that got no answer may get one: an identifier, a node's name, a glossary term. No prompt that had an answer gets another, with one exception: a work item that has a state file and links its own start-here file, single note or README has that file listed straight after the state file.
+- A `README.md` or an `index.md` under the work folder stops being a work item and a node.
+- `fetch` reads as the pinned account. Where that account is not signed in and another is active, a read that went ahead as the other now stops.
+- `doctor`'s line for a pinned account that is not the active one turns from `FIX` to `note` where the tool holds that account.
+- A launcher saved before this release keeps the old rule until you delete it and run `wrapper --write` again. A new one, with no install for its map or for you, says the plugin was not found where the old one started another project's copy.
+- Nothing is adopted until a command or a skill meets an older item.
+- `resolve --json` may name three more routes, `id`, `name` and `term`, and `where --json` has two more keys, `glossary` and `glossaryRepo`.
 
 ## 0.7.0 - 2026-10-08
 
