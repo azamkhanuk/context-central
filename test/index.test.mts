@@ -167,6 +167,12 @@ test('no repo line is given at the root of a root-layout estate or inside a repo
   assert.equal(index(join(root, 'billing')).stdout.split('\n')[2], ACME_CONNECTIONS_LINE)
 })
 
+test('a repo registered at the estate root is named at the root, in the root layout too', () => {
+  const root = tree(acme({ 'repos/mono.md': '# mono\n' }, { repos: [{ name: 'mono', path: '.' }] }))
+
+  assert.equal(index(root).stdout.split('\n')[2], 'Repo mono: repos/mono.md')
+})
+
 test('inside repos that nest, the deeper one is named', () => {
   const root = tree(acme({ 'web/admin/README.md': '# admin\n', 'repos/admin.md': '# admin\n' }, { repos: [...ACME_CONFIG.repos, { name: 'admin', path: 'web/admin' }] }))
 
