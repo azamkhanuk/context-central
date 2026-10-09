@@ -42,6 +42,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - Work test-first, one behaviour at a time.
 - Test through the CLI as a process: `run()` and `hook()` in `test/helpers.mts`, against a tree made with `acme()` or `makeTree()`. Never import a module under test.
 - Expected values are literals or come from the fixture, never from re-running the code's own logic.
+- A skill or an agent is tested where it meets the CLI: its frontmatter, and each command, flag, setting, file or printed line it names. Its wording is not pinned by a test: what a session does with it is shown by a run.
 - The checks run on Linux, macOS and Windows. Build an expected path with `join`. A test that cannot run on a system is skipped there with its reason, through `notOnWindows` or `onlyOnWindows` in `test/helpers.mts`.
 
 ## Writing
