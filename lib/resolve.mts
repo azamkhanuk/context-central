@@ -393,14 +393,16 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
   const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel && !standards.includes(rel))
   const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
+  const pointers = withStandards(estate, listed.pointers)
+  const shown = new Set(pointers.map(found => found.rel))
   return resolution({
     by,
     key: `item:${item.id}`,
     item: item.id,
     name: item.id,
     label: `work item ${item.id}`,
-    ...listed,
-    pointers: withStandards(estate, listed.pointers),
+    pointers,
+    more: listed.more + linked.filter(rel => standards.includes(rel) && !shown.has(rel)).length,
     notes: otherNotes(estate, item, listed.pointers),
     deep: deepTier(estate, item),
     evidence: evidenceOf(estate, item),

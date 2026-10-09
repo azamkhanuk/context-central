@@ -826,7 +826,7 @@ test("a repo note a work item links brings the repo's standards note straight af
   ])
 })
 
-test('a repo note a work item names brings the standards note too, and a repo with none brings nothing', () => {
+test('a repo note a work item names brings its standards note, where the repo has one', () => {
   const root = tree(acme({ 'standards/web.md': '# web\n', 'work/PROJ-21/STATE.md': '# PROJ-21: Two repos\n\nTouches web and api.\n' }))
 
   assert.deepEqual(resolved(root, 'PROJ-21').pointers.map(({ rel, why }) => [rel, why]), [
@@ -847,18 +847,34 @@ test('a standards note the work item links itself is listed once, as the standar
   ])
 })
 
-test('a repo note the limit leaves out brings no standards note, and one shown brings its own without using up the limit', () => {
-  const ideas = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [`concepts/idea-${n}.md`, `# Idea ${n}\n`]))
-  const state = `# PROJ-23: Many links\n\n${[1, 2, 3, 4, 5, 6].map(n => `[[concepts/idea-${n}]]`).join(' ')} [[repos/api]]\n`
-  const root = tree(acme({ ...ideas, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': state }))
+const IDEAS = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [`concepts/idea-${n}.md`, `# Idea ${n}\n`]))
+const manyLinks = (...more: string[]) => `# PROJ-23: Many links\n\n${[1, 2, 3, 4, 5, 6].map(n => `[[concepts/idea-${n}]]`).join(' ')} ${more.join(' ')}\n`
+
+test('a repo note the limit leaves out brings no standards note', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]') }))
 
   const cut = resolved(root, 'PROJ-23')
-  const whole = resolved(root, 'PROJ-23', '--max', '7')
 
   assert.deepEqual(rels(cut).slice(1), [1, 2, 3, 4, 5, 6].map(n => `concepts/idea-${n}.md`))
   assert.equal(cut.more, 1)
+})
+
+test('a standards note takes no place against the limit on linked notes', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]') }))
+
+  const whole = resolved(root, 'PROJ-23', '--max', '7')
+
   assert.deepEqual(rels(whole).slice(7), ['repos/api.md', 'standards/api.md'])
   assert.equal(whole.more, 0)
+})
+
+test('a standards note the item links itself is counted among the notes not listed when its repo note is left out', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]', '[[standards/api]]') }))
+
+  const cut = resolved(root, 'PROJ-23')
+
+  assert.deepEqual(rels(cut).slice(1), [1, 2, 3, 4, 5, 6].map(n => `concepts/idea-${n}.md`))
+  assert.equal(cut.more, 2)
 })
 
 test('in a root-layout estate a link from a repo note to a file of a repo is listed', () => {
@@ -867,17 +883,21 @@ test('in a root-layout estate a link from a repo note to a file of a repo is lis
   assert.deepEqual(rels(resolved(root, 'web')), ['repos/web.md', 'web/README.md'])
 })
 
-test('in a map kept inside a repo, a link into the repo is listed, and one that leaves the estate or reaches the hub is not', () => {
-  const root = tree(
+function innerMap(repoNote: string) {
+  return tree(
     makeTree({
       'repo/.context-central/estate.json': { contextCentral: 1, name: 'inner', repos: [{ name: 'inner', path: '.' }] },
       'repo/CLAUDE.md': '# Inner\n',
-      'repo/.context-central/repos/inner.md': '# inner\n\nSee [[concepts/core]], [the readme](../../lib/README.md), [the hub](../../CLAUDE.md) and [outside](../../../outside.md).\n',
+      'repo/.context-central/repos/inner.md': repoNote,
       'repo/.context-central/concepts/core.md': '# Core\n',
       'repo/lib/README.md': '# lib\n',
       'outside.md': '# Outside\n',
     }),
   )
+}
+
+test('in a map kept inside a repo, a link into the repo is listed after the notes, with its path from the map', () => {
+  const root = innerMap('# inner\n\nSee [the readme](../../lib/README.md) and [[concepts/core]].\n')
 
   const result = resolved(join(root, 'repo'), 'inner')
 
@@ -887,6 +907,12 @@ test('in a map kept inside a repo, a link into the repo is listed, and one that 
     ['../lib/README.md', 'linked from the repo note'],
   ])
   assert.equal(result.pointers[2].path, join(root, 'repo', 'lib', 'README.md'))
+})
+
+test('in a map kept inside a repo, a link that leaves the estate or reaches the hub is not listed', () => {
+  const root = innerMap('# inner\n\nSee [the hub](../../CLAUDE.md) and [outside](../../../outside.md).\n')
+
+  assert.deepEqual(rels(resolved(join(root, 'repo'), 'inner')), ['repos/inner.md'])
 })
 
 test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {
