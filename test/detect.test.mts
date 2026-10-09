@@ -273,9 +273,9 @@ test('a tool that is only a .cmd, a .bat or a file with no extension reads as mi
 })
 
 test('a glossary already on disk is offered as a candidate', () => {
-  const root = tree(makeTree({ 'CONTEXT.md': '# Terms\n', 'web/glossary.md': '# Glossary\n', 'web/README.md': '# web\n' }))
+  const root = tree(makeTree({ 'CONTEXT.md': '# Terms\n', 'web/glossary.md': '# Glossary\n', 'web/README.md': '# web\n', 'docs/Team-Glossary.md': '# Ours\n', 'docs/glossary-of-old.md': '# Not one\n' }))
 
-  assert.deepEqual(detectJson(root).glossaryCandidates, ['CONTEXT.md', 'web/glossary.md'])
+  assert.deepEqual(detectJson(root).glossaryCandidates, ['CONTEXT.md', 'docs/Team-Glossary.md', 'web/glossary.md'])
 })
 
 test('an existing map is reported with its layout', () => {

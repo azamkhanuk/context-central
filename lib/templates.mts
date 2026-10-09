@@ -23,7 +23,7 @@ const PARTS: Record<string, string | undefined> = {
 const RESOLVE_LINE =
   "`context-central resolve <item or words>` lists the notes behind a task. A work item's name or title always answers. Other words answer when they single out one item or note; otherwise it says there is no confident match."
 
-export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir }: Settings, inMap: InMap = rel => rel) {
+export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir, glossary }: Settings, inMap: InMap = rel => rel) {
   return [
     `# ${title}`,
     '',
@@ -32,19 +32,19 @@ export function hubTemplate({ name, title, repos, writeRules, nodeDirs, workDir 
     ...section('Where a task goes', routingTable(repos, inMap)),
     ...section('Write rules', ruleLines(writeRules)),
     BLOCK_START,
-    ...section('The parts of the map', partLines(nodeDirs, workDir, inMap)),
+    ...section('The parts of the map', partLines(nodeDirs, workDir, glossary ?? inMap('glossary.md'), inMap)),
     RESOLVE_LINE,
     BLOCK_END,
     '',
   ].join('\n')
 }
 
-export function mapBlock({ workDir }: Settings, inMap: InMap = rel => rel) {
+export function mapBlock({ workDir, glossary }: Settings, inMap: InMap = rel => rel) {
   return [
     BLOCK_START,
     '## Context map',
     '',
-    `This folder has a context map. Work in flight is recorded in \`${inMap(workDir)}/<item>/STATE.md\` and the estate's terms in \`${inMap('glossary.md')}\`. Evidence that is not text sits in \`${inMap(workDir)}/<item>/evidence/\`. ${RESOLVE_LINE}`,
+    `This folder has a context map. Work in flight is recorded in \`${inMap(workDir)}/<item>/STATE.md\` and the estate's terms in \`${glossary ?? inMap('glossary.md')}\`. Evidence that is not text sits in \`${inMap(workDir)}/<item>/evidence/\`. ${RESOLVE_LINE}`,
     BLOCK_END,
     '',
   ].join('\n')
@@ -239,7 +239,7 @@ function text(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
-function partLines(nodeDirs: string[], workDir: string, inMap: InMap) {
+function partLines(nodeDirs: string[], workDir: string, glossary: string, inMap: InMap) {
   const parts = nodeDirs.map(dir => (dir === workDir ? `- \`${inMap(dir)}/<item>/STATE.md\`: where a piece of work stands and what is next. Files that are not text sit in \`evidence/\` beside it.` : `- \`${inMap(dir)}/\`: ${PARTS[dir] ?? 'notes.'}`))
-  return [...parts, `- \`${inMap('glossary.md')}\`: the estate's terms.`]
+  return [...parts, `- \`${glossary}\`: the estate's terms.`]
 }

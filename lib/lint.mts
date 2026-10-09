@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from 'node:fs'
 import { standardsFiles } from './estate.mts'
+import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
 import { EVIDENCE_DIR, hubPath, inFlight, listNodes, listWorkItems, strayFiles } from './nodes.mts'
@@ -10,7 +11,7 @@ import type { Node, StrayFile, WorkItem } from './nodes.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index'
+export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index'
 
 export interface Finding {
   level: Level
@@ -27,6 +28,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
   const itemsInFlight = items.filter(inFlight)
   return [
     ...hubFindings(estate, env),
+    ...glossaryFindings(estate),
     ...items.flatMap(item => stateFindings(estate, item)),
     ...itemsInFlight.flatMap(entryFindings),
     ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
@@ -42,6 +44,12 @@ function hubFindings(estate: Estate, env: Env) {
   const rel = estate.config.hub
   if (!statSync(path, { throwIfNoEntry: false })?.isFile()) return [finding('ERROR', 'hub', rel, `${rel} does not exist`)]
   return [...hubSizeFindings(estate, path, env), ...datedFindings(rel, readFileSync(path, 'utf8'))]
+}
+
+function glossaryFindings(estate: Estate) {
+  const named = estate.config.glossary
+  if (!named || statSync(glossaryPath(estate), { throwIfNoEntry: false })?.isFile()) return []
+  return [finding('ERROR', 'glossary', named, `${named} does not exist`)]
 }
 
 function hubSizeFindings(estate: Estate, path: string, env: Env) {

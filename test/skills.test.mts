@@ -241,14 +241,15 @@ test('the state file, both hub blocks and checkpoint agree on the name of the ev
   assert.ok(skillText('checkpoint').includes('`work/<item>/evidence/'))
 })
 
-test('checkpoint names the glossary init writes at the root of the map, and the line of an entry that a correction fills', () => {
+test('checkpoint asks the plugin where the glossary is, and the line of an entry that a correction fills is in the one init writes', () => {
   for (const [layout, map] of [['root', '.'], ['inner', '.context-central']]) {
     const root = tree(makeTree({ 'answers.json': { layout, config: { name: 'acme' } } }))
     run(['init', '--from', 'answers.json'], { cwd: root })
 
     assert.match(readFileSync(join(root, map, 'glossary.md'), 'utf8'), /^_Avoid_: /m, layout)
+    assert.match(run(['where'], { cwd: root }).stdout, new RegExp(`^glossary: .*glossary\\.md$`, 'm'), layout)
   }
-  assert.ok(lessons().includes('`glossary.md`'))
+  assert.ok(lessons().includes('`context-central where`'))
   assert.ok(lessons().includes('`_Avoid_`'))
 })
 

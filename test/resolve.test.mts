@@ -992,3 +992,12 @@ test('a term answers after a node of the same name', () => {
 
   assert.deepEqual(answer(root, 'gateway'), ['name', 'node:concepts/gateway.md', 'named: gateway'])
 })
+
+test("a term is found in the glossary the estate names, which is given by its path from the map's folder", () => {
+  const terms = '# Terms\n\n**Token bucket**: How the limit is counted.\n'
+  const named = tree(acme({ 'docs/terms.md': terms }, { glossary: 'docs/terms.md' }))
+  const outside = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo', glossary: 'CONTEXT.md' }, 'CONTEXT.md': terms }))
+
+  assert.deepEqual(rels(resolved(named, 'token', 'bucket')), ['docs/terms.md'])
+  assert.deepEqual(rels(resolved(outside, 'token', 'bucket')), ['../CONTEXT.md'])
+})

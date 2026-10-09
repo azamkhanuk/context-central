@@ -351,3 +351,11 @@ test('a file where a node folder would be is passed over, not read as a folder',
   assert.equal(result.stdout, 'ok\n')
   assert.equal(result.code, 0)
 })
+
+test("a glossary the estate names and that is not there is an error, and one that is there is not", () => {
+  const missing = tree(acme({}, { glossary: 'docs/terms.md' }))
+  const there = tree(acme({ 'docs/terms.md': '# Terms\n' }, { glossary: 'docs/terms.md' }))
+
+  assert.deepEqual(lint(missing), { code: 1, stdout: 'ERROR glossary: docs/terms.md does not exist\n', stderr: '' })
+  assert.equal(lint(there).stdout, 'ok\n')
+})

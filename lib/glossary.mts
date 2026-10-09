@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { isAbsolute, join, relative } from 'node:path'
 import { withoutBom } from './text.mts'
 import type { Estate } from './estate.mts'
 
@@ -12,8 +12,18 @@ const FENCE = /^ *(```|~~~)/
 const BOLD = /^\s*(?:[-*+]\s+|\d+[.)]\s+)?\*\*(.+?)\*\*/
 const HEADING = /^#{1,6}\s+(.+?)\s*$/
 
-export function glossaryPath(estate: Estate) {
-  return join(estate.mapDir, 'glossary.md')
+export function glossaryPath({ config, estateRoot, mapDir }: Estate) {
+  return config.glossary ? join(estateRoot, config.glossary) : join(mapDir, 'glossary.md')
+}
+
+export function glossaryRepo(estate: Estate) {
+  const glossary = glossaryPath(estate)
+  const [nearest] = estate.config.repos
+    .map(repo => ({ name: repo.name, folder: join(estate.estateRoot, repo.path) }))
+    .filter(repo => holds(repo.folder, glossary))
+    .sort((a, b) => b.folder.length - a.folder.length)
+  const inMap = holds(estate.mapDir, glossary) && estate.mapDir.length >= (nearest?.folder.length ?? 0)
+  return nearest && !inMap ? nearest.name : null
 }
 
 export function glossaryTerms(estate: Estate): Term[] {
@@ -28,6 +38,11 @@ export function glossaryTerms(estate: Estate): Term[] {
     const written = heading ? (headings > 1 ? heading[1] : undefined) : BOLD.exec(line)?.[1]
     return written ? [{ term: written.replace(/[\s:.]+$/, ''), line: at + 1 }] : []
   })
+}
+
+function holds(folder: string, file: string) {
+  const within = relative(folder, file)
+  return within !== '' && !within.startsWith('..') && !isAbsolute(within)
 }
 
 function linesOf(path: string) {

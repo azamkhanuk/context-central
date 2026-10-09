@@ -73,6 +73,7 @@ export interface Settings {
   budgets: Budgets
   codeHost?: unknown
   writeRules?: WriteRules
+  glossary?: string
 }
 
 type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown }
@@ -97,6 +98,7 @@ interface WrittenSettings {
   budgets?: Partial<Budgets>
   codeHost?: unknown
   writeRules?: WriteRules
+  glossary?: unknown
 }
 
 export interface StandardsFile {
@@ -249,6 +251,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     connections: raw.connections === undefined ? connectionsOfOldMap(raw, keyPatterns) : readConnections(raw.connections, repos.map(repo => repo.name), fail),
     evidence: evidence(raw.evidence, fail),
     budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) },
+    glossary: raw.glossary === undefined ? undefined : pathsInEstate([text(raw.glossary, 'glossary', fail)], 'glossary', fail)[0],
   }
 }
 

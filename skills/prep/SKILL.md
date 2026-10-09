@@ -49,7 +49,7 @@ Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head i
 
 ## 5. Glossary
 
-Add each new domain term to `glossary.md` in the map, in that file's entry format, and use the glossary's wording in the spec.
+`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the hand-over. Use the glossary's wording in the spec.
 
 ## 6. Tracker brief
 
