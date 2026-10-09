@@ -3,7 +3,7 @@ import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
-import { EVIDENCE_DIR, hubPath, inFlight, listNodes, listWorkItems, strayFiles } from './nodes.mts'
+import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, strayFiles } from './nodes.mts'
 import { formatBytes } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
@@ -30,7 +30,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...hubFindings(estate, env),
     ...glossaryFindings(estate),
     ...items.flatMap(item => stateFindings(estate, item)),
-    ...itemsInFlight.flatMap(entryFindings),
+    ...itemsInFlight.flatMap(item => entryFindings(estate, item)),
     ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
@@ -73,10 +73,11 @@ function stateFindings(estate: Estate, item: WorkItem) {
   return [finding('ERROR', 'state', item.entry.rel, `${item.entry.rel} is ${length} characters (budget ${budget})`)]
 }
 
-function entryFindings(item: WorkItem) {
+function entryFindings(estate: Estate, item: WorkItem) {
   if (item.entry?.kind === 'state') return []
   if (!item.entry) return [finding('WARN', 'entry', null, `${item.id} has no STATE.md and no other entry file`)]
-  return [finding('WARN', 'entry', item.entry.rel, `${item.id} has no STATE.md; its entry file ${item.entry.rel} is ${formatBytes(item.entry.bytes)}; context-central work adopt ${item.id} gives it one`)]
+  const adopt = leftOut(estate.config, item.dirRel) ? '' : `; context-central work adopt ${item.id} gives it one`
+  return [finding('WARN', 'entry', item.entry.rel, `${item.id} has no STATE.md; its entry file ${item.entry.rel} is ${formatBytes(item.entry.bytes)}${adopt}`)]
 }
 
 function nodeFindings(estate: Estate, node: Node) {

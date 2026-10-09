@@ -359,3 +359,9 @@ test("a glossary the estate names and that is not there is an error, and one tha
   assert.deepEqual(lint(missing), { code: 1, stdout: 'ERROR glossary: docs/terms.md does not exist\n', stderr: '' })
   assert.equal(lint(there).stdout, 'ok\n')
 })
+
+test('the warning for an item whose folder notNodes lists names no command, since none could give it a state file there', () => {
+  const root = tree(acme({ 'work/arch.md': '# arch: The archive\n', 'work/arch/kept.md': '# Kept\n' }, { notNodes: ['work/arch'] }))
+
+  assert.equal(lint(root).stdout, 'WARN entry: arch has no STATE.md; its entry file work/arch.md is 20 B\n')
+})

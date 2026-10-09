@@ -297,7 +297,7 @@ There are two layouts:
 - A work item is named by a ticket key (`PROJ-12`) or a plain name (`portal-split`). Its state file can carry its ticket, so a plain name still answers to `#41`.
 - Nodes link to each other with wiki links (`[[concepts/gateway]]`) or relative Markdown links.
 - A node may sit in a folder below its kind, to any depth: `note --new docs/runbooks/month-end` makes one. A decision and a standards note take no folder.
-- A file named `README.md` or `index.md` directly under `work/` is neither a work item nor a node, in any letter case. Neither is anything under `work/` that `notNodes` lists, and `work new` refuses a name whose folder is listed there. A note that links to such a file still gives it as a pointer.
+- A file named `README.md` or `index.md` directly under `work/` is neither a work item nor a node, in any letter case. Neither is anything under `work/` that `notNodes` lists: no command makes a work item in a folder listed there, or saves anything for one there. A note that links to such a file still gives it as a pointer.
 
 **An older item.** A work item kept as a note of its own, with no state file, is still a work item: a single note `work/<item>.md`, or a folder that holds a `00-START-HERE.md` or a `README.md`. `context-central work adopt <item>` gives it a state file beside that note, and `work adopt --all` does so for every one. Adoption moves nothing and changes no file that is there. The state file links the older note and every note it pointed to, so a session is given what it was given before, with the state file first and the older note after it and the spec, whatever the limit. Checkpoint, prep, design and research adopt the item they are working on before they write to it, and never write to the older note. Where the item's folder holds a file with the state file's name in another letter case, such as a hand-kept `state.md`, the command stops and names it: on a disk that ignores letter case the state file would land on that file.
 
@@ -380,7 +380,7 @@ They are recorded under `connections` in `estate.json`, by name:
 - `note`: another account is active and the tool holds the pinned one. `fetch` reads as it, and the note says how to run one command of your own as it
 - `FIX`: the tool cannot run as it here. The line says how to sign the account in, that signing in makes it the active one, and how to put the former one back
 
-No advice from the plugin tells you to change the machine's active account for good. On a map shared with people who have not signed the pinned account in, a read that once went ahead as whoever was active now stops with that `FIX`.
+No advice from the plugin tells you to change the machine's active account for good. On a map shared with people who have not signed the pinned account in, a read that once went ahead as whoever was active now stops, and `doctor` shows that `FIX`.
 
 A developer who has some of an estate's connections and not others is served by those they have. A tool that is missing is a note in `doctor`, never a fault.
 

@@ -19,7 +19,7 @@ The map finds what is in it:
 - **A node is found by an identifier.** That is the `id` in its frontmatter or one of its `aliases`, and for a numbered node its kind and number, so "decision 7" finds a decision.
 - **A node is found by its name.** Its file name or its title answers when that is the whole of the question, so a name of one word now finds its note.
 - **A term of the glossary is found**, with the line it is on.
-- **The three come after every route there was.** No prompt that had an answer gets another. They answer only a short prompt, and leave out the work folder, the log and the deep tier.
+- **The three come after every route there was.** No prompt that had an answer gets another. In the prompt hook they answer only a short prompt, and everywhere they leave out the work folder, the log and the deep tier.
 - **The hub is not a linked pointer.** A link to the hub no longer takes one of the pointers given for a work item or a repo note.
 
 Less friction when an estate is adopted:
@@ -40,6 +40,7 @@ For a map that already exists:
 
 - A prompt that got no answer may get one: an identifier, a node's name, a glossary term. No prompt that had an answer gets another, with one exception: a work item that has a state file and links its own start-here file, single note or README has that file listed after the state file and the spec, for sure.
 - A `README.md` or an `index.md` under the work folder stops being a work item and a node.
+- A folder under the work folder that `notNodes` lists stops being a work item, and is no part of an item whose single note sits beside it. No command makes a work item there or saves anything for one there.
 - `fetch` reads as the pinned account. Where that account is not signed in and another is active, a read that went ahead as the other now stops.
 - `doctor`'s line for a pinned account that is not the active one turns from `FIX` to `note` where the tool holds that account.
 - A launcher saved before this release keeps the old rule until you delete it and run `wrapper --write` again. A new one, with no install for its map or for you, says the plugin was not found where the old one started another project's copy.
