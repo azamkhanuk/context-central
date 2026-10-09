@@ -160,6 +160,26 @@ test('a start-here file is the entry when there is no state file', () => {
   assert.equal(item?.notes, 1)
 })
 
+test('a README or an index directly under the work folder is no work item, whatever its letter case', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n\nHow this folder is kept.\n', 'work/Index.md': '# Index\n' }))
+
+  assert.deepEqual(list(root, '--all').map(item => item.id), ['PROJ-12'])
+})
+
+test('a file or a folder under the work folder that notNodes lists is no work item', () => {
+  const root = tree(acme({ 'work/archive/2019.md': '# 2019\n', 'work/template.md': '# Template\n' }, { notNodes: ['work/archive', 'work/template.md'] }))
+
+  assert.deepEqual(list(root, '--all').map(item => item.id), ['PROJ-12'])
+})
+
+test('a folder named README is still a work item, and the stray file beside it is not its note', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n', 'work/README/notes/plan.md': '# Plan\n' }))
+
+  const item = list(root, '--all').find(found => found.id === 'README')
+
+  assert.deepEqual([item?.entry, item?.notes], [null, 1])
+})
+
 test('a full-text note counts as the deep tier wherever it sits', () => {
   const root = tree(acme({ 'work/PROJ-9/STATE.md': '# PROJ-9\n', 'work/PROJ-9/05-2026-01-02-PROJ-9-full-text.md': 'long\n' }))
 

@@ -144,6 +144,13 @@ test('a finished item without a state file is left alone', () => {
   assert.equal(lint(root).stdout, 'ok\n')
 })
 
+test('a README, an index and a file notNodes lists, directly under the work folder, earn no warning', () => {
+  const files = { 'work/README.md': '# Work\n', 'work/index.md': '# Index\n', 'work/template.md': '# Template\n' }
+  const root = tree(acme(files, { notNodes: ['work/template.md'] }))
+
+  assert.equal(lint(root).stdout, 'ok\n')
+})
+
 test('an item in flight with no entry file at all earns a warning', () => {
   const root = tree(acme({ 'work/PROJ-9/notes/idea.md': '# Idea\n' }))
 

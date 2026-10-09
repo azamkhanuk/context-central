@@ -72,6 +72,7 @@ export interface StrayFile {
 
 export const EVIDENCE_DIR = 'evidence'
 
+const NOT_ITEMS = ['readme.md', 'index.md']
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
 const listings = new Map<string, Set<string>>()
 
@@ -99,9 +100,14 @@ export function listFiles(estate: Estate) {
   return estate.config.nodeDirs
     .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory())
     .flatMap(dir => walk(estate.mapDir, dir))
-    .filter(rel => !estate.config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`)))
+    .filter(rel => !leftOut(estate.config, rel))
     .filter(rel => !isEvidence(estate.config, rel))
     .map(rel => describe(estate, rel))
+}
+
+function leftOut(config: Settings, rel: string) {
+  const listed = config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`))
+  return listed || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
 }
 
 export function listNodes(estate: Estate) {
@@ -146,11 +152,12 @@ export function makeFolder(mapDir: string, rel: string) {
 }
 
 export function workItemIds(estate: Estate) {
-  const workAbs = join(estate.mapDir, estate.config.workDir)
+  const { workDir } = estate.config
+  const workAbs = join(estate.mapDir, workDir)
   if (!isFolder(workAbs)) return []
   const ids = new Set<string>()
   for (const entry of readdirSync(workAbs, { withFileTypes: true })) {
-    if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue
+    if (entry.name.startsWith('.') || entry.name.startsWith('_') || leftOut(estate.config, `${workDir}/${entry.name}`)) continue
     if (entry.isDirectory()) ids.add(entry.name)
     else if (entry.isFile() && entry.name.endsWith('.md')) ids.add(entry.name.slice(0, -3))
   }
@@ -190,7 +197,7 @@ function workItem(estate: Estate, id: string): WorkItem | null {
         .map(rel => describe(estate, rel))
     : []
   const evidence = isFolder(join(estate.mapDir, evidenceRel)) ? walk(estate.mapDir, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
-  const note = existsSync(join(estate.mapDir, noteRel)) ? describe(estate, noteRel) : null
+  const note = existsSync(join(estate.mapDir, noteRel)) && !leftOut(estate.config, noteRel) ? describe(estate, noteRel) : null
   const entry = pickEntry(inFolder, dirRel, note)
   if (!entry && inFolder.length === 0 && evidence.length === 0) return null
   const head: Parsed = entry ? parseFrontmatter(readFileSync(entry.path, 'utf8')) : { data: {}, body: '' }

@@ -156,6 +156,14 @@ test('a prompt that matches nothing is met with silence', () => {
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'what time is it' }))
 })
 
+test('a prompt that mentions a readme is answered by the repo it names, though the work folder holds a README', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n\nHow this folder is kept.\n' }))
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'tidy the readme for web' })
+
+  assert.equal(context(result).split('\n')[0], 'Context for repo web:')
+})
+
 test('the same answer is given once in a session, and again in another session', () => {
   const root = tree(acme())
   const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }

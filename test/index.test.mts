@@ -53,6 +53,12 @@ test('an item with no entry file says so', () => {
   assert.equal(index(root).stdout.split('\n')[5], '- PROJ-30 | PROJ-30 | no entry file')
 })
 
+test('a README directly under the work folder is not work in flight', () => {
+  const root = tree(acme({ 'work/README.md': '# Work\n' }))
+
+  assert.equal(index(root).stdout.split('\n')[3], 'Work in flight (1):')
+})
+
 test('an index over its budget lists what fits and counts the rest', () => {
   const root = tree(
     acme({
