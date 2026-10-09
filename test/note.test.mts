@@ -311,3 +311,60 @@ test('a note is refused in plain words when a file stands where its folder would
   assert.deepEqual(note(root, ['--new', 'decisions/limits']), refused('decisions'))
   assert.deepEqual(note(root, ['Gateway', 'limits', 'agreed']), refused('log'))
 })
+
+const EXPECTED = 'expected --new <kind>/<name>, where the kind is one of: repos, areas, concepts, edges, decisions, docs, standards'
+const refusal = (rule: string) => ({ code: 2, stdout: '', stderr: `context-central note: ${rule}: ${EXPECTED}\n` })
+
+test('a note is made in a folder below its kind, to any depth, with the folders it needs', () => {
+  const root = tree(acme())
+
+  const result = note(root, ['--new', 'docs/runbooks/billing/month-end', '--title', 'Month end'])
+
+  assert.deepEqual(result, { code: 0, stdout: 'docs/runbooks/billing/month-end.md\n', stderr: '' })
+  assert.equal(read(root, 'docs/runbooks/billing/month-end.md'), '# Month end\n')
+  assert.equal(note(root, ['--new', 'repos/services/billing']).stdout, 'repos/services/billing.md\n')
+})
+
+test('a note below its kind takes its title from its own name, and is refused where it is there already', () => {
+  const root = tree(acme())
+  note(root, ['--new', 'concepts/limits/token-bucket.md'])
+
+  assert.equal(read(root, 'concepts/limits/token-bucket.md'), '# token-bucket\n')
+  assert.deepEqual(note(root, ['--new', 'concepts/limits/token-bucket']), { code: 1, stdout: '', stderr: 'context-central note: concepts/limits/token-bucket.md already exists\n' })
+})
+
+test('a decision and a standards note take no folder', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(note(root, ['--new', 'decisions/gateway/one-door']), refusal('a decision takes no folder'))
+  assert.deepEqual(note(root, ['--new', 'standards/api/errors']), refusal('a standards note takes no folder'))
+})
+
+test('every part of a path below a kind must be a name', () => {
+  const root = tree(acme())
+
+  for (const [target, part] of [['docs//month-end', ''], ['docs/run books/month-end', 'run books'], ['docs/../month-end', '..'], ['docs/runbooks/', '']]) {
+    assert.deepEqual(note(root, ['--new', target]), refusal(`"${part}" is not a name`), target)
+  }
+  assert.equal(existsSync(join(root, 'docs')), false)
+})
+
+test('no folder of the path may be one the map keeps for the deep tier', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(note(root, ['--new', 'docs/sources/ticket']), refusal('"sources" is kept for the deep tier'))
+  assert.equal(note(root, ['--new', 'docs/sources']).stdout, 'docs/sources.md\n')
+})
+
+test('a path that notNodes lists is refused, at any depth', () => {
+  const root = tree(acme({}, { notNodes: ['docs/private', 'concepts/draft.md'] }))
+
+  assert.deepEqual(note(root, ['--new', 'docs/private/plans/next']), refusal('docs/private/plans/next.md is under a notNodes entry'))
+  assert.deepEqual(note(root, ['--new', 'concepts/draft']), refusal('concepts/draft.md is under a notNodes entry'))
+})
+
+test('a note below its kind is refused in plain words when a file stands where a folder would go', () => {
+  const root = tree(acme({ 'docs/runbooks': 'a file\n' }))
+
+  assert.deepEqual(note(root, ['--new', 'docs/runbooks/month-end']), { code: 1, stdout: '', stderr: 'context-central note: docs/runbooks is a file, not a folder, so nothing can be written under it\n' })
+})

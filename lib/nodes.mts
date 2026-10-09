@@ -106,7 +106,7 @@ export function listFiles(estate: Estate) {
     .map(rel => describe(estate, rel))
 }
 
-function leftOut(config: Settings, rel: string) {
+export function leftOut(config: Settings, rel: string) {
   const listed = config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`))
   return listed || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
 }
