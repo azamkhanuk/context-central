@@ -475,3 +475,21 @@ test('a file where the work folder would be still gets a session its index', () 
 
   assert.equal(context(started), [`Context map "Acme estate": ${root}`, `Hub: ${join(root, 'CLAUDE.md')}`, 'No work in flight.'].join('\n'))
 })
+
+const ONE_GATEWAY = '---\nid: ADR-12\n---\n# 0007: One gateway\n\nEvery call goes through it.\n'
+const gatewayPointer = (root: string, why: string) => `- ${join(root, 'decisions/0007-one-gateway.md')} (${Buffer.byteLength(ONE_GATEWAY)} B) ${why}`
+
+test('a short prompt that names a node by its identifier is given that node, once in a session', () => {
+  const root = tree(acme({ 'decisions/0007-one-gateway.md': ONE_GATEWAY }))
+  const dir = stateDir()
+  const ask = (prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+
+  assert.equal(context(ask('what did ADR-12 settle')), ['Context for "what did ADR-12 settle":', gatewayPointer(root, 'known as: ADR-12')].join('\n'))
+  silent(ask('and why did ADR-12 say so'))
+})
+
+test('a long prompt that holds an identifier is met with silence', () => {
+  const root = tree(acme({ 'decisions/0007-one-gateway.md': ONE_GATEWAY }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${PASTED} as ADR-12 says` }))
+})

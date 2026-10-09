@@ -806,3 +806,86 @@ test('a folder where the standards note would be is not a note', () => {
 
   assert.deepEqual(run(['resolve', 'api'], { cwd: root }).stdout.split('\n').slice(0, 3), ['Context for repo api:', `- repos/api.md (${Buffer.byteLength(ACME_FILES['repos/api.md'])} B) repo note`, ''])
 })
+
+const ONE_GATEWAY = '---\nid: ADR-12\naliases: gateway-rfc, rfc7\n---\n# 0007: One gateway\n\nEvery call goes through it.\n'
+const KNOWN = { 'decisions/0007-one-gateway.md': ONE_GATEWAY }
+const answer = (root: string, ...words: string[]) => {
+  const found = resolved(root, ...words) as Resolution | null
+  return found && [found.by, found.key, ...found.pointers.map(pointer => pointer.why)]
+}
+
+test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {
+  const root = tree(acme(KNOWN))
+
+  const result = resolve(root, 'adr-12')
+
+  assert.equal(result.stdout, ['Context for "adr-12":', `- decisions/0007-one-gateway.md (${Buffer.byteLength(ONE_GATEWAY)} B) known as: ADR-12`, ''].join('\n'))
+  assert.deepEqual(answer(root, 'what', 'did', 'ADR', '12', 'settle'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: ADR-12'])
+})
+
+test('a node is found by each of its aliases, and one of a single word only when it is the whole question', () => {
+  const root = tree(acme(KNOWN))
+
+  assert.deepEqual(answer(root, 'the', 'gateway-rfc', 'again'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: gateway-rfc'])
+  assert.deepEqual(answer(root, 'RFC7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
+  assert.equal(answer(root, 'see', 'rfc7', 'again'), null)
+})
+
+test('an id or an alias of digits alone names nothing', () => {
+  const root = tree(acme({ 'concepts/limits.md': '---\nid: 41\naliases: 0041\n---\n# Per-route caps\n' }))
+
+  assert.equal(answer(root, '41'), null)
+  assert.equal(answer(root, 'see', '0041', 'please'), null)
+})
+
+test('a numbered node is known by its kind and its number, with or without the final s and the leading zeros', () => {
+  const root = tree(acme(KNOWN))
+
+  assert.deepEqual(answer(root, 'decision', '7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: decision 7'])
+  assert.deepEqual(answer(root, 'what', 'did', 'decisions', '0007', 'say'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: decisions 7'])
+  assert.equal(answer(root, 'decision', '8'), null)
+})
+
+test('a number alone names nothing, and a file that starts with a date is not a numbered node', () => {
+  const root = tree(acme({ ...KNOWN, 'docs/2026-01-05-retro.md': '# Looking back\n' }))
+
+  assert.equal(answer(root, '7'), null)
+  assert.equal(answer(root, '0007'), null)
+  assert.equal(answer(root, 'doc', '2026'), null)
+  assert.equal(answer(root, 'docs', '2026'), null)
+})
+
+test('nodes that share an identifier are all listed, and those beyond the limit are counted', () => {
+  const root = tree(acme({ ...KNOWN, 'concepts/edge-gateway.md': '---\naliases: gateway-rfc\n---\n# The edge\n' }))
+
+  assert.deepEqual(answer(root, 'gateway-rfc'), ['id', 'node:concepts/edge-gateway.md,decisions/0007-one-gateway.md', 'known as: gateway-rfc', 'known as: gateway-rfc'])
+  assert.equal(resolve(root, 'gateway-rfc', '--max', '1').stdout.split('\n')[2], '1 more matching note is not listed; a higher --max lists it.')
+})
+
+test('an identifier answers only where it leaves a counted word in the question', () => {
+  const root = tree(acme({ 'concepts/list.md': '---\naliases: to-do\n---\n# What is left\n' }))
+
+  assert.equal(answer(root, 'to-do'), null)
+})
+
+test('an identifier in the work folder, the log or the deep tier is never matched', () => {
+  const marked = (id: string) => `---\nid: ${id}\n---\n# Marked\n`
+  const root = tree(acme({ 'work/PROJ-12/notes/marked.md': marked('NOTE-1'), 'log/2026-01.md': marked('LOG-1'), 'docs/sources/marked.md': marked('DEEP-1') }))
+
+  assert.equal(answer(root, 'note-1'), null)
+  assert.equal(answer(root, 'log-1'), null)
+  assert.equal(answer(root, 'deep-1'), null)
+})
+
+test('an identifier answers only where no route of today does', () => {
+  const root = tree(
+    acme({
+      'concepts/billing-retries.md': `---\nid: proj-12-design\naliases: billing-retries, web\n---\n${BILLING_NOTE}`,
+      'docs/billing-runbook.md': BILLING_RUNBOOK,
+    }),
+  )
+
+  assert.equal(resolved(root, 'proj-12-design').key, 'item:PROJ-12')
+  assert.equal(resolved(root, 'web').key, 'repo:web')
+  assert.equal(resolved(root, 'billing', 'retries').by, 'text')
+})

@@ -19,7 +19,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id'
 
 export interface Resolution {
   by: Route
@@ -48,6 +48,12 @@ interface Profile {
   all: Set<string>
 }
 
+interface Known {
+  rel: string
+  identifiers: string[]
+  numbered: { kinds: string[][]; number: number } | null
+}
+
 interface Scored {
   rel: string
   score: number
@@ -70,6 +76,10 @@ const RUN = /[\p{L}\p{N}]+/gu
 const MIN_PHRASE_RUNS = 2
 const UNANSWERED_MAX = 3
 const DIGITS_ALONE = /^\d+$/
+const NUMBERED = /^(\d+)-/
+const DATED = /^\d{4}-\d{2}-\d{2}/
+const BY_WORDS: Route[] = ['text', 'id']
+const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
   `about after all also and any are because been before but can could did does for from get had has have her here him his how into its
@@ -78,7 +88,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -192,6 +202,65 @@ function byItemWords(estate: Estate, query: string, max: number) {
   if (asked.length < MIN_WORDS) return null
   const holding = listWorkItems(estate).filter(item => item.entry && asked.every(word => wordsOf(`${item.id} ${item.title}`).includes(word)))
   return holding.length === 1 ? itemResolution(estate, holding[0], 'item', max) : null
+}
+
+function byIdentifier(estate: Estate, query: string, max: number) {
+  if (countedRuns(query).length === 0) return null
+  const asked = runsOf(query)
+  const found = knownNodes(estate).flatMap(node => {
+    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0) ?? numberedIn(node, asked)
+    return identifier ? [pointer(estate, node.rel, `known as: ${identifier}`)] : []
+  })
+  return nodesFound('id', query, found, max)
+}
+
+function numberedIn({ numbered }: Known, asked: string[]) {
+  const kind = numbered?.kinds.find(runs => asked.some((_, at) => runs.every((run, offset) => asked[at + offset] === run) && isNumber(asked[at + runs.length], numbered.number)))
+  return kind && numbered ? `${kind.join(' ')} ${numbered.number}` : null
+}
+
+function isNumber(run: string | undefined, number: number) {
+  return run !== undefined && DIGITS_ALONE.test(run) && Number(run) === number
+}
+
+function nodesFound(by: Route, query: string, found: Pointer[], max: number) {
+  if (found.length === 0) return null
+  const pointers = found.slice(0, max)
+  return resolution({ by, key: `node:${pointers.map(listed => listed.rel).join(',')}`, label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
+}
+
+function knownNodes(estate: Estate) {
+  const held = known.get(estate)
+  if (held) return held
+  const inWork = `${estate.config.workDir}/`
+  const nodes = listNodes(estate)
+    .filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
+    .flatMap(knownAs)
+  known.set(estate, nodes)
+  return nodes
+}
+
+function knownAs(node: Node): Known[] {
+  try {
+    const { data } = parseFrontmatter(readFileSync(node.path, 'utf8'))
+    const written = [data.id ?? '', ...(data.aliases ?? '').split(',')].map(one => one.trim().replace(/^[\[\s"']+|[\]\s"']+$/g, ''))
+    return [{ rel: node.rel, identifiers: written.filter(one => runsOf(one).some(run => !DIGITS_ALONE.test(run))), numbered: numberOf(node) }]
+  } catch {
+    return []
+  }
+}
+
+function numberOf(node: Node) {
+  const name = posix.basename(node.rel)
+  const number = DATED.test(name) ? null : NUMBERED.exec(name)
+  const kind = runsOf(node.kind)
+  const last = kind.at(-1)
+  if (!number || last === undefined) return null
+  return { kinds: [kind, [...kind.slice(0, -1), last.replace(/s$/, '')]], number: Number(number[1]) }
+}
+
+function countedRuns(text: string) {
+  return runsOf(text).filter(run => /\d/.test(run) || (run.length > 2 && !STOP_WORDS.has(run)))
 }
 
 function countedWords(query: string) {
@@ -383,8 +452,9 @@ function commonDir(dirs: string[]) {
 function moreLine(resolution: Resolution) {
   const { by, name, more, pointers } = resolution
   const one = more === 1
-  const kind = by === 'text' ? 'matching' : 'linked'
-  const rerun = by === 'text' ? 'a higher --max' : `context-central resolve ${name} --max ${Math.max(MORE_MAX, pointers.length + more)}`
+  const byWords = BY_WORDS.includes(by)
+  const kind = byWords ? 'matching' : 'linked'
+  const rerun = byWords ? 'a higher --max' : `context-central resolve ${name} --max ${Math.max(MORE_MAX, pointers.length + more)}`
   return `${one ? `1 more ${kind} note is` : `${more} more ${kind} notes are`} not listed; ${rerun} lists ${one ? 'it' : 'them'}.`
 }
 
