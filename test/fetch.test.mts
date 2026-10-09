@@ -318,3 +318,87 @@ test('a fetch is refused in plain words when a file stands where the sources fol
 
   assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: work/PROJ-13/sources is a file, not a folder, so nothing can be written under it\n' })
 })
+
+const GH_WITH_ACCOUNTS = `#!/bin/sh
+here="\${0%/*}"
+case "$1 $2" in
+  "auth status") cat "$here/status"; exit 0 ;;
+  "auth token")
+    printf '%s\\n' "$@" > "$here/asked"
+    if [ -f "$here/held" ]; then echo word-for-the-pinned-account; exit 0; fi
+    exit 1 ;;
+esac
+printf '%s\\n' "$@" > "$here/args"
+for name in GH_TOKEN GH_ENTERPRISE_TOKEN; do
+  eval "value=\\$$name"
+  if [ -n "$value" ]; then echo "a token was passed in $name" >> "$here/token"; fi
+done
+cat "$here/pr.json"
+`
+const ONE_HOST = ['github.com', '  ✓ Logged in to github.com account dev-one (keyring)', '  - Active account: true', ''].join('\n')
+const TWO_HOSTS = [
+  'github.com',
+  '  ✓ Logged in to github.com account alice (keyring)',
+  '  - Active account: true',
+  'code.acme.example',
+  '  ✓ Logged in to code.acme.example account bob (keyring)',
+  '  - Active account: true',
+  '  ✓ Logged in to code.acme.example account alice (keyring)',
+  '  - Active account: false',
+  '',
+].join('\n')
+const pinnedTo = (account: string, entry: { [key: string]: string } = {}) => ({ connections: { code: { holds: 'pull-requests', preset: 'github', account, ...entry } } })
+const told = (gh: string, file: string) => (existsSync(join(gh, file)) ? readFileSync(join(gh, file), 'utf8').trimEnd().split('\n') : null)
+
+function ghWithAccounts(status: string, held: boolean) {
+  const dir = tree(makeTree({ gh: GH_WITH_ACCOUNTS, 'pr.json': PR, status, ...(held ? { held: '' } : {}) }))
+  chmodSync(join(dir, 'gh'), 0o755)
+  return dir
+}
+
+test("the pinned account's token is asked of gh by name, and the pull request is read with it", NEEDS_STAND_IN, () => {
+  const root = tree(acme({}, pinnedTo('acme-bot')))
+  const gh = ghWithAccounts(ONE_HOST, true)
+
+  const result = fetch(root, gh, ['pr', '88', '--check'])
+
+  assert.equal(result.code, 0)
+  assert.deepEqual(told(gh, 'asked'), ['auth', 'token', '--user', 'acme-bot'])
+  assert.deepEqual(told(gh, 'token'), ['a token was passed in GH_TOKEN'])
+})
+
+test('a host the connection names is named to gh, and one that is not on GitHub\'s own domains takes the token under the enterprise variable', NEEDS_STAND_IN, () => {
+  for (const [host, passed] of [['acme.ghe.com', 'a token was passed in GH_TOKEN'], ['code.acme.example', 'a token was passed in GH_ENTERPRISE_TOKEN']]) {
+    const gh = ghWithAccounts(ONE_HOST, true)
+
+    fetch(tree(acme({}, pinnedTo('acme-bot', { host }))), gh, ['pr', '88', '--check'])
+
+    assert.deepEqual(told(gh, 'asked'), ['auth', 'token', '--user', 'acme-bot', '--hostname', host], host)
+    assert.deepEqual(told(gh, 'token'), [passed], host)
+  }
+})
+
+test('an account that is active on another host only is not the one gh runs as on the connection\'s host', NEEDS_STAND_IN, () => {
+  const root = tree(acme({}, pinnedTo('alice', { host: 'code.acme.example' })))
+  const gh = ghWithAccounts(TWO_HOSTS, false)
+
+  const result = fetch(root, gh, ['pr', '88', '--check'])
+
+  assert.deepEqual(result, {
+    code: 1,
+    stdout: '',
+    stderr:
+      'context-central fetch: connection code is pinned to alice, and gh does not run as it here; sign alice in with gh auth login --hostname code.acme.example; that makes it the active account, and gh auth switch --hostname code.acme.example --user bob puts bob back\n',
+  })
+  assert.equal(told(gh, 'args'), null)
+})
+
+test('with no token from gh, the read goes ahead where the pinned account is the active one on the connection\'s host', NEEDS_STAND_IN, () => {
+  const root = tree(acme({}, pinnedTo('bob', { host: 'code.acme.example' })))
+  const gh = ghWithAccounts(TWO_HOSTS, false)
+
+  const result = fetch(root, gh, ['pr', '88', '--check'])
+
+  assert.equal(result.code, 0)
+  assert.equal(told(gh, 'token'), null)
+})

@@ -39,9 +39,11 @@ const DESK = `export default {
     args: ['whoami'],
     read: printed => printed.split('\\n').filter(Boolean).map(line => ({ user: line.replace(/^\\* /, ''), active: line.startsWith('* ') })),
     fix: wanted => 'the active desk account is not ' + wanted + '; run acmedesk login ' + wanted,
+    signIn: (wanted, entry, active) => 'sign it in with acmedesk login ' + wanted + (active.length > 0 ? ', then acmedesk login ' + active[0] + ' puts ' + active[0] + ' back' : ''),
   },
 }
 `
+const DESK_WITH_TOKEN = DESK.replace("    fix: wanted", "    token: (wanted, entry) => ({ args: ['token', wanted, ...(entry.board ? ['--board', entry.board] : [])], variable: 'DESK_TOKEN' }),\n    fix: wanted")
 const DESK_STAND_IN = `#!/bin/sh
 here="\${0%/*}"
 if [ "$1" = whoami ]; then
@@ -53,6 +55,26 @@ if [ -n "$DESK_FAIL" ]; then
   printf '%s\\n' "$DESK_FAIL" >&2
   exit 1
 fi
+cat "$here/answer"
+`
+const DESK_TOKEN_STAND_IN = `#!/bin/sh
+here="\${0%/*}"
+if [ "$1" = whoami ]; then
+  while IFS= read -r account; do printf '%s\\n' "$account"; done < "$here/accounts"
+  exit 0
+fi
+if [ "$1" = token ]; then
+  printf '%s\\n' "$@" > "$here/asked"
+  if [ -f "$here/empty" ]; then echo; exit 0; fi
+  if grep -qx -- "$2" "$here/held"; then printf 'word-for-%s\\n' "$2"; exit 0; fi
+  exit 1
+fi
+printf '%s\\n' "$@" > "$here/args"
+case "$DESK_TOKEN" in
+  '') echo 'no token passed' > "$here/token" ;;
+  word-for-*) echo "the token handed out for \${DESK_TOKEN#word-for-} was passed" > "$here/token" ;;
+  *) echo 'another token was passed' > "$here/token" ;;
+esac
 cat "$here/answer"
 `
 const TICKET_TEXT = 'DESK-41 Fix the login redirect\n\n  Opened by dev-one.\n\n# Steps\n\nSign in twice.\n'
@@ -389,10 +411,105 @@ test('a pinned account whose program is not on the PATH is noted, not held to be
   assert.equal(doctorLine(connected(BOT), NOTHING_ON_PATH), 'note connections: desk is not reached here: acmedesk is not on PATH; install the desk tool')
 })
 
-test('a failed read through a connection with a pinned account names it when the active one is another', NEEDS_STAND_IN, () => {
-  const result = fetch(connected(BOT), deskAnswering(TICKET_TEXT, '* dev-one\n'), ['ticket', 'DESK-41', '--check'], { DESK_FAIL: 'Not permitted.' })
+const REFUSED = 'context-central fetch: connection desk is pinned to acme-bot, and acmedesk does not run as it here; sign it in with acmedesk login acme-bot, then acmedesk login dev-one puts dev-one back\n'
+const TOKEN_PLUGIN = tree(pluginWith({ acmedesk: DESK_WITH_TOKEN }))
+const deskHolding = (held: string, accounts = '* dev-one\n', more: TreeFiles = {}) => tree(standIns({ acmedesk: DESK_TOKEN_STAND_IN, answer: TICKET_TEXT, accounts, held, ...more }))
+const pinnedFetch = (root: string, desk: string, args: string[]) => runIn(TOKEN_PLUGIN, ['fetch', ...args], { cwd: root, env: { TZ: 'UTC', PATH: [desk, '/usr/bin', '/bin'].join(delimiter) } })
+const noted = (desk: string, file: string) => (existsSync(join(desk, file)) ? readFileSync(join(desk, file), 'utf8').trimEnd() : null)
 
-  assert.equal(result.stderr, 'context-central fetch: acmedesk failed: Not permitted.; the active desk account is not acme-bot; run acmedesk login acme-bot\n')
+test('a read through a connection whose pinned account the tool does not run as is refused before it is made', NEEDS_STAND_IN, () => {
+  const desk = deskAnswering(TICKET_TEXT, '* dev-one\n')
+
+  const result = fetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: REFUSED })
+  assert.equal(existsSync(join(desk, 'args')), false)
+})
+
+test('a refused read saves nothing', NEEDS_STAND_IN, () => {
+  const root = connected(BOT)
+
+  const result = fetch(root, deskAnswering(TICKET_TEXT, '* dev-one\n'), ['ticket', 'DESK-41', '--item', 'login-redirect'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: REFUSED })
+  assert.equal(existsSync(join(root, 'work/login-redirect/sources')), false)
+})
+
+test("a read through a pinned connection is made with that account's token, whichever account is active", NEEDS_STAND_IN, () => {
+  const desk = deskHolding('acme-bot\n')
+
+  const result = pinnedFetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.stdout, `ok: connection desk read ticket DESK-41 (${Buffer.byteLength(TICKET_TEXT)} B)\n`)
+  assert.equal(noted(desk, 'asked'), 'token\nacme-bot')
+  assert.equal(noted(desk, 'token'), 'the token handed out for acme-bot was passed')
+})
+
+test('the token is asked for with the parameters the connection holds', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('acme-bot\n')
+
+  pinnedFetch(connected({ desk: { ...BOT.desk, board: 'ops' } }), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(noted(desk, 'asked'), 'token\nacme-bot\n--board\nops')
+})
+
+test('the token reaches the tool in its environment and is written nowhere', NEEDS_STAND_IN, () => {
+  const root = connected(BOT)
+  const desk = deskHolding('acme-bot\n')
+
+  const result = pinnedFetch(root, desk, ['ticket', 'DESK-41', '--item', 'login-redirect'])
+
+  const saved = sources(root).map(name => readFileSync(join(root, 'work/login-redirect/sources', name), 'utf8'))
+  assert.equal(result.code, 0)
+  assert.equal([result.stdout, result.stderr, noted(desk, 'args'), ...saved].join('\n').includes('word-for-acme-bot'), false)
+})
+
+test('with no token for the pinned account, the read goes ahead where the tool already runs as it', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('', '* acme-bot\n')
+
+  const result = pinnedFetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.code, 0)
+  assert.equal(noted(desk, 'token'), 'no token passed')
+})
+
+test('with no token and another account active, the read is refused and the tool is not started for it', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('')
+
+  const result = pinnedFetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: REFUSED })
+  assert.equal(noted(desk, 'args'), null)
+})
+
+test('an empty answer to the token call counts as no token', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('acme-bot\n', '* dev-one\n', { empty: '' })
+
+  assert.deepEqual(pinnedFetch(connected(BOT), desk, ['ticket', 'DESK-41', '--check']), { code: 1, stdout: '', stderr: REFUSED })
+})
+
+test('a tool that answers the token call with its usual text hands out no token', NEEDS_STAND_IN, () => {
+  const result = pinnedFetch(connected(BOT), deskAnswering(TICKET_TEXT, '* dev-one\n'), ['ticket', 'DESK-41', '--check'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: REFUSED })
+})
+
+test('a connection with no pinned account is read as before, and no token is asked for', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('acme-bot\n')
+
+  const result = pinnedFetch(connected(), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.code, 0)
+  assert.deepEqual([noted(desk, 'asked'), noted(desk, 'token')], [null, 'no token passed'])
+})
+
+test('an account that could be taken for a flag is never put into a command', NEEDS_STAND_IN, () => {
+  const desk = deskHolding('--help\n')
+
+  const result = pinnedFetch(connected({ desk: { ...BOT.desk, account: '--help' } }), desk, ['ticket', 'DESK-41', '--check'])
+
+  assert.equal(result.code, 1)
+  assert.equal(noted(desk, 'asked'), null)
 })
 
 test('a failed read as the pinned account says nothing of accounts', NEEDS_STAND_IN, () => {

@@ -89,20 +89,39 @@ export default {
   accounts: {
     args: ['auth', 'status'],
     read: accountsIn,
+    token: (wanted, entry) => ({ args: ['auth', 'token', '--user', wanted, ...hostFlag(entry)], variable: tokenVariable(entry) }),
+    signIn: (wanted, entry, [former]) => {
+      const host = hostFlag(entry).map(word => ` ${word}`).join('')
+      const back = former ? `; that makes it the active account, and gh auth switch${host} --user ${former} puts ${former} back` : ''
+      return `sign ${wanted} in with gh auth login${host}${back}`
+    },
     fix: wanted => `the active gh account is not ${wanted}; run gh auth switch --user ${wanted}, or start each gh command with GH_TOKEN=$(gh auth token --user ${wanted})`,
   },
   onOldMaps: { accountKey: 'ghUser', unasked: true },
 } satisfies PresetBody
 
-function accountsIn(printed: string) {
-  const accounts: Account[] = []
+function accountsIn(printed: string, entry?: Entry): Account[] {
+  const accounts: (Account & { host: string })[] = []
   for (const line of printed.split('\n')) {
-    const login = /Logged in to \S+ (?:account|as) (\S+)/.exec(line)
+    const login = /Logged in to (\S+) (?:account|as) (\S+)/.exec(line)
     const active = /Active account: (true|false)/.exec(line)
-    if (login) accounts.push({ user: login[1], active: true })
+    if (login) accounts.push({ host: login[1].toLowerCase(), user: login[2], active: true })
     if (active && accounts.length > 0) accounts.at(-1)!.active = active[1] === 'true'
   }
-  return accounts
+  return accounts.filter(account => !entry || account.host === hostOf(entry)).map(({ user, active }) => ({ user, active }))
+}
+
+function hostOf({ host }: Entry) {
+  return typeof host === 'string' && host ? host.toLowerCase() : HOST
+}
+
+function tokenVariable(entry: Entry) {
+  const host = hostOf(entry)
+  return host === HOST || host.endsWith('.ghe.com') ? 'GH_TOKEN' : 'GH_ENTERPRISE_TOKEN'
+}
+
+function hostFlag({ host }: Entry) {
+  return typeof host === 'string' && host ? ['--hostname', host] : []
 }
 
 function repoAt({ host, org }: Entry) {

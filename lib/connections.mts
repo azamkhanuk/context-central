@@ -1,8 +1,9 @@
 import { isObject, patterns, strings } from './checks.mts'
-import { accountsOf, isOnlyAScript, onPath } from './machine.mts'
+import { accountsOf, isOnlyAScript, onPath, tokenOf } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
 import type { Env } from './cli.mts'
+import type { AccountToken } from './machine.mts'
 import type { Entry, Kind, Preset } from './presets.mts'
 
 export interface ConnectionEntry {
@@ -44,6 +45,14 @@ export interface Held {
   recorded: Connection[]
   unasked: Connection[]
   oldMap: boolean
+}
+
+export interface Pinned {
+  account: string
+  active: string[]
+  runs: boolean
+  program: string
+  signIn: string
 }
 
 export interface Choice {
@@ -195,6 +204,30 @@ export function reachOf(connection: Connection, env: Env): Reach {
 export function whyNotStarted(preset: Preset, env: Env, { hint = true }: { hint?: boolean } = {}) {
   if (isOnlyAScript(preset.program, env)) return `${preset.program} is a .cmd or .bat file, which the plugin cannot start`
   return `${preset.program} is not on PATH${hint && preset.hint ? `; ${preset.hint}` : ''}`
+}
+
+export function pinnedToken(connection: Connection, env: Env): AccountToken | null {
+  const pin = pinOf(connection, env)
+  return pin && tokenOf(pin.preset, pin.account, parametersOf(connection), env)
+}
+
+export function pinnedAccount(connection: Connection, env: Env): Pinned | null {
+  const pin = pinOf(connection, env)
+  if (!pin) return null
+  const active = accountsOf(pin.preset, env, parametersOf(connection))
+    .filter(account => account.active)
+    .map(account => account.user)
+  const runs = active.some(user => user.toLowerCase() === pin.account.toLowerCase())
+  return { account: pin.account, active, runs, program: pin.preset.program, signIn: pin.accounts.signIn(pin.account, parametersOf(connection), active) }
+}
+
+export function notRunningAs({ name }: Connection, { account, program, signIn }: Pinned) {
+  return `${name} is pinned to ${account}, and ${program} does not run as it here; ${signIn}`
+}
+
+function pinOf({ entry }: Connection, env: Env) {
+  const preset = presetNamed(entry.preset)
+  return entry.account && preset?.accounts && onPath(preset.program, env) ? { account: entry.account, preset, accounts: preset.accounts } : null
 }
 
 export function accountFault({ entry }: Connection, env: Env) {

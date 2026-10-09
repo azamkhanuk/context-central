@@ -34,7 +34,9 @@ export interface Account {
 
 export interface Accounts {
   args: string[]
-  read: (printed: string) => Account[]
+  read: (printed: string, entry?: Entry) => Account[]
+  token?: (wanted: string, entry: Entry) => { args: string[]; variable: string }
+  signIn: (wanted: string, entry: Entry, active: string[]) => string
   fix: (wanted: string) => string
 }
 
