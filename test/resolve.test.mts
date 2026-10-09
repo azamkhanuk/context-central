@@ -217,6 +217,20 @@ test('an older entry file the state file does not link stays among the other not
   assert.deepEqual(resolution.notes, { count: 1, bytes: 13, rel: 'work/PROJ-9', path: join(root, 'work/PROJ-9') })
 })
 
+test('a link to the hub is not a pointer of a work item or of a repo note', () => {
+  const state = '# PROJ-9: Split the portal\n\nSee [the hub](../../CLAUDE.md) and [[concepts/gateway]].\n'
+  const root = tree(acme({ 'work/PROJ-9/STATE.md': state, 'repos/web.md': '# web\n\nRouted from [the hub](../CLAUDE.md). Talks to [[repos/api]].\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'PROJ-9')), ['work/PROJ-9/STATE.md', 'concepts/gateway.md'])
+  assert.deepEqual(rels(resolved(root, 'web')), ['repos/web.md', 'repos/api.md'])
+})
+
+test('a hub kept among the notes is left out of linked pointers too', () => {
+  const root = tree(acme({ 'docs/index.md': '# Acme estate\n', 'work/PROJ-9/STATE.md': '# PROJ-9: Split the portal\n\nSee [[docs/index]] and [[concepts/gateway]].\n' }, { hub: 'docs/index.md' }))
+
+  assert.deepEqual(rels(resolved(root, 'PROJ-9')), ['work/PROJ-9/STATE.md', 'concepts/gateway.md'])
+})
+
 test('linked notes are ranked by kind, with the log and the deep tier left out', () => {
   const root = tree(acme(RANKED_FILES))
 

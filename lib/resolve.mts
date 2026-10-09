@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
-import { findWorkItem, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
+import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -323,8 +323,9 @@ function standardsNote(estate: Estate, name: string) {
 }
 
 function linkedFrom(estate: Estate, node: NodeText) {
+  const hub = relative(estate.mapDir, hubPath(estate)).split(sep).join('/')
   return [...new Set(node.links)]
-    .filter(rel => rel !== node.rel && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
+    .filter(rel => rel !== node.rel && rel !== hub && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
     .sort((a, b) => rank(a) - rank(b))
 }
 
