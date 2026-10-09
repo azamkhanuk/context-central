@@ -3,7 +3,7 @@ import { ConfigError } from '../errors.mts'
 import { coverage, findEstate, loadEstate } from '../estate.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
-import { formatPointers, formatUnanswered, resolveQuery, unansweredIn } from '../resolve.mts'
+import { deliveredAs, formatPointers, formatUnanswered, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
@@ -99,11 +99,11 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   const short = input.prompt.length <= estate.config.budgets.hookTextChars
   const session = loadSession(env, input.session_id)
   touchSession(env, input.session_id)
-  const isNew = ({ key }: { key: string }) => !session.delivered.includes(key)
-  const resolution = [resolveQuery(estate, input.prompt, { plainWords: short })].filter(found => found !== null).filter(isNew)
+  const found = resolveQuery(estate, input.prompt, { plainWords: short })
+  const resolution = found ? undelivered(found, session.delivered) : []
   const unanswered = short ? unansweredIn(estate, input.prompt, session.delivered) : []
   if (resolution.length + unanswered.length === 0) return null
-  saveSession(env, input.session_id, { delivered: [...session.delivered, ...[...resolution, ...unanswered].map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
-  const lines = [...resolution.map(found => formatPointers(found, { absolute: true })), ...unanswered.map(formatUnanswered)]
+  saveSession(env, input.session_id, { delivered: [...session.delivered, ...resolution.flatMap(deliveredAs), ...unanswered.map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
+  const lines = [...resolution.map(given => formatPointers(given, { absolute: true })), ...unanswered.map(formatUnanswered)]
   return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lines.join('\n') } }
 }

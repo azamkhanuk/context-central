@@ -581,3 +581,35 @@ test('a sweep that cannot remove something still lets the hook answer, and says 
 
   assert.deepEqual([result.code, result.stderr, context(result)], [0, '', acmePointers(root)])
 })
+
+test('one record that cannot be removed does not keep the sweep from the records after it', () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({ 'old.json': 15 })
+  mkdirSync(join(dir, '0-stuck.json'))
+  aged(join(dir, '0-stuck.json'), 15)
+
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  assert.deepEqual(readdirSync(dir).sort(), ['0-stuck.json', 's1.json'])
+})
+
+const SHARED = {
+  'estate.json': { contextCentral: 1, name: 'acme' },
+  'CLAUDE.md': '# Acme\n',
+  'concepts/doorway.md': '---\naliases: front-gate\n---\n# Doorway\n',
+  'docs/porch.md': '---\naliases: front-gate\n---\n# Porch\n',
+}
+const given = (result: Result) => context(result).split('\n').slice(1).map(line => line.split(' ')[1])
+
+test('a node given among others that share its identifier is not given again by its name, and the other way round', () => {
+  const root = tree(makeTree(SHARED))
+  const asked = (session: string, dir: string) => (prompt: string) => fire('user-prompt-submit', { session_id: session, cwd: root, prompt }, { CONTEXT_CENTRAL_STATE_DIR: dir })
+  const first = asked('s1', stateDir())
+  const second = asked('s2', stateDir())
+
+  assert.deepEqual(given(first('front-gate')), [join(root, 'concepts/doorway.md'), join(root, 'docs/porch.md')])
+  silent(first('doorway'))
+  assert.deepEqual(given(second('porch')), [join(root, 'docs/porch.md')])
+  assert.deepEqual(given(second('front-gate')), [join(root, 'concepts/doorway.md')])
+  silent(second('front-gate'))
+})

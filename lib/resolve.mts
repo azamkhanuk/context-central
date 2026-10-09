@@ -81,6 +81,7 @@ const DIGITS_ALONE = /^\d+$/
 const NUMBERED = /^(\d+)-/
 const DATED = /^\d{4}-\d{2}-\d{2}/
 const BY_WORDS: Route[] = ['text', 'id', 'name', 'term']
+const BY_NODE: Route[] = ['id', 'name']
 const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
@@ -96,6 +97,16 @@ export function resolveQuery(estate: Estate, query: string, { max = estate.confi
     if (found) return found
   }
   return null
+}
+
+export function undelivered(found: Resolution, told: string[]): Resolution[] {
+  if (!BY_NODE.includes(found.by)) return told.includes(found.key) ? [] : [found]
+  const pointers = found.pointers.filter(listed => !told.includes(nodeKey([listed])))
+  return pointers.length > 0 ? [{ ...found, pointers }] : []
+}
+
+export function deliveredAs(found: Resolution) {
+  return BY_NODE.includes(found.by) ? found.pointers.map(listed => nodeKey([listed])) : [found.key]
 }
 
 export function formatPointers(resolution: Resolution, { absolute = false }: { absolute?: boolean } = {}) {
@@ -248,7 +259,11 @@ function byGlossaryTerm(estate: Estate, query: string) {
 function nodesFound(by: Route, query: string, found: Pointer[], max: number) {
   if (found.length === 0) return null
   const pointers = found.sort((a, b) => rank(a.rel) - rank(b.rel)).slice(0, max)
-  return resolution({ by, key: `node:${pointers.map(listed => listed.rel).join(',')}`, label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
+  return resolution({ by, key: nodeKey(pointers), label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
+}
+
+function nodeKey(pointers: Pointer[]) {
+  return `node:${pointers.map(listed => listed.rel).join(',')}`
 }
 
 function knownNodes(estate: Estate) {

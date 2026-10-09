@@ -48,7 +48,12 @@ function sweep(saved: string, before: number) {
   const dir = dirname(saved)
   for (const name of readdirSync(dir)) {
     const file = join(dir, name)
-    if (file !== saved && name.endsWith('.json') && statSync(file).mtimeMs < before) rmSync(file)
+    if (file === saved || !name.endsWith('.json')) continue
+    try {
+      if (statSync(file).mtimeMs < before) rmSync(file)
+    } catch {
+      // one record that will not go must not keep the ones after it
+    }
   }
 }
 
