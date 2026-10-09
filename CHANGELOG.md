@@ -2,6 +2,13 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.8.3 - 2026-10-10
+
+- **The README is the short version.** It keeps what the plugin does, how it helps, the core idea, how it works for you, the install and the five steps of a piece of work, and is about a fifth as long as it was.
+- **The detail of each part has a file of its own under `docs/`.** There are nine, listed in the README under "Where the detail lives": install, update and turn off, with two accounts on one machine; a piece of work, step by step; the map; connections; standards and checks; what the hooks put in context; commands, skills and agents; working from a terminal; and what it does not do. The text of each is the README's own, moved as it was, and each diagram went with the part it shows.
+- **The licence line links the licence.**
+- Nothing changes in what the commands, the hooks, the skills or the agents do.
+
 ## 0.8.2 - 2026-10-10
 
 - **The opening image of the README is redrawn** as one diagram of the whole loop: the connections that bring tickets, pull requests and threads into the map, the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
