@@ -2,9 +2,9 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
-## 0.8.2 - 2026-10-09
+## 0.8.2 - 2026-10-10
 
-- **The opening image of the README is redrawn** as a panel of the same kind as the eight that 0.8.1 added. It names the seven skills, where the mind map before it named five.
+- **The opening image of the README is redrawn** as one diagram of the whole loop: the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.
 - Nothing changes in what the commands, the hooks, the skills or the agents do.
 
 ## 0.8.1 - 2026-10-09
