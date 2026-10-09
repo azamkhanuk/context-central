@@ -3,7 +3,7 @@ import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
-import { leftOut, makeFolder } from '../nodes.mts'
+import { makeFolder, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -67,7 +67,7 @@ function create(estate: Estate, target: string, title: string | undefined, io: I
   const broken = brokenRule(estate, kind, parts)
   if (broken) throw new UsageError(`${broken}: ${expected}`)
   const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, parts.join('/'), title || name)
-  if (leftOut(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
+  if (underNotNodes(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
   const path = join(estate.mapDir, rel)
   if (existsSync(path)) throw new PluginError(`${rel} already exists`)
   makeFolder(estate.mapDir, posix.dirname(rel))

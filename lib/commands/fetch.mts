@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util'
 import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, chosenAmong, kindOf, listed, notRunningAs, parametersOf, pinnedAccount, pinnedToken, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { findWorkItem, makeFolder } from '../nodes.mts'
+import { findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
@@ -39,18 +39,19 @@ export function run(args: string[], io: Io) {
   const estate = requireEstate(io)
   const item = values.item === undefined ? null : findWorkItem(estate, values.item)
   if (values.item !== undefined && !item) throw new PluginError(`no work item "${values.item}"`)
+  const sourcesRel = item && `${folderToSaveIn(estate, item)}/sources`
   const asked = { reference: given ?? ownTicket(estate, item), repo: values.repo }
   const connection = chosen(estate, kind, typed, asked.reference, values.connection)
   const { preset, reading } = readingOf(connection, kind, asked)
   const printed = started(preset, reading, connection, io)
   const { day } = localDate(io.env)
   const laid = laidOut(preset, reading, printed, day) ?? asPrinted(connection, kind, asked, printed, day)
-  if (!item) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
-  const sourcesAbs = makeFolder(estate.mapDir, `${item.dirRel}/sources`)
+  if (!sourcesRel) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
+  const sourcesAbs = makeFolder(estate.mapDir, sourcesRel)
   const name = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
   writeFileSync(join(sourcesAbs, name), laid.text, { flag: 'wx' })
   io.out(laid.digest)
-  io.out(`saved: ${item.dirRel}/sources/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
+  io.out(`saved: ${sourcesRel}/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
 }
 
 function ownTicket(estate: Estate, item: WorkItem | null) {

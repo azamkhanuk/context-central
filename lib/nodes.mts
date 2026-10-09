@@ -107,8 +107,11 @@ export function listFiles(estate: Estate) {
 }
 
 export function leftOut(config: Settings, rel: string) {
-  const listed = config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`))
-  return listed || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
+  return underNotNodes(config, rel) || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
+}
+
+export function underNotNodes(config: Settings, rel: string) {
+  return config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`))
 }
 
 export function listNodes(estate: Estate) {
@@ -152,6 +155,11 @@ export function makeFolder(mapDir: string, rel: string) {
   return path
 }
 
+export function folderToSaveIn(estate: Estate, item: WorkItem) {
+  if (underNotNodes(estate.config, item.dirRel)) throw new PluginError(`${item.dirRel} is under a notNodes entry, so nothing is saved there for ${item.id}`)
+  return item.dirRel
+}
+
 export function workItemIds(estate: Estate) {
   const { workDir } = estate.config
   const workAbs = join(estate.mapDir, workDir)
@@ -168,7 +176,7 @@ export function workItemIds(estate: Estate) {
 export function strayFiles(estate: Estate): StrayFile[] {
   return workItemIds(estate)
     .map(id => `${estate.config.workDir}/${id}`)
-    .filter(dirRel => isFolder(join(estate.mapDir, dirRel)))
+    .filter(dirRel => !leftOut(estate.config, dirRel) && isFolder(join(estate.mapDir, dirRel)))
     .flatMap(dirRel =>
       walk(estate.mapDir, dirRel, name => !isMarkdown(name))
         .filter(rel => !isEvidence(estate.config, rel))
@@ -192,12 +200,13 @@ function workItem(estate: Estate, id: string): WorkItem | null {
   const dirRel = `${workDir}/${id}`
   const noteRel = `${workDir}/${id}.md`
   const evidenceRel = `${dirRel}/${EVIDENCE_DIR}`
-  const inFolder = isFolder(join(estate.mapDir, dirRel))
+  const kept = !leftOut(estate.config, dirRel)
+  const inFolder = kept && isFolder(join(estate.mapDir, dirRel))
     ? walk(estate.mapDir, dirRel)
         .filter(rel => !isEvidence(estate.config, rel))
         .map(rel => describe(estate, rel))
     : []
-  const evidence = isFolder(join(estate.mapDir, evidenceRel)) ? walk(estate.mapDir, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
+  const evidence = kept && isFolder(join(estate.mapDir, evidenceRel)) ? walk(estate.mapDir, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
   const note = existsSync(join(estate.mapDir, noteRel)) && !leftOut(estate.config, noteRel) ? describe(estate, noteRel) : null
   const [entry = null, next = null] = entryFiles(inFolder, dirRel, note)
   if (!entry && inFolder.length === 0 && evidence.length === 0) return null

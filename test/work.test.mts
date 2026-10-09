@@ -662,3 +662,26 @@ test('a new work item is refused where notNodes lists its folder, and a state fi
   assert.equal(read(root, 'work/secret/STATE.md'), kept)
   assert.deepEqual(readdirSync(join(root, 'work/secret')), ['STATE.md'])
 })
+
+test('a folder notNodes lists is no part of the work item whose single note sits beside it, and adoption leaves it alone', () => {
+  const kept = '# kept by hand\n'
+  const note = '# arch: The archive\n'
+  const root = tree(acme({ 'work/arch.md': note, 'work/arch/STATE.md': kept, 'work/arch/notes/plan.md': '# Plan\n', 'work/arch/export.csv': 'a,b\n' }, { notNodes: ['work/arch'] }))
+
+  const item = list(root).find(found => found.id === 'arch')
+
+  assert.deepEqual([item?.entry, item?.notes], [{ rel: 'work/arch.md', kind: 'note', bytes: sizeOf(note) }, 0])
+  assert.deepEqual(adopt(root, 'arch'), { code: 1, stdout: '', stderr: 'context-central work: work/arch is under a notNodes entry, so a work item made there would never be listed\n' })
+  assert.equal(read(root, 'work/arch/STATE.md'), kept)
+  assert.deepEqual(readdirSync(join(root, 'work/arch')).sort(), ['STATE.md', 'export.csv', 'notes'])
+  assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /export\.csv/)
+})
+
+test('a new work item cannot take one of the two names kept for a file that is not work', () => {
+  const root = tree(acme())
+
+  for (const name of ['README.md', 'index.md']) {
+    assert.deepEqual(run(['work', 'new', name], { cwd: root }), { code: 1, stdout: '', stderr: `context-central work: work/${name} is a name kept for a file that is not work, so a work item made there would never be listed\n` }, name)
+  }
+  assert.deepEqual(readdirSync(join(root, 'work')), ['PROJ-12'])
+})

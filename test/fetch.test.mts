@@ -402,3 +402,14 @@ test('with no token from gh, the read goes ahead where the pinned account is the
   assert.equal(result.code, 0)
   assert.equal(told(gh, 'token'), null)
 })
+
+test('nothing is read or saved for an item whose folder notNodes lists', NEEDS_STAND_IN, () => {
+  const root = tree(acme({ 'work/arch.md': '# arch: The archive\n', 'work/arch/kept.md': '# Kept\n' }, { notNodes: ['work/arch'] }))
+  const gh = stubGh()
+
+  const result = fetch(root, gh, ['pr', '88', '--item', 'arch'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: work/arch is under a notNodes entry, so nothing is saved there for arch\n' })
+  assert.equal(existsSync(join(gh, 'args')), false)
+  assert.deepEqual(readdirSync(join(root, 'work/arch')), ['kept.md'])
+})

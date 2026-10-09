@@ -123,3 +123,12 @@ test('evidence is refused in plain words when a file stands where the evidence f
 
   assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central evidence: work/PROJ-13/evidence is a file, not a folder, so nothing can be written under it\n' })
 })
+
+test('nothing is saved for an item whose folder notNodes lists', () => {
+  const root = tree(acme({ 'work/arch.md': '# arch: The archive\n', 'work/arch/kept.md': '# Kept\n', 'scratch/shot.png': 'x' }, { notNodes: ['work/arch'] }))
+
+  const result = add(root, 'scratch/shot.png', '--item', 'arch')
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central evidence: work/arch is under a notNodes entry, so nothing is saved there for arch\n' })
+  assert.deepEqual(readdirSync(join(root, 'work/arch')), ['kept.md'])
+})
