@@ -49,13 +49,13 @@ Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head i
 
 ## 5. Glossary
 
-`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the hand-over. Use the glossary's wording in the spec.
+`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the closing answer. Use the glossary's wording in the spec.
 
 ## 6. Tracker brief
 
 After the spec is saved, write a brief for the ticket in three parts: why, what, done when. The spec stays in the map; the tracker gets the brief only.
 
-Run `context-central config --get writeRules`. `context-central connections --item <item>` names the connection the item's ticket belongs to and how it is reached: never pick it yourself, and never ask the person for what it can answer. When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now. Post the brief through that connection only when the write rules allow it and the person approves the exact text: by the server's own tool for a comment, found with tool search, or by the estate's own command for `comment`. That command is in the connection's entry in `context-central config --get connections`, where the map records the connection. Otherwise the hand-over shows the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed". When the item has no ticket, or no connection holds it, the hand-over shows the text.
+Run `context-central config --get writeRules`. `context-central connections --item <item>` names the connection the item's ticket belongs to and how it is reached: never pick it yourself, and never ask the person for what it can answer. When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now. Post the brief through that connection only when the write rules allow it and the person approves the exact text: by the server's own tool for a comment, found with tool search, or by the estate's own command for `comment`. That command is in the connection's entry in `context-central config --get connections`, where the map records the connection. Otherwise the closing answer shows the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed". When the item has no ticket, or no connection holds it, the closing answer shows the text.
 
 ## 7. Update the state file
 
@@ -88,4 +88,4 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 Spec: <its path>. Next: `/clear`, then `/context-central:implement <item>`, or `/context-central:design <item>` first.
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the spec`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The state file and the spec carry everything the build needs.
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the spec`: only a point the spec holds is left out. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The state file and the spec carry everything the build needs.

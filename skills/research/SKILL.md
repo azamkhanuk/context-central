@@ -49,7 +49,7 @@ A claim that would sit in two groups is two claims. Done when every claim carrie
 
 ## 4. Write the note
 
-With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the last line of the answer says what the command said. When it adopted the item, the last line says so.
+With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the answer says what the command said, under Needs a fix. When it adopted the item, the answer says so, under Fine as it is.
 
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
@@ -68,12 +68,14 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 **Needs a fix**
 - <a claim that something is wrong or missing, and where> (<its mark>, <the one source that shows it best>)
   - <a part of it, where it has parts>
+- <what the adopt command said, where it refused>
 
 **Yours to decide**
 - <a choice only the person can make>. Recommended: <the answer, and why>.
 
 **Fine as it is**
 - <a claim that was checked and holds> (<its mark>, <the one source that shows it best>)
+- <the adoption, where there was one>
 
 **Not known**
 - <what could not be checked, and what stood in the way>
@@ -81,4 +83,4 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 Note: <the path of the note>
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the note`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the note`: only a point the note holds is left out. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
