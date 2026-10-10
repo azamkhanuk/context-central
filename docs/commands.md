@@ -42,13 +42,13 @@ About `doctor`:
 
 ## Skills
 
-Typed with the plugin prefix. All but the last run only when you invoke them; `checkpoint` may also be picked up by the model. The five that do the work are walked through in [A piece of work, step by step](step-by-step.md).
+Typed with the plugin prefix. All but the last run only when you invoke them; `checkpoint` may also be picked up by the model. The five that do the work are walked through in [A piece of work, step by step](step-by-step.md). Every skill ends on a [closing answer](step-by-step.md#how-every-step-ends) in four groups.
 
 | Skill | What it does |
 |---|---|
 | `/context-central:onboard` | Detects the estate, asks what is unsettled, writes the map, proves each connection, runs `doctor` |
 | `/context-central:standards <repo>` | Drafts one repo's standards note and its checks from what the repo declares, asks what is unsettled, writes both on your yes |
-| `/context-central:research <question> [item]` | Researches from primary sources, marks each claim verified or inferred, writes a note |
+| `/context-central:research <question> [item]` | Researches from primary sources, marks each claim and sorts it into one of four groups, writes a note laid out in them |
 | `/context-central:prep <item>` | Reads the item's ticket, then turns the conversation and research into the item's `SPEC.md` and a short tracker brief |
 | `/context-central:design <item>` | Reads the spec, the repo's standards and the code, and writes the item's `DESIGN.md`: the modules, their interfaces, each choice with its reason, the slices in order, the checks beyond this machine and what is cut if time is short. Optional, and approved by starting the build |
 | `/context-central:implement <item>` | Builds from the state file, the spec and the design when there is one, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks. Stops and asks when the last review round allowed, the third unless set, still brings a finding to fix |

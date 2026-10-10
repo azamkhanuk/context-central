@@ -25,7 +25,7 @@ A piece of work goes through five steps, and each step is a skill. Each step lea
 /context-central:research <question> [item]
 ```
 
-![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim verified or inferred, then write the note and answer in four groups](research.png)
+![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim and sort it into four groups, then write the note and answer in those groups](research.png)
 
 A primary source is the thing itself: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
 
@@ -102,7 +102,7 @@ You approve by starting the build: `/clear`, then `/context-central:implement <i
 /context-central:implement <item>
 ```
 
-![The build in seven steps: read the state file, the spec and the design, read each repo's standards and recorded checks, build each slice from a failing test to a commit, verify that every recorded check exits 0, review in rounds, report, then checkpoint](implement.png)
+![The build in seven steps: read the state file, the spec and the design, read each repo's standards and recorded checks, build each slice from a failing test to a commit, verify that every recorded check exits 0, review in rounds, checkpoint, then close on one answer in four groups](implement.png)
 
 It needs the spec, and it reads the design when there is one. A design names the commit it was written at, so where a file its anchors point at has changed since, implement says so before it builds.
 

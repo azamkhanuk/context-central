@@ -10,7 +10,7 @@ Every skill ends on an answer of one shape: one line that gives the outcome, the
 - **Research sorts its claims.** Each claim gets one of the four groups. One that needs a fix or is fine carries its mark, `verified` or `inferred`: in the answer with the one source that shows it best, in the research note with every source. The note holds the claims under the four groups, with `none` under an empty one.
 - **A build gives one answer, after its checkpoint.** The review is in it: the rounds run, each finding fixed and each left as it is with the reason under Fine as it is, and each finding still open under Needs a fix. A build that stops at the last round allowed closes in the same shape and ends on the ruling it waits for. One that `implement.deferTo` hands to a skill of your own closes in it too. A checkpoint that a build runs gives no answer of its own.
 - **What is asked part-way stays as it was.** The numbered questions of prep, standards and onboard are still a numbered list, and a stop part-way, such as an item that was not found, is not held to the shape.
-- **The docs say once how every step ends**, in the step-by-step doc, and each step links it. The research picture's last row is redrawn, and `CONTEXT.md` defines Closing answer, Group, Point and Mark.
+- **The docs say once how every step ends**, in the step-by-step doc, and each step links it. The README says it in a line. Two pictures are redrawn: research sorts its claims and answers in four groups, and a build checkpoints before its one answer. `CONTEXT.md` defines Closing answer, Group, Point and Mark.
 
 Not shown:
 

@@ -18,6 +18,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 - **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
 - **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The rest is read when it is named or asked for.
 - **Nothing is lost.** Long text is kept in full, and each short note names the full text behind it.
+- **You know where to look.** Every skill ends on one line, then four groups: what needs a fix, what is yours to decide, what is fine as it is, and what is not known.
 - **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
 - **It is plain files.** The map is Markdown and stays readable without the plugin. There are no runtime dependencies, and the resolver makes no network call.
 
@@ -88,7 +89,7 @@ A piece of work goes through five steps, and each step is a skill. Each step lea
 | [4. The build](docs/step-by-step.md#4-the-build) | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one |
 | [5. The checkpoint](docs/step-by-step.md#5-the-checkpoint) | `/context-central:checkpoint` | git, the files on disk and the session |
 
-[A piece of work, step by step](docs/step-by-step.md) says what each step needs, asks and writes, with a diagram for each.
+[A piece of work, step by step](docs/step-by-step.md) says what each step needs, asks and writes, with a diagram for each, and [how every step ends](docs/step-by-step.md#how-every-step-ends).
 
 ## Where the detail lives
 
@@ -97,7 +98,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | Part | What its file covers |
 |---|---|
 | [Install, update and turn off](docs/install.md) | Installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, and turning it off |
-| [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, and what the item's folder holds afterwards |
+| [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, the budget of each tier, and evidence |
 | [Connections](docs/connections.md) | How a connection is recorded, references, presets, the three ways a connection is read, and a pinned account |
 | [Standards and checks](docs/standards.md) | A repo's standards note, the files and the checks recorded beside it, and what is done where none is recorded |
