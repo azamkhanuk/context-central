@@ -25,15 +25,16 @@ A piece of work goes through five steps, and each step is a skill. Each step lea
 /context-central:research <question> [item]
 ```
 
-![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim verified or inferred, then write the note and answer in ten lines](research.png)
+![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim verified or inferred, then write the note and answer in four groups](research.png)
 
 A primary source is the thing itself: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
 
 - **Where the question goes.** With an item, the state file is read first. A ticket that no work item answers to gets its item first, `work new <item> --ticket "<reference>"`, so that its full text has somewhere to go. With no item at all, the note goes in `concepts/`.
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
 - **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
-- **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from.
-- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, the claims with their marks and sources, and what is still unknown.
+- **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups.
+- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, each with its mark and its sources. An empty group says `none`.
+- **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then the claims in their groups, each with its mark and one source, then the note's path.
 
 Run it once for each question. Each run writes its own note, and prep reads them all.
 
@@ -148,6 +149,29 @@ Implement runs it at the end of a build. Run it yourself when a session ends, be
 - **Lessons that outlive the item** go where the next item will find them: a trap in the repo's note or a concept note; a term the estate uses with a meaning of its own in the estate's glossary, when you stated its meaning or text on disk does; a rule for how the repo's code is written in its standards note, when you stated it or accepted a reviewer's finding. A meaning or a rule it worked out itself is not written.
 - **The log** gets one line, `note "<item>: <what changed>"`. Then `lint` and `graph` run, and every `ERROR`, `BROKEN` and `UNREFERENCED` line is fixed.
 - **It ends with what was not recorded**: the paths written, what was left out and why, and each glossary entry and standards rule added, with where it came from.
+
+## How every step ends
+
+Every skill closes on an answer of one shape, so that you always know where to look.
+
+1. One line that gives the outcome.
+2. The groups that have something in them, always in this order:
+
+   | Group | What it holds |
+   |---|---|
+   | **Needs a fix** | what is wrong, missing or failing |
+   | **Yours to decide** | what waits for you, each with the answer it recommends and why |
+   | **Fine as it is** | what was checked or done and holds |
+   | **Not known** | what could not be checked or shown, and what stood in the way |
+
+3. One last line: where the detail is, and the next step where there is one.
+
+- A group with nothing in it is left out, and inside a group the worst comes first.
+- A point is one thing in one sentence. Two things you could act on apart are two points, and the parts of one thing sit under it.
+- A group shows five points at most, then `and <N> more in <where>`, naming the file that holds the rest.
+- Nothing that asks something of you sits outside its group.
+- A stop part-way, such as an item that was not found, is one line. The numbered questions of prep, standards and onboard stay a numbered list.
+- A build gives one answer for itself and its checkpoint.
 
 ## What the item's folder holds afterwards
 

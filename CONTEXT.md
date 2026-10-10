@@ -24,6 +24,18 @@ _Avoid_: edge cases, error paths, negative tests
 **Review round**: One run of the reviewer for each repo a build touches. The estate sets how many a build may have, three unless it says otherwise, and a build whose last round still brings a finding that needs a fix stops and asks.
 _Avoid_: iteration, loop, pass
 
+**Closing answer**: What a skill says to the person when its run ends: one line that gives the outcome, then the groups that have a point, then one line saying where the detail is and what comes next. A stop part-way, and a list of questions put to the person, is not one.
+_Avoid_:
+
+**Group**: One of the four parts of a closing answer, named for what its points ask of the person: Needs a fix, Yours to decide, Fine as it is, Not known. They come in that order, and one with no point is left out.
+_Avoid_:
+
+**Point**: One line of a group: one thing, in one sentence. Two things that could be acted on apart are two points, and the parts of one thing may sit under it as sub-points.
+_Avoid_:
+
+**Mark**: The word on a research claim that says how it is known: `verified`, read in a primary source, or `inferred`, reasoned from something else.
+_Avoid_:
+
 **Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it, and the note names the commit its lines were read at. A repo's own instruction files are listed under `standards` on its entry and never copied into it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
 
