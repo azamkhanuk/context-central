@@ -18,7 +18,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 - **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
 - **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The rest is read when it is named or asked for.
 - **Nothing is lost.** Long text is kept in full, and each short note names the full text behind it.
-- **You know where to look.** Every skill ends on one line, then four groups: what needs a fix, what is yours to decide, what is fine as it is, and what is not known.
+- **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
 - **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
 - **It is plain files.** The map is Markdown and stays readable without the plugin. There are no runtime dependencies, and the resolver makes no network call.
 
