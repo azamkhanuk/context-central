@@ -77,7 +77,7 @@ The build closes on one answer, given last, after the checkpoint of step 7. It h
 State file: <its path>. Next: `/clear`.
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`: only a point the state file holds is left out. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`. A point the state file does not hold is never left out, even past five. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
 
 ## 7. Checkpoint
 

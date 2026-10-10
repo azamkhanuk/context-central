@@ -169,7 +169,7 @@ Every skill closes on an answer of one shape, so that you always know where to l
 
 - A group with nothing in it is left out, and inside a group the worst comes first.
 - A point is one thing in one sentence. Two things you could act on apart are two points, and the parts of one thing sit under it.
-- A group shows five points at most, then `and <N> more in <where>`, naming the file that holds the rest. A point that no file holds is never left out.
+- A group shows five points at most, then `and <N> more in <where>`, naming the file that holds the rest. A point that no file holds is never left out, even past five.
 - Nothing that asks something of you sits outside its group.
 - A stop part-way, such as an item that was not found, is not held to this shape: it says what stopped the run and what you can do about it. The numbered questions of prep, standards and onboard stay a numbered list.
 - A build gives one answer for itself and its checkpoint.

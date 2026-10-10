@@ -51,7 +51,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Report the rest.
+Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. The rest goes in the closing answer.
 
 ## 8. Say what was not recorded
 
@@ -81,4 +81,4 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 State file: <its path, or the note's where there is no item>
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`: only a point the state file holds is left out. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`. A point the state file does not hold is never left out, even past five. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.
