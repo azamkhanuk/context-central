@@ -50,7 +50,7 @@ After a round, take each finding: it needs a fix, or the code stays as it is and
 The build closes on one answer, given last, after the checkpoint of step 7. It has this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
-<one line saying the build is done, is done but for the requirements and the recorded checks named below, or stopped and where>
+<one line saying the build is done, is done but for the requirements and the recorded checks under Needs a fix, or stopped and where>
 
 **Needs a fix**
 - <a requirement not done, or not shown working>
