@@ -148,7 +148,7 @@ Implement runs it at the end of a build. Run it yourself when a session ends, be
 - **The state file** has six parts: **Where it stands**, **Done** (with the commit or the pull request's link that shows it), **Next** (concrete enough to start cold, with each check beyond this machine still to run), **Blocked**, **Standing traps** (with each open trigger from the design) and **Where the detail lives**. It stays within `budgets.stateChars` by moving detail into `notes/`. A finished item is marked with `work done <item>`.
 - **Lessons that outlive the item** go where the next item will find them: a trap in the repo's note or a concept note; a term the estate uses with a meaning of its own in the estate's glossary, when you stated its meaning or text on disk does; a rule for how the repo's code is written in its standards note, when you stated it or accepted a reviewer's finding. A meaning or a rule it worked out itself is not written.
 - **The log** gets one line, `note "<item>: <what changed>"`. Then `lint` and `graph` run, and every `ERROR`, `BROKEN` and `UNREFERENCED` line is fixed.
-- **It ends with what was not recorded**: the paths written, what was left out and why, and each glossary entry and standards rule added, with where it came from.
+- **It ends on a [closing answer](#how-every-step-ends)**: what the map's checks still print under Needs a fix, each term or rule that waits for you under Yours to decide, the paths written and each glossary entry and standards rule added, with where it came from, under Fine as it is, and what was left out and why under Not known.
 
 ## How every step ends
 

@@ -55,4 +55,30 @@ Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `B
 
 ## 8. Say what was not recorded
 
-End with the paths written, and anything from the session that was left out and why. Say when this session adopted the item. Name each glossary entry added or changed and where its meaning came from, each term left for the person to define, and each entry a source disagrees with. Name each standards rule added or changed and who stated it.
+Close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+
+```
+<one line saying what was written back>
+
+**Needs a fix**
+- <a line the map's checks still print, as it is>
+- <a glossary entry a source disagrees with>
+- <what the adopt command said, where it refused>
+
+**Yours to decide**
+- <a term left for the person to define, or one a glossary could not take, with its stated meaning>
+- <a rule with no standards note to go in>. Recommended: `/context-central:standards <repo>`.
+
+**Fine as it is**
+- <a path written>
+- <a glossary entry added or changed, and where its meaning came from>
+- <a standards rule added or changed, and who stated it>
+- <the adoption, where there was one>
+
+**Not known**
+- <what from the session was left out, and why>
+
+State file: <its path, or the note's where there is no item>
+```
+
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.
