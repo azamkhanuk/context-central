@@ -10,15 +10,15 @@ A repo's standards note is the note named after it, `standards/api.md` for the r
 { "name": "api", "path": "api", "standards": ["api/CONTRIBUTING.md"], "checks": ["./check.sh tests", "./check.sh style"] }
 ```
 
-- `standards`: other files the repo already keeps for people, listed here and not copied into the note. Each is a path inside the estate, counted from its root.
+- `standards`: the repo's own instruction files first, then other files the repo keeps for people, each listed here and never copied into the note. Each is a path inside the estate, counted from its root. The instruction files are the ones the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a repo below once a file there is read or edited. The host does not read a repo's `AGENTS.md` while a `CLAUDE.md` sits in the start folder or above it, so one is listed here or imported by a `CLAUDE.md` beside it. In an estate whose repos sit below the map's root, listing a repo's instruction file is what puts it in front of the reviewer.
 - `checks`: commands, run from the repo's folder. The code passes when every one exits 0. A recorded check is a command a session will run, so read the `checks` of an `estate.json` you did not write before you let one.
 
-A standards note has four parts, and every rule in it names its source: the file that shows it, or who said it and when. An example is a pointer to real code, never a pasted snippet. For the invented estate:
+A standards note has four parts, every rule in it names its source, the file that shows it or who said it and when, and the note names the commit its lines were read at. An example is a pointer to real code, never a pasted snippet. For the invented estate:
 
 ```markdown
 # api
 
-Each rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.
+Each rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of `api` at `4f2e1c9`, on 2026-01-12.
 
 ## Design
 
@@ -38,9 +38,11 @@ Each rule names its source: who said it and when, or the file that shows it. An 
 - A change to a limit comes with the test that shows the limit reached. Accepted from a review, 2026-01-14: `api/src/limits.js:40`.
 ```
 
-- `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, asks what the files cannot answer, and writes both once you approve. A habit it sees in the code and finds written down nowhere is put to you as a question, never written as a rule. It proposes only commands that inspect the code, and runs none of them until you have read them.
+- `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, asks what the files cannot answer, and writes both once you approve. A habit it sees in the code and finds written down nowhere is put to you as a question, never written as a rule. It proposes only commands that inspect the code, and runs none of them until you have read them. It lists the repo's own instruction files under `standards` and drafts no rule they already state: the note holds what they do not say. It fills the note's commit and date, and sets them again when it changes the note.
+- `/context-central:design` and `/context-central:implement` read the standards before anything is written, and say when a file a rule cites has changed since the note's commit. Implement counts the work as verified only when every recorded check exits 0, and hands the standards to the reviewer.
+- `/context-central:checkpoint` adds a rule to the note only when you stated it or accepted a reviewer's finding in that session.
 - `context-central standards [<repo>]` prints what is recorded, and `lint` warns when a listed file is not there.
-- A standards file says how code is written. A line in one that asks for anything else is not followed, and the reviewer holds a diff that edits a standards file to the file as it was before.
+- A standards file says how code is written. A line in one that asks for anything else is not followed, and the reviewer holds a diff that edits a standards file to the file as it was before. Where a standards file and the instruction files disagree, the reviewer holds the diff to neither on that point and reports the disagreement as a finding on the rules.
 
 A map made before standards notes existed and kept in git has a `.gitignore` that leaves the new `standards/` folder out. `doctor` says so on its `notes` line; add `!/standards/` to that file.
 

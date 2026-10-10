@@ -60,4 +60,4 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
 | `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems, and does not load `CLAUDE.md` |
-| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them. Never edits |
+| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them; where the rules disagree it holds the diff to neither and reports the disagreement. Never edits |

@@ -162,6 +162,16 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
   return estate.config.nodeDirs.some(under) ? 'node' : null
 }
 
+export function repoAt(estate: Estate, dir: string): Repo | null {
+  if (!coverage(estate, dir)) return null
+  const here = resolve(dir)
+  const holding = estate.config.repos.filter(repo => {
+    const root = resolve(estate.estateRoot, repo.path)
+    return here === root || here.startsWith(root + sep)
+  })
+  return holding.sort((a, b) => b.path.length - a.path.length)[0] ?? null
+}
+
 export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
   const folder = join(mapDir, STANDARDS_DIR)
   const kept = config.nodeDirs.includes(STANDARDS_DIR)

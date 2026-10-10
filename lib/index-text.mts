@@ -1,5 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import { listed } from './connections.mts'
+import { repoAt, standardsFiles } from './estate.mts'
 import { hubPath, inFlight, listWorkItems } from './nodes.mts'
 import type { Connection } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -8,23 +10,46 @@ const LAST_LINE = "A work item's state file records where it stands and what is 
 const HOW_TO_ASK = 'context-central connections says how this machine reaches each.'
 const CONNECTIONS_CHARS = 400
 
-export function indexData(estate: Estate) {
+export interface IndexRepo {
+  name: string
+  note: string
+  path: string
+  standards: string | null
+  standardsPath: string | null
+}
+
+export function indexData(estate: Estate, startDir?: string) {
   const items = listWorkItems(estate)
     .filter(inFlight)
     .map(item => ({ id: item.id, title: item.title, entry: item.entry?.rel ?? null, path: item.entry?.path ?? null }))
   const connections = listed(estate.config.connections).map(({ name, entry }) => ({ name, holds: entry.holds }))
-  return { title: estate.config.title, mapDir: estate.mapDir, hub: hubPath(estate), connections, items }
+  return { title: estate.config.title, mapDir: estate.mapDir, hub: hubPath(estate), repo: repoAround(estate, startDir), connections, items }
 }
 
-export function buildIndex(estate: Estate, { absolute = false }: { absolute?: boolean } = {}) {
-  const { title, mapDir, hub, items } = indexData(estate)
-  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...connectionsLine(listed(estate.config.connections))]
+export function buildIndex(estate: Estate, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
+  const { title, mapDir, hub, repo, items } = indexData(estate, startDir)
+  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...connectionsLine(listed(estate.config.connections))]
   if (items.length === 0) return [...head, 'No work in flight.'].join('\n')
   const rows = items.map(item => `- ${item.id} | ${item.title} | ${(absolute ? item.path : item.entry) ?? 'no entry file'}`)
   const withRows = (shown: number) => [...head, `Work in flight (${rows.length}):`, ...rows.slice(0, shown), ...restRow(rows.length - shown), LAST_LINE].join('\n')
   let shown = rows.length
   while (shown > 0 && withRows(shown).length > estate.config.budgets.indexChars) shown -= 1
   return withRows(shown)
+}
+
+function repoAround(estate: Estate, startDir: string | undefined): IndexRepo | null {
+  const repo = startDir === undefined ? null : repoAt(estate, startDir)
+  if (!repo) return null
+  const note = `repos/${repo.name}.md`
+  const path = join(estate.mapDir, note)
+  if (!statSync(path, { throwIfNoEntry: false })?.isFile()) return null
+  const standards = standardsFiles(estate, repo).find(file => file.note) ?? null
+  return { name: repo.name, note, path, standards: standards && relative(estate.mapDir, standards.path).split(sep).join('/'), standardsPath: standards?.path ?? null }
+}
+
+function repoLine({ name, note, path, standards, standardsPath }: IndexRepo, absolute: boolean) {
+  const also = standards ? `; standards: ${absolute ? standardsPath : standards}` : ''
+  return `Repo ${name}: ${absolute ? path : note}${also}`
 }
 
 function connectionsLine(connections: Connection[]) {

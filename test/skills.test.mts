@@ -331,6 +331,16 @@ test('standards names the four parts that a new standards note lays out', () => 
   }
 })
 
+test('standards names the commit line a new standards note lays out, and says to fill it', () => {
+  const root = tree(acme())
+  run(['note', '--new', 'standards/api'], { cwd: root })
+  const note = readFileSync(join(root, 'standards/api.md'), 'utf8')
+
+  assert.ok(note.includes('at `<commit>`, on <date>.'))
+  assert.ok(step('standards', '5. Write').includes('`<commit>`'))
+  assert.ok(step('standards', '5. Write').includes('`<date>`'))
+})
+
 test('standards names the marks the command prints, and what it exits with for a repo the estate does not register', () => {
   const recorded = { name: 'api', standards: ['api/CONTRIBUTING.md', 'api'], checks: ['./check.sh'] }
   const root = tree(acme({ 'standards/api.md': '# api\n' }, { repos: [{ name: 'web' }, recorded] as Json[] }))

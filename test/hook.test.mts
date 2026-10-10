@@ -31,10 +31,19 @@ test('a forked session is given the index', () => {
   assert.equal(context(fire('session-start', { session_id: 's1', cwd: root, source: 'fork' })), acmeIndex(root))
 })
 
-test('a session in a registered repo is covered', () => {
+test("a session in a registered repo is given that repo's note after the hub", () => {
   const root = tree(acme())
 
-  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })), acmeIndex(root))
+  const lines = context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })).split('\n')
+
+  assert.equal(lines[2], `Repo web: ${join(root, 'repos/web.md')}`)
+  assert.deepEqual([...lines.slice(0, 2), ...lines.slice(3)], acmeIndex(root).split('\n'))
+})
+
+test('a session started inside a repo that has a standards note is given both', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n' }))
+
+  assert.equal(context(fire('session-start', { cwd: join(root, 'web'), source: 'startup' })).split('\n')[2], `Repo web: ${join(root, 'repos/web.md')}; standards: ${join(root, 'standards/web.md')}`)
 })
 
 test('outside any map the hooks say nothing', () => {
@@ -244,6 +253,34 @@ for (const source of ['compact', 'resume']) {
     assert.equal(context(result), `${acmeIndex(root)}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}`)
   })
 }
+
+test('after a compaction a ticket said to have no work item is not said again', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-99' }, env)
+  fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-99' }, env))
+})
+
+test('after a compaction a pointer given before is given again', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+  fire('session-start', { session_id: 's1', cwd: root, source: 'compact' }, env)
+
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)), acmePointers(root))
+})
+
+test('after a resume a pointer given before is still held back', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  fire('session-start', { session_id: 's1', cwd: root, source: 'resume' }, env)
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env))
+})
 
 test('a new session does not carry the state file even when an item is active', () => {
   const root = tree(acme())
@@ -466,6 +503,14 @@ test('a prompt that names a repo is pointed at its standards note', () => {
 
   assert.equal(pointers[0], 'Context for repo api:')
   assert.equal(pointers[2], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
+})
+
+test('a prompt that names a work item is pointed at the standards of the repo the item links', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const pointers = context(fire('user-prompt-submit', { cwd: root, prompt: 'PROJ-12' })).split('\n')
+
+  assert.equal(pointers[5], `- ${join(root, 'standards/api.md')} (6 B) standards of the repo`)
 })
 
 test('a file where the work folder would be still gets a session its index', () => {

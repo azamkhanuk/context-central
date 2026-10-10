@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, posix, relative, sep } from 'node:path'
+import { join, posix, relative, resolve as resolvePath, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
@@ -63,6 +63,7 @@ interface Scored {
 }
 
 const KIND_RANK = ['concepts', 'edges', 'areas', 'repos', 'standards', 'decisions', 'docs']
+const STANDARDS_WHY = 'standards of the repo'
 const MIN_ID_LENGTH = 5
 const MORE_MAX = 20
 const LABEL_CHARS = 80
@@ -118,6 +119,10 @@ export function formatPointers(resolution: Resolution, { absolute = false }: { a
   if (resolution.deep) lines.push(`Deep tier: ${counted(resolution.deep)} under ${shown(resolution.deep)}, not listed one by one.`)
   if (resolution.evidence) lines.push(`Evidence: ${counted(resolution.evidence)} under ${shown(resolution.evidence)}, not listed one by one.`)
   return lines.join('\n')
+}
+
+export function isReferenceKey(key: string) {
+  return key.startsWith('reference:')
 }
 
 export function unansweredIn(estate: Estate, query: string, told: string[] = []): Unanswered[] {
@@ -388,16 +393,20 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
     ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
   const { linked, named } = behind(estate, entry)
-  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel)
+  const standards = standardsOf(estate, [...linked, ...named])
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel && !standards.includes(rel))
   const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
+  const pointers = withStandards(estate, listed.pointers)
+  const shown = new Set(pointers.map(found => found.rel))
   return resolution({
     by,
     key: `item:${item.id}`,
     item: item.id,
     name: item.id,
     label: `work item ${item.id}`,
-    ...listed,
+    pointers,
+    more: listed.more + linked.filter(rel => standards.includes(rel) && !shown.has(rel)).length,
     notes: otherNotes(estate, item, listed.pointers),
     deep: deepTier(estate, item),
     evidence: evidenceOf(estate, item),
@@ -421,11 +430,29 @@ function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   if (!existsSync(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
   const standards = standardsNote(estate, name)
-  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, 'standards of the repo')] : [])]
+  const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, STANDARDS_WHY)] : [])]
   const rest = linkedFrom(estate, note)
     .filter(linked => linked !== standards)
     .map(linked => pointer(estate, linked, 'linked from the repo note'))
   return resolution({ by, key: `repo:${name}`, name, label: `repo ${name}`, ...capped(first, rest, max) })
+}
+
+function standardsOf(estate: Estate, rels: string[]) {
+  return rels.flatMap(rel => {
+    const repo = estate.config.repos.find(candidate => rel === `repos/${candidate.name}.md`)
+    const note = repo && standardsNote(estate, repo.name)
+    return note ? [note] : []
+  })
+}
+
+function withStandards(estate: Estate, pointers: Pointer[]) {
+  const given = new Set<string>()
+  return pointers.flatMap(listed => {
+    const [note] = standardsOf(estate, [listed.rel])
+    if (!note || given.has(note)) return [listed]
+    given.add(note)
+    return [listed, pointer(estate, note, STANDARDS_WHY)]
+  })
 }
 
 function standardsNote(estate: Estate, name: string) {
@@ -437,8 +464,13 @@ function standardsNote(estate: Estate, name: string) {
 function linkedFrom(estate: Estate, node: NodeText) {
   const hub = relative(estate.mapDir, hubPath(estate)).split(sep).join('/')
   return [...new Set(node.links)]
-    .filter(rel => rel !== node.rel && rel !== hub && !rel.startsWith('../') && !rel.startsWith('log/') && !isDeep(estate.config, rel))
+    .filter(rel => rel !== node.rel && rel !== hub && insideEstate(estate, rel) && !rel.startsWith('log/') && !isDeep(estate.config, rel))
     .sort((a, b) => rank(a) - rank(b))
+}
+
+function insideEstate({ estateRoot, mapDir }: Estate, rel: string) {
+  const path = resolvePath(mapDir, rel)
+  return path === estateRoot || path.startsWith(estateRoot + sep)
 }
 
 function rank(rel: string) {
