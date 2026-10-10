@@ -51,7 +51,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. The rest goes in the closing answer.
+Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 
@@ -61,13 +61,14 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 <one line saying what was written back>
 
 **Needs a fix**
-- <a line the map's checks still print, as it is>
+- <a fault the map's checks still report, as it is>
 - <a glossary entry a source disagrees with>
 - <what the adopt command said, where it refused>
 
 **Yours to decide**
-- <a term left for the person to define, or one a glossary could not take, with its stated meaning>
-- <a rule with no standards note to go in>. Recommended: `/context-central:standards <repo>`.
+- <the terms the glossary could not take, and why it could not, with each term and its stated meaning under it>
+- <the rules of a repo that has no standards note to go in, with each rule under it>. Recommended: `/context-central:standards <repo>`.
+- <a term left for the person to define>
 
 **Fine as it is**
 - <a path written>
@@ -78,7 +79,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 **Not known**
 - <what from the session was left out, and why>
 
-State file: <its path, or the note's where there is no item; left out where neither was written>
+<`State file:` and its path, or, where no state file was written, `Log:` and the path of the month's log>
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most. Where it holds more, its last line says where the rest is, as `and <N> more in the state file`, or what the rest is where the state file does not hold it, as `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.

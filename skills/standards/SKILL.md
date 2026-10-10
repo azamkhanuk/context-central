@@ -57,14 +57,14 @@ On a yes:
 
 ## 6. Check
 
-Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A `FIX` line for `notes` means git would leave the new note out of the map's commits: it goes to the person as it is. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A fault is a line of `lint`, `graph` or `doctor` that starts with a word in capitals, as `ERROR`, `BROKEN` and `FIX` do. One fault is the person's to decide and not a fix to make: a `FIX` line for `notes` means git would leave the new note out of the map's commits, and it goes to the person as it is. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
 <one line saying what was recorded for the repo>
 
 **Needs a fix**
 - <a check that did not exit 0, with what it exited with>
-- <a file still marked, or a line the map's checks still print>
+- <a file still marked, or a fault the map's checks still report, as it is>
 
 **Yours to decide**
 - <a question left open>. Recommended: <the answer, and why>.
@@ -80,4 +80,4 @@ Run `context-central standards <repo>`, `context-central lint`, `context-central
 Standards note: <its path>
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most. Where it holds more, its last line says where the rest is, as `and <N> more in the standards note`, or what the rest is where the standards note does not hold it, as `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.

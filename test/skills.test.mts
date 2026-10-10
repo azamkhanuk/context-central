@@ -366,6 +366,25 @@ test('standards ends on doctor, whose notes line says when git would leave the n
   assert.match(step('standards', '6. Check'), /`FIX` line for `notes`/)
 })
 
+test("a fault the map's checks print starts with a word in capitals, which is how standards and checkpoint tell one from the rest", () => {
+  const hub = '# Acme estate\n\nShipped the limiter on 2026-01-09.\nReviewed 12 Sep.\nPaused 3 January.\n\nResumed 2026-01-14.\n'
+  const faulty = tree(acme({ 'CLAUDE.md': hub, 'work/PROJ-13/STATE.md': `# PROJ-13\n${'a'.repeat(395)}`, 'repos/web.md': '# web\n\nTalks through [[concepts/missing]].\n' }, { budgets: { stateChars: 400 } }))
+  const misconfigured = tree(acme({}, { evidence: { commit: 'yes' } }))
+  const printed = (command: string, root: string) => run([command], { cwd: root }).stdout.split('\n')
+  const inCapitals = (lines: string[]) => [...new Set(lines.flatMap(line => /^[A-Z]{2,}(?= )/.exec(line) ?? []))].sort()
+  const others = (lines: string[]) => lines.filter(line => !/^[A-Z]{2,} /.test(line))
+
+  assert.deepEqual(inCapitals(printed('lint', faulty)), ['ERROR', 'WARN'])
+  assert.deepEqual(inCapitals(printed('graph', faulty)), ['BROKEN', 'ORPHAN', 'UNREFERENCED'])
+  assert.deepEqual(inCapitals(printed('doctor', misconfigured)), ['FIX'])
+  assert.deepEqual(others(printed('lint', faulty)), [''])
+  assert.deepEqual(others(printed('lint', tree(acme()))), ['ok', ''])
+  assert.deepEqual(others(printed('graph', faulty)).map(line => line.replace(/\d+/g, 'N')), ['N nodes, N links', ''])
+  assert.deepEqual(others(printed('doctor', misconfigured)), ['ok   node', ''])
+  for (const line of printed('doctor', tree(acme()))) assert.match(line, /^(ok {3}|note |FIX {2}|$)/)
+  for (const name of ['`ERROR`', '`BROKEN`']) assert.ok(step('standards', '6. Check').includes(name) && step('checkpoint', '7. Check').includes(name), name)
+})
+
 test("note --new refuses a kind the map does not list, and a name that cannot be a note's", () => {
   const ownKinds = run(['note', '--new', 'standards/api'], { cwd: tree(acme({}, { nodeDirs: ['repos', 'work'] })) })
   const oddName = run(['note', '--new', 'standards/api tools'], { cwd: tree(acme()) })
