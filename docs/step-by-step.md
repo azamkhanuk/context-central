@@ -33,7 +33,7 @@ A primary source is the thing itself: the code at a commit, the ticket, the pull
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
 - **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
 - **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups.
-- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, each with its mark and its sources. An empty group says `none`.
+- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, with their marks and their sources. An empty group says `none`.
 - **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then each claim that something is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, each claim that was checked and holds under Fine as it is, and what could not be checked under Not known, then the note's path. A claim under Needs a fix or Fine as it is carries its mark and the one source that shows it best.
 
 Run it once for each question. Each run writes its own note, and prep reads them all.
@@ -131,7 +131,7 @@ It needs the spec, and it reads the design when there is one. A design names the
 
 **What it posts.** Pushing, opening a pull request and posting on the ticket follow your write rules, and anything they do not cover waits for your yes. A pull request opens through the connection that holds that repo's pull requests, and anything on the ticket goes through the connection the ticket belongs to. Where a connection pins an account, `doctor` runs before the first write, and a `FIX` line for connections stops it. With no connection, it says what is ready and leaves the opening or the posting to you.
 
-**At the end** it checkpoints, and then gives one [closing answer](#how-every-step-ends) for the build and its checkpoint: what is not done, not shown or still open under Needs a fix, what waits for your yes under Yours to decide, what was built, what the verification showed, the review and the design's revisions under Fine as it is, and what was not shown under Not known. Its last line suggests `/clear`: the state file now carries the item.
+**At the end** it checkpoints, and then gives one [closing answer](#how-every-step-ends) for the build and its checkpoint: what is not done, not shown or still open under Needs a fix, what waits for your yes under Yours to decide, what was built, what the verification showed, the review and the design's revisions under Fine as it is, and what was not shown under Not known. Its last line suggests `/clear`, or asks for your ruling where the build stopped: the state file now carries the item.
 
 ## 5. The checkpoint
 
@@ -169,7 +169,7 @@ Every skill closes on an answer of one shape, so that you always know where to l
 
 - A group with nothing in it is left out, and inside a group the worst comes first.
 - A point is one thing in one sentence. Two things you could act on apart are two points, and the parts of one thing sit under it.
-- A group shows five points at most, then `and <N> more in <where>`, naming the file that holds the rest. A point that no file holds is never left out, even past five.
+- A group shows five points at most. Where it holds more, its last line says where the rest is, as `and <N> more in <where>`, naming the file that holds it, or says in short what the rest is where that file does not hold it.
 - Nothing that asks something of you sits outside its group.
 - A stop part-way, such as an item that was not found, is not held to this shape: it says what stopped the run and what you can do about it. The numbered questions of prep, standards and onboard stay a numbered list.
 - A build gives one answer for itself and its checkpoint.

@@ -45,7 +45,7 @@ What it asks of the person, as one of four groups:
 - **Fine as it is**: it was checked and it holds.
 - **Not known**: it could not be checked. Say what stood in the way.
 
-A claim that would sit in two groups is two claims. Done when every claim carries its mark, its source and its group.
+A claim that would sit in two groups is two claims. Done when every claim carries its group, and each under Needs a fix or Fine as it is its mark and its source.
 
 ## 4. Write the note
 
@@ -54,7 +54,7 @@ With an item, run `context-central work adopt <item>` before anything is written
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
 
-The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, each with its mark and its sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
+The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
 With an item, add the note's path to "Where the detail lives" in the state file.
 
@@ -83,4 +83,4 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 Note: <the path of the note>
 ```
 
-The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the note`. A point the note does not hold is never left out, even past five. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most. Where it holds more, its last line says where the rest is, as `and <N> more in the note`, or what the rest is where the note does not hold it, as `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
