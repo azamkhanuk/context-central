@@ -43,14 +43,42 @@ When `implement.review` is on, review in rounds. A round is one run of the `cont
 
 After a round, take each finding: it needs a fix, or the code stays as it is and you say why, which answers it. A round with nothing to fix ends the review. A fix that departs from the design without showing it wrong revises it where it stands, dated, with the reason, before the next round. A fix that shows the spec or the design wrong stops the build: say what was found and ask.
 
-`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else. When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff. When the last round allowed brings one, make no fix: stop the build there, list that round's findings and what the earlier rounds changed, run step 7 so the state file says where the build stopped, and wait for the person. What the person then asks for is done with no further round unless they ask for one, and steps 6 and 7 follow it.
+`implement.reviewRounds` is the most rounds there may be: a whole number of one or more, read as three when it is absent or anything else. When a round that is not the last brings a finding that needs a fix, make the fixes, repeat step 4, and run the next round on the new diff. When the last round allowed brings one, make no fix: stop the build there, run step 7 so the state file says where the build stopped, and close as step 6 says, with that round's findings under Needs a fix and what the earlier rounds changed under Fine as it is. Then wait for the person. What the person then asks for is done with no further round unless they ask for one, and steps 6 and 7 follow it.
 
 ## 6. Report
 
-Say what was built, which slices were marked built and which revisions the build wrote in the design, what the verification showed, how many review rounds were run and whether the build stopped at the last one, and what is left.
+The build closes on one answer, given last, after the checkpoint of step 7. It has this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+
+```
+<one line saying the build is done, or where it stopped>
+
+**Needs a fix**
+- <a requirement not done, or not shown working>
+- <a recorded check that does not exit 0, with what it printed>
+- <a finding still open, as `file:line` and what breaks>
+- <a line in a standards file that is not a rule, which was not followed>
+
+**Yours to decide**
+- <what waits for the person's yes under the write rules, or is ready and left to the person to open or post>. Recommended: <the answer>.
+- <a question the build raised>. Recommended: <the answer, and why>.
+- <a repo with no check recorded>. Recommended: `/context-central:standards <repo>`.
+
+**Fine as it is**
+- <a slice built, with its commit>
+- <what the verification showed: each check that exits 0, the behaviour run, each evidence file by name>
+- <the review: the rounds run, each finding fixed, each finding left as it is with the reason>
+- <a revision the build wrote in the design>
+- <what the checkpoint wrote>
+
+**Not known**
+- <what was not shown, and each check beyond this machine not yet run>
+- <what the checkpoint left out, and why>
+
+State file: <its path>. Next: `/clear`.
+```
+
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the state file`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
 
 ## 7. Checkpoint
 
-Invoke the `context-central:checkpoint` skill so the state file, the notes and the log match what was done.
-
-Then suggest `/clear`: the state file now carries the item.
+Invoke the `context-central:checkpoint` skill so the state file, the notes and the log match what was done. It gives no answer of its own here: its points join the groups of step 6. Then give the closing answer. The state file now carries the item.
