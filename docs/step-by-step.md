@@ -171,7 +171,7 @@ Every skill closes on an answer of one shape, so that you always know where to l
 - A point is one thing in one sentence. Two things you could act on apart are two points, and the parts of one thing sit under it.
 - A group shows five points at most, then `and <N> more in <where>`, naming the file that holds the rest.
 - Nothing that asks something of you sits outside its group.
-- A stop part-way, such as an item that was not found, is one line. The numbered questions of prep, standards and onboard stay a numbered list.
+- A stop part-way, such as an item that was not found, is not held to this shape: it says what stopped the run and what you can do about it. The numbered questions of prep, standards and onboard stay a numbered list.
 - A build gives one answer for itself and its checkpoint.
 
 ## What the item's folder holds afterwards
