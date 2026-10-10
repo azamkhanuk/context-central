@@ -63,6 +63,7 @@ It makes the item when it is not there yet, and it reads the ticket with `fetch 
 - **New terms** go in the estate's glossary, and the spec uses the glossary's wording.
 - **The brief** for the ticket has three parts: why, what, done when. The spec stays in the map. The brief is posted through the connection the ticket belongs to only where your write rules allow it and you approve the exact text; otherwise it is shown for you to post.
 - **The state file** has "Where it stands" and "Next" rewritten, and lists the spec and the code map under "Where the detail lives".
+- **The hand-over** is a [closing answer](#how-every-step-ends). The brief is under Yours to decide where it is yours to post, and what was written is under Fine as it is.
 
 Then `/clear`, and `/context-central:implement <item>`, or `/context-central:design <item>` first where the work needs its structure settled.
 
