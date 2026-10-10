@@ -40,6 +40,28 @@ The design names files and lines, which the spec does not, so it carries the com
 
 ## 5. Show it
 
-Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built. Then show the person the Choices and the Slices in short, with every point where the design departs from the standards or could not follow the spec.
+Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
-The person approves by starting the build. Suggest a fresh session: `/clear`, then `/context-central:implement <item>`.
+```
+<one line saying the item is designed, and how much of it is built>
+
+**Needs a fix**
+- <a point where the design could not follow the spec>
+- <a rule whose cited file has changed since the rule was read>
+
+**Yours to decide**
+- <a point where the design departs from the standards, and why>. Recommended: <the answer>.
+- <a question the spec does not answer>. Recommended: <the answer, and why>.
+
+**Fine as it is**
+- <the slices in their order, in short, with the ones already built>
+- <a choice, in short>
+- <the adoption, where there was one>
+
+**Not known**
+- <a check beyond this machine>
+
+Design: <its path>. Next: `/clear`, then `/context-central:implement <item>`.
+```
+
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the design`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.

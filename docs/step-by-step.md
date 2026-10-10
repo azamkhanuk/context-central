@@ -91,7 +91,7 @@ Optional. It settles how the spec will be built, in the repos it touches and in 
 - **It reads the standards** of each repo the code map names, the Design part first. With no code map it asks which repos the work touches. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.
 - **The reader agent reads the code the design will meet**: the modules the change touches, their interfaces, how a neighbouring feature of the same shape was built, and where its tests sit.
 - **It adds no requirement.** Something the spec does not ask for comes back to you as a question. Every requirement of the spec lands in at least one slice.
-- **It shows you the Choices and the Slices** in short, with every point where it departs from the standards or could not follow the spec, and links the design from the state file.
+- **It ends on a [closing answer](#how-every-step-ends)**: where it could not follow the spec under Needs a fix, where it departs from the standards under Yours to decide, the slices and the choices in short under Fine as it is, and the checks beyond this machine under Not known. It links the design from the state file.
 
 You approve by starting the build: `/clear`, then `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design without showing it wrong revises it in place, dated, so the design you read is the one the code was built to.
 
