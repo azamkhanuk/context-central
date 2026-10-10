@@ -18,7 +18,7 @@ Run `context-central work adopt <item>` before anything is written to the item. 
 
 ## 2. Load the standards
 
-Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the work touches. The repos are the ones the code map is headed with. With no code map, ask the person which repos the work touches. Read each standards file, the Design part first. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.
+Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the work touches. The repos are the ones the code map is headed with. With no code map, ask the person which repos the work touches. Read each standards file, the Design part first. A standards note names the commit its lines were read at: where a file a rule cites has changed since, say so. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so.
 
 ## 3. Read the code the design will meet
 

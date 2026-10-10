@@ -2,6 +2,31 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.9.0 - 2026-10-09
+
+The parts of the map reach a session where they did not. A research of 2026-10-09 read the code and ran the plugin against stand-in estates in both layouts, and found four places a pointer was missing and three things the text left unsaid.
+
+- **A work item's pointers carry the standards of its repos.** Where an item links or names a repo, that repo's standards note follows the repo note at once, as it does in the repo route: listed once, and taking no place against the limit on linked notes.
+- **A link into the repo is a pointer in both layouts.** In a map kept inside a repo, a link from a note to a file of that repo, such as an ADR or the repo's own instruction file, is listed as the root layout already listed it. A link that leaves the estate stays unlisted, and the graph checks these links as before.
+- **A compaction forgets what the session was given.** The state file of the active item comes back as before, and a later prompt that names a repo, an item or a note gets its pointers again, which the summary may have lost. A resume and a clear are as they were.
+- **The live index names the repo a session starts in.** One line after the hub names that repo's note and, where it has one, its standards note, in either layout, so a session started inside a repo is pointed at both without a prompt naming the repo. `index --json` carries it as `repo`.
+- **Instruction files are listed, never copied.** The standards skill and the README say that a repo's own `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` and rule files go under `standards` on its entry, first, and that the note holds what they do not say. The README defines instruction files and says that the host does not read a repo's `AGENTS.md` while the estate has a hub.
+- **A standards note names its commit.** A new note carries a line naming the repo, the commit and the date, which the standards skill fills and sets again when it changes the note. Design and implement say when a file a rule cites has changed since.
+- **The reviewer says what it does when the rules disagree.** Where a standards file and the instruction files disagree, it holds the diff to neither on that point and reports the disagreement as a finding on the rules.
+
+Not shown:
+
+- A live session after a compaction. The hook's record was cleared and the pointers given again in runs of the hook as a process, not in a Claude Code session.
+- A session started inside a repo in the root layout loading the plugin at all. Project settings are read from the folder a session starts in, as 0.8.0's text says, so the new line reaches such a session only where the plugin is installed for the person or for that repo.
+
+For a map that already exists:
+
+- A prompt that names a work item may get one more pointer for each repo the item links or names: the repo's standards note.
+- In a map kept inside a repo, a note that links a file of the repo now has that file among its pointers; a link that leaves the estate is still left out.
+- The live index gains one line in a session started inside a registered repo that has a repo note, and `index --json` gains `repo`, null where there is no line.
+- After a compaction, pointers given earlier in the session may be given again.
+- A standards note made from now on carries the commit line. An older one does not, and nothing asks for it until the standards skill next changes the note.
+
 ## 0.8.2 - 2026-10-10
 
 - **The opening image of the README is redrawn** as one diagram of the whole loop: the connections that bring tickets, pull requests and threads into the map, the three tiers of the map, what a session is given from each and when, the five skills that do the work, and every step writing its files back to the map. It names the seven skills, where the mind map before it named five.

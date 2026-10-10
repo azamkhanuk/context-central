@@ -7,7 +7,7 @@ import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-type Pointer = { rel: string, why: string }
+type Pointer = { rel: string, path: string, why: string }
 type Resolution = {
   by: unknown
   key: unknown
@@ -813,6 +813,123 @@ const answer = (root: string, ...words: string[]) => {
   const found = resolved(root, ...words) as Resolution | null
   return found && [found.by, found.key, ...found.pointers.map(pointer => pointer.why)]
 }
+
+test("a repo note a work item links brings the repo's standards note straight after it", () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n' }))
+
+  const lines = resolve(root, 'PROJ-12').stdout.split('\n')
+
+  assert.deepEqual(lines.slice(3, 6), [
+    `- concepts/gateway.md (${sizeOf('concepts/gateway.md')} B) linked from the work item`,
+    `- repos/api.md (${sizeOf('repos/api.md')} B) linked from the work item`,
+    '- standards/api.md (6 B) standards of the repo',
+  ])
+})
+
+test('a repo note a work item names brings its standards note, where the repo has one', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n', 'work/PROJ-21/STATE.md': '# PROJ-21: Two repos\n\nTouches web and api.\n' }))
+
+  assert.deepEqual(resolved(root, 'PROJ-21').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-21/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/web.md', 'named in the work item'],
+    ['standards/web.md', 'standards of the repo'],
+    ['repos/api.md', 'named in the work item'],
+  ])
+})
+
+test('a standards note the work item links itself is listed once, as the standards', () => {
+  const root = tree(acme({ 'standards/api.md': '# api\n', 'work/PROJ-22/STATE.md': '# PROJ-22: Links both\n\nSee [[standards/api]] and [[repos/api]].\n' }))
+
+  assert.deepEqual(resolved(root, 'PROJ-22').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-22/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/api.md', 'linked from the work item'],
+    ['standards/api.md', 'standards of the repo'],
+  ])
+})
+
+const IDEAS = Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [`concepts/idea-${n}.md`, `# Idea ${n}\n`]))
+const manyLinks = (...more: string[]) => `# PROJ-23: Many links\n\n${[1, 2, 3, 4, 5, 6].map(n => `[[concepts/idea-${n}]]`).join(' ')} ${more.join(' ')}\n`
+
+test('a repo note the limit leaves out brings no standards note', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]') }))
+
+  const cut = resolved(root, 'PROJ-23')
+
+  assert.deepEqual(rels(cut).slice(1), [1, 2, 3, 4, 5, 6].map(n => `concepts/idea-${n}.md`))
+  assert.equal(cut.more, 1)
+})
+
+test('a standards note takes no place against the limit on linked notes', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]') }))
+
+  const whole = resolved(root, 'PROJ-23', '--max', '7')
+
+  assert.deepEqual(rels(whole).slice(7), ['repos/api.md', 'standards/api.md'])
+  assert.equal(whole.more, 0)
+})
+
+test("a standards note two repos share is listed once in a work item's pointers", () => {
+  const root = tree(
+    acme(
+      { 'repos/a b.md': '# a b\n', 'repos/c d.md': '# c d\n', 'standards/shared.md': '# Shared\n', 'work/PROJ-25/STATE.md': '# PROJ-25: Two repos\n\nTouches a b and c d.\n' },
+      { repos: [{ name: 'a b', standards: ['standards/shared.md'] }, { name: 'c d', standards: ['standards/shared.md'] }] },
+    ),
+  )
+
+  assert.deepEqual(resolved(root, 'PROJ-25').pointers.map(({ rel, why }) => [rel, why]), [
+    ['work/PROJ-25/STATE.md', 'state file: where the work stands and what is next'],
+    ['repos/a b.md', 'named in the work item'],
+    ['standards/shared.md', 'standards of the repo'],
+    ['repos/c d.md', 'named in the work item'],
+  ])
+})
+
+test('a standards note the item links itself is counted among the notes not listed when its repo note is left out', () => {
+  const root = tree(acme({ ...IDEAS, 'standards/api.md': '# api\n', 'work/PROJ-23/STATE.md': manyLinks('[[repos/api]]', '[[standards/api]]') }))
+
+  const cut = resolved(root, 'PROJ-23')
+
+  assert.deepEqual(rels(cut).slice(1), [1, 2, 3, 4, 5, 6].map(n => `concepts/idea-${n}.md`))
+  assert.equal(cut.more, 2)
+})
+
+test('in a root-layout estate a link from a repo note to a file of a repo is listed', () => {
+  const root = tree(acme({ 'repos/web.md': '# web\n\nSee [the readme](../web/README.md).\n' }))
+
+  assert.deepEqual(rels(resolved(root, 'web')), ['repos/web.md', 'web/README.md'])
+})
+
+function innerMap(repoNote: string) {
+  return tree(
+    makeTree({
+      'repo/.context-central/estate.json': { contextCentral: 1, name: 'inner', repos: [{ name: 'inner', path: '.' }] },
+      'repo/CLAUDE.md': '# Inner\n',
+      'repo/.context-central/repos/inner.md': repoNote,
+      'repo/.context-central/concepts/core.md': '# Core\n',
+      'repo/lib/README.md': '# lib\n',
+      'outside.md': '# Outside\n',
+    }),
+  )
+}
+
+test('in a map kept inside a repo, a link into the repo is listed after the notes, with its path from the map', () => {
+  const root = innerMap('# inner\n\nSee [the readme](../../lib/README.md) and [[concepts/core]].\n')
+
+  const result = resolved(join(root, 'repo'), 'inner')
+
+  assert.deepEqual(result.pointers.map(({ rel, why }) => [rel, why]), [
+    ['repos/inner.md', 'repo note'],
+    ['concepts/core.md', 'linked from the repo note'],
+    ['../lib/README.md', 'linked from the repo note'],
+  ])
+  assert.equal(result.pointers[2].path, join(root, 'repo', 'lib', 'README.md'))
+})
+
+test('in a map kept inside a repo, a link that leaves the estate or reaches the hub is not listed', () => {
+  const root = innerMap('# inner\n\nSee [the hub](../../CLAUDE.md) and [outside](../../../outside.md).\n')
+
+  assert.deepEqual(rels(resolved(join(root, 'repo'), 'inner')), ['repos/inner.md'])
+})
 
 test('a node is found by the id in its frontmatter, alone or inside a sentence, whatever its case', () => {
   const root = tree(acme(KNOWN))

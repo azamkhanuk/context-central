@@ -85,7 +85,7 @@ function brokenRule(estate: Estate, kind: string, parts: string[]) {
 }
 
 function node(kind: string, name: string, title: string) {
-  return { rel: `${kind}/${name}.md`, text: nodeTemplate(kind, title) }
+  return { rel: `${kind}/${name}.md`, text: nodeTemplate(kind, title, name) }
 }
 
 function decision(estate: Estate, slug: string, title: string) {

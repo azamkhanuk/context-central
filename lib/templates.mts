@@ -50,17 +50,17 @@ export function mapBlock({ workDir, glossary }: Settings, inMap: InMap = rel => 
   ].join('\n')
 }
 
-const NODE_TEMPLATES: Record<string, (title: string) => string> = {
+const NODE_TEMPLATES: Record<string, (title: string, name: string) => string> = {
   repos: title => `# ${title}\n\n## What it is\n\n## Traps\n\n## How to work in it\n`,
   areas: title => `# ${title}\n\n## What it covers\n\n## Traps\n`,
   edges: title =>
     `# ${title}\n\nStatus is \`verified\` (checked in the code) or \`inferred\` (read from names or documents).\n\n| From | To | Status |\n|---|---|---|\n`,
-  standards: title =>
-    `# ${title}\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n`,
+  standards: (title, name) =>
+    `# ${title}\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of \`${name}\` at \`<commit>\`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n`,
 }
 
-export function nodeTemplate(kind: string, title: string) {
-  return Object.hasOwn(NODE_TEMPLATES, kind) ? NODE_TEMPLATES[kind](title) : `# ${title}\n`
+export function nodeTemplate(kind: string, title: string, name = title) {
+  return Object.hasOwn(NODE_TEMPLATES, kind) ? NODE_TEMPLATES[kind](title, name) : `# ${title}\n`
 }
 
 export function decisionTemplate(number: string, title: string) {

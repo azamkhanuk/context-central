@@ -141,9 +141,93 @@ test('the index as JSON lists the same items with both paths', () => {
     title: 'Acme estate',
     mapDir: root,
     hub: join(root, 'CLAUDE.md'),
+    repo: null,
     connections: [{ name: 'jira', holds: 'tickets' }],
     items: [{ id: 'PROJ-12', title: 'Rate limit the gateway', entry: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md') }],
   })
+})
+
+test('the index names the repo the folder is in, with its note and its standards', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n' }))
+
+  assert.equal(index(join(root, 'web')).stdout.split('\n')[2], 'Repo web: repos/web.md; standards: standards/web.md')
+  assert.equal(index(join(root, 'web'), '--absolute').stdout.split('\n')[2], `Repo web: ${join(root, 'repos/web.md')}; standards: ${join(root, 'standards/web.md')}`)
+})
+
+test('a repo with no standards note is named with its note alone', () => {
+  const root = tree(acme())
+
+  assert.equal(index(join(root, 'api')).stdout.split('\n')[2], 'Repo api: repos/api.md')
+})
+
+test('no repo line is given at the root of a root-layout estate or inside a repo with no note', () => {
+  const root = tree(acme({ 'billing/README.md': '# billing\n' }, { repos: [...ACME_CONFIG.repos, { name: 'billing' }] }))
+
+  assert.equal(index(root).stdout.split('\n')[2], ACME_CONNECTIONS_LINE)
+  assert.equal(index(join(root, 'billing')).stdout.split('\n')[2], ACME_CONNECTIONS_LINE)
+})
+
+test('a repo registered at the estate root is named at the root, in the root layout too', () => {
+  const root = tree(acme({ 'repos/mono.md': '# mono\n' }, { repos: [{ name: 'mono', path: '.' }] }))
+
+  assert.equal(index(root).stdout.split('\n')[2], 'Repo mono: repos/mono.md')
+})
+
+test('in the root layout a repo registered at the estate root is not named below the root', () => {
+  const root = tree(acme({ 'repos/mono.md': '# mono\n', 'src/index.js': 'export {}\n' }, { repos: [{ name: 'mono', path: '.' }] }))
+
+  assert.equal(index(join(root, 'src')).stdout.split('\n')[2], ACME_CONNECTIONS_LINE)
+})
+
+test('inside repos that nest, the deeper one is named', () => {
+  const root = tree(acme({ 'web/admin/README.md': '# admin\n', 'repos/admin.md': '# admin\n' }, { repos: [...ACME_CONFIG.repos, { name: 'admin', path: 'web/admin' }] }))
+
+  assert.equal(index(join(root, 'web', 'admin')).stdout.split('\n')[2], 'Repo admin: repos/admin.md')
+  assert.equal(index(join(root, 'web')).stdout.split('\n')[2], 'Repo web: repos/web.md')
+})
+
+test('in a map kept inside a repo the line is given at the estate root and below it', () => {
+  const root = tree(
+    makeTree({
+      '.context-central/estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.' }] },
+      '.context-central/repos/solo.md': '# solo\n',
+      'CLAUDE.md': '# Solo\n',
+      'src/index.js': 'export {}\n',
+    }),
+  )
+
+  assert.equal(index(root).stdout.split('\n')[2], 'Repo solo: repos/solo.md')
+  assert.equal(index(join(root, 'src')).stdout.split('\n')[2], 'Repo solo: repos/solo.md')
+})
+
+test('the index as JSON carries the repo the folder is in, or null', () => {
+  const root = tree(acme({ 'standards/web.md': '# web\n' }))
+
+  assert.deepEqual((JSON.parse(index(join(root, 'web'), '--json').stdout) as { repo: unknown }).repo, {
+    name: 'web',
+    note: 'repos/web.md',
+    path: join(root, 'repos/web.md'),
+    standards: 'standards/web.md',
+    standardsPath: join(root, 'standards/web.md'),
+  })
+  assert.equal((JSON.parse(index(root, '--json').stdout) as { repo: unknown }).repo, null)
+})
+
+test('the budget drops a work item row before the repo line', () => {
+  const root = tree(acme({ 'work/PROJ-13/STATE.md': '# PROJ-13: Cache the gateway\n' }))
+  const expected = [
+    `Context map "Acme estate": ${root}`,
+    `Hub: ${join(root, 'CLAUDE.md')}`,
+    'Repo web: repos/web.md',
+    ACME_CONNECTIONS_LINE,
+    'Work in flight (2):',
+    '- PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md',
+    '- and 1 more: context-central work list',
+    INDEX_CLOSING_LINE,
+  ].join('\n')
+  writeFileSync(join(root, 'estate.json'), JSON.stringify({ ...ACME_CONFIG, budgets: { indexChars: expected.length + 10 } }))
+
+  assert.equal(index(join(root, 'web')).stdout, `${expected}\n`)
 })
 
 test("a map inside a repo has the repo's own instruction file as its hub", () => {

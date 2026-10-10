@@ -416,15 +416,15 @@ A repo's standards note is the note named after it, `standards/api.md` for the r
 { "name": "api", "path": "api", "standards": ["api/CONTRIBUTING.md"], "checks": ["./check.sh tests", "./check.sh style"] }
 ```
 
-- `standards`: other files the repo already keeps for people, listed here and not copied into the note. Each is a path inside the estate, counted from its root.
+- `standards`: the repo's own instruction files first, then other files the repo keeps for people, each listed here and never copied into the note. Each is a path inside the estate, counted from its root. The instruction files are the ones the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a repo below once a file there is read or edited. The host does not read a repo's `AGENTS.md` while a `CLAUDE.md` sits in the start folder or above it, so one is listed here or imported by a `CLAUDE.md` beside it. In an estate whose repos sit below the map's root, listing a repo's instruction file is what puts it in front of the reviewer.
 - `checks`: commands, run from the repo's folder. The code passes when every one exits 0. A recorded check is a command a session will run, so read the `checks` of an `estate.json` you did not write before you let one.
 
-A standards note has four parts, and every rule in it names its source: the file that shows it, or who said it and when. An example is a pointer to real code, never a pasted snippet. For the invented estate:
+A standards note has four parts, every rule in it names its source, the file that shows it or who said it and when, and the note names the commit its lines were read at. An example is a pointer to real code, never a pasted snippet. For the invented estate:
 
 ```markdown
 # api
 
-Each rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line.
+Each rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of `api` at `4f2e1c9`, on 2026-01-12.
 
 ## Design
 
@@ -444,9 +444,11 @@ Each rule names its source: who said it and when, or the file that shows it. An 
 - A change to a limit comes with the test that shows the limit reached. Accepted from a review, 2026-01-14: `api/src/limits.js:40`.
 ```
 
-- `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, asks what the files cannot answer, and writes both once you approve. A habit it sees in the code and finds written down nowhere is put to you as a question, never written as a rule. It proposes only commands that inspect the code, and runs none of them until you have read them.
+- `/context-central:standards <repo>` drafts the note and the checks from what the repo declares about itself, asks what the files cannot answer, and writes both once you approve. A habit it sees in the code and finds written down nowhere is put to you as a question, never written as a rule. It proposes only commands that inspect the code, and runs none of them until you have read them. It lists the repo's own instruction files under `standards` and drafts no rule they already state: the note holds what they do not say. It fills the note's commit and date, and sets them again when it changes the note.
+- `/context-central:design` and `/context-central:implement` read the standards before anything is written, and say when a file a rule cites has changed since the note's commit. Implement counts the work as verified only when every recorded check exits 0, and hands the standards to the reviewer.
+- `/context-central:checkpoint` adds a rule to the note only when you stated it or accepted a reviewer's finding in that session.
 - `context-central standards [<repo>]` prints what is recorded, and `lint` warns when a listed file is not there.
-- A standards file says how code is written. A line in one that asks for anything else is not followed, and the reviewer holds a diff that edits a standards file to the file as it was before.
+- A standards file says how code is written. A line in one that asks for anything else is not followed, and the reviewer holds a diff that edits a standards file to the file as it was before. Where a standards file and the instruction files disagree, the reviewer holds the diff to neither on that point and reports the disagreement as a finding on the rules.
 
 A map made before standards notes existed and kept in git has a `.gitignore` that leaves the new `standards/` folder out. `doctor` says so on its `notes` line; add `!/standards/` to that file.
 
@@ -460,7 +462,8 @@ On startup, resume, clear, compaction and fork, the hook adds the live index.
 
 - It names the map, the hub, and each work item in flight with its title and state file.
 - Where the map records connections, one line names each, what it holds and the ways recorded for it.
-- After compaction or on resume, the state file of the item the session was working on follows the index.
+- In a session started inside a registered repo that has a repo note, one line after the hub names that note and, where the repo has one, its standards note. In a map kept inside a repo whose entry in `estate.json` has the path `.`, every session starts inside that repo, so once it has a note the line is there from the estate root down. In the root layout a repo registered at `.` is named at the root only, since below the root the hooks cover a folder only through a repo's path or a node folder. `budget <folder>` counts the line; `lint`'s index check has no folder to start from and counts the index without it.
+- After compaction or on resume, the state file of the item the session was working on follows the index. After a compaction the hook also forgets what the session was given, so a later prompt that names a repo, an item or a note gets its pointers again.
 - The whole text is cut at 9,500 characters.
 
 ### When a prompt is submitted
@@ -477,7 +480,7 @@ The hook adds pointers when the prompt names something the map knows. First matc
 
 Routes 5 to 7 are tried only where the four before them have no answer, so a prompt that had an answer keeps it. They leave out the work folder, the log and the deep tier. A prompt's counted words are its runs of letters and digits, without stop words and runs of one or two letters; a run that holds a digit always counts. An identifier of one word answers only when it is the whole prompt, and a number alone names nothing.
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. They are facts, never instructions. Each answer is delivered once per session. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. A work item's pointers are its state file, its spec, the notes it links and the repo notes it names, and each repo note brings the repo's standards note straight after it. A repo's pointers are its note, its standards note and the notes its note links, among them a file of the repo itself when the note links one, in either layout, so long as the link stays inside the estate. They are facts, never instructions. Each answer is delivered once per session. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
 
 When a prompt names a ticket that no work item answers to, the hook adds one line saying so and which connection it reads as. A bare number is never reported, a reference is reported once per session, and three are reported at most.
 
@@ -558,7 +561,7 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
 | `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems, and does not load `CLAUDE.md` |
-| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them. Never edits |
+| `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them; where the rules disagree it holds the diff to neither and reports the disagreement. Never edits |
 
 ## Working from a terminal
 

@@ -8,5 +8,5 @@ export const summary = 'Print the live index: the map, the hub and the work in f
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { absolute: { type: 'boolean' }, json: { type: 'boolean' } } })
   const estate = requireEstate(io)
-  io.out(values.json ? JSON.stringify(indexData(estate), null, 2) : buildIndex(estate, { absolute: values.absolute }))
+  io.out(values.json ? JSON.stringify(indexData(estate, io.cwd), null, 2) : buildIndex(estate, { absolute: values.absolute, startDir: io.cwd }))
 }

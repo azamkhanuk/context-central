@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { clock } from './text.mts'
@@ -55,6 +55,13 @@ function sweep(saved: string, before: number) {
       // one record that will not go must not keep the ones after it
     }
   }
+}
+
+export function forgetDelivered(env: Env, id: unknown, keep: (key: string) => boolean) {
+  const file = recordPath(env, id)
+  if (!file || !existsSync(file)) return
+  const held = loadSession(env, id)
+  saveSession(env, id, { delivered: held.delivered.filter(keep), active: held.active })
 }
 
 export function resetSession(env: Env, id: unknown) {
