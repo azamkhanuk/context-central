@@ -106,6 +106,8 @@ Where the glossary is the map's own, seed `glossary.md` in the entry format `ini
 
 ## 10. Check
 
-Run `context-central doctor`. Fix each `FIX` line you can, pass on each `note` line as it stands, and report the rest with what the person has to do.
+Run `context-central doctor` and fix each `FIX` line you can.
 
-Finish by telling the person to restart the session or run `/clear`, so the hub loads, and that `/context-central:standards <repo>` records how a repo's code is written and checked once work starts in it.
+Close with one line saying the map is set up, then these groups in this order, each name in bold on a line of its own with its points listed under it, and a group with no point left out: **Needs a fix**, each `FIX` line left, with what the person has to do, and each connection whose read failed; **Yours to decide**, each term that is used and not defined; **Fine as it is**, what was written, each connection proven and each `note` line as it is; **Not known**, each connection not proven. A point is one thing in one sentence, the worst first, five at most to a group and then `and <N> more in the map`. Nothing that asks something of the person goes outside its group.
+
+Last, tell the person to restart the session or run `/clear`, so the hub loads, and that `/context-central:standards <repo>` records how a repo's code is written and checked once work starts in it.

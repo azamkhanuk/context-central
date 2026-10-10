@@ -66,7 +66,7 @@ It then:
 4. writes the map
 5. proves each connection with one real read, which saves nothing
 6. offers allow rules for the read tools it used, the terminal launcher and the settings that enable the plugin for the map, and writes each only on your yes
-7. runs `doctor` and says what is left for you to do
+7. runs `doctor` and ends on a [closing answer](step-by-step.md#how-every-step-ends), with what is left for you to do under Needs a fix
 
 Restart or `/clear` afterwards so the hub loads. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
 
