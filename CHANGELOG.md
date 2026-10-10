@@ -2,6 +2,30 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.10.0 - 2026-10-10
+
+Every skill ends on an answer of one shape: one line that gives the outcome, then four groups, then where the detail is. Before this a skill named what its last answer should mention and never its shape, and research asked for "a digest of at most ten lines". Of 22 research digests measured on one machine none was grouped: what worked sat beside what did not, sometimes in one point, and what waited for the person had no fixed place.
+
+- **Every skill closes in four groups.** Needs a fix, Yours to decide, Fine as it is and Not known, in that order, each named for what its points ask of you. A group with nothing in it is left out, the worst comes first, and a point is one thing in one sentence. A group shows five points at most before it names the file that holds the rest, and a point that no file holds is never left out. Nothing that asks something of you sits outside its group. Each skill says what its own groups hold, and onboard says it in one paragraph.
+- **Research sorts its claims.** A claim keeps its mark, `verified` or `inferred`, and gets one of the four groups. The research note holds the claims under the groups, after the question and the answer, with `none` under an empty one. In the answer a claim that needs a fix or is fine carries its mark and the one source that shows it best, and the note carries every source.
+- **A build gives one answer, after its checkpoint.** The review is in it: the rounds run, each finding fixed and each left as it is with the reason under Fine as it is, and each finding still open under Needs a fix. A build that stops at the last round allowed closes in the same shape, and so does one that `implement.deferTo` hands to a skill of your own. A checkpoint that a build runs gives no answer of its own.
+- **What is asked part-way stays as it was.** The numbered questions of prep, standards and onboard are still a numbered list, and a stop part-way, such as an item that was not found, is not held to the shape.
+- **The docs say once how every step ends**, in the step-by-step doc, and each step links it. The research picture's last row is redrawn, and `CONTEXT.md` defines Closing answer, Group, Point and Mark.
+
+Not shown:
+
+- Another model, a large estate, a long session, or a session with a person in it. What has been shown: twenty-nine turns of nineteen headless runs of the changed skills, on one model, on invented estates with one repo of six files. Each of the seven skills closed in the groups, an empty group was left out, a group of more than five ended on the line that names the rest, the research notes came under the four headings, a build that stopped at its last round put that round's finding under Needs a fix, and a build gave one answer for itself and the checkpoint it ran, as did one handed to a skill of the estate's own.
+- A group held to five in every run. One build that stopped at its last round listed six points under Yours to decide, though its state file held them all.
+- A ticket that could not be read in full under Needs a fix. The one run that had such a ticket, with an attachment its tracker would not hand over, put it under Not known.
+- The points no estate gave: a refusal to adopt, a brief posted through a connection, a check that cannot run on the machine, a recorded check that fails in a build, and a design that departs from the standards.
+- A build's own call of the checkpoint skill in two builds that stopped. Those headless runs were not allowed the call and wrote the checkpoint by hand. The two builds that were allowed it ran the skill.
+
+For a map that already exists:
+
+- Every skill's closing answer changes shape.
+- A research note written from now on is laid out in the four groups. A note already in a map is left as it is, and nothing reads the headings.
+- No command, setting, hook or file layout changes.
+
 ## 0.9.1 - 2026-10-10
 
 - **The README is the short version.** It keeps what the plugin does, how it helps, the core idea, how it works for you, the install and the five steps of a piece of work, and is about a fifth as long as it was.
