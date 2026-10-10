@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, acme, disposable, makeTree, run } from './helpers.mts'
@@ -388,7 +388,8 @@ test('a design linked from the state file is a pointer of its item, which is whe
 
 test('nothing calls an unfixed finding one that stands, which is what implement once called an answered one', () => {
   for (const [file, text] of everyFile()) assert.doesNotMatch(text, /finding[^.]*\bstand(s|ing)\b|\bstand(s|ing)\b[^.]*finding/, file)
-  for (const file of ['README.md', 'CONTEXT.md']) assert.doesNotMatch(readFileSync(join(REPO, file), 'utf8'), /finding[^.|]*\bstanding\b/, file)
+  const docs = readdirSync(join(REPO, 'docs')).filter(name => name.endsWith('.md')).map(name => join('docs', name))
+  for (const file of ['README.md', 'CONTEXT.md', ...docs]) assert.doesNotMatch(readFileSync(join(REPO, file), 'utf8'), /finding[^.|]*\bstanding\b/, file)
 })
 
 test('a review round count that is not a whole number of one or more is still a setting the plugin reads', () => {
