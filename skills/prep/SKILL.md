@@ -49,13 +49,13 @@ Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head i
 
 ## 5. Glossary
 
-`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the hand-over. Use the glossary's wording in the spec.
+`context-central where` says where the estate's glossary is. Add each new domain term to it in the entry format it has: where its entries carry no line of words to avoid, add none. Where `where` says the glossary is inside a repo, write nothing to it and list the terms in the closing answer. Use the glossary's wording in the spec.
 
 ## 6. Tracker brief
 
 After the spec is saved, write a brief for the ticket in three parts: why, what, done when. The spec stays in the map; the tracker gets the brief only.
 
-Run `context-central config --get writeRules`. `context-central connections --item <item>` names the connection the item's ticket belongs to and how it is reached: never pick it yourself, and never ask the person for what it can answer. When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now. Post the brief through that connection only when the write rules allow it and the person approves the exact text: by the server's own tool for a comment, found with tool search, or by the estate's own command for `comment`. That command is in the connection's entry in `context-central config --get connections`, where the map records the connection. Otherwise show the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed". When the item has no ticket, or no connection holds it, show the text.
+Run `context-central config --get writeRules`. `context-central connections --item <item>` names the connection the item's ticket belongs to and how it is reached: never pick it yourself, and never ask the person for what it can answer. When it answers that none claims the ticket, the connection is the one the person named in step 1. If step 1 asked nobody, because the ticket was already saved, ask now. Post the brief through that connection only when the write rules allow it and the person approves the exact text: by the server's own tool for a comment, found with tool search, or by the estate's own command for `comment`. That command is in the connection's entry in `context-central config --get connections`, where the map records the connection. Where the rules allow it and the connection has such a tool or command, the brief waits for that approval: the closing answer shows it under Yours to decide, its last line asks for a yes or a no to it, and nothing is posted until the person replies. A yes posts it, and one line then says where it went, or what was printed where the post failed. Any other reply posts nothing, and the brief stays the person's to post. Otherwise the closing answer shows the text for the person to post. A setting that is absent makes `config --get` exit 1; treat that as "not allowed". When the item has no ticket, or no connection holds it, the closing answer shows the text.
 
 ## 7. Update the state file
 
@@ -63,4 +63,29 @@ Rewrite "Where it stands" and "Next" for an item that is specified and not built
 
 ## 8. Hand over
 
-Suggest a fresh session for the build: `/clear`, then `/context-central:implement <item>`. The state file and the spec carry everything the build needs. Where the work needs its structure settled first, suggest `/context-central:design <item>` before the build.
+Close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+
+```
+<one line saying the item is specified>
+
+**Needs a fix**
+- <what kept the spec from being whole, such as a ticket not read in full>
+
+**Yours to decide**
+- <the brief, where it waits for the person's yes to be posted or is the person's to post, with its three parts under it>
+- <whether a design comes first>. Recommended: <the answer, and why>.
+- <the new terms a glossary inside a repo could not take, with each term and its meaning under it>
+
+**Fine as it is**
+- <a file written: the spec, the code map, the state file>
+- <a term added to the glossary>
+- <the brief, with its three parts under it, where no ticket takes it>
+- <the adoption, where there was one>
+
+**Not known**
+- <what the spec leaves open>
+
+Spec: <its path>. Next: <the person's yes or no to the brief, where it waits for one, then> `/clear`, then `/context-central:implement <item>`, or `/context-central:design <item>` first.
+```
+
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The state file and the spec carry everything the build needs.
