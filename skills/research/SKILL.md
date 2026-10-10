@@ -33,22 +33,54 @@ A setting that is absent makes `config --get` exit 1; treat it as unset. With no
 
 ## 3. Mark every claim
 
+How it is known:
+
 - `verified`: you or an agent read it in a primary source. Cite it: `path:line` at a commit, a URL, or the saved source file.
 - `inferred`: reasoned from something else. Say from what.
 
-Done when every claim in the answer carries one mark and its source.
+What it asks of the person, as one of four groups:
+
+- **Needs a fix**: something is wrong or missing.
+- **Yours to decide**: a choice only the person can make. Give the answer you recommend and why.
+- **Fine as it is**: it was checked and it holds.
+- **Not known**: it could not be checked. Say what stood in the way.
+
+A claim that would sit in two groups is two claims. Done when every claim carries its group, and each under Needs a fix or Fine as it is its mark and its source.
 
 ## 4. Write the note
 
-With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the answer says what the command said. When it adopted the item, the answer says so.
+With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the closing answer says what the command said, under Needs a fix. When it adopted the item, the closing answer says so, under Fine as it is.
 
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
 
-The note holds the question, the answer in a few lines, the claims with their marks and sources, and what is still unknown. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
+The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
 With an item, add the note's path to "Where the detail lives" in the state file.
 
 ## 5. Answer
 
-Reply with a digest of at most ten lines and the path of the note.
+Reply in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+
+```
+<one line that answers the question>
+
+**Needs a fix**
+- <a claim that something is wrong or missing, and where> (<its mark>, <the one source that shows it best>)
+  - <a part of it, where it has parts>
+- <what the adopt command said, where it refused>
+
+**Yours to decide**
+- <a choice only the person can make>. Recommended: <the answer, and why>.
+
+**Fine as it is**
+- <a claim that was checked and holds> (<its mark>, <the one source that shows it best>)
+- <the adoption, where there was one>
+
+**Not known**
+- <what could not be checked, and what stood in the way>
+
+Note: <the path of the note>
+```
+
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most. Where it holds more, its last line says where the rest is, as `and <N> more in the note`, or what the rest is where the note does not hold it, as `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.

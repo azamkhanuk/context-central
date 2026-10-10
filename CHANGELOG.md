@@ -2,6 +2,34 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.10.0 - 2026-10-10
+
+Every skill ends on an answer of one shape: one line that gives the outcome, then four groups, then where the detail is. Before this a skill named what its last answer should mention and never its shape, and research asked for "a digest of at most ten lines". Of 22 research digests measured on one machine none was grouped: what worked sat beside what did not, sometimes in one point, and what waited for the person had no fixed place.
+
+- **Every skill closes in four groups.** Needs a fix, Yours to decide, Fine as it is and Not known, in that order, each named for what its points ask of you. A group with nothing in it is left out, the worst comes first, and a point is one thing in one sentence. A group shows five points at most. Where it holds more, its last line names the file that holds the rest, or says in short what the rest is where that file does not hold it. Nothing that asks something of you sits outside its group. Each skill says what its own groups hold, and onboard says it in one paragraph.
+- **Research sorts its claims.** Each claim gets one of the four groups. One that needs a fix or is fine carries its mark, `verified` or `inferred`: in the answer with the one source that shows it best, in the research note with every source. The note holds the claims under the four groups, with `none` under an empty one.
+- **A build gives one answer, after its checkpoint.** The review is in it: the rounds run, each finding fixed and each left as it is with the reason under Fine as it is, and each finding still open under Needs a fix. A build that stops at the last round allowed closes in the same shape and ends on the ruling it waits for. One that `implement.deferTo` hands to a skill of your own closes in it too. A checkpoint that a build runs gives no answer of its own.
+- **What is asked part-way stays as it was.** The numbered questions of prep, standards and onboard are still a numbered list, and a stop part-way, such as an item that was not found, is not held to the shape.
+- **The docs say once how every step ends**, in the step-by-step doc, and each step links it. The README says it in a line. Two pictures are redrawn: research sorts its claims and answers in four groups, and a build checkpoints before its one answer. `CONTEXT.md` defines Closing answer, Group, Point and Mark.
+
+Not shown:
+
+- Another model, a large estate, a long session, or a session with a person in it. What has been shown: 43 turns of 27 headless runs of the changed skills, on one model, on invented estates with one small repo. The last seven, one of each skill, ran the text as it ships; the earlier ones ran the text as it stood at each step, which three rounds of review then changed in small ways. In those seven each skill closed in the groups and no group held more than five points. Four ended a group on the line that says where or what the rest is, and the research note came under the four headings. The build stopped at its one round with the open findings under Needs a fix, an answered one under Fine as it is and the ruling it waits for as its last line, and gave one answer for itself and the checkpoint it ran.
+- A closing answer with nothing before its first line, every time. One of those seven, a checkpoint, opened on a line of its own.
+- A point held to one sentence, every time. The parts of a brief ran to two or three sentences, as did a point here and there.
+- A last line that names the right file, every time. One build said two more points were in its state file, where they sit in a note the state file links.
+- Onboard's closing answer in a message of its own. In a run whose offers were all answered up front, the settings to place came in the same message, before the answer.
+- A research note that holds the question, the answer and the groups and nothing else. Most carried a part or two more, before the groups or after them.
+- A build handed to a skill of your own on the text as it ships. It ran once, on the text of an earlier step, and gave one answer in the same shape.
+- The points no estate gave, among them a refusal to adopt, a brief posted through a connection, a check that cannot run on the machine, a recorded check that fails in a build, a design that departs from the standards, a glossary kept inside a repo, an evidence file, and a run with nothing for any group. Nor was a build run with tests or review switched off.
+
+For a map that already exists:
+
+- Every skill's closing answer changes shape.
+- A research note written from now on is laid out in the four groups. A note already in a map is left as it is, and nothing reads the headings.
+- A build that `implement.deferTo` hands to a skill of your own now ends on the closing answer as well, after that skill has reported.
+- No command, setting, hook or file layout changes.
+
 ## 0.9.1 - 2026-10-10
 
 - **The README is the short version.** It keeps what the plugin does, how it helps, the core idea, how it works for you, the install and the five steps of a piece of work, and is about a fifth as long as it was.
