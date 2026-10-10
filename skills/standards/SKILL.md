@@ -57,4 +57,27 @@ On a yes:
 
 ## 6. Check
 
-Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A `FIX` line for `notes` means git would leave the new note out of the map's commits: show it to the person. Report the paths written and each question left open.
+Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A `FIX` line for `notes` means git would leave the new note out of the map's commits: it goes to the person as it is. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+
+```
+<one line saying what was recorded for the repo>
+
+**Needs a fix**
+- <a check that did not exit 0, with what it exited with>
+- <a file still marked, or a line the map's checks still print>
+
+**Yours to decide**
+- <a question left open>. Recommended: <the answer, and why>.
+- <the `FIX` line for `notes`, as it is>
+
+**Fine as it is**
+- <a path written>
+- <a check that exits 0>
+
+**Not known**
+- <a check that cannot run on this machine, which stays recorded>
+
+Standards note: <its path>
+```
+
+The groups come in that order, the worst first inside each, and a group with no point is left out. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, and where it holds more its last line is `and <N> more in the standards note`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
