@@ -185,3 +185,59 @@ test('the session-start hook gives a session in a work tree the same index', () 
 
   assert.deepEqual(answer.hookSpecificOutput.additionalContext.split('\n'), index(made, made.inside))
 })
+
+function beside(made = solo()) {
+  tree(made.base)
+  return { ...made, beside: workTree(made, join(made.base, 'solo-limit')) }
+}
+
+const session = (cwd: string) => ({ cwd, session_id: 'in-a-work-tree', source: 'startup' })
+const indexFrom = (made: Checkout, cwd: string, env = made.env) => (JSON.parse(hook('session-start', session(cwd), { env }).stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext.split('\n')
+
+test('a work tree beside the checkout finds the map of its main checkout', () => {
+  const made = beside()
+
+  assert.equal(mapLine(made, made.beside), `map: solo at ${join(made.main, MAP)}`)
+  assert.deepEqual(where(made, made.beside).slice(3), ['here: root', `work tree: ${made.beside}, of the checkout at ${made.main}`, `drafts: ${join(made.beside, MAP)}`, ''])
+  assert.equal(run(['work', 'list'], { cwd: join(made.beside, 'src'), env: made.env }).stdout, `PROJ-12 | Rate limit the gateway | ${SOLO_STATE} | 0 notes, 0 deep files (0 B)\n`)
+})
+
+test('the session-start hook answers for a work tree beside the checkout, whichever folder is the project folder', () => {
+  const made = beside()
+  const expected = [`Context map "solo": ${join(made.main, MAP)}`, `Hub: ${join(made.main, 'CLAUDE.md')}`, `Work tree: ${made.beside}, of the checkout at ${made.main}. ${HOW_A_FILE_IS_WRITTEN}`]
+
+  assert.deepEqual(indexFrom(made, made.beside).slice(0, 3), expected)
+  assert.deepEqual(indexFrom(made, made.beside, { ...made.env, CLAUDE_PROJECT_DIR: made.beside }).slice(0, 3), expected)
+  assert.deepEqual(indexFrom(made, made.beside, { ...made.env, CLAUDE_PROJECT_DIR: made.main }).slice(0, 3), expected)
+})
+
+test('a folder in a work tree counts as the same folder of its main checkout, so a work tree inside the checkout is not a folder of its own', () => {
+  const made = estate()
+
+  assert.equal(where(made, made.inside)[3], 'here: root')
+  assert.equal(where(made, join(made.inside, 'src'))[3], 'here: inside')
+})
+
+test('in a root layout a work tree beside its repo is covered as that repo, and the hook answers there', () => {
+  const made = checkout({ 'README.md': '# api checkout\n' }, 'api', { 'estate.json': ACME_CONFIG, ...ACME_FILES })
+  tree(made.base)
+  const outside = workTree(made, join(made.base, 'api-limit'))
+
+  assert.equal(where(made, outside)[3], 'here: repo:api')
+  assert.equal(indexFrom(made, outside)[2], `Repo api: ${join(made.base, 'repos', 'api.md')}`)
+})
+
+test('the hook answers from the map a work tree has of its own, kept in git, when the project folder is the main checkout', () => {
+  const made = estate(solo({ '.gitignore': 'node_modules/\n' }))
+
+  assert.equal(indexFrom(made, made.inside, { ...made.env, CLAUDE_PROJECT_DIR: made.main })[0], `Context map "solo": ${join(made.inside, MAP)}`)
+})
+
+test('the hook still answers from the project folder when the session has moved to a work tree no map answers for', () => {
+  const made = estate()
+  const other = checkout({ 'README.md': '# another repository\n' }, 'other')
+  tree(other.base)
+  const elsewhere = workTree(other, join(other.base, 'other-limit'))
+
+  assert.equal(indexFrom(made, elsewhere, { ...made.env, CLAUDE_PROJECT_DIR: made.main })[0], `Context map "solo": ${join(made.main, MAP)}`)
+})

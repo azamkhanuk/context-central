@@ -130,17 +130,19 @@ export function findEstate(startDir: string, env: Env): MapLocation | null {
   const start = resolve(startDir)
   const tree = linkedWorkTree(start)
   const near = mapAbove(start)
-  if (!near) return null
-  if (!tree) return { ...near, workTree: null }
-  if (!holds(tree.root, near.configPath)) return { ...near, workTree: tree }
-  if (!isCopy(tree, near.configPath, env)) return { ...near, workTree: null }
+  if (!tree) return near && { ...near, workTree: null }
+  if (near && !holds(tree.root, near.configPath)) return { ...near, workTree: tree }
+  if (near && !isCopy(tree, near.configPath, env)) return { ...near, workTree: null }
   const ours = mapAbove(inMain(tree, start))
   return ours && { ...ours, workTree: tree }
 }
 
 export function loadEstate(startDir: string, env: Env): Estate | null {
   const found = findEstate(startDir, env)
-  if (!found) return null
+  return found && estateAt(found)
+}
+
+export function estateAt(found: MapLocation): Estate {
   const written = readWritten(found.configPath)
   const config = validateConfig(written, found.configPath)
   const { connections } = written as WrittenSettings
@@ -154,7 +156,7 @@ export function requireEstate(io: Io) {
 }
 
 export function coverage(estate: Estate, dir: string): Coverage | null {
-  const rel = relative(estate.estateRoot, resolve(dir))
+  const rel = relative(estate.estateRoot, inCheckout(estate, dir))
   if (rel.startsWith('..') || isAbsolute(rel)) return null
   if (rel === '') return 'root'
   const under = (path: string) => rel === fromPosix(path) || rel.startsWith(fromPosix(path) + sep)
@@ -167,7 +169,7 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
 
 export function repoAt(estate: Estate, dir: string): Repo | null {
   if (!coverage(estate, dir)) return null
-  const here = resolve(dir)
+  const here = inCheckout(estate, dir)
   const holding = estate.config.repos.filter(repo => {
     const root = resolve(estate.estateRoot, repo.path)
     return here === root || here.startsWith(root + sep)
@@ -199,6 +201,10 @@ export function standardsFiles({ estateRoot, mapDir, config, workTree }: Estate,
   }
   const note = !kept ? undefined : nameable ? byName.map(file => realPath(file.path))[0] : underAnotherName()?.real
   return files.map(({ real, ...file }) => ({ ...file, note: real === note }))
+}
+
+function inCheckout({ workTree }: Estate, dir: string) {
+  return workTree ? inMain(workTree, resolve(dir)) : resolve(dir)
 }
 
 function stateOf(path: string): StandardsFile['state'] {

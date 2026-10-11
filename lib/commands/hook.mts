@@ -1,11 +1,12 @@
 import { readFileSync, realpathSync } from 'node:fs'
 import { ConfigError } from '../errors.mts'
-import { coverage, findEstate, loadEstate } from '../estate.mts'
+import { coverage, estateAt, findEstate } from '../estate.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate } from '../text.mts'
+import { linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
 
@@ -45,12 +46,13 @@ export async function run(args: string[], io: Io) {
 function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
   if (!Object.hasOwn(EVENTS, event ?? '')) throw new Error(`unknown hook event "${event}"`)
   const handler = EVENTS[event]
-  const startDir = env.CLAUDE_PROJECT_DIR || input.cwd
+  const fromTree = input.cwd && linkedWorkTree(input.cwd) ? findEstate(input.cwd, env) : null
+  const startDir = fromTree ? input.cwd : env.CLAUDE_PROJECT_DIR || input.cwd
   if (!startDir) return null
-  const found = findEstate(startDir, env)
-  if (!found || inAnotherMap(found, input.cwd, env)) return null
+  const found = fromTree ?? findEstate(startDir, env)
+  if (!found || (!fromTree && inAnotherMap(found, input.cwd, env))) return null
   try {
-    const estate = loadEstate(startDir, env)!
+    const estate = estateAt(found)
     return coverage(estate, startDir) ? handler(estate, input, env, startDir) : null
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
