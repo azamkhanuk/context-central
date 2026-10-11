@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, INDEX_CLOSING_LINE, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, hook, makeTree, run, solo, standIns, workTree } from './helpers.mts'
@@ -21,6 +21,7 @@ function withCopy() {
 }
 
 const mapLine = (made: Checkout, cwd: string, env = made.env) => run(['where'], { cwd, env }).stdout.split('\n')[0]
+const asGitSpellsIt = (folder: string) => realpathSync.native(folder)
 
 test('with a copy of the map in the work tree, where names the map of the main checkout', () => {
   const made = withCopy()
@@ -277,7 +278,7 @@ test('a work tree moved by hand still finds the map of its main checkout', () =>
   mkdirSync(join(made.base, 'elsewhere'))
   renameSync(made.beside, moved)
 
-  assert.equal(mapLine(made, moved), `map: solo at ${join(made.main, MAP)}`)
+  assert.equal(mapLine(made, moved), `map: solo at ${join(asGitSpellsIt(made.main), MAP)}`)
 })
 
 test('a folder whose .git file names no git folder is no work tree, and the map above it answers', () => {
