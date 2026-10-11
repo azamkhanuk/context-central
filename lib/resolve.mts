@@ -92,6 +92,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
+  if (DIGITS_ALONE.test(query.trim())) return null
   const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)

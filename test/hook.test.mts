@@ -658,3 +658,9 @@ test('a node given among others that share its identifier is not given again by 
   assert.deepEqual(given(second('front-gate')), [join(root, 'concepts/doorway.md')])
   silent(second('front-gate'))
 })
+
+test('a prompt that is a number alone is given nothing', () => {
+  const root = tree(acme({ 'concepts/42.md': '# 42\n' }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '42' }))
+})
