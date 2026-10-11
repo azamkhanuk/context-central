@@ -11,6 +11,7 @@ export interface WorkTree {
 const GIT = '.git'
 const GITDIR = /^gitdir:\s*(.+?)\s*$/m
 const GIT_TIMEOUT_MS = 5000
+const GIT_ANSWER_BYTES = 256 * 1024 * 1024
 const NOT_SO = 1
 
 export function linkedWorkTree(dir: string): WorkTree | null {
@@ -78,7 +79,7 @@ function asGitTakesIt(dir: string, path: string) {
 }
 
 function asked(dir: string, args: string[], env: Env) {
-  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS })
+  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_ANSWER_BYTES })
 }
 
 function checkoutAbove(start: string) {

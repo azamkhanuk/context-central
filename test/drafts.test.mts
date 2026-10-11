@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, standIns, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -426,6 +426,21 @@ test('a note git does not track, written beside tracked ones in a work tree, is 
   assert.equal(git(made, made.inside, 'status', '--short').stdout, '')
 })
 
+test('a file git tracks is no draft where the disk spells its name in another form of Unicode than git does', () => {
+  const composed = 'caf\u00e9.md'
+  const decomposed = 'cafe\u0301.md'
+  const made = solo({ '.gitignore': `${MAP}/estate.json\n`, [`${MAP}/concepts/${composed}`]: '# Cafe\n' })
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  rmSync(join(inside, MAP, 'concepts', composed))
+  write(inside, `concepts/${decomposed}`, '# Cafe\n')
+
+  const result = take(made, inside)
+
+  assert.equal(result.stdout, 'Nothing waits to be taken.\n')
+  assert.equal(existsSync(join(inside, MAP, 'concepts', decomposed)), true)
+})
+
 test("draft gives a file git tracks in the work tree as the work tree's own, and copies nothing over it", () => {
   const made = notesTracked()
   write(made.main, 'glossary.md', '# Glossary, as the main checkout has it\n')
@@ -481,6 +496,18 @@ test('where git refuses to answer, take says so and takes nothing', NEEDS_STAND_
   assert.equal(result.stderr, `context-central take: ${NO_ANSWER(made.inside)}`)
 })
 
+test("more than a megabyte of tracked paths at the map's place does not stop draft", () => {
+  const made = estate()
+  const inIndex = (...args: string[]) => ['-C', made.inside, ...args]
+  const empty = spawned('git', inIndex('hash-object', '-w', '--stdin'), { env: made.env, input: '' }).stdout.trim()
+  const entries = Array.from({ length: 11000 }, (_, at) => `100644 ${empty}\t${MAP}/concepts/${'n'.repeat(96)}-${at}.md\n`)
+  spawned('git', inIndex('update-index', '--add', '--index-info'), { env: made.env, input: entries.join('') })
+
+  const result = draft(made, made.inside, 'glossary.md')
+
+  assert.equal(result.stdout, `${join(made.inside, MAP, 'glossary.md')}\n`)
+})
+
 test('draft says so when the copy it would make cannot be written', notOnWindows('a file on Windows is not closed to writing by its mode in the same way'), () => {
   const made = estate()
   draft(made, made.inside, SOLO_STATE)
@@ -511,6 +538,18 @@ test("work done refuses while an edited draft of the item's state file waits, so
   write(made.inside, SOLO_STATE, `${SOLO_FILES[`${MAP}/${SOLO_STATE}`]}\nBuilt.\n`)
 
   const result = run(['work', 'done', 'PROJ-12'], { cwd: made.inside, env: made.env })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central work: ${SOLO_STATE} has a draft in this work tree that is not in the map yet; run context-central take, then this again\n`)
+  assert.equal(read(made.main, SOLO_STATE), SOLO_FILES[`${MAP}/${SOLO_STATE}`])
+})
+
+test("with no git on the PATH work done still refuses while an edited draft of the item's state file waits", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.inside, SOLO_STATE, `${SOLO_FILES[`${MAP}/${SOLO_STATE}`]}\nBuilt.\n`)
+
+  const result = run(['work', 'done', 'PROJ-12'], { cwd: made.inside, env: { ...made.env, PATH: tree(makeTree({})) } })
 
   assert.equal(result.code, 1)
   assert.equal(result.stderr, `context-central work: ${SOLO_STATE} has a draft in this work tree that is not in the map yet; run context-central take, then this again\n`)

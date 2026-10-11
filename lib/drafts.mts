@@ -28,6 +28,9 @@ type Verdict = 'took' | 'same' | { kept: string }
 const RECORD = '.drafted.json'
 const NONE_TRACKED: ReadonlySet<string> = new Set()
 
+// Git and the disk may spell one name in two forms of Unicode, so a tracked name is matched in one.
+const composed = (name: string) => name.normalize('NFC')
+
 export function draftsDir({ layout, mapDir, workTree }: Estate, tree: WorkTree | null = workTree) {
   return tree && layout === 'inner' && mapDir !== tree.main && holds(tree.main, mapDir) ? join(tree.root, relative(tree.main, mapDir)) : null
 }
@@ -35,9 +38,9 @@ export function draftsDir({ layout, mapDir, workTree }: Estate, tree: WorkTree |
 export function draftsOf(estate: Estate, env: Env, tree: WorkTree | null = estate.workTree): Drafts | null {
   const dir = draftsDir(estate, tree)
   if (!dir || !tree) return null
-  const tracked = trackedUnder(tree.root, dir, env)
+  const tracked = trackedIn(tree, dir, env)
   if (!tracked) throw new PluginError(`git gave no answer in ${tree.root}, so a draft there cannot be told from a file git tracks; run git status there to see why`)
-  return { dir, tracked: new Set(tracked) }
+  return { dir, tracked }
 }
 
 export function inMap(estate: Estate, dir: string | null, given: string) {
@@ -57,7 +60,7 @@ export function drafted(estate: Estate, drafts: Drafts | null, rel: string) {
   if (!drafts) return ours
   if (isFile(drafts.dir)) throw new PluginError(`${drafts.dir} is a file, not a folder, so no draft can be made there`)
   const draft = join(drafts.dir, rel)
-  if (drafts.tracked.has(rel)) return draft
+  if (drafts.tracked.has(composed(rel))) return draft
   const record = readRecord(drafts.dir)
   const unedited = untouched(draft, record[rel])
   if (!isFile(ours)) {
@@ -94,13 +97,14 @@ export function take(estate: Estate, { dir, tracked }: Drafts, over: string[]): 
 }
 
 export function awaitsTaking(estate: Estate, env: Env, rel: string) {
-  try {
-    const drafts = draftsOf(estate, env)
-    return drafts !== null && waitingIn(estate, drafts.dir, drafts.tracked).includes(rel)
-  } catch (error) {
-    if (!(error instanceof PluginError)) throw error
-    return false
-  }
+  const dir = draftsDir(estate)
+  if (!dir || !estate.workTree) return false
+  return waitingIn(estate, dir, trackedIn(estate.workTree, dir, env) ?? NONE_TRACKED).includes(rel)
+}
+
+function trackedIn(tree: WorkTree, dir: string, env: Env): ReadonlySet<string> | null {
+  const tracked = trackedUnder(tree.root, dir, env)
+  return tracked && new Set(tracked.map(composed))
 }
 
 function copyIn(dir: string, record: Drafted, rel: string, ours: string) {
@@ -168,7 +172,7 @@ function draftsIn(dir: string, tracked: ReadonlySet<string>, below = ''): string
     .filter(entry => !entry.name.startsWith('.'))
     .flatMap(entry => {
       const rel = below ? `${below}/${entry.name}` : entry.name
-      return entry.isDirectory() ? draftsIn(dir, tracked, rel) : entry.isFile() && !tracked.has(rel) ? [rel] : []
+      return entry.isDirectory() ? draftsIn(dir, tracked, rel) : entry.isFile() && !tracked.has(composed(rel)) ? [rel] : []
     })
     .sort()
 }
