@@ -8,7 +8,7 @@ allowed-tools: Bash(context-central *)
 
 The work item: $ARGUMENTS
 
-A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+Run `context-central draft <path>...` before a file of the map is edited or written, and in a git work tree before one is read or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it when the files of a step are written, before a command or an agent reads them from the map, and draft a file again before a later edit. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means another session wrote that file: read the map's file, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Load the item
 
@@ -21,9 +21,9 @@ Read the state file and the research notes it points to, and the older note wher
 Read the item's ticket before anything else, unless its `sources/` already holds a copy. Start with `context-central fetch ticket --item <item>`: it finds the item's ticket and the connection that ticket belongs to, and where that connection is read by fetch it saves the ticket and prints a digest. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system.
 
 - When fetch answers that the item has no ticket, there is none to read.
-- When its answer says a session reads the connection, give the `context-central:fetcher` agent that connection's entry from `context-central config --get connections`, the ticket and the path to save to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder. Run `context-central take` when the agent is back. The ticket is the `ticket` line in the head of the state file, or the item's name where it has no such line.
+- When its answer says a session reads the connection, give the `context-central:fetcher` agent that connection's entry from `context-central config --get connections`, the ticket and the path to save to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder of the map. The ticket is the `ticket` line in the head of the state file, or the item's name where it has no such line. Run `context-central take` when the agent is back.
 - When fetch answers that more than one connection holds tickets, ask the person which one, and name it with `--connection`.
-- When nothing reaches the ticket, ask the person to paste it and save it in full.
+- When nothing reaches the ticket, ask the person to paste it, save it in full at such a path, and run `context-central take`.
 
 A spec is never written with a ticket unread.
 
@@ -47,7 +47,7 @@ The spec names behaviour and modules, and holds no file paths: paths move as the
 
 ## 4. Write the code map
 
-Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head it with each repo, its commit (`git rev-parse --short HEAD`) and the date, so a later reader can tell how far the code has moved. Then one line per anchor: `path:line` and what is there.
+Code anchors go in `notes/<YYYY-MM-DD>-code-map.md` in the item's folder. Head it with each repo, its commit (`git rev-parse --short HEAD`, run in that repo's folder) and the date, so a later reader can tell how far the code has moved. Then one line per anchor: `path:line` and what is there.
 
 ## 5. Glossary
 

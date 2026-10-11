@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, notOnWindows, run, solo, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -400,14 +400,129 @@ test('a record that names a draft which is not there does not keep the drafts fo
   assert.equal(existsSync(join(made.inside, MAP)), false)
 })
 
-test("where git tracks the notes at the map's place in a work tree, they are no drafts: take leaves them and draft gives the map's own file", () => {
+function notesTracked() {
   const made = solo({ '.gitignore': `${MAP}/estate.json\n` })
   tree(made.base)
+  return { ...made, inside: workTree(made, join(made.main, '.claude', 'worktrees', 'limit')) }
+}
+
+test("a file git tracks at the map's place in a work tree is no draft: take leaves it where it is", () => {
+  const made = notesTracked()
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'Nothing waits to be taken.\n')
+  assert.equal(git(made, made.inside, 'status', '--short').stdout, '')
+})
+
+test('a note git does not track, written beside tracked ones in a work tree, is a draft and is taken', () => {
+  const made = notesTracked()
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'took concepts/limits.md\n')
+  assert.equal(read(made.main, 'concepts/limits.md'), '# Limits\n')
+  assert.equal(git(made, made.inside, 'status', '--short').stdout, '')
+})
+
+test("draft gives a file git tracks in the work tree as the work tree's own, and copies nothing over it", () => {
+  const made = notesTracked()
+  write(made.main, 'glossary.md', '# Glossary, as the main checkout has it\n')
+
+  const result = draft(made, made.inside, 'glossary.md')
+
+  assert.equal(result.stdout, `${join(made.inside, MAP, 'glossary.md')}\n`)
+  assert.equal(read(made.inside, 'glossary.md'), SOLO_FILES[`${MAP}/glossary.md`])
+})
+
+test('a map that keeps itself out of git with a tracked file of its own still has its drafts in a work tree', () => {
+  const made = solo({ '.gitignore': 'node_modules/\n', [`${MAP}/.gitignore`]: '*\n!.gitignore\n' })
+  tree(made.base)
   const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  write(inside, SPEC, '# Spec\n')
 
-  const taken = take(made, inside)
+  assert.equal(draft(made, inside, SOLO_STATE).stdout, `${join(inside, MAP, SOLO_STATE)}\n`)
+  assert.equal(take(made, inside).stdout, `took ${SPEC}\n`)
+})
 
-  assert.equal(taken.stdout, 'Nothing to take: here a file of the map is written in place.\n')
-  assert.equal(git(made, inside, 'status', '--short').stdout, '')
-  assert.equal(draft(made, inside, 'glossary.md').stdout, `${join(made.main, MAP, 'glossary.md')}\n`)
+const NO_ANSWER = (dir: string) => `git gave no answer in ${dir}, so a draft there cannot be told from a file git tracks; run git status there to see why\n`
+
+test('with no git on the PATH take says that git gave no answer, and takes nothing', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = run(['take'], { cwd: made.inside, env: { ...made.env, PATH: tree(makeTree({})) } })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central take: ${NO_ANSWER(made.inside)}`)
+  assert.equal(existsSync(join(made.main, MAP, SPEC)), false)
+  assert.equal(read(made.inside, SPEC), '# Spec\n')
+})
+
+test('with no git on the PATH draft says that git gave no answer, and prints no path', () => {
+  const made = estate()
+
+  const result = run(['draft', SOLO_STATE], { cwd: made.inside, env: { ...made.env, PATH: tree(makeTree({})) } })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, `context-central draft: ${NO_ANSWER(made.inside)}`)
+})
+
+test('where git refuses to answer, take says so and takes nothing', NEEDS_STAND_IN, () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+  const refusing = tree(standIns({ git: '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n' }))
+
+  const result = run(['take'], { cwd: made.inside, env: { ...made.env, PATH: refusing } })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central take: ${NO_ANSWER(made.inside)}`)
+})
+
+test('draft says so when the copy it would make cannot be written', notOnWindows('a file on Windows is not closed to writing by its mode in the same way'), () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  chmodSync(join(made.inside, MAP, SOLO_STATE), 0o444)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+
+  const result = draft(made, made.inside, SOLO_STATE)
+  chmodSync(join(made.inside, MAP, SOLO_STATE), 0o644)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central draft: ${SOLO_STATE} could not be drafted (EACCES)\n`)
+})
+
+test('an unedited draft of a file the map no longer holds is removed when it is drafted again', () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  rmSync(join(made.main, MAP, SOLO_STATE))
+
+  const result = draft(made, made.inside, SOLO_STATE)
+
+  assert.equal(result.stdout, `${join(made.inside, MAP, SOLO_STATE)}\n`)
+  assert.equal(existsSync(join(made.inside, MAP, SOLO_STATE)), false)
+})
+
+test("work done refuses while an edited draft of the item's state file waits, so the two do not cross", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.inside, SOLO_STATE, `${SOLO_FILES[`${MAP}/${SOLO_STATE}`]}\nBuilt.\n`)
+
+  const result = run(['work', 'done', 'PROJ-12'], { cwd: made.inside, env: made.env })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central work: ${SOLO_STATE} has a draft in this work tree that is not in the map yet; run context-central take, then this again\n`)
+  assert.equal(read(made.main, SOLO_STATE), SOLO_FILES[`${MAP}/${SOLO_STATE}`])
+})
+
+test('work done goes ahead where the draft of the state file was only read', () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+
+  const result = run(['work', 'done', 'PROJ-12'], { cwd: made.inside, env: made.env })
+
+  assert.equal(result.stdout, 'PROJ-12: done\n')
+  assert.match(read(made.main, SOLO_STATE), /^status: done$/m)
 })

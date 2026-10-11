@@ -76,7 +76,7 @@ function real(path: string) {
 function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: string): HookAnswer {
   if (input.source === 'clear') resetSession(env, input.session_id)
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
-  const index = buildIndex(estate, env, { absolute: true, startDir })
+  const index = buildIndex(estate, { absolute: true, startDir })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
   return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: truncate(text, CONTEXT_CHARS, CUT) }, ...resumeNotice(estate, input) }
 }

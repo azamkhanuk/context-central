@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, acme, checkout, disposable, makeTree, onlyOnWindows, run, solo, workTree } from './helpers.mts'
@@ -795,4 +795,16 @@ test('with no git on the PATH a map that sits in a work tree is not said to be i
   const result = doctor(inside, { ...made.env, PATH: tree(makeTree({})), HOME: made.base })
 
   assert.equal(result.stdout.split('\n').find(line => line.includes(' worktrees')), 'ok   worktrees')
+})
+
+test('from inside a work tree that was moved by hand, doctor names it where drafts wait in it', () => {
+  const made = solo()
+  tree(made.base)
+  const first = workTree(made, join(made.base, 'solo-limit'))
+  const moved = join(made.base, 'elsewhere', 'solo-limit')
+  mkdirSync(join(made.base, 'elsewhere'))
+  renameSync(first, moved)
+  writeIn(moved, 'concepts/limits.md', '# Limits\n')
+
+  assert.equal(worktreesLine(made, moved), `FIX  worktrees: 1 draft waits in ${moved}; run context-central take there`)
 })

@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, notRunningAs, pinnedAccount, pinnedToken, reachOf, readAs, whyNotStarted } from '../connections.mts'
-import { draftsDir, waitingIn } from '../drafts.mts'
+import { draftsOf, waitingIn } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
@@ -18,6 +18,7 @@ import { gitIgnores, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../work
 import type { Env, Io } from '../cli.mts'
 import type { Connection } from '../connections.mts'
 import type { Estate, Repo } from '../estate.mts'
+import type { WorkTree } from '../worktree.mts'
 
 interface Result {
   check: string
@@ -158,12 +159,20 @@ function worktrees(estate: Estate, io: Io) {
   if (own && gitIgnores(own.root, estate.configPath, io.env)) return `the map sits in a work tree, ${own.root}, and git ignores it there, so it goes when the work tree is removed; set the map up in the main checkout, ${own.main}`
   const main = estate.workTree?.main ?? mainCheckoutOf(estate.mapDir)
   if (own || !main) return null
-  const waiting = workTreesOf(main)
-    .map(root => ({ root, drafts: draftsDir(estate, io.env, { root, main }) }))
-    .map(({ root, drafts }) => ({ root, count: drafts ? waitingIn(estate, drafts).length : 0 }))
-    .filter(({ count }) => count > 0)
+  const roots = [...new Set([...workTreesOf(main), ...(estate.workTree ? [estate.workTree.root] : [])])].sort()
+  const waiting = roots.map(root => ({ root, count: draftsWaiting(estate, { root, main }, io.env) })).filter(({ count }) => count > 0)
   if (waiting.length === 0) return null
   return `${waiting.map(({ root, count }) => `${count} ${count === 1 ? 'draft waits' : 'drafts wait'} in ${root}`).join('; ')}; run context-central take there`
+}
+
+function draftsWaiting(estate: Estate, tree: WorkTree, env: Env) {
+  try {
+    const drafts = draftsOf(estate, env, tree)
+    return drafts && !drafts.tracked.has(CONFIG_FILE) ? waitingIn(estate, drafts.dir, drafts.tracked).length : 0
+  } catch (error) {
+    if (!(error instanceof PluginError)) throw error
+    return 0
+  }
 }
 
 function named(files: string[]) {

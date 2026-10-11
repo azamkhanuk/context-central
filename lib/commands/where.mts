@@ -18,7 +18,7 @@ export function run(args: string[], io: Io) {
     glossary: glossaryPath(estate),
     glossaryRepo: glossaryRepo(estate),
     workTree: estate.workTree,
-    drafts: draftsDir(estate, io.env),
+    drafts: draftsDir(estate),
   }
   if (values.json) return io.out(JSON.stringify(where, null, 2))
   io.out(`map: ${where.name} at ${where.mapDir}`)

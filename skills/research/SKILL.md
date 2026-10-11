@@ -8,7 +8,7 @@ allowed-tools: Bash(context-central *)
 
 The question, and the work item when one is named: $ARGUMENTS
 
-A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+Run `context-central draft <path>...` before a file of the map is edited or written, and in a git work tree before one is read or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it when the files of a step are written, before a command or an agent reads them from the map, and draft a file again before a later edit. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means another session wrote that file: read the map's file, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Place the question
 
@@ -28,8 +28,8 @@ Run `context-central connections` to see what the estate reaches and how this ma
 
 - **Bulk reading** (many files, long files, anything in the deep tier) goes to the `context-central:reader` agent. Give it the exact absolute paths and the question. It starts without the instruction files, so the prompt carries everything it needs.
 - **A ticket or a pull request** starts with fetch, which needs no agent: `context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>` finds the connection the reference belongs to, saves the full text and prints a digest. With no reference, `fetch ticket` reads the item's own ticket. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system. When its answer says a session reads the connection, the reading goes to the fetcher. When it answers that more than one connection holds the kind, ask the person which one, and name it with `--connection`.
-- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the path to save the full text to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder. Run `context-central take` when the agent is back.
-- **What no connection reaches**, or a way that fails: ask the person to paste the text, and save it in full at such a path before anything else.
+- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the path to save the full text to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder of the map. Run `context-central take` when the agent is back.
+- **What no connection reaches**, or a way that fails: ask the person to paste the text, save it in full at such a path before anything else, and run `context-central take`.
 
 A setting that is absent makes `config --get` exit 1; treat it as unset. With no connection recorded, ask the person where the thing is and how to read it. With no item there is no `sources/` folder: save nothing and cite the address in the note.
 
@@ -54,11 +54,13 @@ A claim that would sit in two groups is two claims. Done when every claim carrie
 With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the closing answer says what the command said, under Needs a fix. When it adopted the item, the closing answer says so, under Fine as it is.
 
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
-- Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
+- Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Draft it, and fill the file `draft` prints.
 
 The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
-With an item, add the note's path to "Where the detail lives" in the state file. Then run `context-central take`.
+With an item, add the note's path to "Where the detail lives" in the state file.
+
+Then, with an item or without, run `context-central take`.
 
 ## 5. Answer
 

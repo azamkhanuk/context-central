@@ -4,7 +4,6 @@ import { listed } from './connections.mts'
 import { draftsDir, waitingIn } from './drafts.mts'
 import { repoAt, standardsFiles } from './estate.mts'
 import { hubPath, inFlight, listWorkItems } from './nodes.mts'
-import type { Env } from './cli.mts'
 import type { Connection } from './connections.mts'
 import type { Estate } from './estate.mts'
 
@@ -29,9 +28,9 @@ export function indexData(estate: Estate, startDir?: string) {
   return { title: estate.config.title, mapDir: estate.mapDir, hub: hubPath(estate), repo: repoAround(estate, startDir), connections, items }
 }
 
-export function buildIndex(estate: Estate, env: Env, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
+export function buildIndex(estate: Estate, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
   const { title, mapDir, hub, repo, items } = indexData(estate, startDir)
-  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...workTreeLines(estate, env), ...connectionsLine(listed(estate.config.connections))]
+  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...workTreeLines(estate), ...connectionsLine(listed(estate.config.connections))]
   if (items.length === 0) return [...head, 'No work in flight.'].join('\n')
   const rows = items.map(item => `- ${item.id} | ${item.title} | ${(absolute ? item.path : item.entry) ?? 'no entry file'}`)
   const withRows = (shown: number) => [...head, `Work in flight (${rows.length}):`, ...rows.slice(0, shown), ...restRow(rows.length - shown), LAST_LINE].join('\n')
@@ -55,9 +54,9 @@ function repoLine({ name, note, path, standards, standardsPath }: IndexRepo, abs
   return `Repo ${name}: ${absolute ? path : note}${also}`
 }
 
-function workTreeLines(estate: Estate, env: Env) {
+function workTreeLines(estate: Estate) {
   if (!estate.workTree) return []
-  const drafts = draftsDir(estate, env)
+  const drafts = draftsDir(estate)
   const waiting = drafts ? waitingIn(estate, drafts).length : 0
   return [
     `Work tree: ${estate.workTree.root}, of the checkout at ${estate.workTree.main}.${drafts ? ` ${HOW_A_FILE_IS_WRITTEN}` : ''}`,

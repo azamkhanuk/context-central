@@ -90,7 +90,7 @@ _Avoid_:
 **Main checkout**: The checkout a work tree was made from, whose folder holds the repository's own git folder. A map kept out of git lives there.
 _Avoid_:
 
-**Draft**: A file of the map as a session in a work tree writes it: a file at the same place under the work tree, which `take` puts into the map. Any folder at the map's place in a work tree that git does not track there is drafts, never a second map. In the main checkout there is no draft, and the map's own file is written.
+**Draft**: A file of the map as a session in a work tree reads and writes it: a file at the same place under the work tree, which starts as a copy of the map's file and which `take` puts into the map once it is edited. A file at the map's place in a work tree that git does not track there is a draft, never part of a second map. In the main checkout there is no draft, and the map's own file is used.
 _Avoid_:
 
 **Connection**: A named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate may have any number, and none is required.

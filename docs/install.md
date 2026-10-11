@@ -68,7 +68,7 @@ It then:
 6. offers allow rules for the read tools it used, the terminal launcher and the settings that enable the plugin for the map, and writes each only on your yes
 7. runs `doctor` and ends on a [closing answer](step-by-step.md#how-every-step-ends), with each fault it still reports under Needs a fix
 
-In a git work tree onboard lays a map that is kept in git as it does anywhere. For a map kept out of git it stops and names the main checkout: set that map up from there.
+In a git work tree onboard stops and names the main checkout: a map is set up from there, since the hub and the settings that enable the plugin belong to it.
 
 Restart or `/clear` afterwards so the hub loads. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
 

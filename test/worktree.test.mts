@@ -307,3 +307,13 @@ test('a work tree of a repository that has no checkout of its own has no main ch
   assert.equal(result.code, 1)
   assert.match(result.stderr, /no context map found/)
 })
+
+test('with no git on the PATH where still names the drafts folder, and the session-start hook still counts what waits', () => {
+  const made = estate()
+  mkdirSync(join(made.inside, MAP, 'concepts'), { recursive: true })
+  writeFileSync(join(made.inside, MAP, 'concepts', 'limits.md'), '# Limits\n')
+  const env = { ...made.env, PATH: tree(makeTree({})) }
+
+  assert.equal(run(['where'], { cwd: made.inside, env }).stdout.split('\n')[5], `drafts: ${join(made.inside, MAP)}`)
+  assert.deepEqual(indexFrom(made, made.inside, env).slice(2, 4), [`Work tree: ${made.inside}, of the checkout at ${made.main}. ${HOW_A_FILE_IS_WRITTEN}`, `Drafts not yet in the map: 1, under ${join(made.inside, MAP)}.`])
+})

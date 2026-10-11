@@ -15,6 +15,8 @@ Run `context-central detect --json` (add the directory when one was named).
 
 If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
 
+If `workTree` is set, the folder is a git work tree, and a map is not set up from one: the hub and the settings that enable the plugin belong to the main checkout. Say so, name the folder `workTree` gives as `main`, and stop.
+
 Show what was found as a short list: each repo with its remote and default branch, the instruction files with their sizes, key candidates, MCP server names, which tools are installed, the accounts and the connection candidates.
 
 Then add what the disk cannot show: the MCP servers and connectors this session itself holds, read from the names in its own tool list. A tool named `mcp__<server>__<tool>` belongs to the server `<server>`.
@@ -37,8 +39,6 @@ Send every unsettled question in one message, numbered, each with the answer you
 12. The estate's glossary: a file it already keeps, from `glossaryCandidates`, or the map's own. Recommend a candidate only where it holds the estate's terms.
 
 Done when every question has an answer or an explicit "none".
-
-Where `detect` gave a `workTree`, the folder is a git work tree. A map kept in git is laid there as it is anywhere, and reaches the main checkout with the merge. A map kept out of git would go when the work tree is removed: once the answer to question 2 says it is kept out, lay none, stop, and say that the map is set up from the main checkout, naming its `main`.
 
 ## 3. Draft the config
 
@@ -72,7 +72,7 @@ When the file that will be the hub is already longer than the hub budget of 200 
 
 1. Save the approved draft as an answers file in a temporary directory outside the estate.
 2. Run `context-central init <dir> --from <answers file> --dry-run` and show what it would create.
-3. Run it again without `--dry-run`. It never overwrites: a `kept` line means the file was already there.
+3. Run it again without `--dry-run`. It never overwrites: a `kept` line from `init` means the file was already there.
 
 The commands in the steps below find the map from the working directory, so run them from `<dir>`.
 

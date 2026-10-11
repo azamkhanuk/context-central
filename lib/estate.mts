@@ -236,7 +236,7 @@ function mapAbove(start: string): Omit<MapLocation, 'workTree'> | null {
 
 // One estate has one map: a folder at the map's place in a work tree that git does not track there is that work tree's drafts.
 function isCopy(tree: WorkTree, configPath: string, env: Env) {
-  return isPluginConfig(inMain(tree, configPath)) && !gitTracks(tree.root, configPath, env)
+  return isPluginConfig(inMain(tree, configPath)) && gitTracks(tree.root, configPath, env) === false
 }
 
 function candidates(dir: string): Omit<MapLocation, 'mapDir' | 'workTree'>[] {

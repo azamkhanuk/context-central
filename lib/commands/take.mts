@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { draftsDir, inMap, take } from '../drafts.mts'
+import { draftsOf, inMap, take } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import type { Io } from '../cli.mts'
@@ -9,9 +9,9 @@ export const summary = "Put this work tree's drafts into the map: take [--over <
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { over: { type: 'string', multiple: true } } })
   const estate = requireEstate(io)
-  const drafts = draftsDir(estate, io.env)
+  const drafts = draftsOf(estate, io.env)
   if (!drafts) return io.out('Nothing to take: here a file of the map is written in place.')
-  const { took, kept } = take(estate, drafts, (values.over ?? []).map(given => inMap(estate, drafts, given) ?? refuse(given)))
+  const { took, kept } = take(estate, drafts, (values.over ?? []).map(given => inMap(estate, drafts.dir, given) ?? refuse(given)))
   for (const rel of took) io.out(`took ${rel}`)
   for (const { rel, why } of kept) io.err(`context-central take: kept ${rel}: ${why}`)
   if (took.length + kept.length === 0) io.out('Nothing waits to be taken.')

@@ -6,7 +6,7 @@ allowed-tools: Bash(context-central *)
 
 Write this session back into the map. The state file is a snapshot a cold session starts from, so it is rewritten, never appended to; history goes in the log.
 
-A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+Run `context-central draft <path>...` before a file of the map is edited or written, and in a git work tree before one is read or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it when the files of a step are written, before a command or an agent reads them from the map, and draft a file again before a later edit. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means another session wrote that file: read the map's file, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Find the item
 
@@ -37,11 +37,11 @@ Its six parts, each replaced with what is true now:
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 
-When the item is finished, run `context-central work done <item>`.
+When the item is finished, run `context-central take`, then `context-central work done <item>`: it marks the map's own state file, so the draft goes in first.
 
 ## 5. Lessons that outlive the item
 
-A trap or fact that the next item will also meet goes in the repo's note (`repos/<name>.md`) or a concept note (`context-central note --new concepts/<name>`), linked from the state file.
+A trap or fact that the next item will also meet goes in the repo's note (`repos/<name>.md`) or a concept note, linked from the state file. `context-central note --new concepts/<name>` makes that note in the map and prints its place: draft it, and fill the file `draft` prints.
 
 A term the estate uses with a meaning of its own (a word, an abbreviation, the name of a system) goes in the estate's glossary, the file `context-central where` names, in that file's entry format. Read the file first. Write a term only when its meaning was stated: by the person in this session, or in text on disk that you can name. A meaning you worked out yourself is not stated, even where this session wrote it down. When the person corrected a term, rewrite its entry where it stands and add the word they ruled out to its `_Avoid_` line; never add a second entry for one term. A new entry is written as the entries there are. Where they carry an `_Avoid_` line it has one too: it holds the words that were ruled out for the term, never synonyms of your own, and is left empty when none were. Where they carry none, add none. A term that was used and never defined is not written, and an entry that a source disagrees with is left as it is unless the person ruled on it. If the glossary is not there, or `where` says it is inside a repo, write nothing to it: the closing answer says which and carries the terms and their stated meanings. A session that met no term leaves the glossary alone and says nothing about it.
 
@@ -53,7 +53,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
+Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 

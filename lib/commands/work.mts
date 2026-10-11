@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, ticketOf } from '../connections.mts'
+import { awaitsTaking } from '../drafts.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, leftOut, listWorkItems, makeFolder, underNotNodes } from '../nodes.mts'
@@ -159,6 +160,7 @@ function setStatus(estate: Estate, id: string, status: string, io: Io) {
   const item = findWorkItem(estate, id)
   if (!item) throw new PluginError(`no work item "${id}"`)
   if (!item.entry) throw new PluginError(`${item.id} has no entry file to mark`)
+  if (awaitsTaking(estate, io.env, item.entry.rel)) throw new PluginError(`${item.entry.rel} has a draft in this work tree that is not in the map yet; run context-central take, then this again`)
   writeFileSync(item.entry.path, setFrontmatter(readFileSync(item.entry.path, 'utf8'), 'status', status))
   io.out(`${item.id}: ${status}`)
 }

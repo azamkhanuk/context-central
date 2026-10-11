@@ -10,7 +10,7 @@ The work item: $ARGUMENTS
 
 Write the design of a work item that has a spec, before its code is written, or revise the design when a build has shown it wrong. The spec says what is built and why. The design says how, in the repos it touches, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
 
-A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+Run `context-central draft <path>...` before a file of the map is edited or written, and in a git work tree before one is read or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it when the files of a step are written, before a command or an agent reads them from the map, and draft a file again before a later edit. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means another session wrote that file: read the map's file, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Load the item
 
@@ -24,11 +24,11 @@ Run `context-central config --get repos`, then `context-central standards <repo>
 
 ## 3. Read the code the design will meet
 
-Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives and in a git work tree is the work tree, the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
+Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives: the work tree, for the repo the session is in a git work tree of. Give it the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
 
 ## 4. Write the design
 
-Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these seven parts in this order:
+Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`, run in that repo's folder) and the date, with these seven parts in this order:
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.

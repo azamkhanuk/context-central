@@ -6,7 +6,7 @@ import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
 import { makeFolder } from './nodes.mts'
 import { withoutBom } from './text.mts'
-import { gitTracks, holds } from './worktree.mts'
+import { holds, trackedUnder } from './worktree.mts'
 import type { Env } from './cli.mts'
 import type { Estate } from './estate.mts'
 import type { WorkTree } from './worktree.mts'
@@ -16,20 +16,32 @@ export interface Taken {
   kept: { rel: string; why: string }[]
 }
 
+export interface Drafts {
+  dir: string
+  tracked: ReadonlySet<string>
+}
+
 type Drafted = { [rel: string]: string }
 
 type Verdict = 'took' | 'same' | { kept: string }
 
 const RECORD = '.drafted.json'
+const NONE_TRACKED: ReadonlySet<string> = new Set()
 
-export function draftsDir({ layout, mapDir, workTree }: Estate, env: Env, tree: WorkTree | null = workTree) {
-  if (!tree || layout !== 'inner' || mapDir === tree.main || !holds(tree.main, mapDir)) return null
-  const dir = join(tree.root, relative(tree.main, mapDir))
-  return gitTracks(tree.root, dir, env) ? null : dir
+export function draftsDir({ layout, mapDir, workTree }: Estate, tree: WorkTree | null = workTree) {
+  return tree && layout === 'inner' && mapDir !== tree.main && holds(tree.main, mapDir) ? join(tree.root, relative(tree.main, mapDir)) : null
 }
 
-export function inMap(estate: Estate, drafts: string | null, given: string) {
-  const folder = isAbsolute(given) ? [drafts, estate.mapDir].find(held => held !== null && holds(held, given)) : estate.mapDir
+export function draftsOf(estate: Estate, env: Env, tree: WorkTree | null = estate.workTree): Drafts | null {
+  const dir = draftsDir(estate, tree)
+  if (!dir || !tree) return null
+  const tracked = trackedUnder(tree.root, dir, env)
+  if (!tracked) throw new PluginError(`git gave no answer in ${tree.root}, so a draft there cannot be told from a file git tracks; run git status there to see why`)
+  return { dir, tracked: new Set(tracked) }
+}
+
+export function inMap(estate: Estate, dir: string | null, given: string) {
+  const folder = isAbsolute(given) ? [dir, estate.mapDir].find(held => held !== null && holds(held, given)) : estate.mapDir
   if (!folder || given.split(/[\\/]/).includes('..')) return null
   const rel = posix.normalize((isAbsolute(given) ? relative(folder, given) : given).split(sep).join('/'))
   return isMapFile(estate, rel) && !statSync(join(estate.mapDir, rel), { throwIfNoEntry: false })?.isDirectory() ? rel : null
@@ -40,43 +52,72 @@ export function mapFiles(estate: Estate) {
   return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir].map(dir => dir.replace(/\/+$/, '')))] }
 }
 
-export function drafted(estate: Estate, drafts: string | null, rel: string) {
+export function drafted(estate: Estate, drafts: Drafts | null, rel: string) {
   const ours = join(estate.mapDir, rel)
   if (!drafts) return ours
-  if (isFile(drafts)) throw new PluginError(`${drafts} is a file, not a folder, so no draft can be made there`)
-  const draft = join(drafts, rel)
-  const record = readRecord(drafts)
-  if (isFile(ours) && (!statSync(draft, { throwIfNoEntry: false }) || (untouched(draft, record[rel]) && hashOf(ours) !== record[rel]))) {
-    makeFolder(drafts, posix.dirname(rel))
-    copyFileSync(ours, draft)
-    writeRecord(drafts, { ...record, [rel]: hashOf(ours) })
+  if (isFile(drafts.dir)) throw new PluginError(`${drafts.dir} is a file, not a folder, so no draft can be made there`)
+  const draft = join(drafts.dir, rel)
+  if (drafts.tracked.has(rel)) return draft
+  const record = readRecord(drafts.dir)
+  const unedited = untouched(draft, record[rel])
+  if (!isFile(ours)) {
+    if (unedited) forget(drafts.dir, record, rel)
+    return draft
   }
+  if (!statSync(draft, { throwIfNoEntry: false }) || (unedited && hashOf(ours) !== record[rel])) copyIn(drafts.dir, record, rel, ours)
   return draft
 }
 
-export function waitingIn(estate: Estate, dir: string) {
+export function waitingIn(estate: Estate, dir: string, tracked: ReadonlySet<string> = NONE_TRACKED) {
   const record = readRecord(dir)
-  return draftsIn(dir).filter(rel => !sameAsOurs(estate, dir, rel) && !untouched(join(dir, rel), record[rel]))
+  return draftsIn(dir, tracked).filter(rel => !sameAsOurs(estate, dir, rel) && !untouched(join(dir, rel), record[rel]))
 }
 
-export function take(estate: Estate, drafts: string | null, over: string[]): Taken {
-  const waiting = drafts ? draftsIn(drafts) : []
+export function take(estate: Estate, { dir, tracked }: Drafts, over: string[]): Taken {
+  const waiting = draftsIn(dir, tracked)
   const unmet = over.find(rel => !waiting.includes(rel))
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
-  if (!drafts || !statSync(drafts, { throwIfNoEntry: false })?.isDirectory()) return taken
-  const record = readRecord(drafts)
+  if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return taken
+  const record = readRecord(dir)
   for (const rel of waiting) {
-    const verdict = settle(estate, drafts, rel, record[rel], over.includes(rel))
+    const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
     if (typeof verdict === 'object') {
       taken.kept.push({ rel, why: verdict.kept })
       continue
     }
     if (verdict === 'took') taken.took.push(rel)
-    rmSync(join(drafts, rel))
+    rmSync(join(dir, rel))
   }
-  tidy(drafts, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(drafts, rel)))))
+  tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))))
   return taken
+}
+
+export function awaitsTaking(estate: Estate, env: Env, rel: string) {
+  try {
+    const drafts = draftsOf(estate, env)
+    return drafts !== null && waitingIn(estate, drafts.dir, drafts.tracked).includes(rel)
+  } catch (error) {
+    if (!(error instanceof PluginError)) throw error
+    return false
+  }
+}
+
+function copyIn(dir: string, record: Drafted, rel: string, ours: string) {
+  try {
+    makeFolder(dir, posix.dirname(rel))
+    copyFileSync(ours, join(dir, rel))
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    if (!code) throw error
+    throw new PluginError(`${rel} could not be drafted (${code})`)
+  }
+  writeRecord(dir, { ...record, [rel]: hashOf(ours) })
+}
+
+function forget(dir: string, record: Drafted, rel: string) {
+  rmSync(join(dir, rel))
+  tidy(dir, Object.fromEntries(Object.entries(record).filter(([held]) => held !== rel)))
 }
 
 function settle(estate: Estate, drafts: string, rel: string, base: string | undefined, forced: boolean): Verdict {
@@ -121,13 +162,13 @@ function untouched(draft: string, base: string | undefined) {
   return base !== undefined && isFile(draft) && hashOf(draft) === base
 }
 
-function draftsIn(dir: string, below = ''): string[] {
+function draftsIn(dir: string, tracked: ReadonlySet<string>, below = ''): string[] {
   if (!statSync(join(dir, below), { throwIfNoEntry: false })?.isDirectory()) return []
   return readdirSync(join(dir, below), { withFileTypes: true })
     .filter(entry => !entry.name.startsWith('.'))
     .flatMap(entry => {
       const rel = below ? `${below}/${entry.name}` : entry.name
-      return entry.isDirectory() ? draftsIn(dir, rel) : entry.isFile() ? [rel] : []
+      return entry.isDirectory() ? draftsIn(dir, tracked, rel) : entry.isFile() && !tracked.has(rel) ? [rel] : []
     })
     .sort()
 }

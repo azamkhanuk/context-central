@@ -50,11 +50,18 @@ export function workTreesOf(main: string) {
 }
 
 export function gitTracks(dir: string, path: string, env: Env) {
-  return asked(dir, ['ls-files', '--error-unmatch', '--', asGitTakesIt(dir, path)], env) !== NOT_SO
+  const { status } = asked(dir, ['ls-files', '--error-unmatch', '--', asGitTakesIt(dir, path)], env)
+  return status === 0 ? true : status === NOT_SO ? false : null
+}
+
+export function trackedUnder(dir: string, folder: string, env: Env) {
+  const within = `${asGitTakesIt(dir, folder)}/`
+  const { status, stdout } = asked(dir, ['ls-files', '-z', '--', within], env)
+  return status === 0 ? stdout.split('\0').filter(path => path.startsWith(within)).map(path => path.slice(within.length)) : null
 }
 
 export function gitIgnores(dir: string, path: string, env: Env) {
-  return asked(dir, ['check-ignore', '-q', '--', asGitTakesIt(dir, path)], env) === 0
+  return asked(dir, ['check-ignore', '-q', '--', asGitTakesIt(dir, path)], env).status === 0
 }
 
 export function holds(folder: string, path: string) {
@@ -71,7 +78,7 @@ function asGitTakesIt(dir: string, path: string) {
 }
 
 function asked(dir: string, args: string[], env: Env) {
-  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS }).status
+  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS })
 }
 
 function checkoutAbove(start: string) {

@@ -444,7 +444,7 @@ test('the skills name the lines take prints for a draft it took and for one it k
 
   assert.equal(result.stdout, 'took work/PROJ-12/SPEC.md\n')
   assert.match(result.stderr, /^context-central take: kept work\/PROJ-12\/STATE\.md: .* then run context-central take --over work\/PROJ-12\/STATE\.md\n$/)
-  for (const name of ['checkpoint', 'prep', 'design', 'research', 'standards']) {
+  for (const name of ['checkpoint', 'prep', 'design', 'research', 'standards', 'implement']) {
     assert.ok(skillText(name).includes('`took <path>`'), name)
     assert.ok(skillText(name).includes('`kept <path>: <why>`'), name)
   }

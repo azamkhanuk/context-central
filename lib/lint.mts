@@ -35,7 +35,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
     ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo)),
-    ...indexFindings(estate, itemsInFlight.length, env),
+    ...indexFindings(estate, itemsInFlight.length),
   ]
 }
 
@@ -102,15 +102,15 @@ function standardsFindings(estate: Estate, repo: Repo) {
     .map(file => finding('WARN', 'standards', file.rel, `repo ${repo.name} names ${file.rel}, which ${file.state === 'folder' ? 'is a folder, not a file' : 'does not exist'}`))
 }
 
-function indexFindings(estate: Estate, count: number, env: Env) {
+function indexFindings(estate: Estate, count: number) {
   const budget = estate.config.budgets.indexChars
-  if (count === 0 || uncutIndex(estate, env).length <= budget) return []
+  if (count === 0 || uncutIndex(estate).length <= budget) return []
   return [finding('WARN', 'index', null, `${count} items in flight do not fit in ${budget} characters; the list is cut`)]
 }
 
-function uncutIndex(estate: Estate, env: Env) {
+function uncutIndex(estate: Estate) {
   const budgets = { ...estate.config.budgets, indexChars: Infinity }
-  return buildIndex({ ...estate, config: { ...estate.config, budgets } }, env, { absolute: true })
+  return buildIndex({ ...estate, config: { ...estate.config, budgets } }, { absolute: true })
 }
 
 function finding(level: Level, check: Check, rel: string | null, detail: string): Finding {
