@@ -47,10 +47,10 @@ function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
   const handler = EVENTS[event]
   const startDir = env.CLAUDE_PROJECT_DIR || input.cwd
   if (!startDir) return null
-  const found = findEstate(startDir)
-  if (!found || inAnotherMap(found, input.cwd)) return null
+  const found = findEstate(startDir, env)
+  if (!found || inAnotherMap(found, input.cwd, env)) return null
   try {
-    const estate = loadEstate(startDir)!
+    const estate = loadEstate(startDir, env)!
     return coverage(estate, startDir) ? handler(estate, input, env, startDir) : null
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
@@ -58,8 +58,8 @@ function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
   }
 }
 
-function inAnotherMap(found: MapLocation, cwd: string | undefined) {
-  const other = cwd && findEstate(cwd)
+function inAnotherMap(found: MapLocation, cwd: string | undefined, env: Env) {
+  const other = cwd && findEstate(cwd, env)
   return !!other && real(other.configPath) !== real(found.configPath)
 }
 

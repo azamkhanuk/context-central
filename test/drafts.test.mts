@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, SOLO_FILES, SOLO_STATE, checkout, disposable, run, solo, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, run, solo, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -255,4 +255,42 @@ test('take --over for a path no draft answers to is refused, and nothing is take
   assert.equal(result.code, 1)
   assert.equal(result.stderr, `context-central take: no draft of ${SOLO_STATE} waits here\n`)
   assert.equal(existsSync(join(made.main, MAP, SPEC)), false)
+})
+
+test('drafted settings are taken into the map once they read as settings', () => {
+  const made = estate()
+  draft(made, made.inside, 'estate.json')
+  write(made.inside, 'estate.json', JSON.stringify({ ...SOLO_CONFIG, title: 'Solo estate' }))
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'took estate.json\n')
+  assert.equal(run(['config', '--get', 'title'], { cwd: made.main, env: made.env }).stdout, 'Solo estate\n')
+})
+
+test("take keeps drafted settings that do not read as settings, and the map's stay as they were", () => {
+  const made = estate()
+  draft(made, made.inside, 'estate.json')
+  write(made.inside, 'estate.json', JSON.stringify({ contextCentral: 1 }))
+
+  const unnamed = take(made, made.inside)
+  write(made.inside, 'estate.json', '{ "contextCentral": 1,')
+  const cut = take(made, made.inside)
+
+  assert.equal(unnamed.code, 1)
+  assert.equal(unnamed.stderr, kept('estate.json', '"name" must be a non-empty string'))
+  assert.match(cut.stderr, /^context-central take: kept estate\.json: not valid JSON \(/)
+  assert.equal(run(['config', '--get', 'name'], { cwd: made.main, env: made.env }).stdout, 'solo\n')
+})
+
+test('a whole copy of the map in the work tree is dropped by take, but for what is new in it', () => {
+  const made = estate()
+  cpSync(join(made.main, MAP), join(made.inside, MAP), { recursive: true })
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, `took ${SPEC}\n`)
+  assert.equal(result.stderr, '')
+  assert.equal(existsSync(join(made.inside, MAP)), false)
 })

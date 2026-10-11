@@ -1,5 +1,7 @@
+import { spawnSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import type { Env } from './cli.mts'
 
 export interface WorkTree {
   root: string
@@ -8,6 +10,8 @@ export interface WorkTree {
 
 const GIT = '.git'
 const GITDIR = /^gitdir:\s*(.+?)\s*$/m
+const GIT_TIMEOUT_MS = 5000
+const NOT_SO = 1
 
 export function linkedWorkTree(dir: string): WorkTree | null {
   const root = linkedRoot(resolve(dir))
@@ -26,6 +30,10 @@ export function inTree(tree: WorkTree, path: string) {
   return holds(tree.root, path) ? path : moved(tree.main, tree.root, path)
 }
 
+export function gitTracks(dir: string, file: string, env: Env) {
+  return asked(dir, ['ls-files', '--error-unmatch', '--', relative(dir, file)], env) !== NOT_SO
+}
+
 export function holds(folder: string, path: string) {
   const within = relative(folder, resolve(path))
   return within !== '..' && !within.startsWith(`..${sep}`) && !isAbsolute(within)
@@ -33,6 +41,10 @@ export function holds(folder: string, path: string) {
 
 function moved(from: string, to: string, path: string) {
   return holds(from, path) ? join(to, relative(from, resolve(path))) : path
+}
+
+function asked(dir: string, args: string[], env: Env) {
+  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS }).status
 }
 
 function linkedRoot(start: string) {

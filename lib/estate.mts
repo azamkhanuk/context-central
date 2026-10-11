@@ -4,9 +4,9 @@ import { list, patterns, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
-import { holds, linkedWorkTree } from './worktree.mts'
+import { gitTracks, holds, inMain, linkedWorkTree } from './worktree.mts'
 import type { Fail } from './checks.mts'
-import type { Io } from './cli.mts'
+import type { Env, Io } from './cli.mts'
 import type { Connection, Connections } from './connections.mts'
 import type { WorkTree } from './worktree.mts'
 
@@ -126,27 +126,20 @@ export interface Estate extends MapLocation {
 
 export type Coverage = 'root' | 'inside' | 'node' | `repo:${string}`
 
-export function findEstate(startDir: string): MapLocation | null {
+export function findEstate(startDir: string, env: Env): MapLocation | null {
   const start = resolve(startDir)
   const tree = linkedWorkTree(start)
   const near = mapAbove(start)
-  return near && { ...near, workTree: tree && !holds(tree.root, near.configPath) ? tree : null }
+  if (!near) return null
+  if (!tree) return { ...near, workTree: null }
+  if (!holds(tree.root, near.configPath)) return { ...near, workTree: tree }
+  if (!isCopy(tree, near.configPath, env)) return { ...near, workTree: null }
+  const ours = mapAbove(inMain(tree, start))
+  return ours && { ...ours, workTree: tree }
 }
 
-function mapAbove(start: string): Omit<MapLocation, 'workTree'> | null {
-  let dir = start
-  for (;;) {
-    for (const { layout, configPath, estateRoot } of candidates(dir)) {
-      if (isPluginConfig(configPath)) return { layout, configPath, estateRoot, mapDir: dirname(configPath) }
-    }
-    const parent = dirname(dir)
-    if (parent === dir) return null
-    dir = parent
-  }
-}
-
-export function loadEstate(startDir: string): Estate | null {
-  const found = findEstate(startDir)
+export function loadEstate(startDir: string, env: Env): Estate | null {
+  const found = findEstate(startDir, env)
   if (!found) return null
   const written = readWritten(found.configPath)
   const config = validateConfig(written, found.configPath)
@@ -155,7 +148,7 @@ export function loadEstate(startDir: string): Estate | null {
 }
 
 export function requireEstate(io: Io) {
-  const estate = loadEstate(io.cwd)
+  const estate = loadEstate(io.cwd, io.env)
   if (!estate) throw new PluginError(`no context map found from ${io.cwd}. Run "context-central init" or /context-central:onboard.`)
   return estate
 }
@@ -214,6 +207,23 @@ function realPath(path: string) {
   } catch {
     return path
   }
+}
+
+function mapAbove(start: string): Omit<MapLocation, 'workTree'> | null {
+  let dir = start
+  for (;;) {
+    for (const { layout, configPath, estateRoot } of candidates(dir)) {
+      if (isPluginConfig(configPath)) return { layout, configPath, estateRoot, mapDir: dirname(configPath) }
+    }
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+// One estate has one map: a folder at the map's place in a work tree that git does not track there is that work tree's drafts.
+function isCopy(tree: WorkTree, configPath: string, env: Env) {
+  return isPluginConfig(inMain(tree, configPath)) && !gitTracks(tree.root, configPath, env)
 }
 
 function candidates(dir: string): Omit<MapLocation, 'mapDir' | 'workTree'>[] {
