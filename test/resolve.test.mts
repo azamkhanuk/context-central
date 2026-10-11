@@ -1139,10 +1139,11 @@ test('a node that cannot be read is passed over, and the others that share its i
   assert.deepEqual(rels(resolved(root, 'rfc9')), ['docs/porch.md'])
 })
 
-test('a number alone names nothing, though a note and a decision bear it', () => {
-  const root = tree(acme({ 'concepts/42.md': '# 42\n\nThe answer.\n', 'decisions/0042-the-answer.md': '# The answer\n' }))
+test('a number alone names nothing, though a note, a decision and a work item bear it', () => {
+  const root = tree(acme({ 'concepts/42.md': '# 42\n\nThe answer.\n', 'decisions/0042-the-answer.md': '# The answer\n', 'work/42/STATE.md': '---\nitem: 42\ntitle: Forty-two\nstatus: active\n---\n# 42\n' }))
 
   assert.equal(resolve(root, '42').stdout, 'No confident match for "42".\n')
+  assert.equal(resolve(root, 'forty-two').stdout.split('\n')[0], 'Context for work item 42:')
   assert.deepEqual(answer(root, 'decision', '42'), ['id', 'node:decisions/0042-the-answer.md', 'known as: decision 42'])
 })
 
