@@ -6,6 +6,8 @@ allowed-tools: Bash(context-central *)
 
 Write this session back into the map. The state file is a snapshot a cold session starts from, so it is rewritten, never appended to; history goes in the log.
 
+A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+
 ## 1. Find the item
 
 Run `context-central work list`. If it answers `no context map found`, tell the person there is no map here to write to and stop. Otherwise pick the item this session worked on. If the work has no item and is worth carrying on, create one with `context-central work new <item> --title "<title>"`. If it is not, skip to step 5.
@@ -51,7 +53,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
+Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 

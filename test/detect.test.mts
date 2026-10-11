@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, symlinkSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync, symlinkSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { EXE_NAMES, NEEDS_STAND_IN, WINDOWS, acme, disposable, makeTree, run } from './helpers.mts'
+import { EXE_NAMES, NEEDS_STAND_IN, REPO, WINDOWS, acme, disposable, makeTree, run } from './helpers.mts'
 
 const tree = disposable()
 
@@ -137,6 +137,18 @@ test('a folder that is a work tree is said to be one, and its repo is named afte
   assert.deepEqual(facts.workTree, { root: inside, main: join(root, 'api') })
   assert.deepEqual(facts.repos.map(repo => [repo.name, repo.path, repo.currentBranch]), [['api', '.', 'work/limit']])
   assert.equal(detect(inside).stdout.split('\n')[2], `Work tree: ${inside}, of the checkout at ${join(root, 'api')}`)
+})
+
+test('onboard names the fact detect gives for a work tree, and the main checkout in it', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+  const inside = join(root, 'api', '.claude', 'worktrees', 'limit')
+  makeRepo(root, 'api')
+  git(root, 'api', 'worktree', 'add', '-q', inside, '-b', 'work/limit')
+  const onboard = readFileSync(join(REPO, 'skills', 'onboard', 'SKILL.md'), 'utf8')
+
+  assert.deepEqual(Object.keys(detectJson(inside).workTree as object), ['root', 'main'])
+  assert.ok(onboard.includes('`workTree`'))
+  assert.ok(onboard.includes('its `main`'))
 })
 
 test('a work tree one level down is not listed as a repo', () => {

@@ -8,6 +8,8 @@ allowed-tools: Bash(context-central *)
 
 The work item: $ARGUMENTS
 
+A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+
 ## 1. Load the item
 
 Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path.
@@ -19,7 +21,7 @@ Read the state file and the research notes it points to, and the older note wher
 Read the item's ticket before anything else, unless its `sources/` already holds a copy. Start with `context-central fetch ticket --item <item>`: it finds the item's ticket and the connection that ticket belongs to, and where that connection is read by fetch it saves the ticket and prints a digest. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system.
 
 - When fetch answers that the item has no ticket, there is none to read.
-- When its answer says a session reads the connection, give the `context-central:fetcher` agent that connection's entry from `context-central config --get connections`, the ticket and the absolute path to save to: `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder. The ticket is the `ticket` line in the head of the state file, or the item's name where it has no such line.
+- When its answer says a session reads the connection, give the `context-central:fetcher` agent that connection's entry from `context-central config --get connections`, the ticket and the path to save to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder. Run `context-central take` when the agent is back. The ticket is the `ticket` line in the head of the state file, or the item's name where it has no such line.
 - When fetch answers that more than one connection holds tickets, ask the person which one, and name it with `--connection`.
 - When nothing reaches the ticket, ask the person to paste it and save it in full.
 
@@ -59,7 +61,7 @@ Run `context-central config --get writeRules`. `context-central connections --it
 
 ## 7. Update the state file
 
-Rewrite "Where it stands" and "Next" for an item that is specified and not built, and list the spec and the code map under "Where the detail lives".
+Rewrite "Where it stands" and "Next" for an item that is specified and not built, and list the spec and the code map under "Where the detail lives". Then run `context-central take`.
 
 ## 8. Hand over
 

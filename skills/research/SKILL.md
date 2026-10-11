@@ -8,6 +8,8 @@ allowed-tools: Bash(context-central *)
 
 The question, and the work item when one is named: $ARGUMENTS
 
+A file of the map is written at the path the plugin gives for it. Before one is written or edited, `context-central draft <path>...` prints the file to write for each path, counted from the map's folder or absolute as the plugin printed it. That file is the map's own, or in a git work tree a draft in the work tree, since the map is outside it. After the last write, `context-central take` puts the drafts into the map: it prints `took <path>` for each, and `kept <path>: <why>` for one it left, with what to do.
+
 ## 1. Place the question
 
 Run `context-central resolve <item or question> --absolute`. Read the first pointer, which for a work item is its state file, and only the other pointers the question needs.
@@ -26,7 +28,7 @@ Run `context-central connections` to see what the estate reaches and how this ma
 
 - **Bulk reading** (many files, long files, anything in the deep tier) goes to the `context-central:reader` agent. Give it the exact absolute paths and the question. It starts without the instruction files, so the prompt carries everything it needs.
 - **A ticket or a pull request** starts with fetch, which needs no agent: `context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>` finds the connection the reference belongs to, saves the full text and prints a digest. With no reference, `fetch ticket` reads the item's own ticket. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system. When its answer says a session reads the connection, the reading goes to the fetcher. When it answers that more than one connection holds the kind, ask the person which one, and name it with `--connection`.
-- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the absolute path to save the full text to: `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder.
+- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the path to save the full text to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder. Run `context-central take` when the agent is back.
 - **What no connection reaches**, or a way that fails: ask the person to paste the text, and save it in full at such a path before anything else.
 
 A setting that is absent makes `config --get` exit 1; treat it as unset. With no connection recorded, ask the person where the thing is and how to read it. With no item there is no `sources/` folder: save nothing and cite the address in the note.
@@ -56,7 +58,7 @@ With an item, run `context-central work adopt <item>` before anything is written
 
 The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
-With an item, add the note's path to "Where the detail lives" in the state file.
+With an item, add the note's path to "Where the detail lives" in the state file. Then run `context-central take`.
 
 ## 5. Answer
 

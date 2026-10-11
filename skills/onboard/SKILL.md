@@ -38,6 +38,8 @@ Send every unsettled question in one message, numbered, each with the answer you
 
 Done when every question has an answer or an explicit "none".
 
+Where `detect` gave a `workTree`, the folder is a git work tree. A map kept in git is laid there as it is anywhere, and reaches the main checkout with the merge. A map kept out of git would go when the work tree is removed: once the answer to question 2 says it is kept out, lay none, stop, and say that the map is set up from the main checkout, naming its `main`.
+
 ## 3. Draft the config
 
 Show the draft in this shape and wait for a yes. Omit a key that has no value. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `account`, `repos`.
@@ -102,7 +104,7 @@ Layout `root` only. A session started at the estate root loads none of the repos
 
 ## 9. Glossary
 
-Where the glossary is the map's own, seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define. Where the estate named its own, seed nothing: `context-central where` says where it is. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
+Where the glossary is the map's own, seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define: write it at the path `context-central draft glossary.md` prints, then run `context-central take`. Where the estate named its own, seed nothing: `context-central where` says where it is. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
 
 ## 10. Check
 
