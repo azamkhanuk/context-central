@@ -47,7 +47,7 @@ function detect(dir: string, env: Env) {
   const tools = { git: Boolean(onPath('git', env)), ...Object.fromEntries(PRESETS.map(preset => [preset.program, Boolean(onPath(preset.program, env))])) }
   return {
     dir,
-    existingMap: findEstate(dir),
+    existingMap: existingMap(dir),
     repos,
     instructionFiles: places.flatMap(place => filesNamed(place, name => INSTRUCTION_FILES.includes(name), INSTRUCTION_FILES)).map(sized),
     nodeDirs: DEFAULT_NODE_DIRS.filter(name => isFolder(join(dir, name))).sort(),
@@ -59,6 +59,11 @@ function detect(dir: string, env: Env) {
     configDir: claudeConfigDir(env),
     glossaryCandidates: places.flatMap(place => filesNamed(place, isGlossaryName)).map(file => file.rel),
   }
+}
+
+function existingMap(dir: string) {
+  const found = findEstate(dir)
+  return found && { layout: found.layout, configPath: found.configPath, estateRoot: found.estateRoot, mapDir: found.mapDir }
 }
 
 function subfolders(dir: string): Place[] {

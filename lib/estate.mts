@@ -4,9 +4,11 @@ import { list, patterns, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
+import { holds, linkedWorkTree } from './worktree.mts'
 import type { Fail } from './checks.mts'
 import type { Io } from './cli.mts'
 import type { Connection, Connections } from './connections.mts'
+import type { WorkTree } from './worktree.mts'
 
 export const CONFIG_FILE = 'estate.json'
 export const INNER_DIR = '.context-central'
@@ -113,6 +115,7 @@ export interface MapLocation {
   configPath: string
   estateRoot: string
   mapDir: string
+  workTree: WorkTree | null
 }
 
 export interface Estate extends MapLocation {
@@ -124,7 +127,14 @@ export interface Estate extends MapLocation {
 export type Coverage = 'root' | 'inside' | 'node' | `repo:${string}`
 
 export function findEstate(startDir: string): MapLocation | null {
-  let dir = resolve(startDir)
+  const start = resolve(startDir)
+  const tree = linkedWorkTree(start)
+  const near = mapAbove(start)
+  return near && { ...near, workTree: tree && !holds(tree.root, near.configPath) ? tree : null }
+}
+
+function mapAbove(start: string): Omit<MapLocation, 'workTree'> | null {
+  let dir = start
   for (;;) {
     for (const { layout, configPath, estateRoot } of candidates(dir)) {
       if (isPluginConfig(configPath)) return { layout, configPath, estateRoot, mapDir: dirname(configPath) }
@@ -206,7 +216,7 @@ function realPath(path: string) {
   }
 }
 
-function candidates(dir: string): Omit<MapLocation, 'mapDir'>[] {
+function candidates(dir: string): Omit<MapLocation, 'mapDir' | 'workTree'>[] {
   const here = join(dir, CONFIG_FILE)
   return [
     basename(dir) === INNER_DIR ? { layout: 'inner', configPath: here, estateRoot: dirname(dir) } : { layout: 'root', configPath: here, estateRoot: dir },
