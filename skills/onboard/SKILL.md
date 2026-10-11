@@ -15,7 +15,7 @@ Run `context-central detect --json` (add the directory when one was named).
 
 If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
 
-If `workTree` is set, the folder is a git work tree, and a map is not set up from one: the hub and the settings that enable the plugin belong to the main checkout. Say so, name the folder `workTree` gives as `main`, and stop.
+If `workTree` is set, the folder is a git work tree, and a map is not set up from one: the hub and the settings that enable the plugin belong to the main checkout. Say so, name the folder `workTree` gives as `main`, say that a session started in that folder sets the map up, and stop.
 
 Show what was found as a short list: each repo with its remote and default branch, the instruction files with their sizes, key candidates, MCP server names, which tools are installed, the accounts and the connection candidates.
 

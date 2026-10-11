@@ -10,7 +10,7 @@ The work item: $ARGUMENTS
 
 Write the design of a work item that has a spec, before its code is written, or revise the design when a build has shown it wrong. The spec says what is built and why. The design says how, in the repos it touches, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
 
-Run `context-central draft <path>...` before a file of the map is edited or written, and in a git work tree before one is read or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it when the files of a step are written, before a command or an agent reads them from the map, and draft a file again before a later edit. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means another session wrote that file: read the map's file, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
+Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A draft kept because the map's file changed means that file was written after the draft was made: read the map's own file at the path the `kept` line names, bring what it added into the draft, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Load the item
 
@@ -24,7 +24,7 @@ Run `context-central config --get repos`, then `context-central standards <repo>
 
 ## 3. Read the code the design will meet
 
-Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives: the work tree, for the repo the session is in a git work tree of. Give it the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
+Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives: the work tree, where the session is in a git work tree of that repo. Give it the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
 
 ## 4. Write the design
 
@@ -50,6 +50,7 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 **Needs a fix**
 - <a point where the design could not follow the spec>
 - <a rule whose cited file has changed since the rule was read>
+- <a draft still kept, with its reason>
 
 **Yours to decide**
 - <a point where the design departs from the standards, and why>. Recommended: <the answer>.
