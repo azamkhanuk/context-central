@@ -8,8 +8,10 @@ import { describeFile } from '../instructions.mts'
 import { accountsOf, claudeConfigDir, onPath } from '../machine.mts'
 import { PRESETS } from '../presets.mts'
 import { formatBytes, plural } from '../text.mts'
+import { linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Entry, Preset } from '../presets.mts'
+import type { WorkTree } from '../worktree.mts'
 
 interface Place {
   rel: string
@@ -42,12 +44,14 @@ export function run(args: string[], io: Io) {
 function detect(dir: string, env: Env) {
   const places = [{ rel: '', abs: dir, names: namesIn(dir) }, ...subfolders(dir)]
   const ask = git(env)
-  const checkouts = places.filter(place => place.names.includes('.git'))
-  const repos = checkouts.map(place => describeRepo(place, ask))
+  const workTree = linkedWorkTree(dir)
+  const checkouts = places.filter(place => place.names.includes('.git') && !(place.rel && linkedWorkTree(place.abs)))
+  const repos = checkouts.map(place => describeRepo(place, ask, place.rel ? null : workTree))
   const tools = { git: Boolean(onPath('git', env)), ...Object.fromEntries(PRESETS.map(preset => [preset.program, Boolean(onPath(preset.program, env))])) }
   return {
     dir,
     existingMap: existingMap(dir, env),
+    workTree,
     repos,
     instructionFiles: places.flatMap(place => filesNamed(place, name => INSTRUCTION_FILES.includes(name), INSTRUCTION_FILES)).map(sized),
     nodeDirs: DEFAULT_NODE_DIRS.filter(name => isFolder(join(dir, name))).sort(),
@@ -110,10 +114,10 @@ function git(env: Env): Ask {
   }
 }
 
-function describeRepo(place: Place, ask: Ask) {
+function describeRepo(place: Place, ask: Ask, workTree: WorkTree | null) {
   const originHead = ask(place.abs, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
   return {
-    name: basename(place.abs),
+    name: basename(workTree?.main ?? place.abs),
     path: place.rel || '.',
     ...readRemote(ask(place.abs, 'remote', 'get-url', 'origin')),
     defaultBranch: originHead ? originHead.replace(/^origin\//, '') : null,
@@ -196,6 +200,7 @@ function describe(facts: Facts) {
   return [
     `Folder: ${facts.dir}`,
     `Existing map: ${facts.existingMap ? `${facts.existingMap.configPath} (${facts.existingMap.layout} layout)` : 'none'}`,
+    `Work tree: ${facts.workTree ? `${facts.workTree.root}, of the checkout at ${facts.workTree.main}` : 'no'}`,
     ...listed('Repos', facts.repos.map(describeRepoLine)),
     ...listed(
       'Instruction files',

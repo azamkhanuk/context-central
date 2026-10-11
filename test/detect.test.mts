@@ -10,7 +10,8 @@ const tree = disposable()
 type DetectOptions = { tools?: string, args?: string[] }
 type RepoOptions = { remote?: string | null, originHead?: string | null, branches?: string[] }
 type Facts = {
-  repos: { remote: unknown, currentBranch: unknown }[]
+  repos: { name: unknown, path: unknown, remote: unknown, currentBranch: unknown }[]
+  workTree: unknown
   instructionFiles: unknown
   nodeDirs: unknown
   keyCandidates: unknown
@@ -80,6 +81,7 @@ test('a bare folder reports nothing found, and which tools are missing', () => {
   assert.deepEqual(detectJson(root), {
     dir: root,
     existingMap: null,
+    workTree: null,
     repos: [],
     instructionFiles: [],
     nodeDirs: [],
@@ -122,6 +124,30 @@ test('the folder itself is reported when it is a checkout', () => {
   assert.deepEqual((JSON.parse(result.stdout) as Facts).repos, [
     { name: 'solo', path: '.', remote: 'https://github.com/acme/solo.git', host: 'github.com', system: 'github', org: 'acme', defaultBranch: null, currentBranch: 'main' },
   ])
+})
+
+test('a folder that is a work tree is said to be one, and its repo is named after the main checkout', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+  const inside = join(root, 'api', '.claude', 'worktrees', 'limit')
+  makeRepo(root, 'api')
+  git(root, 'api', 'worktree', 'add', '-q', inside, '-b', 'work/limit')
+
+  const facts = detectJson(inside)
+
+  assert.deepEqual(facts.workTree, { root: inside, main: join(root, 'api') })
+  assert.deepEqual(facts.repos.map(repo => [repo.name, repo.path, repo.currentBranch]), [['api', '.', 'work/limit']])
+  assert.equal(detect(inside).stdout.split('\n')[2], `Work tree: ${inside}, of the checkout at ${join(root, 'api')}`)
+})
+
+test('a work tree one level down is not listed as a repo', () => {
+  const root = tree(makeTree({ 'api/README.md': '# api\n' }))
+  makeRepo(root, 'api')
+  git(root, 'api', 'worktree', 'add', '-q', join(root, 'api-limit'), '-b', 'work/limit')
+
+  const facts = detectJson(root)
+
+  assert.deepEqual(facts.repos.map(repo => repo.name), ['api'])
+  assert.equal(facts.workTree, null)
 })
 
 test('a token held in a remote address is never printed', () => {
@@ -303,6 +329,7 @@ test('without --json the same facts are short lines', NEEDS_STAND_IN, () => {
     [
       `Folder: ${root}`,
       'Existing map: none',
+      'Work tree: no',
       'Repos (1):',
       '- web (web) git@github.com:acme/web.git, default branch main, on main',
       'Instruction files (1):',
