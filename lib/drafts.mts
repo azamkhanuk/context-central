@@ -42,16 +42,18 @@ export function drafted(estate: Estate, rel: string) {
   if (!drafts) return ours
   if (isFile(drafts)) throw new PluginError(`${drafts} is a file, not a folder, so no draft can be made there`)
   const draft = join(drafts, rel)
-  if (isFile(ours) && !statSync(draft, { throwIfNoEntry: false })) {
+  const record = readRecord(drafts)
+  if (isFile(ours) && (!statSync(draft, { throwIfNoEntry: false }) || (untouched(draft, record[rel]) && hashOf(ours) !== record[rel]))) {
     makeFolder(drafts, posix.dirname(rel))
     copyFileSync(ours, draft)
-    writeRecord(drafts, { ...readRecord(drafts), [rel]: hashOf(ours) })
+    writeRecord(drafts, { ...record, [rel]: hashOf(ours) })
   }
   return draft
 }
 
 export function waitingIn(estate: Estate, dir: string) {
-  return draftsIn(dir).filter(rel => !sameAsOurs(estate, dir, rel))
+  const record = readRecord(dir)
+  return draftsIn(dir).filter(rel => !sameAsOurs(estate, dir, rel) && !untouched(join(dir, rel), record[rel]))
 }
 
 export function take(estate: Estate, over: string[]): Taken {
@@ -80,7 +82,7 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   const draft = join(drafts, rel)
   const ours = join(estate.mapDir, rel)
   const held = isFile(ours)
-  if (sameAsOurs(estate, drafts, rel)) return 'same'
+  if (sameAsOurs(estate, drafts, rel) || untouched(draft, base)) return 'same'
   if (!isMapFile(estate, rel)) return { kept: 'not a file of the map' }
   const fault = rel === CONFIG_FILE ? settingsFault(draft) : null
   if (fault) return { kept: fault }
@@ -109,6 +111,10 @@ function settingsFault(draft: string) {
 function sameAsOurs(estate: Estate, drafts: string, rel: string) {
   const ours = join(estate.mapDir, rel)
   return isFile(ours) && readFileSync(join(drafts, rel)).equals(readFileSync(ours))
+}
+
+function untouched(draft: string, base: string | undefined) {
+  return base !== undefined && isFile(draft) && hashOf(draft) === base
 }
 
 function draftsIn(dir: string, below = ''): string[] {

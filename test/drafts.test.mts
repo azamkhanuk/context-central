@@ -326,3 +326,28 @@ test('the work folder is a place for drafts where the settings keep it out of th
   assert.equal(draft(made, inside, 'items/PROJ-12/STATE.md').stdout, `${join(inside, MAP, 'items', 'PROJ-12', 'STATE.md')}\n`)
   assert.equal(draft(made, inside, 'concepts/gateway.md').stderr, 'context-central draft: concepts/gateway.md is not a file of the map: expected estate.json, glossary.md or a path under one of: repos, items\n')
 })
+
+test("a draft that was not edited is brought up to date when the map's file has changed, so it can be read", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+
+  draft(made, made.inside, SOLO_STATE)
+  write(made.inside, SOLO_STATE, '# PROJ-12, as another session left it, and built\n')
+
+  assert.equal(take(made, made.inside).stdout, `took ${SOLO_STATE}\n`)
+  assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, as another session left it, and built\n')
+})
+
+test("take drops a draft that was never edited, though the map's file has changed since, and says nothing of it", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'Nothing waits to be taken.\n')
+  assert.equal(result.code, 0)
+  assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, as another session left it\n')
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})

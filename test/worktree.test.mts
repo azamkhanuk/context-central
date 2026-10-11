@@ -241,3 +241,11 @@ test('the hook still answers from the project folder when the session has moved 
 
   assert.equal(indexFrom(made, elsewhere, { ...made.env, CLAUDE_PROJECT_DIR: made.main })[0], `Context map "solo": ${join(made.main, MAP)}`)
 })
+
+test('the index does not count a draft that was only read: one never edited, whose file in the map has changed since', () => {
+  const made = estate()
+  run(['draft', SOLO_STATE], { cwd: made.inside, env: made.env })
+  writeFileSync(join(made.main, MAP, SOLO_STATE), '# PROJ-12, as another session left it\n')
+
+  assert.deepEqual(index(made, made.inside).slice(2, 4), [`Work tree: ${made.inside}, of the checkout at ${made.main}. ${HOW_A_FILE_IS_WRITTEN}`, 'Work in flight (1):'])
+})
