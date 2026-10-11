@@ -4,7 +4,7 @@ import { list, patterns, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
-import { gitTracks, holds, inMain, linkedWorkTree } from './worktree.mts'
+import { gitTracks, holds, inMain, inTree, linkedWorkTree } from './worktree.mts'
 import type { Fail } from './checks.mts'
 import type { Env, Io } from './cli.mts'
 import type { Connection, Connections } from './connections.mts'
@@ -175,14 +175,20 @@ export function repoAt(estate: Estate, dir: string): Repo | null {
   return holding.sort((a, b) => b.path.length - a.path.length)[0] ?? null
 }
 
-export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
+export function repoFolder({ estateRoot, workTree }: Estate, repo: Repo) {
+  const folder = resolve(estateRoot, repo.path)
+  return workTree ? inTree(workTree, folder) : folder
+}
+
+export function standardsFiles({ estateRoot, mapDir, config, workTree }: Estate, repo: Repo): StandardsFile[] {
   const folder = join(mapDir, STANDARDS_DIR)
   const kept = config.nodeDirs.includes(STANDARDS_DIR)
   const namedAfter = (name: string) => join(folder, `${name}.md`)
   const named = namedAfter(repo.name)
   const nameable = NODE_NAME.test(repo.name)
   const byName = kept && nameable && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
-  const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
+  const here = (path: string) => (workTree && !holds(mapDir, path) && stateOf(inTree(workTree, path)) === 'file' ? inTree(workTree, path) : path)
+  const listed = (repo.standards ?? []).map(rel => ({ rel, path: here(resolve(estateRoot, rel)) }))
   const seen = new Set<string>()
   const files = [...byName, ...listed]
     .map(file => ({ ...file, state: stateOf(file.path), real: realPath(file.path) }))

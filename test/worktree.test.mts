@@ -109,3 +109,33 @@ test("in a work tree with a map of its own, kept in git, where names no work tre
 
   assert.deepEqual(where(made, made.inside).slice(3), ['here: root', ''])
 })
+
+const standards = (made: Checkout, cwd: string, ...args: string[]) => run(['standards', ...args], { cwd, env: made.env }).stdout
+const rootOf = (made: Checkout, cwd: string, repo: string) => (JSON.parse(standards(made, cwd, repo, '--json')) as { root: unknown }[])[0].root
+
+test("standards gives the work tree's own folder as where the checks of its repo run", () => {
+  const made = estate()
+
+  assert.equal(standards(made, made.inside).split('\n')[1], `Checks for repo solo, run from ${made.inside}:`)
+  assert.equal(rootOf(made, made.inside, 'solo'), made.inside)
+  assert.equal(standards(made, made.main).split('\n')[1], `Checks for repo solo, run from ${made.main}:`)
+})
+
+test('in a root layout standards gives the work tree for its repo and the registered folder for another', () => {
+  const made = rootLayout()
+
+  assert.equal(standards(made, made.inside, 'api').split('\n')[1], `Checks for repo api, run from ${made.inside}:`)
+  assert.equal(rootOf(made, made.inside, 'web'), join(made.base, 'web'))
+})
+
+test("standards gives a file of the repo as the work tree's copy, a file only the main checkout holds as that one, and the standards note where the map is", () => {
+  const listed = { ...SOLO_CONFIG, repos: [{ ...SOLO_CONFIG.repos[0], standards: ['CLAUDE.md', 'local-rules.md'] }] }
+  const made = estate(solo({ [`${MAP}/estate.json`]: listed, [`${MAP}/standards/solo.md`]: '# solo\n' }))
+  writeFileSync(join(made.main, 'local-rules.md'), '# Rules kept on this machine\n')
+
+  assert.deepEqual(standards(made, made.inside).split('\n').slice(1, 4), [
+    `- ${join(made.main, MAP, 'standards', 'solo.md')} (the standards note)`,
+    `- ${join(made.inside, 'CLAUDE.md')}`,
+    `- ${join(made.main, 'local-rules.md')}`,
+  ])
+})
