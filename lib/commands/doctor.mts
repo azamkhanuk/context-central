@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, notRunningAs, pinnedAccount, pinnedToken, reachOf, readAs, whyNotStarted } from '../connections.mts'
+import { draftsOf, waitingIn } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
@@ -13,9 +14,11 @@ import { hubPath, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
+import { gitIgnores, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Connection } from '../connections.mts'
 import type { Estate, Repo } from '../estate.mts'
+import type { WorkTree } from '../worktree.mts'
 
 interface Result {
   check: string
@@ -30,7 +33,7 @@ interface Note {
 
 type Finding = string | Note | null | undefined
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, hooks, connections'
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, hooks, connections'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
@@ -38,7 +41,7 @@ const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
 const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
-const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, hooks, connections }
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, hooks, connections }
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
@@ -66,7 +69,7 @@ function describe({ check, ok, fix, note }: Result) {
 
 function load(io: Io): { estate?: Estate; fix?: string } {
   try {
-    const estate = loadEstate(io.cwd)
+    const estate = loadEstate(io.cwd, io.env)
     return estate ? { estate } : { fix: `no context map found from ${io.cwd}; run context-central init or /context-central:onboard` }
   } catch (error) {
     if (!(error instanceof PluginError)) throw error
@@ -149,6 +152,27 @@ function keptOutYetNotIgnored(files: string[], ignoredByGit: Set<string>, matche
       ? `git does not ignore ${named(withoutRule)}; ignore ${evidenceIgnoreRule(workDir)} in the map's .gitignore`
       : `git already tracks ${named(notIgnored)}; run git rm --cached on ${notIgnored.length === 1 ? 'it' : 'each'}`
   return `evidence is set to stay out of git and ${fix}, or set "evidence.commit" to true in estate.json`
+}
+
+function worktrees(estate: Estate, io: Io) {
+  const own = estate.workTree ? null : linkedWorkTree(estate.mapDir)
+  if (own && gitIgnores(own.root, estate.configPath, io.env)) return `the map sits in a work tree, ${own.root}, and git ignores it there, so it goes when the work tree is removed; set the map up in the main checkout, ${own.main}`
+  const main = estate.workTree?.main ?? mainCheckoutOf(estate.mapDir)
+  if (own || !main) return null
+  const roots = [...new Set([...workTreesOf(main), ...(estate.workTree ? [estate.workTree.root] : [])])].sort()
+  const waiting = roots.map(root => ({ root, count: draftsWaiting(estate, { root, main }, io.env) })).filter(({ count }) => count > 0)
+  if (waiting.length === 0) return null
+  return `${waiting.map(({ root, count }) => `${count} ${count === 1 ? 'draft waits' : 'drafts wait'} in ${root}`).join('; ')}; run context-central take there`
+}
+
+function draftsWaiting(estate: Estate, tree: WorkTree, env: Env) {
+  try {
+    const drafts = draftsOf(estate, env, tree)
+    return drafts && !drafts.tracked.has(CONFIG_FILE) ? waitingIn(estate, drafts.dir, drafts.tracked).length : 0
+  } catch (error) {
+    if (!(error instanceof PluginError)) throw error
+    return 0
+  }
 }
 
 function named(files: string[]) {

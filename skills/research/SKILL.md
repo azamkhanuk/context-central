@@ -8,6 +8,8 @@ allowed-tools: Bash(context-central *)
 
 The question, and the work item when one is named: $ARGUMENTS
 
+Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. A file is in the work tree only once it has been drafted: where one is not there, draft it before saying that the map lacks it. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A `kept` line that names a file to compare with means the map's file is not the one the draft was made from: read that file where it stands, with no draft of it, bring into the draft what it has and the draft lacks, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
+
 ## 1. Place the question
 
 Run `context-central resolve <item or question> --absolute`. Read the first pointer, which for a work item is its state file, and only the other pointers the question needs.
@@ -24,10 +26,10 @@ A primary source is the thing itself: the code at a named commit, the ticket, th
 
 Run `context-central connections` to see what the estate reaches and how this machine reaches each. Keep bulk out of this conversation by delegating:
 
-- **Bulk reading** (many files, long files, anything in the deep tier) goes to the `context-central:reader` agent. Give it the exact absolute paths and the question. It starts without the instruction files, so the prompt carries everything it needs.
+- **Bulk reading** (many files, long files, anything in the deep tier) goes to the `context-central:reader` agent. Give it the exact absolute paths, with a file of the map at the path `context-central draft` prints for it, and the question. It starts without the instruction files, so the prompt carries everything it needs.
 - **A ticket or a pull request** starts with fetch, which needs no agent: `context-central fetch ticket "<reference>" --item <item>` or `context-central fetch pr "<reference>" --item <item>` finds the connection the reference belongs to, saves the full text and prints a digest. With no reference, `fetch ticket` reads the item's own ticket. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system. When its answer says a session reads the connection, the reading goes to the fetcher. When it answers that more than one connection holds the kind, ask the person which one, and name it with `--connection`.
-- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the absolute path to save the full text to: `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md`, where `NN` is one more than the highest number in that folder.
-- **What no connection reaches**, or a way that fails: ask the person to paste the text, and save it in full at such a path before anything else.
+- **Anything else in a connection** (what fetch says a session reads, a thread, a meeting, a document) goes to the `context-central:fetcher` agent. Give it the connection's entry from `context-central config --get connections`, what to fetch, and the path to save the full text to: the one `context-central draft work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` prints, where `NN` is one more than the highest number in that folder of the map. Run `context-central take` when the agent is back.
+- **What no connection reaches**, or a way that fails: ask the person to paste the text, save it in full at such a path before anything else, and run `context-central take`.
 
 A setting that is absent makes `config --get` exit 1; treat it as unset. With no connection recorded, ask the person where the thing is and how to read it. With no item there is no `sources/` folder: save nothing and cite the address in the note.
 
@@ -52,11 +54,13 @@ A claim that would sit in two groups is two claims. Done when every claim carrie
 With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the closing answer says what the command said, under Needs a fix. When it adopted the item, the closing answer says so, under Fine as it is.
 
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
-- Without: `context-central note --new concepts/<slug>`, then fill the file it prints.
+- Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the file it prints.
 
 The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
 With an item, add the note's path to "Where the detail lives" in the state file.
+
+Then, with an item or without, run `context-central take`.
 
 ## 5. Answer
 
@@ -69,6 +73,7 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 - <a claim that something is wrong or missing, and where> (<its mark>, <the one source that shows it best>)
   - <a part of it, where it has parts>
 - <what the adopt command said, where it refused>
+- <a draft still kept, with its reason>
 
 **Yours to decide**
 - <a choice only the person can make>. Recommended: <the answer, and why>.

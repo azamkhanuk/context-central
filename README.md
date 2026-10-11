@@ -19,6 +19,7 @@ A Claude Code plugin that gives all the context behind your work one central pla
 - **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The rest is read when it is named or asked for.
 - **Nothing is lost.** Long text is kept in full, and each short note names the full text behind it.
 - **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
+- **It works in a git work tree.** One map serves every work tree of a checkout: a session in one finds it, runs the repo's checks in the work tree, and writes the map through the plugin's own commands, with nothing to copy.
 - **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
 - **It is plain files.** The map is Markdown and stays readable without the plugin. There are no runtime dependencies, and the resolver makes no network call.
 
@@ -99,7 +100,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 |---|---|
 | [Install, update and turn off](docs/install.md) | Installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, and turning it off |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
-| [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, the budget of each tier, and evidence |
+| [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, how a session in a git work tree reads and writes the map, the budget of each tier, and evidence |
 | [Connections](docs/connections.md) | How a connection is recorded, references, presets, the three ways a connection is read, and a pinned account |
 | [Standards and checks](docs/standards.md) | A repo's standards note, the files and the checks recorded beside it, and what is done where none is recorded |
 | [What the hooks put in context](docs/hooks.md) | What is added at session start and when a prompt is submitted, the routes in order, and when the hooks stay silent |

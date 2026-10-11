@@ -40,7 +40,7 @@ export function run(args: string[], io: Io) {
 
 function measure(dir: string, env: Env) {
   const configDir = claudeConfigDir(env)
-  const estate = coveringEstate(dir)
+  const estate = coveringEstate(dir, env)
   const lineLimit = estate?.config.budgets.hubLines ?? DEFAULT_LINE_LIMIT
   const userRules = rules(join(configDir, 'rules'))
   const projectRules = rules(join(dir, '.claude', 'rules'))
@@ -66,8 +66,8 @@ function sized({ path, ...rest }: Loaded, lineLimit: number): Measured {
   return { path, bytes, lines, ...rest, over: lines > lineLimit }
 }
 
-function coveringEstate(dir: string) {
-  const estate = loadEstate(dir)
+function coveringEstate(dir: string, env: Env) {
+  const estate = loadEstate(dir, env)
   return estate && coverage(estate, dir) ? estate : null
 }
 

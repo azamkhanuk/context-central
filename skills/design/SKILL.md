@@ -10,6 +10,8 @@ The work item: $ARGUMENTS
 
 Write the design of a work item that has a spec, before its code is written, or revise the design when a build has shown it wrong. The spec says what is built and why. The design says how, in the repos it touches, and in what order. A small item needs none: `/context-central:implement <item>` builds from the spec alone.
 
+Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. A file is in the work tree only once it has been drafted: where one is not there, draft it before saying that the map lacks it. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A `kept` line that names a file to compare with means the map's file is not the one the draft was made from: read that file where it stands, with no draft of it, bring into the draft what it has and the draft lacks, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
+
 ## 1. Load the item
 
 Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. Read the state file, the `SPEC.md` beside it and the code map note, when the state file names one. With no spec, stop and suggest `/context-central:prep <item>`. When `DESIGN.md` is already there, this is a revision: read it, keep what still holds, change it where it stands, and mark a slice that is already built as built.
@@ -22,11 +24,11 @@ Run `context-central config --get repos`, then `context-central standards <repo>
 
 ## 3. Read the code the design will meet
 
-Delegate bulk reading to the `context-central:reader` agent. Give it each repo's absolute path, the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
+Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives: the work tree, where the session is in a git work tree of that repo. Give it the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
 
 ## 4. Write the design
 
-Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`) and the date, with these seven parts in this order:
+Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`, run in that repo's folder) and the date, with these seven parts in this order:
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.
@@ -40,7 +42,7 @@ The design names files and lines, which the spec does not, so it carries the com
 
 ## 5. Show it
 
-Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built. Run `context-central take`. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
 <one line saying the item is designed, and how much of it is built>
@@ -48,6 +50,7 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 **Needs a fix**
 - <a point where the design could not follow the spec>
 - <a rule whose cited file has changed since the rule was read>
+- <a draft still kept, with its reason>
 
 **Yours to decide**
 - <a point where the design departs from the standards, and why>. Recommended: <the answer>.

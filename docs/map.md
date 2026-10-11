@@ -37,6 +37,20 @@ There are two layouts:
 
 **The glossary.** The estate's terms live in the map's own `glossary.md`, or in a file the estate already keeps. Name that file with `"glossary"` in `estate.json`, as a path from the estate root. `init` then lays out none, and the plugin never creates, moves or reformats the file. `context-central where` says where the glossary is. Where it is inside a registered repo, prep and checkpoint read it, write nothing to it and list the terms in their closing answer: writing would change that repo's work tree on whatever branch it is on.
 
+## In a git work tree
+
+One estate has one map, and a git work tree never holds a second one. Every step works in a work tree as it does in the main checkout, with nothing to set up.
+
+- **A map kept out of git stays in the main checkout.** A session in a work tree of that checkout finds it from there, wherever the work tree sits: under the checkout, beside it or elsewhere.
+- **A file of the map is read and written through `draft` and `take`.** `context-central draft <path>` prints the file to use. In the main checkout that is the map's own file. In a work tree it is a draft at the same place under the work tree, a copy of the map's file where there is one, since a host may keep a session's tools to its work tree: its editing tools always, and its reading tools until you allow them. `context-central take` puts the drafts into the map and removes them from the work tree.
+- **A draft that was only read costs nothing.** `draft` brings it up to date when the map's file changes, `take` drops it without a word, and nothing counts it as waiting.
+- **`take` keeps a draft whose file in the map has moved on**, and says so: another session changed that file after the draft was made. It leaves a copy of the map's file as it now is in the work tree, under `.in-the-map` in the drafts folder, and names it, so a session whose host keeps its tools to the work tree can still compare the two. `take --over <path>` takes the draft once they are compared: a session brings the other session's lines into its draft and runs it. The copy is no draft, and it goes at the next `take`.
+- **A file at the map's place in a work tree is a draft unless git tracks it there**, whatever else the folder holds. So a copy of the map made there, by hand or by a list of ignored files to copy into new work trees, is never taken for the map: `take` drops what is the same as the map's file and keeps what differs. Do not copy the map into a work tree. `draft` and `take` ask git which files it tracks there, and where git gives no answer they say so and do nothing.
+- **The repo's folder is the work tree.** `standards` gives the work tree as the folder the repo's checks run from, and coverage counts a folder in the work tree as the same folder of the main checkout.
+- **Drafts go when the work tree goes.** The live index says how many wait, and `doctor` names every work tree where some do. `take` removes the drafts folder with its last draft, but never the folder it was run from, so a shell that changed into it still stands somewhere. `work done` and `work reopen` refuse while an edited draft of the item's state file waits, so the two do not cross: take it first.
+- **Reading without the copy.** Where a host asks before a session in a work tree reads the main checkout, one allow rule in the main checkout's `.claude/settings.local.json` lets every work tree read the map's own files: `Read(//<the map's folder>/**)`, with the folder as an absolute path.
+- **A map kept in git is checked out in every work tree**, each on its own branch. A session in a work tree reads and writes that copy, and what it writes reaches the main checkout when the branch is merged.
+
 ## The three tiers
 
 What loads, and when, is decided by tier. The budgets are settings under `budgets` in `estate.json`. `context-central lint` reports anything over.

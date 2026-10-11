@@ -57,7 +57,7 @@ test('the map can live in a folder inside a repository', () => {
 test('from inside the map folder of a map kept in a repository, the estate root is still the repository', () => {
   const root = tree(makeTree({ '.context-central/estate.json': { contextCentral: 1, name: 'solo' }, '.context-central/work/PROJ-1/STATE.md': '# PROJ-1\n' }))
   const where = (dir: string) => JSON.parse(run(['where', '--json'], { cwd: join(root, dir) }).stdout) as Where
-  const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside', glossary: join(root, '.context-central', 'glossary.md'), glossaryRepo: null }
+  const inRepository = { name: 'solo', estateRoot: root, mapDir: join(root, '.context-central'), layout: 'inner', covered: 'inside', glossary: join(root, '.context-central', 'glossary.md'), glossaryRepo: null, workTree: null, drafts: null }
 
   assert.deepEqual(where('.context-central'), inRepository)
   assert.deepEqual(where('.context-central/work/PROJ-1'), inRepository)

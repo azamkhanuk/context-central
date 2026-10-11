@@ -6,6 +6,8 @@ allowed-tools: Bash(context-central *)
 
 Write this session back into the map. The state file is a snapshot a cold session starts from, so it is rewritten, never appended to; history goes in the log.
 
+Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. A file is in the work tree only once it has been drafted: where one is not there, draft it before saying that the map lacks it. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A `kept` line that names a file to compare with means the map's file is not the one the draft was made from: read that file where it stands, with no draft of it, bring into the draft what it has and the draft lacks, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
+
 ## 1. Find the item
 
 Run `context-central work list`. If it answers `no context map found`, tell the person there is no map here to write to and stop. Otherwise pick the item this session worked on. If the work has no item and is worth carrying on, create one with `context-central work new <item> --title "<title>"`. If it is not, skip to step 5.
@@ -18,7 +20,7 @@ Take them from git and files: `git status`, `git log <base branch>..HEAD --oneli
 
 ## 3. Save long text first
 
-Any ticket, PR thread, meeting record or long output that this session holds and the map does not is saved in full to `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` before any brief of it is written, where `NN` is one more than the highest number in that folder. The brief then names the file.
+Any ticket, PR thread, meeting record or long output that this session holds and the map does not is saved in full to `work/<item>/sources/<NN>-<YYYY-MM-DD>-<what>-full-text.md` before any brief of it is written, where `NN` is one more than the highest number in that folder of the map. The brief then names the file.
 
 A file that is not text and shows what this session saw (a screenshot, a recording, an export) is saved with `context-central evidence add <file> --item <item>`, which copies it to `work/<item>/evidence/<YYYY-MM-DD>-<what>.<ext>`; a copy anywhere else is only a copy. `notes/<YYYY-MM-DD>-evidence.md` lists each by file name, with what it shows and the commit it was taken at.
 
@@ -35,11 +37,11 @@ Its six parts, each replaced with what is true now:
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 
-When the item is finished, run `context-central work done <item>`.
+When the item is finished, run `context-central take`, then `context-central work done <item>`: it marks the map's own state file, so the draft goes in first.
 
 ## 5. Lessons that outlive the item
 
-A trap or fact that the next item will also meet goes in the repo's note (`repos/<name>.md`) or a concept note (`context-central note --new concepts/<name>`), linked from the state file.
+A trap or fact that the next item will also meet goes in the repo's note (`repos/<name>.md`) or a concept note, linked from the state file. `context-central note --new concepts/<name>` makes that note in the map and prints its place: run `context-central draft` on that place, and fill the file it prints.
 
 A term the estate uses with a meaning of its own (a word, an abbreviation, the name of a system) goes in the estate's glossary, the file `context-central where` names, in that file's entry format. Read the file first. Write a term only when its meaning was stated: by the person in this session, or in text on disk that you can name. A meaning you worked out yourself is not stated, even where this session wrote it down. When the person corrected a term, rewrite its entry where it stands and add the word they ruled out to its `_Avoid_` line; never add a second entry for one term. A new entry is written as the entries there are. Where they carry an `_Avoid_` line it has one too: it holds the words that were ruled out for the term, never synonyms of your own, and is left empty when none were. Where they carry none, add none. A term that was used and never defined is not written, and an entry that a source disagrees with is left as it is unless the person ruled on it. If the glossary is not there, or `where` says it is inside a repo, write nothing to it: the closing answer says which and carries the terms and their stated meanings. A session that met no term leaves the glossary alone and says nothing about it.
 
@@ -51,7 +53,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
+Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 
@@ -64,6 +66,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 - <a fault the map's checks still report, as it is>
 - <a glossary entry a source disagrees with>
 - <what the adopt command said, where it refused>
+- <a draft still kept, with its reason>
 
 **Yours to decide**
 - <the terms the glossary could not take, and why it could not, with each term and its stated meaning under it>

@@ -15,6 +15,8 @@ Run `context-central detect --json` (add the directory when one was named).
 
 If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
 
+If `workTree` is set, the folder is a git work tree, and a map is not set up from one: the hub and the settings that enable the plugin belong to the main checkout. Say so, name the folder `workTree` gives as `main`, say that a session started in that folder sets the map up, and stop.
+
 Show what was found as a short list: each repo with its remote and default branch, the instruction files with their sizes, key candidates, MCP server names, which tools are installed, the accounts and the connection candidates.
 
 Then add what the disk cannot show: the MCP servers and connectors this session itself holds, read from the names in its own tool list. A tool named `mcp__<server>__<tool>` belongs to the server `<server>`.
@@ -70,7 +72,7 @@ When the file that will be the hub is already longer than the hub budget of 200 
 
 1. Save the approved draft as an answers file in a temporary directory outside the estate.
 2. Run `context-central init <dir> --from <answers file> --dry-run` and show what it would create.
-3. Run it again without `--dry-run`. It never overwrites: a `kept` line means the file was already there.
+3. Run it again without `--dry-run`. It never overwrites: a `kept` line from `init` means the file was already there.
 
 The commands in the steps below find the map from the working directory, so run them from `<dir>`.
 
@@ -102,7 +104,7 @@ Layout `root` only. A session started at the estate root loads none of the repos
 
 ## 9. Glossary
 
-Where the glossary is the map's own, seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define. Where the estate named its own, seed nothing: `context-central where` says where it is. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
+Where the glossary is the map's own, seed `glossary.md` in the entry format `init` wrote there, from the terms the instruction files and `glossaryCandidates` define: write it at the path `context-central draft glossary.md` prints, then run `context-central take`. Where the estate named its own, seed nothing: `context-central where` says where it is. Take a term only when its source states the meaning; list the terms that are used but undefined for the person to fill in.
 
 ## 10. Check
 

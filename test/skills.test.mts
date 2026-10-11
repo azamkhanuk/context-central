@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { REPO, acme, disposable, makeTree, run } from './helpers.mts'
+import { REPO, SOLO_STATE, acme, disposable, makeTree, run, solo, workTree } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -37,6 +37,8 @@ const FLAGS: Record<string, string[]> = {
   connections: ['json', 'presets', 'ticket', 'pr', 'item'],
   evidence: ['item', 'as'],
   standards: ['json'],
+  draft: [],
+  take: ['over'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
@@ -421,4 +423,56 @@ test('the onboard draft carries the implement settings, with three review rounds
   const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
 
   assert.deepEqual(draft.config.implement, { tests: true, review: true, deferTo: '', reviewRounds: 3 })
+})
+
+test('every skill writes the files of the map through draft and take', () => {
+  for (const name of SKILLS) {
+    assert.match(skillText(name), /`context-central draft /, name)
+    assert.match(skillText(name), /`context-central take`/, name)
+  }
+})
+
+test('the skills name the lines take prints for a draft it took and for one it kept', () => {
+  const made = solo()
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  mkdirSync(join(inside, '.context-central', 'work', 'PROJ-12'), { recursive: true })
+  writeFileSync(join(inside, '.context-central', 'work', 'PROJ-12', 'SPEC.md'), '# Spec\n')
+  writeFileSync(join(inside, '.context-central', SOLO_STATE), '# PROJ-12, written with no draft\n')
+
+  const result = run(['take'], { cwd: inside, env: made.env })
+
+  assert.equal(result.stdout, 'took work/PROJ-12/SPEC.md\n')
+  assert.match(result.stderr, /^context-central take: kept work\/PROJ-12\/STATE\.md: .* then run context-central take --over work\/PROJ-12\/STATE\.md\n$/)
+  for (const name of ['checkpoint', 'prep', 'design', 'research', 'standards', 'implement']) {
+    assert.ok(skillText(name).includes('`took <path>`'), name)
+    assert.ok(skillText(name).includes('`kept <path>: <why>`'), name)
+  }
+})
+
+function soloWorkTree() {
+  const made = solo()
+  tree(made.base)
+  return { ...made, inside: workTree(made, join(made.main, '.claude', 'worktrees', 'limit')) }
+}
+
+test('implement names the line where prints in a work tree', () => {
+  const made = soloWorkTree()
+
+  const where = run(['where'], { cwd: made.inside, env: made.env }).stdout.split('\n')
+
+  assert.equal(where[4], `work tree: ${made.inside}, of the checkout at ${made.main}`)
+  assert.ok(skillText('implement').includes('`work tree:`'))
+})
+
+test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {
+  const made = soloWorkTree()
+
+  const [recorded] = JSON.parse(run(['standards', 'solo', '--json'], { cwd: made.inside, env: made.env }).stdout) as { root: unknown }[]
+
+  assert.equal(recorded.root, made.inside)
+  for (const name of ['standards', 'design', 'implement']) {
+    assert.ok(skillText(name).includes('`context-central standards <repo> --json`'), name)
+    assert.ok(skillText(name).includes('`root`'), name)
+  }
 })

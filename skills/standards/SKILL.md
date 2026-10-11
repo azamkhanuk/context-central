@@ -10,15 +10,17 @@ The repo: $ARGUMENTS
 
 Write the standards note of one repo and record its checks. The plugin knows no language, framework or tool: everything here comes from the repo and from the person.
 
+Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. A file is in the work tree only once it has been drafted: where one is not there, draft it before saying that the map lacks it. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A `kept` line that names a file to compare with means the map's file is not the one the draft was made from: read that file where it stands, with no draft of it, bring into the draft what it has and the draft lacks, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
+
 ## 1. Find the repo
 
 Run `context-central config --get repos` and `context-central standards <repo>`. A repo the estate does not register makes `standards` exit 1: stop and say which repos it has. The output lists the standards files, with the note marked `(the standards note)`, and the checks already recorded, so an update starts from those and never from an empty page.
 
-`context-central where` gives the estate root and the map's folder, which holds `estate.json`. The repo's own folder is its `path` counted from the estate root.
+`context-central standards <repo> --json` gives the repo's folder as `root`: the work tree, where the session is in a git work tree of this repo. `context-central where` gives the estate root and the map's folder, which holds `estate.json`.
 
 ## 2. Gather from the repo itself
 
-Delegate the reading to the `context-central:reader` agent. Give it the repo's absolute path and ask for these, each with its `path:line`:
+Delegate the reading to the `context-central:reader` agent. Give it the repo's folder and ask for these, each with its `path:line`:
 
 - What the repo declares about building, testing, formatting and checking its code: the files that configure those, whatever they are called here.
 - What its continuous integration runs, and in what order. Those commands are the candidates for the checks.
@@ -29,7 +31,7 @@ The reader starts without the instruction files, so the prompt carries everythin
 
 ## 3. Draft
 
-Draft the note in four parts, each a short list of rules:
+Write no file in this step: the note and the checks are shown in step 4 and written in step 5. Draft the note in four parts, each a short list of rules:
 
 - **Design**: how the code is divided, what may depend on what, the patterns this repo uses and the ones it avoids.
 - **Code**: naming, error handling, the idioms the repo holds to.
@@ -50,14 +52,14 @@ Done when no rule in the note would be your guess.
 
 On a yes:
 
-1. Run `context-central note --new standards/<repo>`, which prints the note's path in the map, and fill its four parts. On its first lines put the repo's commit, from `git rev-parse --short HEAD` run in the repo's folder, in place of `<commit>`, and the date the rules were read in place of `<date>`, so a later reader can tell how far the code has moved from the lines the rules cite. If the note is already there, edit it where it stands and set that commit and date again. If the command refuses, read the kinds its message lists. When `standards` is not among them, the map sets its own `nodeDirs`: ask the person to add `standards` to that list in `estate.json`. When it is, the repo's name cannot be a note's name: ask the person for a name of letters, digits, dots, dashes and underscores that no repo has, and write the note under that, with the repo's name as the settings spell it on the note's first lines in place of the note's name, since the command cannot know the repo.
-2. In `estate.json`, on the repo's entry, set `checks` to the approved commands. An entry written as a bare name becomes `{ "name": "<repo>" }` first. The note needs no entry, because the plugin finds it by the repo's name. Under `standards` list the repo's own instruction files first, then what else the plugin cannot find by the repo's name: a file the repo keeps for people, such as its contributing notes, or a note written under another name. Each is a path counted from the estate root, and is listed, never copied into the note. Design, implement and the reviewer read every file listed there, and in an estate whose repos sit below the map's root the reviewer is given no repo's own instruction file unless it is listed.
-3. Link the note from the repo's note, `repos/<repo>.md`. Make that with `context-central note --new repos/<repo>` if it is not there yet.
+1. Run `context-central note --new standards/<repo>`, which makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the note's four parts in the file it prints. On its first lines put the repo's commit, from `git rev-parse --short HEAD` run in the repo's folder, in place of `<commit>`, and the date the rules were read in place of `<date>`, so a later reader can tell how far the code has moved from the lines the rules cite. If the note is already there, edit it where it stands and set that commit and date again. If the command refuses, read the kinds its message lists. When `standards` is not among them, the map sets its own `nodeDirs`: ask the person to add `standards` to that list in `estate.json`. When it is, the repo's name cannot be a note's name: ask the person for a name of letters, digits, dots, dashes and underscores that no repo has, and write the note under that, with the repo's name as the settings spell it on the note's first lines in place of the note's name, since the command cannot know the repo.
+2. In `estate.json`, on the repo's entry, set `checks` to the approved commands. An entry written as a bare name becomes `{ "name": "<repo>" }` first. The note needs no entry, because the plugin finds it by the repo's name. Under `standards` list the repo's own instruction files first, then what else the plugin cannot find by the repo's name: a file the repo keeps for people, such as its contributing notes, or a note written under another name. Each is a path counted from the estate root: the repo's `path` in the settings, then the file's place inside the repo, whichever folder the repo was read in. Each is listed, never copied into the note. Design, implement and the reviewer read every file listed there, and in an estate whose repos sit below the map's root the reviewer is given no repo's own instruction file unless it is listed.
+3. Link the note from the repo's note, `repos/<repo>.md`. Make that with `context-central note --new repos/<repo>` if it is not there yet. Then run `context-central take` and `context-central config --get repos`. Settings that cannot be read are stopped by one of the two: `take` prints a `kept` line for `estate.json` with the fault and leaves the map's settings as they were, or the second command fails. Where either happens, mend the file `context-central draft estate.json` prints and run both again.
 4. Run each approved check once from the repo's folder and say what it exited with. A check that cannot run on this machine is reported as such and stays recorded.
 
 ## 6. Check
 
-Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line. A fault is a line of `lint`, `graph` or `doctor` that starts with a word in capitals, as `ERROR`, `BROKEN` and `FIX` do. One fault is the person's to decide and not a fix to make: a `FIX` line for `notes` means git would leave the new note out of the map's commits, and it goes to the person as it is. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+Run `context-central standards <repo>`, `context-central lint`, `context-central graph` and `context-central doctor`. Fix a file marked `(missing)` or `(a folder)`, every `ERROR` and every `BROKEN` line, and after a fix run `context-central take` and the four commands again. A fault is a line of `lint`, `graph` or `doctor` that starts with a word in capitals, as `ERROR`, `BROKEN` and `FIX` do. One fault is the person's to decide and not a fix to make: a `FIX` line for `notes` means git would leave the new note out of the map's commits, and it goes to the person as it is. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
 <one line saying what was recorded for the repo>
@@ -65,6 +67,7 @@ Run `context-central standards <repo>`, `context-central lint`, `context-central
 **Needs a fix**
 - <a check that did not exit 0, with what it exited with>
 - <a file still marked, or a fault the map's checks still report, as it is>
+- <a draft still kept, with its reason>
 
 **Yours to decide**
 - <a question left open>. Recommended: <the answer, and why>.

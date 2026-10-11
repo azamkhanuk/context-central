@@ -1,7 +1,6 @@
-import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { requireEstate, standardsFiles } from '../estate.mts'
+import { repoFolder, requireEstate, standardsFiles } from '../estate.mts'
 import type { Io } from '../cli.mts'
 import type { Estate, Repo, StandardsFile } from '../estate.mts'
 
@@ -34,7 +33,7 @@ function chosen({ config }: Estate, name: string | undefined) {
 }
 
 function describe(estate: Estate, repo: Repo): Recorded {
-  return { repo: repo.name, root: resolve(estate.estateRoot, repo.path), standards: standardsFiles(estate, repo), checks: repo.checks ?? [] }
+  return { repo: repo.name, root: repoFolder(estate, repo), standards: standardsFiles(estate, repo), checks: repo.checks ?? [] }
 }
 
 function asData({ standards, ...rest }: Recorded) {

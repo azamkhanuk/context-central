@@ -122,6 +122,42 @@ export function acme(extraFiles: TreeFiles = {}, configOverrides: { [key: string
   return makeTree({ 'estate.json': { ...ACME_CONFIG, ...configOverrides }, ...ACME_FILES, ...extraFiles })
 }
 
+export type Checkout = { base: string, main: string, env: Env }
+
+export const SOLO_STATE = 'work/PROJ-12/STATE.md'
+export const SOLO_CONFIG = { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.', checks: ['./check.sh'] }] }
+export const SOLO_FILES = {
+  '.gitignore': '.context-central/\n',
+  'CLAUDE.md': '# Solo\n',
+  'src/app.js': 'export {}\n',
+  '.context-central/estate.json': SOLO_CONFIG,
+  '.context-central/glossary.md': '# Glossary\n',
+  [`.context-central/${SOLO_STATE}`]: '---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12: Rate limit the gateway\n\n## Where it stands\n\nNot built.\n',
+}
+
+export function git({ env }: Pick<Checkout, 'env'>, dir: string, ...args: string[]) {
+  return spawned('git', ['-C', dir, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.invalid', '-c', 'commit.gpgsign=false', ...args], { env })
+}
+
+export function checkout(files: TreeFiles, at = 'solo', above: TreeFiles = {}): Checkout {
+  const inside = Object.fromEntries(Object.entries(files).map(([path, content]) => [`${at}/${path}`, content]))
+  const base = makeTree({ gitconfig: '', ...above, ...inside })
+  const made = { base, main: join(base, at), env: { GIT_CONFIG_GLOBAL: join(base, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' } }
+  git(made, made.main, 'init', '-q', '-b', 'main')
+  git(made, made.main, 'add', '-A')
+  git(made, made.main, 'commit', '-q', '-m', 'first')
+  return made
+}
+
+export function solo(extraFiles: TreeFiles = {}) {
+  return checkout({ ...SOLO_FILES, ...extraFiles })
+}
+
+export function workTree(made: Checkout, path: string, branch = 'work/limit') {
+  git(made, made.main, 'worktree', 'add', '-q', path, '-b', branch)
+  return path
+}
+
 export const ACME_SHOT = 'work/PROJ-12/evidence/2026-01-14-limit-reached.png'
 export const INDEX_CLOSING_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 

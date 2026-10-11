@@ -4,9 +4,11 @@ import { list, patterns, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
+import { gitTracks, holds, inMain, inTree, linkedWorkTree } from './worktree.mts'
 import type { Fail } from './checks.mts'
-import type { Io } from './cli.mts'
+import type { Env, Io } from './cli.mts'
 import type { Connection, Connections } from './connections.mts'
+import type { WorkTree } from './worktree.mts'
 
 export const CONFIG_FILE = 'estate.json'
 export const INNER_DIR = '.context-central'
@@ -113,6 +115,7 @@ export interface MapLocation {
   configPath: string
   estateRoot: string
   mapDir: string
+  workTree: WorkTree | null
 }
 
 export interface Estate extends MapLocation {
@@ -123,21 +126,23 @@ export interface Estate extends MapLocation {
 
 export type Coverage = 'root' | 'inside' | 'node' | `repo:${string}`
 
-export function findEstate(startDir: string): MapLocation | null {
-  let dir = resolve(startDir)
-  for (;;) {
-    for (const { layout, configPath, estateRoot } of candidates(dir)) {
-      if (isPluginConfig(configPath)) return { layout, configPath, estateRoot, mapDir: dirname(configPath) }
-    }
-    const parent = dirname(dir)
-    if (parent === dir) return null
-    dir = parent
-  }
+export function findEstate(startDir: string, env: Env): MapLocation | null {
+  const start = resolve(startDir)
+  const tree = linkedWorkTree(start)
+  const near = mapAbove(start)
+  if (!tree) return near && { ...near, workTree: null }
+  if (near && !holds(tree.root, near.configPath)) return { ...near, workTree: tree }
+  if (near && !isCopy(tree, near.configPath, env)) return { ...near, workTree: null }
+  const ours = mapAbove(inMain(tree, start))
+  return ours && { ...ours, workTree: tree }
 }
 
-export function loadEstate(startDir: string): Estate | null {
-  const found = findEstate(startDir)
-  if (!found) return null
+export function loadEstate(startDir: string, env: Env): Estate | null {
+  const found = findEstate(startDir, env)
+  return found && estateAt(found)
+}
+
+export function estateAt(found: MapLocation): Estate {
   const written = readWritten(found.configPath)
   const config = validateConfig(written, found.configPath)
   const { connections } = written as WrittenSettings
@@ -145,13 +150,13 @@ export function loadEstate(startDir: string): Estate | null {
 }
 
 export function requireEstate(io: Io) {
-  const estate = loadEstate(io.cwd)
+  const estate = loadEstate(io.cwd, io.env)
   if (!estate) throw new PluginError(`no context map found from ${io.cwd}. Run "context-central init" or /context-central:onboard.`)
   return estate
 }
 
 export function coverage(estate: Estate, dir: string): Coverage | null {
-  const rel = relative(estate.estateRoot, resolve(dir))
+  const rel = relative(estate.estateRoot, inCheckout(estate, dir))
   if (rel.startsWith('..') || isAbsolute(rel)) return null
   if (rel === '') return 'root'
   const under = (path: string) => rel === fromPosix(path) || rel.startsWith(fromPosix(path) + sep)
@@ -164,7 +169,7 @@ export function coverage(estate: Estate, dir: string): Coverage | null {
 
 export function repoAt(estate: Estate, dir: string): Repo | null {
   if (!coverage(estate, dir)) return null
-  const here = resolve(dir)
+  const here = inCheckout(estate, dir)
   const holding = estate.config.repos.filter(repo => {
     const root = resolve(estate.estateRoot, repo.path)
     return here === root || here.startsWith(root + sep)
@@ -172,14 +177,21 @@ export function repoAt(estate: Estate, dir: string): Repo | null {
   return holding.sort((a, b) => b.path.length - a.path.length)[0] ?? null
 }
 
-export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Repo): StandardsFile[] {
+export function repoFolder({ estateRoot, workTree }: Estate, repo: Repo) {
+  const folder = resolve(estateRoot, repo.path)
+  return workTree ? inTree(workTree, folder) : folder
+}
+
+export function standardsFiles({ estateRoot, mapDir, layout, config, workTree }: Estate, repo: Repo): StandardsFile[] {
   const folder = join(mapDir, STANDARDS_DIR)
   const kept = config.nodeDirs.includes(STANDARDS_DIR)
   const namedAfter = (name: string) => join(folder, `${name}.md`)
   const named = namedAfter(repo.name)
   const nameable = NODE_NAME.test(repo.name)
   const byName = kept && nameable && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
-  const listed = (repo.standards ?? []).map(rel => ({ rel, path: resolve(estateRoot, rel) }))
+  const ofTheMap = (path: string) => layout === 'inner' && holds(mapDir, path)
+  const here = (path: string) => (workTree && !ofTheMap(path) && stateOf(inTree(workTree, path)) === 'file' ? inTree(workTree, path) : path)
+  const listed = (repo.standards ?? []).map(rel => ({ rel, path: here(resolve(estateRoot, rel)) }))
   const seen = new Set<string>()
   const files = [...byName, ...listed]
     .map(file => ({ ...file, state: stateOf(file.path), real: realPath(file.path) }))
@@ -190,6 +202,10 @@ export function standardsFiles({ estateRoot, mapDir, config }: Estate, repo: Rep
   }
   const note = !kept ? undefined : nameable ? byName.map(file => realPath(file.path))[0] : underAnotherName()?.real
   return files.map(({ real, ...file }) => ({ ...file, note: real === note }))
+}
+
+function inCheckout({ workTree }: Estate, dir: string) {
+  return workTree ? inMain(workTree, resolve(dir)) : resolve(dir)
 }
 
 function stateOf(path: string): StandardsFile['state'] {
@@ -206,7 +222,24 @@ function realPath(path: string) {
   }
 }
 
-function candidates(dir: string): Omit<MapLocation, 'mapDir'>[] {
+function mapAbove(start: string): Omit<MapLocation, 'workTree'> | null {
+  let dir = start
+  for (;;) {
+    for (const { layout, configPath, estateRoot } of candidates(dir)) {
+      if (isPluginConfig(configPath)) return { layout, configPath, estateRoot, mapDir: dirname(configPath) }
+    }
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+// One estate has one map: a folder at the map's place in a work tree that git does not track there is that work tree's drafts.
+function isCopy(tree: WorkTree, configPath: string, env: Env) {
+  return isPluginConfig(inMain(tree, configPath)) && gitTracks(tree.root, configPath, env) === false
+}
+
+function candidates(dir: string): Omit<MapLocation, 'mapDir' | 'workTree'>[] {
   const here = join(dir, CONFIG_FILE)
   return [
     basename(dir) === INNER_DIR ? { layout: 'inner', configPath: here, estateRoot: dirname(dir) } : { layout: 'root', configPath: here, estateRoot: dir },
