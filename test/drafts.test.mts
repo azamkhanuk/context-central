@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, SOLO_FILES, SOLO_STATE, checkout, disposable, run, solo, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
@@ -102,4 +102,157 @@ test("from a work tree of a repo in a root layout, draft prints the map's own fi
 
   assert.equal(result.stdout, `${join(made.base, SOLO_STATE)}\n`)
   assert.equal(existsSync(join(inside, 'work')), false)
+})
+
+const take = (made: Checkout, cwd: string, ...args: string[]) => run(['take', ...args], { cwd, env: made.env })
+const SPEC = 'work/PROJ-12/SPEC.md'
+
+function write(root: string, rel: string, text: string) {
+  mkdirSync(dirname(join(root, MAP, rel)), { recursive: true })
+  writeFileSync(join(root, MAP, rel), text)
+}
+
+const read = (root: string, rel: string) => readFileSync(join(root, MAP, rel), 'utf8')
+const kept = (rel: string, why: string) => `context-central take: kept ${rel}: ${why}\n`
+const compare = (made: Checkout, rel: string) => `compare it with ${join(made.main, MAP, rel)}, then run context-central take --over ${rel}`
+
+test('take puts a new draft into the map and removes it from the work tree', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, `took ${SPEC}\n`)
+  assert.equal(result.code, 0)
+  assert.equal(read(made.main, SPEC), '# Spec\n')
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test("take puts a draft made from the map's file in its place", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.inside, SOLO_STATE, '# PROJ-12, built\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, `took ${SOLO_STATE}\n`)
+  assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, built\n')
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test("take keeps a draft when the map's file changed after it was drafted, and exits 1", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+  write(made.inside, SOLO_STATE, '# PROJ-12, built\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, '')
+  assert.equal(result.stderr, kept(SOLO_STATE, `the map's file changed after this was drafted; ${compare(made, SOLO_STATE)}`))
+  assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, as another session left it\n')
+  assert.equal(read(made.inside, SOLO_STATE), '# PROJ-12, built\n')
+})
+
+test("take --over puts a kept draft over the map's file", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+  write(made.inside, SOLO_STATE, '# PROJ-12, with both\n')
+  take(made, made.inside)
+
+  const result = take(made, made.inside, '--over', SOLO_STATE)
+
+  assert.equal(result.stdout, `took ${SOLO_STATE}\n`)
+  assert.equal(result.code, 0)
+  assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, with both\n')
+})
+
+test('take keeps a file written at the drafts place when the map holds that file and no draft was made from it', () => {
+  const made = estate()
+  write(made.inside, SOLO_STATE, '# PROJ-12, written blind\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, kept(SOLO_STATE, `the map holds this file and the draft was not made from it; ${compare(made, SOLO_STATE)}`))
+  assert.equal(read(made.main, SOLO_STATE), SOLO_FILES[`${MAP}/${SOLO_STATE}`])
+})
+
+test("a draft that is the same as the map's file is dropped and nothing is said of it", () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'Nothing waits to be taken.\n')
+  assert.equal(result.code, 0)
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('take keeps a file that is no file of the map, and takes the drafts beside it', () => {
+  const made = estate()
+  write(made.inside, 'notes.txt', 'loose\n')
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, `took ${SPEC}\n`)
+  assert.equal(result.stderr, kept('notes.txt', 'not a file of the map'))
+  assert.equal(existsSync(join(made.main, MAP, 'notes.txt')), false)
+  assert.equal(read(made.inside, 'notes.txt'), 'loose\n')
+})
+
+test('take keeps a draft that a file stands in the way of', () => {
+  const made = solo({ [`${MAP}/work/PROJ-13`]: 'a file where a folder would go\n' })
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  write(inside, 'work/PROJ-13/SPEC.md', '# Spec\n')
+
+  const result = take(made, inside)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, kept('work/PROJ-13/SPEC.md', 'work/PROJ-13 is a file, not a folder, so nothing can be written under it'))
+})
+
+test('take passes over a name that starts with a dot', () => {
+  const made = estate()
+  write(made.inside, '.DS_Store', 'x')
+  write(made.inside, 'work/.cache/note.md', '# hidden\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.stdout, 'Nothing waits to be taken.\n')
+  assert.equal(existsSync(join(made.main, MAP, '.DS_Store')), false)
+  assert.equal(existsSync(join(made.main, MAP, 'work', '.cache')), false)
+})
+
+test('take says so where no draft waits, and a second take finds nothing', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  assert.equal(take(made, made.inside).stdout, `took ${SPEC}\n`)
+  assert.equal(take(made, made.inside).stdout, 'Nothing waits to be taken.\n')
+})
+
+test('in the main checkout take says that a file of the map is written in place', () => {
+  const made = estate()
+
+  const result = take(made, made.main)
+
+  assert.equal(result.stdout, 'Nothing to take: here a file of the map is written in place.\n')
+  assert.equal(result.code, 0)
+})
+
+test('take --over for a path no draft answers to is refused, and nothing is taken', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = take(made, made.inside, '--over', SOLO_STATE)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central take: no draft of ${SOLO_STATE} waits here\n`)
+  assert.equal(existsSync(join(made.main, MAP, SPEC)), false)
 })
