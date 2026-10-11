@@ -1190,3 +1190,11 @@ test('a number that is a reference of a connection is still read as one, and fin
   assert.equal(resolve(root, '#41').stdout.split('\n')[0], 'Context for work item forty-one:')
   assert.equal(resolve(root, '41').stdout, 'No confident match for "41".\n')
 })
+
+test("a work item's own ticket still finds it where no connection reads tickets, and the bare number does not", () => {
+  const state = '---\nitem: login-fix\ntitle: Fix the login\nstatus: active\nticket: "#77"\n---\n# login-fix\n'
+  const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
+
+  assert.equal(resolve(root, '#77').stdout.split('\n')[0], 'Context for work item login-fix:')
+  assert.equal(resolve(root, '77').stdout, 'No confident match for "77".\n')
+})

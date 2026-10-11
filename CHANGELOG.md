@@ -6,7 +6,7 @@ Each release of context-central, newest first. The version is the one in `.claud
 
 The seams a research of 2026-10-11 found after 0.11.0 are closed. Four small faults open since 0.8.0 are fixed, a work item's design is a pointer, the prompt hook no longer spends pointers on the host's own notifications, the hooks and commands docs say what a person meets, and the gate on GitHub runs the validator, the third recorded check.
 
-- **A work item's design is a pointer.** Where `DESIGN.md` sits beside the spec, `resolve <item>`, the prompt hook and `--json` list it straight after the spec as "design of the work item". It takes no place against the limit on linked notes, as the spec takes none, and it is no longer counted among the item's other notes. Before this the file the build reads first after the spec was only counted.
+- **A work item's design is a pointer.** Where `DESIGN.md` sits beside the spec, `resolve <item>`, the prompt hook and `--json` list it straight after the spec as "design of the work item". It takes no place against the limit on linked notes, as the spec takes none, and it is no longer counted among the item's other notes. Before this a design the state file linked sat among the linked notes, against the limit, and one it did not link was only counted.
 - **The prompt hook leaves host text alone.** Claude Code queues a background task's notification and an agent's report as prompts, beginning `<task-notification>` and `<agent-message`, and the hook answered them as a person's words: in one session a task notification got the pointer to a 55 KB note and an agent's report got the six pointers of a work item. Such a prompt now gets nothing, and the session record is left as it was, so the person's next prompt still gets its pointers. `CONTEXT.md` defines Host text.
 - **A number alone names nothing, on every route.** A note or a work item whose whole name is a number was found by that number; now `resolve 42` and a prompt of `42` answer nothing, as decision 20 of 0.8.0 said. "decision 42" still finds the decision, a work item named by a number is still found by its title, and `#41` is still a reference.
 - **`work new` refuses what stands in the way.** A link or a folder named `STATE.md` in the item's folder raised a stack trace, after the item's three folders had been made. It is now refused in one line, with exit 1, and nothing is written.
@@ -24,7 +24,7 @@ Not shown:
 
 For a map that already exists:
 
-- A prompt that names a work item with a `DESIGN.md` beside its spec gets one more pointer, after the spec, and the item's other notes count one less. `resolve --json` carries it in `pointers`.
+- A work item with a `DESIGN.md` beside its spec has it as the pointer after the spec, labelled "design of the work item". Where the state file linked it, the pointer moves up and frees one place against the limit; where it did not, the item gets one more pointer and its other notes count one less. `resolve --json` carries it in `pointers`.
 - A prompt of a number alone gets no answer, and so does `resolve` of one, where a note or an item named by that number answered before.
 - A `notNodes` entry written with a trailing slash now takes effect, so the notes under it drop out of `graph`, `lint`, `resolve` and the hooks, and `config --get notNodes` shows it without the slash.
 - `note --new` under a folder named `node_modules` is refused where it wrote a file before, and `work new` with a link or a folder at the state file's place is refused where it died before.

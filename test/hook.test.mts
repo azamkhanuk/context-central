@@ -691,3 +691,10 @@ test('a prompt from a person that carries one of those tags after its first word
 
   assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'why did the <task-notification> for PROJ-12 come twice' })), acmePointers(root))
 })
+
+test("a prompt that is a work item's own ticket is answered where no connection reads tickets", () => {
+  const state = '---\nitem: login-fix\ntitle: Fix the login\nstatus: active\nticket: "#77"\n---\n# login-fix\n'
+  const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
+
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '#77' })).split('\n')[0], 'Context for work item login-fix:')
+})

@@ -23,6 +23,9 @@ test('a notNodes entry written with a trailing slash means the same as one witho
   assert.equal(run(['config', '--get', 'notNodes'], { cwd: slashed }).stdout, '[\n  "concepts/private"\n]\n')
   assert.equal(run(['resolve', 'secret'], { cwd: slashed }).stdout, 'No confident match for "secret".\n')
   assert.equal(run(['graph'], { cwd: slashed }).stdout, '7 nodes, 5 links\nORPHAN repos/web.md\nUNREFERENCED work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md\n')
+  assert.equal(run(['lint'], { cwd: slashed }).stdout, 'ok\n')
+  assert.equal(run(['resolve', 'secret', 'plan'], { cwd: slashed }).stdout, 'No confident match for "secret plan".\n')
+  assert.deepEqual(run(['hook', 'user-prompt-submit'], { cwd: slashed, stdin: JSON.stringify({ cwd: slashed, prompt: 'secret plan' }) }), { code: 0, stdout: '', stderr: '' })
 })
 
 test('unset settings fall back to documented defaults', () => {
