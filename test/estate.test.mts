@@ -16,6 +16,16 @@ test('settings are read from anywhere inside the estate', () => {
   assert.equal(run(['config', '--get', 'name'], { cwd: join(root, 'web', 'src') }).stdout, 'acme\n')
 })
 
+test('a notNodes entry written with a trailing slash means the same as one without it', () => {
+  const files = { 'concepts/private/secret.md': '# Secret plan\n\nKept out of the map.\n' }
+  const slashed = tree(acme(files, { notNodes: ['concepts/private/'] }))
+  const plain = tree(acme(files, { notNodes: ['concepts/private'] }))
+
+  assert.equal(run(['config', '--get', 'notNodes'], { cwd: slashed }).stdout, '[\n  "concepts/private"\n]\n')
+  assert.equal(run(['resolve', 'secret'], { cwd: slashed }).stdout, 'No confident match for "secret".\n')
+  assert.equal(run(['graph'], { cwd: slashed }).stdout, run(['graph'], { cwd: plain }).stdout)
+})
+
 test('unset settings fall back to documented defaults', () => {
   const root = tree(acme())
 

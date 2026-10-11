@@ -283,7 +283,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     title: text(raw.title ?? raw.name, 'title', fail),
     hub: text(raw.hub ?? 'CLAUDE.md', 'hub', fail),
     nodeDirs: strings(raw.nodeDirs ?? DEFAULT_NODE_DIRS, 'nodeDirs', fail),
-    notNodes: strings(raw.notNodes ?? [], 'notNodes', fail),
+    notNodes: strings(raw.notNodes ?? [], 'notNodes', fail).map(entry => entry.replace(/\/+$/, '')),
     leftAlone: strings(raw.leftAlone ?? [], 'leftAlone', fail),
     workDir: text(raw.workDir ?? 'work', 'workDir', fail),
     deepDirs: strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail),
