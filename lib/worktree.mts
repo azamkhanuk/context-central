@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { Env } from './cli.mts'
 
@@ -14,7 +14,8 @@ const GIT_TIMEOUT_MS = 5000
 const NOT_SO = 1
 
 export function linkedWorkTree(dir: string): WorkTree | null {
-  const root = linkedRoot(resolve(dir))
+  const above = checkoutAbove(resolve(dir))
+  const root = above?.linked ? above.dir : null
   const admin = root && adminFolder(root)
   const shared = admin && read(join(admin, 'commondir'))
   if (!root || !admin || !shared) return null
@@ -30,8 +31,30 @@ export function inTree(tree: WorkTree, path: string) {
   return holds(tree.root, path) ? path : moved(tree.main, tree.root, path)
 }
 
+export function mainCheckoutOf(dir: string) {
+  const above = checkoutAbove(resolve(dir))
+  if (!above) return null
+  return above.linked ? (linkedWorkTree(above.dir)?.main ?? null) : above.dir
+}
+
+export function workTreesOf(main: string) {
+  const admins = join(main, GIT, 'worktrees')
+  return namesIn(admins)
+    .flatMap(name => {
+      const ownGit = read(join(admins, name, 'gitdir'))
+      const asGitSpellsIt = ownGit && linkedWorkTree(dirname(resolve(admins, name, ownGit)))
+      const root = asGitSpellsIt && resolve(main, relative(asGitSpellsIt.main, asGitSpellsIt.root))
+      return root && entryAt(root)?.isDirectory() ? [root] : []
+    })
+    .sort()
+}
+
 export function gitTracks(dir: string, file: string, env: Env) {
   return asked(dir, ['ls-files', '--error-unmatch', '--', relative(dir, file)], env) !== NOT_SO
+}
+
+export function gitIgnores(dir: string, file: string, env: Env) {
+  return asked(dir, ['check-ignore', '-q', '--', relative(dir, file)], env) === 0
 }
 
 export function holds(folder: string, path: string) {
@@ -47,10 +70,10 @@ function asked(dir: string, args: string[], env: Env) {
   return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS }).status
 }
 
-function linkedRoot(start: string) {
+function checkoutAbove(start: string) {
   for (let dir = start; ; dir = dirname(dir)) {
     const entry = entryAt(join(dir, GIT))
-    if (entry) return entry.isFile() ? dir : null
+    if (entry) return { dir, linked: entry.isFile() }
     if (dirname(dir) === dir) return null
   }
 }
@@ -71,6 +94,14 @@ function entryAt(path: string) {
     return statSync(path, { throwIfNoEntry: false })
   } catch {
     return undefined
+  }
+}
+
+function namesIn(dir: string) {
+  try {
+    return readdirSync(dir)
+  } catch {
+    return []
   }
 }
 

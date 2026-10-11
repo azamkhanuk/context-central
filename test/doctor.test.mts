@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, onlyOnWindows, run } from './helpers.mts'
-import type { Env, Json, Result, TreeFiles } from './helpers.mts'
+import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, acme, checkout, disposable, makeTree, onlyOnWindows, run, solo, workTree } from './helpers.mts'
+import type { Checkout, Env, Json, Result, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
@@ -69,7 +69,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root)
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   hooks', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -509,6 +509,7 @@ test('json lists every check with its fix and its note', () => {
     { check: 'git', ok: true, fix: null, note: null },
     { check: 'notes', ok: true, fix: null, note: null },
     { check: 'evidence', ok: true, fix: null, note: null },
+    { check: 'worktrees', ok: true, fix: null, note: null },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
   ])
@@ -691,4 +692,67 @@ test('a node folder named with a closing slash is printed with one', () => {
   const { root, env } = repository({ '.gitignore': KEPT, 'standards/api.md': '# api\n' }, { nodeDirs: ['repos', 'concepts', 'edges', 'standards/', 'work'] })
 
   assert.match(notesLine(doctor(root, env)) ?? '', /^FIX {2}notes: git ignores standards\/, work\/ while/)
+})
+
+const MAP = '.context-central'
+const worktreesLine = (made: Checkout, cwd: string) => doctor(cwd, { ...made.env, PATH: process.env.PATH, HOME: made.base }).stdout.split('\n').find(line => line.includes(' worktrees'))
+
+function soloWithWorkTree(made = solo()) {
+  tree(made.base)
+  return { ...made, inside: workTree(made, join(made.main, '.claude', 'worktrees', 'limit')) }
+}
+
+function writeIn(root: string, rel: string, text: string) {
+  mkdirSync(dirname(join(root, MAP, rel)), { recursive: true })
+  writeFileSync(join(root, MAP, rel), text)
+}
+
+test('doctor names a work tree in which drafts wait, with how many, from the main checkout and from the work tree', () => {
+  const made = soloWithWorkTree()
+  writeIn(made.inside, 'work/PROJ-12/SPEC.md', '# Spec\n')
+  writeIn(made.inside, 'concepts/limits.md', '# Limits\n')
+  const expected = `FIX  worktrees: 2 drafts wait in ${made.inside}; run context-central take there`
+
+  assert.equal(worktreesLine(made, made.main), expected)
+  assert.equal(worktreesLine(made, made.inside), expected)
+  assert.equal(doctor(made.main, { ...made.env, PATH: process.env.PATH, HOME: made.base }).code, 1)
+})
+
+test('doctor names each work tree that has drafts, and says one draft waits where there is one', () => {
+  const made = soloWithWorkTree()
+  const second = workTree(made, join(made.base, 'solo-search'), 'work/search')
+  writeIn(made.inside, 'work/PROJ-12/SPEC.md', '# Spec\n')
+  writeIn(made.inside, 'concepts/limits.md', '# Limits\n')
+  writeIn(second, 'concepts/search.md', '# Search\n')
+
+  assert.equal(worktreesLine(made, made.main), `FIX  worktrees: 1 draft waits in ${second}, 2 drafts wait in ${made.inside}; run context-central take there`)
+})
+
+test("the work trees check passes with no work tree, with nothing waiting in one, and where a draft is the same as the map's file", () => {
+  const alone = solo()
+  tree(alone.base)
+  const made = soloWithWorkTree()
+  const same = soloWithWorkTree()
+  run(['draft', SOLO_STATE], { cwd: same.inside, env: same.env })
+
+  assert.equal(worktreesLine(alone, alone.main), 'ok   worktrees')
+  assert.equal(worktreesLine(made, made.main), 'ok   worktrees')
+  assert.equal(worktreesLine(same, same.main), 'ok   worktrees')
+})
+
+test('doctor says when the map itself sits in a work tree and git ignores it there', () => {
+  const made = checkout({ '.gitignore': `${MAP}/\n`, 'CLAUDE.md': '# Solo\n' })
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  writeIn(inside, 'estate.json', JSON.stringify(SOLO_CONFIG))
+
+  assert.equal(worktreesLine(made, inside), `FIX  worktrees: the map sits in a work tree, ${inside}, and git ignores it there, so it goes when the work tree is removed; set the map up in the main checkout, ${made.main}`)
+})
+
+test('a map that git tracks in a work tree, and a map in no git checkout, pass the work trees check', () => {
+  const tracked = soloWithWorkTree(solo({ '.gitignore': 'node_modules/\n' }))
+  const outside = tree(acme())
+
+  assert.equal(worktreesLine(tracked, tracked.inside), 'ok   worktrees')
+  assert.equal(doctor(outside, realGit()).stdout.split('\n').find(line => line.includes(' worktrees')), 'ok   worktrees')
 })
