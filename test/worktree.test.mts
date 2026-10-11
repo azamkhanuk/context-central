@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, checkout, disposable, makeTree, run, solo, standIns, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, INDEX_CLOSING_LINE, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, checkout, disposable, hook, makeTree, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -138,4 +138,50 @@ test("standards gives a file of the repo as the work tree's copy, a file only th
     `- ${join(made.inside, 'CLAUDE.md')}`,
     `- ${join(made.main, 'local-rules.md')}`,
   ])
+})
+
+const HOW_A_FILE_IS_WRITTEN = 'A file of the map is written from here with context-central draft, which prints the file to write, and context-central take, which puts it in the map.'
+const index = (made: Checkout, cwd: string) => run(['index', '--absolute'], { cwd, env: made.env }).stdout.trimEnd().split('\n')
+const soloIndex = (made: Checkout, ...workTreeLines: string[]) => [
+  `Context map "solo": ${join(made.main, MAP)}`,
+  `Hub: ${join(made.main, 'CLAUDE.md')}`,
+  ...workTreeLines,
+  'Work in flight (1):',
+  `- PROJ-12 | Rate limit the gateway | ${join(made.main, MAP, SOLO_STATE)}`,
+  INDEX_CLOSING_LINE,
+]
+
+test('the index names the work tree and says how a file of the map is written from it', () => {
+  const made = estate()
+
+  assert.deepEqual(index(made, made.inside), soloIndex(made, `Work tree: ${made.inside}, of the checkout at ${made.main}. ${HOW_A_FILE_IS_WRITTEN}`))
+})
+
+test('in the main checkout the index says nothing of a work tree', () => {
+  const made = estate()
+
+  assert.deepEqual(index(made, made.main), soloIndex(made))
+})
+
+test("the index counts the drafts that wait, and not one that is the same as the map's file", () => {
+  const made = estate()
+  run(['draft', SOLO_STATE], { cwd: made.inside, env: made.env })
+  mkdirSync(join(made.inside, MAP, 'concepts'))
+  writeFileSync(join(made.inside, MAP, 'concepts', 'limits.md'), '# Limits\n')
+
+  assert.equal(index(made, made.inside)[3], `Drafts not yet in the map: 1, under ${join(made.inside, MAP)}.`)
+})
+
+test('in a root layout the index names the work tree of a repo after the line for the repo, and says nothing of drafts', () => {
+  const made = rootLayout()
+
+  assert.deepEqual(index(made, made.inside).slice(2, 4), [`Repo api: ${join(made.base, 'repos', 'api.md')}`, `Work tree: ${made.inside}, of the checkout at ${made.main}.`])
+})
+
+test('the session-start hook gives a session in a work tree the same index', () => {
+  const made = estate()
+
+  const answer = JSON.parse(hook('session-start', { cwd: made.inside, session_id: 'in-a-work-tree', source: 'startup' }, { env: made.env }).stdout) as { hookSpecificOutput: { additionalContext: string } }
+
+  assert.deepEqual(answer.hookSpecificOutput.additionalContext.split('\n'), index(made, made.inside))
 })

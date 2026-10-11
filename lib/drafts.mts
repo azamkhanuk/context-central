@@ -48,9 +48,13 @@ export function drafted(estate: Estate, rel: string) {
   return draft
 }
 
+export function waitingIn(estate: Estate, dir: string) {
+  return draftsIn(dir).filter(rel => !sameAsOurs(estate, dir, rel))
+}
+
 export function take(estate: Estate, over: string[]): Taken {
   const drafts = draftsDir(estate)
-  const waiting = drafts && statSync(drafts, { throwIfNoEntry: false })?.isDirectory() ? draftsIn(drafts) : []
+  const waiting = drafts ? draftsIn(drafts) : []
   const unmet = over.find(rel => !waiting.includes(rel))
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
@@ -74,7 +78,7 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   const draft = join(drafts, rel)
   const ours = join(estate.mapDir, rel)
   const held = isFile(ours)
-  if (held && readFileSync(draft).equals(readFileSync(ours))) return 'same'
+  if (sameAsOurs(estate, drafts, rel)) return 'same'
   if (!isMapFile(estate, rel)) return { kept: 'not a file of the map' }
   const fault = rel === CONFIG_FILE ? settingsFault(draft) : null
   if (fault) return { kept: fault }
@@ -100,7 +104,13 @@ function settingsFault(draft: string) {
   }
 }
 
+function sameAsOurs(estate: Estate, drafts: string, rel: string) {
+  const ours = join(estate.mapDir, rel)
+  return isFile(ours) && readFileSync(join(drafts, rel)).equals(readFileSync(ours))
+}
+
 function draftsIn(dir: string, below = ''): string[] {
+  if (!statSync(join(dir, below), { throwIfNoEntry: false })?.isDirectory()) return []
   return readdirSync(join(dir, below), { withFileTypes: true })
     .filter(entry => !entry.name.startsWith('.'))
     .flatMap(entry => {
