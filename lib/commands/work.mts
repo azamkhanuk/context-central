@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, ticketOf } from '../connections.mts'
@@ -68,6 +68,7 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
   refuseUnlisted(estate, dirRel)
+  refuseTaken(estate, `${dirRel}/STATE.md`)
   for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
   writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })), { flag: 'wx' })
   io.out(`${dirRel}/STATE.md`)
@@ -120,6 +121,21 @@ function refuseUnlisted(estate: Estate, dirRel: string) {
   if (!leftOut(estate.config, dirRel)) return
   const why = underNotNodes(estate.config, dirRel) ? 'is under a notNodes entry' : 'is a name kept for a file that is not work'
   throw new PluginError(`${dirRel} ${why}, so a work item made there would never be listed`)
+}
+
+function refuseTaken(estate: Estate, stateRel: string) {
+  const found = statOf(join(estate.mapDir, stateRel))
+  if (!found) return
+  const kind = found.isSymbolicLink() ? 'link' : found.isDirectory() ? 'folder' : 'file'
+  throw new PluginError(`${stateRel} is there already as a ${kind}, so nothing was written: move it, then make the item again`)
+}
+
+function statOf(path: string) {
+  try {
+    return lstatSync(path)
+  } catch {
+    return null
+  }
 }
 
 function namesIn(dir: string) {
