@@ -476,3 +476,13 @@ test("standards, design and implement take a repo's folder from the root standar
     assert.ok(skillText(name).includes('`root`'), name)
   }
 })
+
+test('onboard names every key of a connection that the plugin reads', () => {
+  const source = readFileSync(join(REPO, 'lib', 'connections.mts'), 'utf8')
+  const textKeys = [...(/const TEXT_KEYS = \[([^\]]+)\]/.exec(source)?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map(([, key]) => key)
+  const read = [...new Set([...textKeys, ...[...source.matchAll(/entry\.([a-z]+)/g)].map(([, key]) => key)])]
+  const named = new Set([...step('onboard', '3. Draft the config').matchAll(/[`"]([a-z]+)[`"]/g)].map(([, key]) => key))
+
+  assert.ok(read.length >= 8)
+  assert.deepEqual(read.filter(key => !named.has(key)), [])
+})
