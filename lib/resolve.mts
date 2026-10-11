@@ -92,7 +92,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
-  if (DIGITS_ALONE.test(query.trim())) return null
+  if (numberAlone(estate, query)) return null
   const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
@@ -147,6 +147,12 @@ export function pointedTo(estate: Estate, entry: NodeRef) {
 
 function resolution({ by, key, item = null, name = null, label, pointers, more, notes = null, deep = null, evidence = null }: Pick<Resolution, 'by' | 'key' | 'label' | 'pointers' | 'more'> & Partial<Resolution>): Resolution {
   return { by, key, item, name, label, pointers, more, notes, deep, evidence }
+}
+
+function numberAlone(estate: Estate, query: string) {
+  const runs = countedRuns(query)
+  if (runs.length !== 1 || !DIGITS_ALONE.test(runs[0])) return false
+  return referencesIn([...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)], query).length === 0
 }
 
 function byWorkItem(estate: Estate, query: string, max: number) {

@@ -1144,6 +1144,10 @@ test('a number alone names nothing, though a note, a decision and a work item be
 
   assert.equal(resolve(root, '42').stdout, 'No confident match for "42".\n')
   assert.equal(resolve(root, 'forty-two').stdout.split('\n')[0], 'Context for work item 42:')
+  assert.equal(resolve(root, '42?').stdout, 'No confident match for "42?".\n')
+  assert.equal(resolve(root, '(42)').stdout, 'No confident match for "(42)".\n')
+  assert.equal(resolve(root, 'the 42').stdout, 'No confident match for "the 42".\n')
+  assert.equal(resolve(root, ' 0042 ').stdout, 'No confident match for "0042".\n')
   assert.deepEqual(answer(root, 'decision', '42'), ['id', 'node:decisions/0042-the-answer.md', 'known as: decision 42'])
 })
 
@@ -1177,4 +1181,12 @@ test('a design the state file links is listed once, as the design', () => {
 
   assert.deepEqual(rels(resolution).filter(rel => rel.endsWith('DESIGN.md')), ['work/PROJ-12/DESIGN.md'])
   assert.equal(resolution.pointers[2].why, 'design of the work item')
+})
+
+test('a number that is a reference of a connection is still read as one, and finds the item whose ticket it is', () => {
+  const state = '---\nitem: forty-one\ntitle: Fix the login redirect\nstatus: active\nticket: "#41"\n---\n# forty-one\n'
+  const root = tree(acme({ 'work/forty-one/STATE.md': state }, { connections: { issues: { holds: 'tickets', references: ['#\\d+'] } } }))
+
+  assert.equal(resolve(root, '#41').stdout.split('\n')[0], 'Context for work item forty-one:')
+  assert.equal(resolve(root, '41').stdout, 'No confident match for "41".\n')
 })

@@ -114,5 +114,5 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
 
 // Claude Code queues a background task's notification and an agent's report as prompts no person typed.
 function isHostText(prompt: string) {
-  return HOST_TEXT.some(start => prompt.trimStart().startsWith(start))
+  return HOST_TEXT.some(start => prompt.startsWith(start))
 }

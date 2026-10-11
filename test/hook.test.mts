@@ -663,6 +663,7 @@ test('a prompt that is a number alone is given nothing', () => {
   const root = tree(acme({ 'concepts/42.md': '# 42\n' }))
 
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '42' }))
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'the 42?' }))
 })
 
 test("a work item's design is a pointer in the hook's answer too", () => {
