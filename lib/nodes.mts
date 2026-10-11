@@ -110,6 +110,10 @@ export function leftOut(config: Settings, rel: string) {
   return underNotNodes(config, rel) || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
 }
 
+export function neverListed(name: string) {
+  return name.startsWith('.') || name === 'node_modules'
+}
+
 export function underNotNodes(config: Settings, rel: string) {
   return config.notNodes.some(skipped => rel === skipped || rel.startsWith(`${skipped}/`))
 }
@@ -273,7 +277,7 @@ function anyName() {
 function walk(mapDir: string, dirRel: string, keeps: (name: string) => boolean = isMarkdown): string[] {
   const found: string[] = []
   for (const entry of readdirSync(join(mapDir, dirRel), { withFileTypes: true })) {
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+    if (neverListed(entry.name)) continue
     const rel = `${dirRel}/${entry.name}`
     if (entry.isDirectory()) found.push(...walk(mapDir, rel, keeps))
     else if (entry.isFile() && keeps(entry.name)) found.push(rel)

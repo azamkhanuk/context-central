@@ -366,6 +366,15 @@ test('no folder of the path may be one the map keeps for the deep tier', () => {
   assert.equal(note(root, ['--new', 'docs/sources']).stdout, 'docs/sources.md\n')
 })
 
+test('a path through a folder the map never walks is refused, so no note is made that nothing lists', () => {
+  const root = tree(acme())
+
+  assert.deepEqual(note(root, ['--new', 'concepts/node_modules/thing']), refusal('"node_modules" is a folder the map never lists'))
+  assert.deepEqual(note(root, ['--new', 'docs/vendor/node_modules/readme', '--title', 'Readme']), refusal('"node_modules" is a folder the map never lists'))
+  assert.equal(existsSync(join(root, 'concepts/node_modules')), false)
+  assert.equal(existsSync(join(root, 'docs/vendor')), false)
+})
+
 test('a path that notNodes lists is refused, at any depth', () => {
   const root = tree(acme({}, { notNodes: ['docs/private', 'concepts/draft.md'] }))
 
