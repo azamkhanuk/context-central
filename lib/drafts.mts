@@ -26,6 +26,7 @@ type Drafted = { [rel: string]: string }
 type Verdict = 'took' | 'same' | { kept: string }
 
 const RECORD = '.drafted.json'
+const IN_THE_MAP = '.in-the-map'
 const NONE_TRACKED: ReadonlySet<string> = new Set()
 
 // Git and the disk may spell one name in two forms of Unicode, so a tracked name is matched in one.
@@ -55,7 +56,7 @@ export function mapFiles(estate: Estate) {
   return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir].map(dir => dir.replace(/\/+$/, '')))] }
 }
 
-export function drafted(estate: Estate, drafts: Drafts | null, rel: string) {
+export function drafted(estate: Estate, drafts: Drafts | null, rel: string, from: string) {
   const ours = join(estate.mapDir, rel)
   if (!drafts) return ours
   if (isFile(drafts.dir)) throw new PluginError(`${drafts.dir} is a file, not a folder, so no draft can be made there`)
@@ -64,7 +65,7 @@ export function drafted(estate: Estate, drafts: Drafts | null, rel: string) {
   const record = readRecord(drafts.dir)
   const unedited = untouched(draft, record[rel])
   if (!isFile(ours)) {
-    if (unedited) forget(drafts.dir, record, rel)
+    if (unedited) forget(drafts.dir, record, rel, from)
     return draft
   }
   if (!statSync(draft, { throwIfNoEntry: false }) || (unedited && hashOf(ours) !== record[rel])) copyIn(drafts.dir, record, rel, ours)
@@ -76,13 +77,14 @@ export function waitingIn(estate: Estate, dir: string, tracked: ReadonlySet<stri
   return draftsIn(dir, tracked).filter(rel => !sameAsOurs(estate, dir, rel) && !untouched(join(dir, rel), record[rel]))
 }
 
-export function take(estate: Estate, { dir, tracked }: Drafts, over: string[]): Taken {
+export function take(estate: Estate, { dir, tracked }: Drafts, over: string[], from: string): Taken {
   const waiting = draftsIn(dir, tracked)
   const unmet = over.find(rel => !waiting.includes(rel))
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return taken
   const record = readRecord(dir)
+  forgetCopies(dir, from)
   for (const rel of waiting) {
     const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
     if (typeof verdict === 'object') {
@@ -92,7 +94,7 @@ export function take(estate: Estate, { dir, tracked }: Drafts, over: string[]): 
     if (verdict === 'took') taken.took.push(rel)
     rmSync(join(dir, rel))
   }
-  tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))))
+  tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
   return taken
 }
 
@@ -119,9 +121,9 @@ function copyIn(dir: string, record: Drafted, rel: string, ours: string) {
   writeRecord(dir, { ...record, [rel]: hashOf(ours) })
 }
 
-function forget(dir: string, record: Drafted, rel: string) {
+function forget(dir: string, record: Drafted, rel: string, from: string) {
   rmSync(join(dir, rel))
-  tidy(dir, Object.fromEntries(Object.entries(record).filter(([held]) => held !== rel)))
+  tidy(dir, Object.fromEntries(Object.entries(record).filter(([held]) => held !== rel)), from)
 }
 
 function settle(estate: Estate, drafts: string, rel: string, base: string | undefined, forced: boolean): Verdict {
@@ -133,7 +135,7 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   if (statSync(ours, { throwIfNoEntry: false })?.isDirectory()) return { kept: 'the map holds a folder at this path' }
   const fault = rel === CONFIG_FILE ? settingsFault(draft) : null
   if (fault) return { kept: fault }
-  if (held && !forced && base !== hashOf(ours)) return { kept: `${base ? "the map's file changed after this was drafted" : 'the map holds this file and the draft was not made from it'}; compare it with ${ours}, then run context-central take --over ${rel}` }
+  if (held && !forced && base !== hashOf(ours)) return { kept: `${base ? "the map's file changed after this was drafted" : 'the map holds this file and the draft was not made from it'}; compare it with ${toCompare(drafts, rel, ours)}, then run context-central take --over ${rel}` }
   try {
     makeFolder(estate.mapDir, posix.dirname(rel))
     copyFileSync(draft, ours)
@@ -144,6 +146,28 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
     return { kept: `it could not be written into the map (${code})` }
   }
   return 'took'
+}
+
+function toCompare(drafts: string, rel: string, ours: string) {
+  const copy = join(drafts, IN_THE_MAP, rel)
+  try {
+    makeFolder(drafts, posix.dirname(`${IN_THE_MAP}/${rel}`))
+    copyFileSync(ours, copy)
+    return `${copy}, a copy of the map's file as it now is`
+  } catch (error) {
+    if (!(error instanceof PluginError) && !(error as NodeJS.ErrnoException).code) throw error
+    return ours
+  }
+}
+
+function forgetCopies(drafts: string, from: string) {
+  const copies = join(drafts, IN_THE_MAP)
+  if (holds(copies, from)) return
+  try {
+    rmSync(copies, { recursive: true, force: true })
+  } catch (error) {
+    if (!(error as NodeJS.ErrnoException).code) throw error
+  }
 }
 
 function settingsFault(draft: string) {
@@ -177,15 +201,15 @@ function draftsIn(dir: string, tracked: ReadonlySet<string>, below = ''): string
     .sort()
 }
 
-function tidy(drafts: string, record: Drafted) {
+function tidy(drafts: string, record: Drafted, from: string) {
   if (Object.keys(record).length > 0) writeRecord(drafts, record)
   else rmSync(join(drafts, RECORD), { force: true })
-  prune(drafts)
+  prune(drafts, from)
 }
 
-function prune(dir: string) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory() && !entry.name.startsWith('.')) prune(join(dir, entry.name))
-  if (readdirSync(dir).length === 0) rmdirSync(dir)
+function prune(dir: string, from: string) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory() && !entry.name.startsWith('.')) prune(join(dir, entry.name), from)
+  if (readdirSync(dir).length === 0 && !holds(dir, from)) rmdirSync(dir)
 }
 
 function isMapFile(estate: Estate, rel: string) {

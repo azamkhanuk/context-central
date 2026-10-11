@@ -13,7 +13,7 @@ export function run(args: string[], io: Io) {
   const estate = requireEstate(io)
   const drafts = draftsOf(estate, io.env)
   const asked = positionals.map(given => inMap(estate, drafts?.dir ?? null, given) ?? refuse(estate, given))
-  for (const rel of asked) io.out(drafted(estate, drafts, rel))
+  for (const rel of asked) io.out(drafted(estate, drafts, rel, io.cwd))
 }
 
 function refuse(estate: Estate, given: string): never {

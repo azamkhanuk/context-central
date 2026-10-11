@@ -114,7 +114,8 @@ function write(root: string, rel: string, text: string) {
 
 const read = (root: string, rel: string) => readFileSync(join(root, MAP, rel), 'utf8')
 const kept = (rel: string, why: string) => `context-central take: kept ${rel}: ${why}\n`
-const compare = (made: Checkout, rel: string) => `compare it with ${join(made.main, MAP, rel)}, then run context-central take --over ${rel}`
+const IN_THE_MAP = '.in-the-map'
+const compare = (made: ReturnType<typeof estate>, rel: string) => `compare it with ${join(made.inside, MAP, IN_THE_MAP, rel)}, a copy of the map's file as it now is, then run context-central take --over ${rel}`
 
 test('take puts a new draft into the map and removes it from the work tree', () => {
   const made = estate()
@@ -167,6 +168,61 @@ test("take --over puts a kept draft over the map's file", () => {
   assert.equal(result.stdout, `took ${SOLO_STATE}\n`)
   assert.equal(result.code, 0)
   assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, with both\n')
+})
+
+function keptOne() {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.main, SOLO_STATE, '# PROJ-12, as another session left it\n')
+  write(made.inside, SOLO_STATE, '# PROJ-12, built\n')
+  return made
+}
+
+test("take leaves a copy of the map's file as it now is for a draft it kept", () => {
+  const made = keptOne()
+
+  take(made, made.inside)
+
+  assert.equal(read(made.inside, `${IN_THE_MAP}/${SOLO_STATE}`), '# PROJ-12, as another session left it\n')
+})
+
+test('the copy left for a kept draft goes once that draft is taken', () => {
+  const made = keptOne()
+  take(made, made.inside)
+
+  take(made, made.inside, '--over', SOLO_STATE)
+
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('the copy left for a kept draft goes at the next take where that draft is no longer there', () => {
+  const made = keptOne()
+  take(made, made.inside)
+  rmSync(join(made.inside, MAP, SOLO_STATE))
+
+  take(made, made.inside)
+
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('take leaves the folder it was run from, where that is the folder of the copies left for kept drafts', () => {
+  const made = keptOne()
+  take(made, made.inside)
+
+  const result = take(made, join(made.inside, MAP, IN_THE_MAP), '--over', SOLO_STATE)
+
+  assert.equal(result.stdout, `took ${SOLO_STATE}\n`)
+  assert.equal(existsSync(join(made.inside, MAP, IN_THE_MAP)), true)
+})
+
+test("take names the map's own file to compare with where no copy of it can be made in the work tree", notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = keptOne()
+  chmodSync(join(made.inside, MAP), 0o555)
+
+  const result = take(made, made.inside)
+  chmodSync(join(made.inside, MAP), 0o755)
+
+  assert.equal(result.stderr, kept(SOLO_STATE, `the map's file changed after this was drafted; compare it with ${join(made.main, MAP, SOLO_STATE)}, then run context-central take --over ${SOLO_STATE}`))
 })
 
 test('take keeps a file written at the drafts place when the map holds that file and no draft was made from it', () => {
@@ -398,6 +454,27 @@ test('a record that names a draft which is not there does not keep the drafts fo
   take(made, made.inside)
 
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('take leaves the folder it was run from, where that is inside the drafts folder', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  const result = take(made, join(made.inside, MAP, 'work', 'PROJ-12'))
+
+  assert.equal(result.stdout, `took ${SPEC}\n`)
+  assert.equal(existsSync(join(made.inside, MAP, 'work', 'PROJ-12')), true)
+})
+
+test('draft leaves the folder it was run from when it removes the last draft there', () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  rmSync(join(made.main, MAP, SOLO_STATE))
+
+  draft(made, join(made.inside, MAP, 'work', 'PROJ-12'), SOLO_STATE)
+
+  assert.equal(existsSync(join(made.inside, MAP, SOLO_STATE)), false)
+  assert.equal(existsSync(join(made.inside, MAP, 'work', 'PROJ-12')), true)
 })
 
 function notesTracked() {
