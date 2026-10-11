@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util'
+import { draftsDir } from '../drafts.mts'
 import { coverage, requireEstate } from '../estate.mts'
 import { glossaryPath, glossaryRepo } from '../glossary.mts'
 import type { Io } from '../cli.mts'
@@ -16,10 +17,14 @@ export function run(args: string[], io: Io) {
     covered: coverage(estate, io.cwd),
     glossary: glossaryPath(estate),
     glossaryRepo: glossaryRepo(estate),
+    workTree: estate.workTree,
+    drafts: draftsDir(estate),
   }
   if (values.json) return io.out(JSON.stringify(where, null, 2))
   io.out(`map: ${where.name} at ${where.mapDir}`)
   io.out(`estate root: ${where.estateRoot}`)
   io.out(`glossary: ${where.glossary}${where.glossaryRepo ? `, inside repo ${where.glossaryRepo}` : ''}`)
   io.out(where.covered ? `here: ${where.covered}` : 'here: not covered, so the hooks stay silent')
+  if (where.workTree) io.out(`work tree: ${where.workTree.root}, of the checkout at ${where.workTree.main}`)
+  if (where.drafts) io.out(`drafts: ${where.drafts}`)
 }
