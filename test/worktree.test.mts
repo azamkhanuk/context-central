@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, INDEX_CLOSING_LINE, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, checkout, disposable, hook, makeTree, run, solo, standIns, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, INDEX_CLOSING_LINE, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, hook, makeTree, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -128,19 +128,40 @@ test('in a root layout standards gives the work tree for its repo and the regist
   assert.equal(rootOf(made, made.inside, 'web'), join(made.base, 'web'))
 })
 
-test("standards gives a file of the repo as the work tree's copy, a file only the main checkout holds as that one, and the standards note where the map is", () => {
+function withStandards() {
   const listed = { ...SOLO_CONFIG, repos: [{ ...SOLO_CONFIG.repos[0], standards: ['CLAUDE.md', 'local-rules.md'] }] }
   const made = estate(solo({ [`${MAP}/estate.json`]: listed, [`${MAP}/standards/solo.md`]: '# solo\n' }))
   writeFileSync(join(made.main, 'local-rules.md'), '# Rules kept on this machine\n')
+  return made
+}
 
-  assert.deepEqual(standards(made, made.inside).split('\n').slice(1, 4), [
-    `- ${join(made.main, MAP, 'standards', 'solo.md')} (the standards note)`,
-    `- ${join(made.inside, 'CLAUDE.md')}`,
-    `- ${join(made.main, 'local-rules.md')}`,
-  ])
+test("standards gives a standards file of the repo as the work tree's copy", () => {
+  const made = withStandards()
+
+  assert.equal(standards(made, made.inside).split('\n')[2], `- ${join(made.inside, 'CLAUDE.md')}`)
 })
 
-const HOW_A_FILE_IS_WRITTEN = 'A file of the map is written from here with context-central draft, which prints the file to write, and context-central take, which puts it in the map.'
+test('standards gives a standards file that only the main checkout holds as the one there', () => {
+  const made = withStandards()
+
+  assert.equal(standards(made, made.inside).split('\n')[3], `- ${join(made.main, 'local-rules.md')}`)
+})
+
+test('standards gives the standards note where the map is, from a work tree as from the main checkout', () => {
+  const made = withStandards()
+
+  assert.equal(standards(made, made.inside).split('\n')[1], `- ${join(made.main, MAP, 'standards', 'solo.md')} (the standards note)`)
+})
+
+test("in a root layout standards gives a standards file of the repo as the work tree's copy", () => {
+  const made = checkout({ 'README.md': '# api checkout\n', 'RULES.md': '# Rules\n' }, 'api', { 'estate.json': { ...ACME_CONFIG, repos: [{ name: 'web' }, { name: 'api', standards: ['api/RULES.md'] }] }, ...ACME_FILES })
+  tree(made.base)
+  const inside = workTree(made, join(made.base, 'api-limit'))
+
+  assert.equal(standards(made, inside, 'api').split('\n')[1], `- ${join(inside, 'RULES.md')}`)
+})
+
+const HOW_A_FILE_IS_WRITTEN = 'From here a file of the map is read and written at the path context-central draft prints for it, and context-central take puts what was written into the map.'
 const index = (made: Checkout, cwd: string) => run(['index', '--absolute'], { cwd, env: made.env }).stdout.trimEnd().split('\n')
 const soloIndex = (made: Checkout, ...workTreeLines: string[]) => [
   `Context map "solo": ${join(made.main, MAP)}`,
@@ -248,4 +269,41 @@ test('the index does not count a draft that was only read: one never edited, who
   writeFileSync(join(made.main, MAP, SOLO_STATE), '# PROJ-12, as another session left it\n')
 
   assert.deepEqual(index(made, made.inside).slice(2, 4), [`Work tree: ${made.inside}, of the checkout at ${made.main}. ${HOW_A_FILE_IS_WRITTEN}`, 'Work in flight (1):'])
+})
+
+test('a work tree moved by hand still finds the map of its main checkout', () => {
+  const made = beside()
+  const moved = join(made.base, 'elsewhere', 'solo-limit')
+  mkdirSync(join(made.base, 'elsewhere'))
+  renameSync(made.beside, moved)
+
+  assert.equal(mapLine(made, moved), `map: solo at ${join(made.main, MAP)}`)
+})
+
+test('a folder whose .git file names no git folder is no work tree, and the map above it answers', () => {
+  const made = estate()
+  mkdirSync(join(made.main, 'vendored'))
+  writeFileSync(join(made.main, 'vendored', '.git'), 'not a pointer\n')
+
+  assert.deepEqual(where(made, join(made.main, 'vendored')).slice(3), ['here: inside', ''])
+})
+
+test('a checkout kept inside another, whose git folder is kept apart with no shared folder named, is no work tree', () => {
+  const made = estate()
+  mkdirSync(join(made.main, 'vendored', 'kept-apart'), { recursive: true })
+  writeFileSync(join(made.main, 'vendored', '.git'), `gitdir: ${join(made.main, 'vendored', 'kept-apart')}\n`)
+
+  assert.deepEqual(where(made, join(made.main, 'vendored')).slice(3), ['here: inside', ''])
+})
+
+test('a work tree of a repository that has no checkout of its own has no main checkout, and finds no map through one', () => {
+  const made = solo()
+  tree(made.base)
+  git(made, made.base, 'clone', '-q', '--bare', made.main, join(made.base, 'solo.git'))
+  git(made, join(made.base, 'solo.git'), 'worktree', 'add', '-q', join(made.base, 'from-bare'), '-b', 'work/limit')
+
+  const result = run(['where'], { cwd: join(made.base, 'from-bare'), env: made.env })
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /no context map found/)
 })

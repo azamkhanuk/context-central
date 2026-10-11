@@ -4,12 +4,13 @@ import { listed } from './connections.mts'
 import { draftsDir, waitingIn } from './drafts.mts'
 import { repoAt, standardsFiles } from './estate.mts'
 import { hubPath, inFlight, listWorkItems } from './nodes.mts'
+import type { Env } from './cli.mts'
 import type { Connection } from './connections.mts'
 import type { Estate } from './estate.mts'
 
 const LAST_LINE = "A work item's state file records where it stands and what is next. context-central resolve <item> lists the notes behind it. Evidence that is not text sits in the item's evidence/ folder, named in a note."
 const HOW_TO_ASK = 'context-central connections says how this machine reaches each.'
-const HOW_A_FILE_IS_WRITTEN = 'A file of the map is written from here with context-central draft, which prints the file to write, and context-central take, which puts it in the map.'
+const HOW_A_FILE_IS_WRITTEN = 'From here a file of the map is read and written at the path context-central draft prints for it, and context-central take puts what was written into the map.'
 const CONNECTIONS_CHARS = 400
 
 export interface IndexRepo {
@@ -28,9 +29,9 @@ export function indexData(estate: Estate, startDir?: string) {
   return { title: estate.config.title, mapDir: estate.mapDir, hub: hubPath(estate), repo: repoAround(estate, startDir), connections, items }
 }
 
-export function buildIndex(estate: Estate, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
+export function buildIndex(estate: Estate, env: Env, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
   const { title, mapDir, hub, repo, items } = indexData(estate, startDir)
-  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...workTreeLines(estate), ...connectionsLine(listed(estate.config.connections))]
+  const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...workTreeLines(estate, env), ...connectionsLine(listed(estate.config.connections))]
   if (items.length === 0) return [...head, 'No work in flight.'].join('\n')
   const rows = items.map(item => `- ${item.id} | ${item.title} | ${(absolute ? item.path : item.entry) ?? 'no entry file'}`)
   const withRows = (shown: number) => [...head, `Work in flight (${rows.length}):`, ...rows.slice(0, shown), ...restRow(rows.length - shown), LAST_LINE].join('\n')
@@ -54,9 +55,9 @@ function repoLine({ name, note, path, standards, standardsPath }: IndexRepo, abs
   return `Repo ${name}: ${absolute ? path : note}${also}`
 }
 
-function workTreeLines(estate: Estate) {
+function workTreeLines(estate: Estate, env: Env) {
   if (!estate.workTree) return []
-  const drafts = draftsDir(estate)
+  const drafts = draftsDir(estate, env)
   const waiting = drafts ? waitingIn(estate, drafts).length : 0
   return [
     `Work tree: ${estate.workTree.root}, of the checkout at ${estate.workTree.main}.${drafts ? ` ${HOW_A_FILE_IS_WRITTEN}` : ''}`,

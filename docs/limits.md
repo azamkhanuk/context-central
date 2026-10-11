@@ -8,7 +8,7 @@
 - It does not link or copy nodes into the checkouts. Nodes are reached by pointer. A draft in a git work tree is one file on its way to the map, not a copy of the map.
 - It does not write a hub kept out of git, or the settings that enable the plugin, from a git work tree: those belong to the main checkout. In a work tree onboard stops for a map kept out of git and names the main checkout to set it up from.
 - It does not delete or rename a file of the map through a draft.
-- It does not give a root layout's map a draft: that map is outside the repository, so a session in a repo's work tree writes it as a session in that repo does, under the host's ordinary permission.
+- It does not give a root layout's map a draft. A map above the repositories is outside them, so a session in a repo's work tree writes it as a session in that repo does, under the host's ordinary permission. A map laid out at the root of a repository and kept out of git is not reached by a host's editing tools from a work tree: write that one from the main checkout, or use the inner layout.
 - It has not been shown what a sandboxed shell makes of the plugin's writes to a map in the main checkout from a git work tree.
 - It does not move or rewrite the files of an older item. Adoption lays a state file beside them and changes nothing else.
 - It does not find a pull request written as a repo and a number. A link finds its work item once the item's state file or notes hold it, which checkpoint writes.

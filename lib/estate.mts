@@ -182,14 +182,15 @@ export function repoFolder({ estateRoot, workTree }: Estate, repo: Repo) {
   return workTree ? inTree(workTree, folder) : folder
 }
 
-export function standardsFiles({ estateRoot, mapDir, config, workTree }: Estate, repo: Repo): StandardsFile[] {
+export function standardsFiles({ estateRoot, mapDir, layout, config, workTree }: Estate, repo: Repo): StandardsFile[] {
   const folder = join(mapDir, STANDARDS_DIR)
   const kept = config.nodeDirs.includes(STANDARDS_DIR)
   const namedAfter = (name: string) => join(folder, `${name}.md`)
   const named = namedAfter(repo.name)
   const nameable = NODE_NAME.test(repo.name)
   const byName = kept && nameable && stateOf(named) === 'file' ? [{ rel: relative(estateRoot, named).split(sep).join('/'), path: named }] : []
-  const here = (path: string) => (workTree && !holds(mapDir, path) && stateOf(inTree(workTree, path)) === 'file' ? inTree(workTree, path) : path)
+  const ofTheMap = (path: string) => layout === 'inner' && holds(mapDir, path)
+  const here = (path: string) => (workTree && !ofTheMap(path) && stateOf(inTree(workTree, path)) === 'file' ? inTree(workTree, path) : path)
   const listed = (repo.standards ?? []).map(rel => ({ rel, path: here(resolve(estateRoot, rel)) }))
   const seen = new Set<string>()
   const files = [...byName, ...listed]

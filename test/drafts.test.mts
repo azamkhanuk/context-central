@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, run, solo, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, notOnWindows, run, solo, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -83,7 +83,7 @@ test('draft with no path is wrong usage', () => {
 test('draft refuses a path that is no file of the map, and then drafts none of those asked with it', () => {
   const made = estate()
 
-  for (const odd of ['src/app.js', 'work/../../CLAUDE.md', join(made.main, 'CLAUDE.md'), 'bin/context-central']) {
+  for (const odd of ['src/app.js', 'work/../../CLAUDE.md', join(made.main, 'CLAUDE.md'), 'bin/context-central', 'work/PROJ-12', 'work/', 'work/../estate.json', 'work/.hidden/x.md', 'repos/.x.md']) {
     const result = draft(made, made.inside, SOLO_STATE, odd)
 
     assert.equal(result.code, 2, odd)
@@ -350,4 +350,64 @@ test("take drops a draft that was never edited, though the map's file has change
   assert.equal(result.code, 0)
   assert.equal(read(made.main, SOLO_STATE), '# PROJ-12, as another session left it\n')
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('a path asked twice in one call is printed twice and drafted once', () => {
+  const made = estate()
+
+  const result = draft(made, made.inside, SOLO_STATE, SOLO_STATE)
+
+  assert.equal(result.stdout, `${join(made.inside, MAP, SOLO_STATE)}\n`.repeat(2))
+  assert.deepEqual(Object.keys(JSON.parse(read(made.inside, '.drafted.json')) as object), [SOLO_STATE])
+})
+
+test('take keeps a draft that is a file where the map holds a folder, and takes the rest', () => {
+  const made = estate()
+  write(made.inside, 'work/PROJ-12', 'a file where the map has a folder\n')
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+
+  const result = take(made, made.inside)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, 'took concepts/limits.md\n')
+  assert.equal(result.stderr, kept('work/PROJ-12', 'the map holds a folder at this path'))
+})
+
+test('take keeps a draft that cannot be written into the map, with what the system said, and takes the rest', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = estate()
+  draft(made, made.inside, SOLO_STATE)
+  write(made.inside, SOLO_STATE, '# PROJ-12, built\n')
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+  chmodSync(join(made.main, MAP, SOLO_STATE), 0o444)
+  chmodSync(join(made.main, MAP, 'work', 'PROJ-12'), 0o555)
+
+  const result = take(made, made.inside)
+  chmodSync(join(made.main, MAP, 'work', 'PROJ-12'), 0o755)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, 'took concepts/limits.md\n')
+  assert.match(result.stderr, /^context-central take: kept work\/PROJ-12\/STATE\.md: it could not be written into the map \(EACCES/)
+  assert.equal(read(made.inside, SOLO_STATE), '# PROJ-12, built\n')
+})
+
+test('a record that names a draft which is not there does not keep the drafts folder', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+  write(made.inside, '.drafted.json', JSON.stringify({ 'work/gone.md': 'abc' }))
+
+  take(made, made.inside)
+
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test("where git tracks the notes at the map's place in a work tree, they are no drafts: take leaves them and draft gives the map's own file", () => {
+  const made = solo({ '.gitignore': `${MAP}/estate.json\n` })
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+
+  const taken = take(made, inside)
+
+  assert.equal(taken.stdout, 'Nothing to take: here a file of the map is written in place.\n')
+  assert.equal(git(made, inside, 'status', '--short').stdout, '')
+  assert.equal(draft(made, inside, 'glossary.md').stdout, `${join(made.main, MAP, 'glossary.md')}\n`)
 })

@@ -148,7 +148,7 @@ test('onboard names the fact detect gives for a work tree, and the main checkout
 
   assert.deepEqual(Object.keys(detectJson(inside).workTree as object), ['root', 'main'])
   assert.ok(onboard.includes('`workTree`'))
-  assert.ok(onboard.includes('its `main`'))
+  assert.ok(onboard.includes('`main`'))
 })
 
 test('a work tree one level down is not listed as a repo', () => {

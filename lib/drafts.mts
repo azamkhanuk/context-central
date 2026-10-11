@@ -6,8 +6,10 @@ import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
 import { makeFolder } from './nodes.mts'
 import { withoutBom } from './text.mts'
-import { holds, inTree } from './worktree.mts'
+import { gitTracks, holds } from './worktree.mts'
+import type { Env } from './cli.mts'
 import type { Estate } from './estate.mts'
+import type { WorkTree } from './worktree.mts'
 
 export interface Taken {
   took: string[]
@@ -20,15 +22,17 @@ type Verdict = 'took' | 'same' | { kept: string }
 
 const RECORD = '.drafted.json'
 
-export function draftsDir({ workTree, layout, mapDir }: Estate) {
-  return workTree && layout === 'inner' && mapDir !== workTree.main && holds(workTree.main, mapDir) ? inTree(workTree, mapDir) : null
+export function draftsDir({ layout, mapDir, workTree }: Estate, env: Env, tree: WorkTree | null = workTree) {
+  if (!tree || layout !== 'inner' || mapDir === tree.main || !holds(tree.main, mapDir)) return null
+  const dir = join(tree.root, relative(tree.main, mapDir))
+  return gitTracks(tree.root, dir, env) ? null : dir
 }
 
-export function inMap(estate: Estate, given: string) {
-  const folder = isAbsolute(given) ? [draftsDir(estate), estate.mapDir].find(held => held !== null && holds(held, given)) : estate.mapDir
-  if (!folder) return null
+export function inMap(estate: Estate, drafts: string | null, given: string) {
+  const folder = isAbsolute(given) ? [drafts, estate.mapDir].find(held => held !== null && holds(held, given)) : estate.mapDir
+  if (!folder || given.split(/[\\/]/).includes('..')) return null
   const rel = posix.normalize((isAbsolute(given) ? relative(folder, given) : given).split(sep).join('/'))
-  return isMapFile(estate, rel) ? rel : null
+  return isMapFile(estate, rel) && !statSync(join(estate.mapDir, rel), { throwIfNoEntry: false })?.isDirectory() ? rel : null
 }
 
 export function mapFiles(estate: Estate) {
@@ -36,8 +40,7 @@ export function mapFiles(estate: Estate) {
   return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir].map(dir => dir.replace(/\/+$/, '')))] }
 }
 
-export function drafted(estate: Estate, rel: string) {
-  const drafts = draftsDir(estate)
+export function drafted(estate: Estate, drafts: string | null, rel: string) {
   const ours = join(estate.mapDir, rel)
   if (!drafts) return ours
   if (isFile(drafts)) throw new PluginError(`${drafts} is a file, not a folder, so no draft can be made there`)
@@ -56,13 +59,12 @@ export function waitingIn(estate: Estate, dir: string) {
   return draftsIn(dir).filter(rel => !sameAsOurs(estate, dir, rel) && !untouched(join(dir, rel), record[rel]))
 }
 
-export function take(estate: Estate, over: string[]): Taken {
-  const drafts = draftsDir(estate)
+export function take(estate: Estate, drafts: string | null, over: string[]): Taken {
   const waiting = drafts ? draftsIn(drafts) : []
   const unmet = over.find(rel => !waiting.includes(rel))
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
-  if (!drafts || waiting.length === 0) return taken
+  if (!drafts || !statSync(drafts, { throwIfNoEntry: false })?.isDirectory()) return taken
   const record = readRecord(drafts)
   for (const rel of waiting) {
     const verdict = settle(estate, drafts, rel, record[rel], over.includes(rel))
@@ -72,9 +74,8 @@ export function take(estate: Estate, over: string[]): Taken {
     }
     if (verdict === 'took') taken.took.push(rel)
     rmSync(join(drafts, rel))
-    delete record[rel]
   }
-  tidy(drafts, record)
+  tidy(drafts, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(drafts, rel)))))
   return taken
 }
 
@@ -84,16 +85,19 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   const held = isFile(ours)
   if (sameAsOurs(estate, drafts, rel) || untouched(draft, base)) return 'same'
   if (!isMapFile(estate, rel)) return { kept: 'not a file of the map' }
+  if (statSync(ours, { throwIfNoEntry: false })?.isDirectory()) return { kept: 'the map holds a folder at this path' }
   const fault = rel === CONFIG_FILE ? settingsFault(draft) : null
   if (fault) return { kept: fault }
   if (held && !forced && base !== hashOf(ours)) return { kept: `${base ? "the map's file changed after this was drafted" : 'the map holds this file and the draft was not made from it'}; compare it with ${ours}, then run context-central take --over ${rel}` }
   try {
     makeFolder(estate.mapDir, posix.dirname(rel))
+    copyFileSync(draft, ours)
   } catch (error) {
-    if (!(error instanceof PluginError)) throw error
-    return { kept: error.message }
+    if (error instanceof PluginError) return { kept: error.message }
+    const { code } = error as NodeJS.ErrnoException
+    if (!code) throw error
+    return { kept: `it could not be written into the map (${code})` }
   }
-  copyFileSync(draft, ours)
   return 'took'
 }
 
@@ -141,7 +145,8 @@ function prune(dir: string) {
 
 function isMapFile(estate: Estate, rel: string) {
   const { files, folders } = mapFiles(estate)
-  return files.includes(rel) || (!rel.endsWith('/') && folders.some(folder => rel.startsWith(`${folder}/`)))
+  const hidden = rel.split('/').some(part => part.startsWith('.'))
+  return files.includes(rel) || (!hidden && !rel.endsWith('/') && folders.some(folder => rel.startsWith(`${folder}/`)))
 }
 
 function ownGlossary(estate: Estate) {

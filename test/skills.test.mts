@@ -450,17 +450,27 @@ test('the skills name the lines take prints for a draft it took and for one it k
   }
 })
 
-test('implement names the line where prints in a work tree, and three skills take a repo\'s folder from the root standards gives', () => {
+function soloWorkTree() {
   const made = solo()
   tree(made.base)
-  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+  return { ...made, inside: workTree(made, join(made.main, '.claude', 'worktrees', 'limit')) }
+}
 
-  const where = run(['where'], { cwd: inside, env: made.env }).stdout.split('\n')
-  const [recorded] = JSON.parse(run(['standards', 'solo', '--json'], { cwd: inside, env: made.env }).stdout) as { root: unknown }[]
+test('implement names the line where prints in a work tree', () => {
+  const made = soloWorkTree()
 
-  assert.equal(where[4], `work tree: ${inside}, of the checkout at ${made.main}`)
-  assert.ok(skillText('implement').includes('a `work tree:` line'))
-  assert.equal(recorded.root, inside)
+  const where = run(['where'], { cwd: made.inside, env: made.env }).stdout.split('\n')
+
+  assert.equal(where[4], `work tree: ${made.inside}, of the checkout at ${made.main}`)
+  assert.ok(skillText('implement').includes('`work tree:`'))
+})
+
+test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {
+  const made = soloWorkTree()
+
+  const [recorded] = JSON.parse(run(['standards', 'solo', '--json'], { cwd: made.inside, env: made.env }).stdout) as { root: unknown }[]
+
+  assert.equal(recorded.root, made.inside)
   for (const name of ['standards', 'design', 'implement']) {
     assert.ok(skillText(name).includes('`context-central standards <repo> --json`'), name)
     assert.ok(skillText(name).includes('`root`'), name)

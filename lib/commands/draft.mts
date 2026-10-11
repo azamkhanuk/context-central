@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { drafted, inMap, mapFiles } from '../drafts.mts'
+import { drafted, draftsDir, inMap, mapFiles } from '../drafts.mts'
 import { UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import type { Io } from '../cli.mts'
@@ -11,8 +11,9 @@ export function run(args: string[], io: Io) {
   const { positionals } = parseArgs({ args, allowPositionals: true, options: {} })
   if (positionals.length === 0) throw new UsageError('expected a file of the map: draft <path>...')
   const estate = requireEstate(io)
-  const asked = positionals.map(given => inMap(estate, given) ?? refuse(estate, given))
-  for (const rel of asked) io.out(drafted(estate, rel))
+  const drafts = draftsDir(estate, io.env)
+  const asked = positionals.map(given => inMap(estate, drafts, given) ?? refuse(estate, given))
+  for (const rel of asked) io.out(drafted(estate, drafts, rel))
 }
 
 function refuse(estate: Estate, given: string): never {

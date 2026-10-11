@@ -9,8 +9,9 @@ export const summary = "Put this work tree's drafts into the map: take [--over <
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { over: { type: 'string', multiple: true } } })
   const estate = requireEstate(io)
-  if (!draftsDir(estate)) return io.out('Nothing to take: here a file of the map is written in place.')
-  const { took, kept } = take(estate, (values.over ?? []).map(given => inMap(estate, given) ?? refuse(given)))
+  const drafts = draftsDir(estate, io.env)
+  if (!drafts) return io.out('Nothing to take: here a file of the map is written in place.')
+  const { took, kept } = take(estate, drafts, (values.over ?? []).map(given => inMap(estate, drafts, given) ?? refuse(given)))
   for (const rel of took) io.out(`took ${rel}`)
   for (const { rel, why } of kept) io.err(`context-central take: kept ${rel}: ${why}`)
   if (took.length + kept.length === 0) io.out('Nothing waits to be taken.')

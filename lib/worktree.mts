@@ -49,12 +49,12 @@ export function workTreesOf(main: string) {
     .sort()
 }
 
-export function gitTracks(dir: string, file: string, env: Env) {
-  return asked(dir, ['ls-files', '--error-unmatch', '--', relative(dir, file)], env) !== NOT_SO
+export function gitTracks(dir: string, path: string, env: Env) {
+  return asked(dir, ['ls-files', '--error-unmatch', '--', asGitTakesIt(dir, path)], env) !== NOT_SO
 }
 
-export function gitIgnores(dir: string, file: string, env: Env) {
-  return asked(dir, ['check-ignore', '-q', '--', relative(dir, file)], env) === 0
+export function gitIgnores(dir: string, path: string, env: Env) {
+  return asked(dir, ['check-ignore', '-q', '--', asGitTakesIt(dir, path)], env) === 0
 }
 
 export function holds(folder: string, path: string) {
@@ -64,6 +64,10 @@ export function holds(folder: string, path: string) {
 
 function moved(from: string, to: string, path: string) {
   return holds(from, path) ? join(to, relative(from, resolve(path))) : path
+}
+
+function asGitTakesIt(dir: string, path: string) {
+  return relative(dir, path).split(sep).join('/')
 }
 
 function asked(dir: string, args: string[], env: Env) {
@@ -86,7 +90,8 @@ function adminFolder(root: string) {
 // Git may spell a folder another way than the session does, so the main checkout is placed by the way from the work tree to it.
 function spelledFrom(root: string, admin: string, main: string) {
   const ownGit = read(join(admin, 'gitdir'))
-  return ownGit ? resolve(root, relative(dirname(resolve(admin, ownGit)), main)) : main
+  const placed = ownGit && resolve(root, relative(dirname(resolve(admin, ownGit)), main))
+  return placed && entryAt(join(placed, GIT))?.isDirectory() ? placed : main
 }
 
 function entryAt(path: string) {

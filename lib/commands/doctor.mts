@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, relative, sep } from 'node:path'
+import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, notRunningAs, pinnedAccount, pinnedToken, reachOf, readAs, whyNotStarted } from '../connections.mts'
-import { waitingIn } from '../drafts.mts'
+import { draftsDir, waitingIn } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
@@ -14,7 +14,7 @@ import { hubPath, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
-import { gitIgnores, holds, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../worktree.mts'
+import { gitIgnores, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Connection } from '../connections.mts'
 import type { Estate, Repo } from '../estate.mts'
@@ -157,12 +157,13 @@ function worktrees(estate: Estate, io: Io) {
   const own = estate.workTree ? null : linkedWorkTree(estate.mapDir)
   if (own && gitIgnores(own.root, estate.configPath, io.env)) return `the map sits in a work tree, ${own.root}, and git ignores it there, so it goes when the work tree is removed; set the map up in the main checkout, ${own.main}`
   const main = estate.workTree?.main ?? mainCheckoutOf(estate.mapDir)
-  if (own || !main || estate.layout !== 'inner' || !holds(main, estate.mapDir)) return null
+  if (own || !main) return null
   const waiting = workTreesOf(main)
-    .map(root => ({ root, count: waitingIn(estate, join(root, relative(main, estate.mapDir))).length }))
+    .map(root => ({ root, drafts: draftsDir(estate, io.env, { root, main }) }))
+    .map(({ root, drafts }) => ({ root, count: drafts ? waitingIn(estate, drafts).length : 0 }))
     .filter(({ count }) => count > 0)
   if (waiting.length === 0) return null
-  return `${waiting.map(({ root, count }) => `${count} ${count === 1 ? 'draft waits' : 'drafts wait'} in ${root}`).join(', ')}; run context-central take there`
+  return `${waiting.map(({ root, count }) => `${count} ${count === 1 ? 'draft waits' : 'drafts wait'} in ${root}`).join('; ')}; run context-central take there`
 }
 
 function named(files: string[]) {
