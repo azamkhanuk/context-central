@@ -28,6 +28,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - The plugin holds no rule for any language, framework or build tool, in `lib/`, a skill or an agent. How a repo's code is written and checked comes from its own files, its standards note and its recorded checks.
 - Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
+- A skill has a file of the map written at the path `context-central draft` prints and put into the map by `context-central take`, never at a path it works out for itself: in a git work tree the host refuses a session's editing tools on the map.
 - `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release.
 - No lockfile is committed. With a `package.json` and a lockfile at the plugin root, Claude Code runs an npm install in every user's plugin cache, and the plugin has no runtime dependencies.
 

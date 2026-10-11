@@ -9,6 +9,7 @@ On startup, resume, clear, compaction and fork, the hook adds the live index.
 - It names the map, the hub, and each work item in flight with its title and state file.
 - Where the map records connections, one line names each, what it holds and the ways recorded for it.
 - In a session started inside a registered repo that has a repo note, one line after the hub names that note and, where the repo has one, its standards note. In a map kept inside a repo whose entry in `estate.json` has the path `.`, every session starts inside that repo, so once it has a note the line is there from the estate root down. In the root layout a repo registered at `.` is named at the root only, since below the root the hooks cover a folder only through a repo's path or a node folder. `budget <folder>` counts the line; `lint`'s index check has no folder to start from and counts the index without it.
+- In a session in a git work tree, one line names the work tree and the checkout it belongs to. Where the map is kept out of git in that checkout, the line also says that a file of the map is written from there through `draft` and `take`, and where drafts wait one more line says how many and under which folder.
 - After compaction or on resume, the state file of the item the session was working on follows the index. After a compaction the hook also forgets what the session was given, so a later prompt that names a repo, an item or a note gets its pointers again.
 - The whole text is cut at 9,500 characters.
 
@@ -42,7 +43,7 @@ The hook shows a notice to the person, not to the model. If Claude Code reports 
 ## When the hooks stay silent
 
 - no map covers the session's folder
-- the working directory is inside a different map
+- the working directory is inside a different map, unless it is a git work tree that a map answers for: the hooks then start from the work tree, so a work tree with a map of its own, kept in git, is answered from that map
 - the folder is outside the estate, under a `leftAlone` entry, or not a registered repo or node folder
 - the prompt matches nothing with confidence
 - the same answer was already delivered in this session

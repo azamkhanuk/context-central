@@ -37,6 +37,18 @@ There are two layouts:
 
 **The glossary.** The estate's terms live in the map's own `glossary.md`, or in a file the estate already keeps. Name that file with `"glossary"` in `estate.json`, as a path from the estate root. `init` then lays out none, and the plugin never creates, moves or reformats the file. `context-central where` says where the glossary is. Where it is inside a registered repo, prep and checkpoint read it, write nothing to it and list the terms in their closing answer: writing would change that repo's work tree on whatever branch it is on.
 
+## In a git work tree
+
+One estate has one map, and a git work tree never holds a second one. Every step works in a work tree as it does in the main checkout, with nothing to set up.
+
+- **A map kept out of git stays in the main checkout.** A session in a work tree of that checkout finds it from there, wherever the work tree sits: under the checkout, beside it or elsewhere.
+- **A file of the map is written through `draft` and `take`.** `context-central draft <path>` prints the file to write. In the main checkout that is the map's own file. In a work tree it is a draft at the same place under the work tree, since a host may refuse a session's editing tools on anything outside its work tree. `context-central take` puts the drafts into the map and removes them from the work tree.
+- **`take` keeps a draft whose file in the map has moved on**, and says so: another session changed that file after the draft was made. `take --over <path>` takes the draft once you have compared the two.
+- **A folder at the map's place in a work tree is that work tree's drafts**, whatever it holds, as long as git does not track it there. So a copy of the map made there, by hand or by a list of ignored files to copy into new work trees, is never taken for the map: `take` drops what is the same as the map's file and keeps what differs. Do not copy the map into a work tree.
+- **The repo's folder is the work tree.** `standards` gives the work tree as the folder the repo's checks run from, and coverage counts a folder in the work tree as the same folder of the main checkout.
+- **Drafts go when the work tree goes.** The live index says how many wait, and `doctor` names every work tree where some do.
+- **A map kept in git is checked out in every work tree**, each on its own branch. A session in a work tree reads and writes that copy, and what it writes reaches the main checkout when the branch is merged.
+
 ## The three tiers
 
 What loads, and when, is decided by tier. The budgets are settings under `budgets` in `estate.json`. `context-central lint` reports anything over.

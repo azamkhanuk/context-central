@@ -42,7 +42,7 @@ _Avoid_: style guide, coding guidelines, rulebook, skill
 **Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. A repo's are listed under `standards` on its entry, never copied into its standards note.
 _Avoid_: memory files, context files, agent instructions
 
-**Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, and work is verified only when every one exits 0.
+**Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, which in a work tree of the repo is the work tree, and work is verified only when every one exits 0.
 _Avoid_: quality gate, pipeline, score
 
 **Work item**: One piece of work in flight or done, kept as a folder under `work/` and named by a ticket key or a plain name. A `README.md` or an `index.md` directly under `work/` is not one, and neither is anything there the settings list under `notNodes`.
@@ -81,8 +81,17 @@ _Avoid_: key, slug, reference
 **Counted run**: A run of letters and digits in a query that is not a stop word and is not one or two letters alone; a run that holds a digit always counts. The routes for a node's name and a glossary term match on counted runs, and a query with none is answered by neither, nor by the route for an identifier.
 _Avoid_: token, keyword
 
-**Coverage**: Whether the map answers for a given folder: the estate root, a registered repo, a node folder, or anywhere inside an inner-layout repository. Where there is no coverage the hooks stay silent.
+**Coverage**: Whether the map answers for a given folder: the estate root, a registered repo, a node folder, or anywhere inside an inner-layout repository. A folder in a work tree counts as the same folder of its main checkout. Where there is no coverage the hooks stay silent.
 _Avoid_: scope, reach, ownership
+
+**Work tree**: A second checkout of a repository that git keeps beside the main one, on a branch of its own. A session in one works on the code there, and the estate's map stays the one map: a work tree holds a map only where git tracks the map and checks it out there.
+_Avoid_:
+
+**Main checkout**: The checkout a work tree was made from, whose folder holds the repository's own git folder. A map kept out of git lives there.
+_Avoid_:
+
+**Draft**: A file of the map as a session in a work tree writes it: a file at the same place under the work tree, which `take` puts into the map. Any folder at the map's place in a work tree that git does not track there is drafts, never a second map. In the main checkout there is no draft, and the map's own file is written.
+_Avoid_:
 
 **Connection**: A named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate may have any number, and none is required.
 _Avoid_: route, tracker route
