@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, run, solo, workTree } from './helpers.mts'
@@ -293,4 +293,36 @@ test('a whole copy of the map in the work tree is dropped by take, but for what 
   assert.equal(result.stdout, `took ${SPEC}\n`)
   assert.equal(result.stderr, '')
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('a record of what was drafted that is not a JSON object reads as empty', () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+
+  for (const record of ['null', '[1]', 'not json']) {
+    write(made.inside, '.drafted.json', record)
+    write(made.inside, SPEC, '# Spec\n')
+    rmSync(join(made.main, MAP, SPEC), { force: true })
+
+    assert.equal(take(made, made.inside).stdout, `took ${SPEC}\n`, record)
+  }
+})
+
+test('draft says so when a file stands where the drafts folder would go', () => {
+  const made = estate()
+  writeFileSync(join(made.inside, MAP), 'not a folder\n')
+
+  const result = draft(made, made.inside, SOLO_STATE)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central draft: ${join(made.inside, MAP)} is a file, not a folder, so no draft can be made there\n`)
+})
+
+test('the work folder is a place for drafts where the settings keep it out of the node folders', () => {
+  const made = solo({ [`${MAP}/estate.json`]: { ...SOLO_CONFIG, nodeDirs: ['repos'], workDir: 'items' }, [`${MAP}/items/PROJ-12/STATE.md`]: '# PROJ-12\n' })
+  tree(made.base)
+  const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
+
+  assert.equal(draft(made, inside, 'items/PROJ-12/STATE.md').stdout, `${join(inside, MAP, 'items', 'PROJ-12', 'STATE.md')}\n`)
+  assert.equal(draft(made, inside, 'concepts/gateway.md').stderr, 'context-central draft: concepts/gateway.md is not a file of the map: expected estate.json, glossary.md or a path under one of: repos, items\n')
 })

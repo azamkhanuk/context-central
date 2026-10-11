@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path'
+import { copyFileSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
+import { isAbsolute, join, posix, relative, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
@@ -32,16 +32,18 @@ export function inMap(estate: Estate, given: string) {
 }
 
 export function mapFiles(estate: Estate) {
-  return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: estate.config.nodeDirs.map(dir => dir.replace(/\/+$/, '')) }
+  const { nodeDirs, workDir } = estate.config
+  return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir].map(dir => dir.replace(/\/+$/, '')))] }
 }
 
 export function drafted(estate: Estate, rel: string) {
   const drafts = draftsDir(estate)
   const ours = join(estate.mapDir, rel)
   if (!drafts) return ours
+  if (isFile(drafts)) throw new PluginError(`${drafts} is a file, not a folder, so no draft can be made there`)
   const draft = join(drafts, rel)
   if (isFile(ours) && !statSync(draft, { throwIfNoEntry: false })) {
-    mkdirSync(dirname(draft), { recursive: true })
+    makeFolder(drafts, posix.dirname(rel))
     copyFileSync(ours, draft)
     writeRecord(drafts, { ...readRecord(drafts), [rel]: hashOf(ours) })
   }
@@ -143,7 +145,8 @@ function ownGlossary(estate: Estate) {
 
 function readRecord(drafts: string): Drafted {
   try {
-    return JSON.parse(readFileSync(join(drafts, RECORD), 'utf8')) as Drafted
+    const held = JSON.parse(readFileSync(join(drafts, RECORD), 'utf8')) as unknown
+    return held && typeof held === 'object' && !Array.isArray(held) ? (held as Drafted) : {}
   } catch {
     return {}
   }
