@@ -664,3 +664,11 @@ test('a prompt that is a number alone is given nothing', () => {
 
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '42' }))
 })
+
+test("a work item's design is a pointer in the hook's answer too", () => {
+  const root = tree(acme({ 'work/PROJ-12/DESIGN.md': '# Design\n' }))
+
+  const lines = context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' })).split('\n')
+
+  assert.equal(lines[3], `- ${join(root, 'work/PROJ-12/DESIGN.md')} (${Buffer.byteLength('# Design\n')} B) design of the work item`)
+})

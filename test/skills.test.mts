@@ -397,13 +397,13 @@ test("note --new refuses a kind the map does not list, and a name that cannot be
   assert.match(oddName.stderr, /the kind is one of: .*standards\n$/)
 })
 
-test('a design linked from the state file is a pointer of its item, which is where design puts it', () => {
+test('a design beside the spec is a pointer of its item under its own label, and the design skill links it from the state file', () => {
   const state = '---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12\n\n## Where the detail lives\n\n- Design: [DESIGN.md](DESIGN.md)\n'
   const root = tree(acme({ 'work/PROJ-12/STATE.md': state, 'work/PROJ-12/DESIGN.md': '# Design\n' }))
 
   const pointers = run(['resolve', 'PROJ-12'], { cwd: root }).stdout.split('\n')
 
-  assert.ok(pointers.includes('- work/PROJ-12/DESIGN.md (9 B) linked from the work item'))
+  assert.ok(pointers.includes('- work/PROJ-12/DESIGN.md (9 B) design of the work item'))
   assert.ok(step('design', '5. Show it').includes('`[DESIGN.md](DESIGN.md)`'))
 })
 

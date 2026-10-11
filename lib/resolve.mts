@@ -387,15 +387,18 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
   if (!item.entry) return null
   const entry = readNode(estate, item.entry)
   const specRel = `${item.dirRel}/SPEC.md`
+  const designRel = `${item.dirRel}/DESIGN.md`
   const olderRel = item.older && entry.links.includes(item.older.rel) ? item.older.rel : null
+  const has = (rel: string) => item.files.some(file => file.rel === rel)
   const lead = [
     pointer(estate, entry.rel, item.entry.kind === 'state' ? 'state file: where the work stands and what is next' : 'entry note of the work item'),
-    ...(item.files.some(file => file.rel === specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(has(specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(has(designRel) ? [pointer(estate, designRel, 'design of the work item')] : []),
     ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
   const { linked, named } = behind(estate, entry)
   const standards = standardsOf(estate, [...linked, ...named])
-  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel && !standards.includes(rel))
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== designRel && rel !== olderRel && !standards.includes(rel))
   const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
   const pointers = withStandards(estate, listed.pointers)
