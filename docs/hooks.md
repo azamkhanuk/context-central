@@ -47,5 +47,6 @@ The hook shows a notice to the person, not to the model. If Claude Code reports 
 - the folder is outside the estate, under a `leftAlone` entry, or not a registered repo or node folder
 - the prompt matches nothing with confidence
 - the same answer was already delivered in this session
+- the prompt is the host's own text, a background task's notification or an agent's report, which begins `<task-notification>` or `<agent-message`: it gets no pointers and the session record is left as it was
 
 If `estate.json` is invalid, the person sees a one-line message and the model sees nothing. The resolver makes no network call.

@@ -672,3 +672,21 @@ test("a work item's design is a pointer in the hook's answer too", () => {
 
   assert.equal(lines[3], `- ${join(root, 'work/PROJ-12/DESIGN.md')} (${Buffer.byteLength('# Design\n')} B) design of the work item`)
 })
+
+test("the host's own text, a task's notification or an agent's report, is given nothing and leaves the record as it was", () => {
+  const root = tree(acme())
+  const dir = stateDir()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: dir }
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '<task-notification>\n<task-id>b5</task-id>\n<summary>The checks of PROJ-12 passed</summary>\n</task-notification>' }, env))
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '<agent-message from="a1">\n[Subagent hand-back] PROJ-12 is built.' }, env))
+
+  assert.deepEqual(readdirSync(dir), [])
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'pick up PROJ-12' }, env)), acmePointers(root))
+})
+
+test('a prompt from a person that carries one of those tags after its first word is answered', () => {
+  const root = tree(acme())
+
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'why did the <task-notification> for PROJ-12 come twice' })), acmePointers(root))
+})
