@@ -75,6 +75,9 @@ _Avoid_: router, search, retriever
 **Pointer**: One line the resolver returns: a file's path, its size, and why it is listed. A pointer is a fact about where something is, never an instruction to read it.
 _Avoid_: link, reference, result, hit
 
+**Host text**: Text the host queues as a prompt that no person typed: a background task's notification or an agent's report, which in Claude Code begin `<task-notification>` and `<agent-message`. The prompt hook gives it no pointers and leaves the session record as it was.
+_Avoid_: system message, injected prompt, notification prompt
+
 **Identifier**: What a node is known by besides its words: the `id` and each of the `aliases` in its frontmatter, and for a numbered node its kind and number.
 _Avoid_: key, slug, reference
 

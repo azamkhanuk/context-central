@@ -10,7 +10,7 @@ On startup, resume, clear, compaction and fork, the hook adds the live index.
 - Where the map records connections, one line names each, what it holds and the ways recorded for it.
 - In a session started inside a registered repo that has a repo note, one line after the hub names that note and, where the repo has one, its standards note. In a map kept inside a repo whose entry in `estate.json` has the path `.`, every session starts inside that repo, so once it has a note the line is there from the estate root down. In the root layout a repo registered at `.` is named at the root only, since below the root the hooks cover a folder only through a repo's path or a node folder. `budget <folder>` counts the line; `lint`'s index check has no folder to start from and counts the index without it.
 - In a session in a git work tree, one line names the work tree and the checkout it belongs to. Where the map is kept out of git in that checkout, the line also says that a file of the map is read and written from there at the path `draft` prints, and that `take` puts what was written into the map. Where drafts wait, one more line says how many and under which folder.
-- After compaction or on resume, the state file of the item the session was working on follows the index. After a compaction the hook also forgets what the session was given, so a later prompt that names a repo, an item or a note gets its pointers again.
+- After compaction or on resume, the state file of the item the session was working on follows the index. After a compaction the hook also forgets the pointers the session was given, so a later prompt that names a repo, an item or a note gets them again; the lines that say no work item answers to a ticket are kept, so they are not repeated. A clear deletes the session record.
 - The whole text is cut at 9,500 characters.
 
 ## When a prompt is submitted
@@ -27,7 +27,7 @@ The hook adds pointers when the prompt names something the map knows. First matc
 
 Routes 5 to 7 are tried only where the four before them have no answer, so a prompt that had an answer keeps it. They leave out the work folder, the log and the deep tier. A prompt's counted words are its runs of letters and digits, without stop words and runs of one or two letters; a run that holds a digit always counts. An identifier of one word answers only when it is the whole prompt, and a number alone names nothing.
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. A work item's pointers are its state file, its spec, the notes it links and the repo notes it names, and each repo note brings the repo's standards note straight after it. A repo's pointers are its note, its standards note and the notes its note links, among them a file of the repo itself when the note links one, in either layout, so long as the link stays inside the estate. They are facts, never instructions. Each answer is delivered once per session. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. A work item's pointers are its state file, its spec, its design where there is one, the notes it links and the repo notes it names, and each repo note brings the repo's standards note straight after it. A repo's pointers are its note, its standards note and the notes its note links, among them a file of the repo itself when the note links one, in either layout, so long as the link stays inside the estate. They are facts, never instructions. Each answer is delivered once per session; with no session id nothing is remembered, so the same pointers come on every prompt. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
 
 When a prompt names a ticket that no work item answers to, the hook adds one line saying so and which connection it reads as. A bare number is never reported, a reference is reported once per session, and three are reported at most.
 
@@ -43,9 +43,10 @@ The hook shows a notice to the person, not to the model. If Claude Code reports 
 ## When the hooks stay silent
 
 - no map covers the session's folder
-- the working directory is inside a different map, unless it is a git work tree that a map answers for: the hooks then start from the work tree, so a work tree with a map of its own, kept in git, is answered from that map
+- the working directory is inside a different map, unless it is a git work tree that a map answers for: the hooks then start from the work tree, and `CLAUDE_PROJECT_DIR` is not read there, so a work tree with a map of its own, kept in git, is answered from that map
 - the folder is outside the estate, under a `leftAlone` entry, or not a registered repo or node folder
 - the prompt matches nothing with confidence
 - the same answer was already delivered in this session
+- the prompt is the host's own text, a background task's notification or an agent's report, which begins `<task-notification>` or `<agent-message`: it gets no pointers and the session record is left as it was
 
-If `estate.json` is invalid, the person sees a one-line message and the model sees nothing. The resolver makes no network call.
+If `estate.json` is invalid, the person sees a one-line message and the model sees nothing. A hook that fails prints nothing and exits 0; with `CONTEXT_CENTRAL_DEBUG` set, the error goes to standard error. The resolver makes no network call.

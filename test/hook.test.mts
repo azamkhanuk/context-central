@@ -658,3 +658,44 @@ test('a node given among others that share its identifier is not given again by 
   assert.deepEqual(given(second('front-gate')), [join(root, 'concepts/doorway.md')])
   silent(second('front-gate'))
 })
+
+test('a prompt that is a number alone is given nothing', () => {
+  const root = tree(acme({ 'concepts/42.md': '# 42\n' }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '42' }))
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'the 42?' }))
+})
+
+test("a work item's design is a pointer in the hook's answer too", () => {
+  const root = tree(acme({ 'work/PROJ-12/DESIGN.md': '# Design\n' }))
+
+  const lines = context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' })).split('\n')
+
+  assert.equal(lines[3], `- ${join(root, 'work/PROJ-12/DESIGN.md')} (${Buffer.byteLength('# Design\n')} B) design of the work item`)
+})
+
+test("the host's own text, a task's notification or an agent's report, is given nothing and leaves the record as it was", () => {
+  const root = tree(acme())
+  const dir = stateDir()
+  const env = { CONTEXT_CENTRAL_STATE_DIR: dir }
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '<task-notification>\n<task-id>b5</task-id>\n<summary>The checks of PROJ-12 passed</summary>\n</task-notification>' }, env))
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '<agent-message from="a1">\n[Subagent hand-back] PROJ-12 is built.' }, env))
+
+  assert.deepEqual(readdirSync(dir), [])
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'pick up PROJ-12' }, env)), acmePointers(root))
+})
+
+test('a prompt from a person that carries one of those tags after its first word is answered', () => {
+  const root = tree(acme())
+
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'why did the <task-notification> for PROJ-12 come twice' })), acmePointers(root))
+})
+
+test("a prompt that is a work item's own ticket is answered where no connection reads tickets", () => {
+  const state = '---\nitem: login-fix\ntitle: Fix the login\nstatus: active\nticket: "#77"\n---\n# login-fix\n'
+  const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
+
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '#77' })).split('\n')[0], 'Context for work item login-fix:')
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: '(#77)' })).split('\n')[0], 'Context for work item login-fix:')
+})

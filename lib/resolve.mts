@@ -92,6 +92,7 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
+  if (numberAlone(estate, query)) return null
   const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
@@ -146,6 +147,13 @@ export function pointedTo(estate: Estate, entry: NodeRef) {
 
 function resolution({ by, key, item = null, name = null, label, pointers, more, notes = null, deep = null, evidence = null }: Pick<Resolution, 'by' | 'key' | 'label' | 'pointers' | 'more'> & Partial<Resolution>): Resolution {
   return { by, key, item, name, label, pointers, more, notes, deep, evidence }
+}
+
+function numberAlone(estate: Estate, query: string) {
+  const runs = countedRuns(query)
+  if (runs.length !== 1 || !DIGITS_ALONE.test(runs[0])) return false
+  if (listWorkItems(estate).some(item => item.ticket && wholeWord(item.ticket).test(query))) return false
+  return referencesIn([...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)], query).length === 0
 }
 
 function byWorkItem(estate: Estate, query: string, max: number) {
@@ -386,15 +394,18 @@ function itemResolution(estate: Estate, item: WorkItem, by: Route, max: number) 
   if (!item.entry) return null
   const entry = readNode(estate, item.entry)
   const specRel = `${item.dirRel}/SPEC.md`
+  const designRel = `${item.dirRel}/DESIGN.md`
   const olderRel = item.older && entry.links.includes(item.older.rel) ? item.older.rel : null
+  const has = (rel: string) => item.files.some(file => file.rel === rel)
   const lead = [
     pointer(estate, entry.rel, item.entry.kind === 'state' ? 'state file: where the work stands and what is next' : 'entry note of the work item'),
-    ...(item.files.some(file => file.rel === specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(has(specRel) ? [pointer(estate, specRel, 'spec of the work item')] : []),
+    ...(has(designRel) ? [pointer(estate, designRel, 'design of the work item')] : []),
     ...(olderRel ? [pointer(estate, olderRel, 'older entry file of the work item')] : []),
   ]
   const { linked, named } = behind(estate, entry)
   const standards = standardsOf(estate, [...linked, ...named])
-  const beyondLead = linked.filter(rel => rel !== specRel && rel !== olderRel && !standards.includes(rel))
+  const beyondLead = linked.filter(rel => rel !== specRel && rel !== designRel && rel !== olderRel && !standards.includes(rel))
   const rest = [...beyondLead.map(rel => pointer(estate, rel, 'linked from the work item')), ...named.map(rel => pointer(estate, rel, 'named in the work item'))]
   const listed = capped(lead, rest, max)
   const pointers = withStandards(estate, listed.pointers)

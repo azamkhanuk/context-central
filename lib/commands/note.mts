@@ -3,7 +3,7 @@ import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
-import { makeFolder, underNotNodes } from '../nodes.mts'
+import { makeFolder, neverListed, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -78,6 +78,8 @@ function create(estate: Estate, target: string, title: string | undefined, io: I
 function brokenRule(estate: Estate, kind: string, parts: string[]) {
   const odd = parts.find(part => !NODE_NAME.test(part))
   if (odd !== undefined) return `"${odd}" is not a name`
+  const unlisted = parts.slice(0, -1).find(neverListed)
+  if (unlisted !== undefined) return `"${unlisted}" is a folder the map never lists`
   if (parts.length > 1 && kind === 'decisions') return 'a decision takes no folder'
   if (parts.length > 1 && kind === 'standards') return 'a standards note takes no folder'
   const deep = parts.slice(0, -1).find(part => estate.config.deepDirs.includes(part))

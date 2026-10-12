@@ -1138,3 +1138,64 @@ test('a node that cannot be read is passed over, and the others that share its i
 
   assert.deepEqual(rels(resolved(root, 'rfc9')), ['docs/porch.md'])
 })
+
+test('a number alone names nothing, though a note, a decision and a work item bear it', () => {
+  const root = tree(acme({ 'concepts/42.md': '# 42\n\nThe answer.\n', 'decisions/0042-the-answer.md': '# The answer\n', 'work/42/STATE.md': '---\nitem: 42\ntitle: Forty-two\nstatus: active\n---\n# 42\n' }))
+
+  assert.equal(resolve(root, '42').stdout, 'No confident match for "42".\n')
+  assert.equal(resolve(root, 'forty-two').stdout.split('\n')[0], 'Context for work item 42:')
+  assert.equal(resolve(root, '42?').stdout, 'No confident match for "42?".\n')
+  assert.equal(resolve(root, '(42)').stdout, 'No confident match for "(42)".\n')
+  assert.equal(resolve(root, 'the 42').stdout, 'No confident match for "the 42".\n')
+  assert.equal(resolve(root, ' 0042 ').stdout, 'No confident match for "0042".\n')
+  assert.deepEqual(answer(root, 'decision', '42'), ['id', 'node:decisions/0042-the-answer.md', 'known as: decision 42'])
+})
+
+test('a design beside the spec is a pointer after it, labelled, and is not counted among the other notes', () => {
+  const root = tree(acme({ 'work/PROJ-12/DESIGN.md': '# Design\n\nTwo slices.\n' }))
+
+  const resolution = resolved(root, 'PROJ-12')
+
+  assert.deepEqual(resolution.pointers.slice(0, 3).map(found => [found.rel, found.why]), [
+    ['work/PROJ-12/STATE.md', 'state file: where the work stands and what is next'],
+    ['work/PROJ-12/SPEC.md', 'spec of the work item'],
+    ['work/PROJ-12/DESIGN.md', 'design of the work item'],
+  ])
+  assert.deepEqual(resolution.notes, { count: 1, bytes: sizeOf('work/PROJ-12/notes/2026-01-10-research-rate-limits.md'), rel: 'work/PROJ-12', path: join(root, 'work/PROJ-12') })
+})
+
+test('the design takes no place against the limit on linked notes, as the spec takes none', () => {
+  const root = tree(acme({ 'work/PROJ-12/DESIGN.md': '# Design\n' }))
+
+  const resolution = resolved(root, 'PROJ-12', '--max', '1')
+
+  assert.deepEqual(rels(resolution), ['work/PROJ-12/STATE.md', 'work/PROJ-12/SPEC.md', 'work/PROJ-12/DESIGN.md', 'concepts/gateway.md'])
+  assert.equal(resolution.more, 1)
+})
+
+test('a design the state file links is listed once, as the design', () => {
+  const state = ACME_FILES['work/PROJ-12/STATE.md'].replace('## Next', 'See [the design](DESIGN.md).\n\n## Next')
+  const root = tree(acme({ 'work/PROJ-12/STATE.md': state, 'work/PROJ-12/DESIGN.md': '# Design\n' }))
+
+  const resolution = resolved(root, 'PROJ-12')
+
+  assert.deepEqual(rels(resolution).filter(rel => rel.endsWith('DESIGN.md')), ['work/PROJ-12/DESIGN.md'])
+  assert.equal(resolution.pointers[2].why, 'design of the work item')
+})
+
+test('a number that is a reference of a connection is still read as one, and finds the item whose ticket it is', () => {
+  const state = '---\nitem: forty-one\ntitle: Fix the login redirect\nstatus: active\nticket: "#41"\n---\n# forty-one\n'
+  const root = tree(acme({ 'work/forty-one/STATE.md': state }, { connections: { issues: { holds: 'tickets', references: ['#\\d+'] } } }))
+
+  assert.equal(resolve(root, '#41').stdout.split('\n')[0], 'Context for work item forty-one:')
+  assert.equal(resolve(root, '41').stdout, 'No confident match for "41".\n')
+})
+
+test("a work item's own ticket still finds it where no connection reads tickets, and the bare number does not", () => {
+  const state = '---\nitem: login-fix\ntitle: Fix the login\nstatus: active\nticket: "#77"\n---\n# login-fix\n'
+  const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
+
+  for (const query of ['#77', '#77?', '(#77)', '#77.']) assert.equal(resolve(root, query).stdout.split('\n')[0], 'Context for work item login-fix:', query)
+  assert.equal(resolve(root, '77').stdout, 'No confident match for "77".\n')
+  assert.equal(resolve(root, '#770').stdout, 'No confident match for "#770".\n')
+})

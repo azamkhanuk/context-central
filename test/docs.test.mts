@@ -27,3 +27,17 @@ test('the README links every file under docs, so none is reached only by its pat
 
   assert.deepEqual(DOCS.filter(file => !linked.includes(file)), [])
 })
+
+const COMMANDS = join(REPO, 'lib', 'commands')
+const commandNames = () => readdirSync(COMMANDS).filter(name => name.endsWith('.mts')).map(name => name.slice(0, -4)).sort()
+const flagsOf = (name: string) => [...readFileSync(join(COMMANDS, `${name}.mts`), 'utf8').matchAll(/'?([a-z][a-z-]*)'?: \{ type: '(?:string|boolean)'/g)].map(([, flag]) => flag)
+const rowsFor = (name: string) => prose('docs/commands.md').split('\n').filter(line => line.startsWith(`| \`${name}`))
+
+test('the commands doc has a row for every command and for help, naming every flag each command takes', () => {
+  const missing = commandNames().flatMap(name => {
+    const rows = rowsFor(name)
+    return rows.length === 0 ? [name] : flagsOf(name).filter(flag => !rows.some(row => row.includes(`--${flag}`))).map(flag => `${name} --${flag}`)
+  })
+
+  assert.deepEqual([...missing, ...(rowsFor('help').some(row => row.includes('`--help`') && row.includes('`-h`')) ? [] : ['help'])], [])
+})

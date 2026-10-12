@@ -22,6 +22,7 @@ They are recorded under `connections` in `estate.json`, by name:
 | `server` | The name you gave an MCP server or a connector. The session finds the tool when it needs it, so no tool name is recorded |
 | `commands` | Your own command for an action (`read`, `search`, `comment`, `transition`, `open`), as a list of words. A session runs it; the plugin never does |
 | `how` | Anything else, in words, for a connection reached by hand |
+| `route` | The way a session reads it, written as an object rather than in words. The oldest maps carry one for each of their sources; a new map writes `how` |
 | `account` | The account its tool must run as. `fetch` reads only as it, `doctor` says whether it can, and neither switches the account that is active on the machine |
 | `repos` | For pull requests: the registered repos it serves, when more than one connection holds them |
 

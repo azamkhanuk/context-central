@@ -20,6 +20,18 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
 
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: claude plugin validate .
+
   test:
     strategy:
       fail-fast: false
@@ -143,6 +155,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - typecheck
+      - validate
       - test
       - test-windows
       - line-endings

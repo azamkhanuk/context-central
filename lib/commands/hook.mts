@@ -32,6 +32,7 @@ const EVENTS: Record<string, Handler> = { 'session-start': sessionStart, 'user-p
 const CARRIES_STATE: (string | undefined)[] = ['compact', 'resume']
 const CONTEXT_CHARS = 9500
 const CUT = '\n[cut here; the file holds the rest]'
+const HOST_TEXT = ['<task-notification>', '<agent-message']
 
 export async function run(args: string[], io: Io) {
   try {
@@ -97,7 +98,7 @@ function resumeNotice(estate: Estate, input: HookInput): HookAnswer {
 }
 
 function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswer | null {
-  if (typeof input.prompt !== 'string') return null
+  if (typeof input.prompt !== 'string' || isHostText(input.prompt)) return null
   // A pasted log or diff matches notes and titles by chance, so only a short prompt is matched on its words.
   const short = input.prompt.length <= estate.config.budgets.hookTextChars
   const session = loadSession(env, input.session_id)
@@ -109,4 +110,9 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   saveSession(env, input.session_id, { delivered: [...session.delivered, ...resolution.flatMap(deliveredAs), ...unanswered.map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
   const lines = [...resolution.map(given => formatPointers(given, { absolute: true })), ...unanswered.map(formatUnanswered)]
   return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lines.join('\n') } }
+}
+
+// Claude Code queues a background task's notification and an agent's report as prompts no person typed.
+function isHostText(prompt: string) {
+  return HOST_TEXT.some(start => prompt.startsWith(start))
 }

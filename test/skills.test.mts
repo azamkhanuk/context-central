@@ -397,13 +397,13 @@ test("note --new refuses a kind the map does not list, and a name that cannot be
   assert.match(oddName.stderr, /the kind is one of: .*standards\n$/)
 })
 
-test('a design linked from the state file is a pointer of its item, which is where design puts it', () => {
+test('a design beside the spec is a pointer of its item under its own label, and the design skill links it from the state file', () => {
   const state = '---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12\n\n## Where the detail lives\n\n- Design: [DESIGN.md](DESIGN.md)\n'
   const root = tree(acme({ 'work/PROJ-12/STATE.md': state, 'work/PROJ-12/DESIGN.md': '# Design\n' }))
 
   const pointers = run(['resolve', 'PROJ-12'], { cwd: root }).stdout.split('\n')
 
-  assert.ok(pointers.includes('- work/PROJ-12/DESIGN.md (9 B) linked from the work item'))
+  assert.ok(pointers.includes('- work/PROJ-12/DESIGN.md (9 B) design of the work item'))
   assert.ok(step('design', '5. Show it').includes('`[DESIGN.md](DESIGN.md)`'))
 })
 
@@ -475,4 +475,14 @@ test("standards, design and implement take a repo's folder from the root standar
     assert.ok(skillText(name).includes('`context-central standards <repo> --json`'), name)
     assert.ok(skillText(name).includes('`root`'), name)
   }
+})
+
+test('onboard names every key of a connection that the plugin reads', () => {
+  const source = readFileSync(join(REPO, 'lib', 'connections.mts'), 'utf8')
+  const textKeys = [...(/const TEXT_KEYS = \[([^\]]+)\]/.exec(source)?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map(([, key]) => key)
+  const read = [...new Set([...textKeys, ...[...source.matchAll(/entry\.([a-z]+)/g)].map(([, key]) => key)])]
+  const named = new Set([...step('onboard', '3. Draft the config').matchAll(/[`"]([a-z]+)[`"]/g)].map(([, key]) => key))
+
+  assert.ok(read.length >= 8)
+  assert.deepEqual(read.filter(key => !named.has(key)), [])
 })

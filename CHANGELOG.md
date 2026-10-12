@@ -2,6 +2,34 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
 
+## 0.12.0 - 2026-10-12
+
+The seams a research of 2026-10-11 found after 0.11.0 are closed. Four small faults open since 0.8.0 are fixed, a work item's design is a pointer, the prompt hook no longer spends pointers on the host's own notifications, the hooks and commands docs say what a person meets, and the gate on GitHub runs the validator, the third recorded check.
+
+- **A work item's design is a pointer.** Where `DESIGN.md` sits beside the spec, `resolve <item>`, the prompt hook and `--json` list it straight after the spec as "design of the work item". It takes no place against the limit on linked notes, as the spec takes none, and it is no longer counted among the item's other notes. Before this a design the state file linked sat among the linked notes, against the limit, and one it did not link was only counted.
+- **The prompt hook leaves host text alone.** Claude Code queues a background task's notification and an agent's report as prompts, beginning `<task-notification>` and `<agent-message`, and the hook answered them as a person's words: in one session a task notification got the pointer to a 55 KB note and an agent's report got the six pointers of a work item. Such a prompt now gets nothing, and the session record is left as it was, so the person's next prompt still gets its pointers. `CONTEXT.md` defines Host text.
+- **A number alone names nothing, on every route.** A note or a work item whose whole name is a number was found by that number; now `resolve 42` and a prompt of `42` answer nothing, as decision 20 of 0.8.0 said. "decision 42" still finds the decision, a work item named by a number is still found by its title, and `#41` is still a reference.
+- **`work new` refuses what stands in the way.** A link or a folder named `STATE.md` in the item's folder raised a stack trace, after the item's three folders had been made. It is now refused in one line, with exit 1, and nothing is written.
+- **A `notNodes` entry means the same with or without a trailing slash.** Written with one, the entry matched nothing and the notes under it were counted and found. The slash is dropped when the settings are read, and `config --get notNodes` shows the entry as read.
+- **`note --new` refuses a path the map never walks.** A note under a folder named `node_modules` was written and never listed. The path is now refused in one line, with the kinds, as a path under a `notNodes` entry is, and the rule is the one discovery uses.
+- **The hooks doc says what a person meets.** A clear deletes the session record; a compaction keeps the lines that say no work item answers to a ticket, so they are not repeated; a hook that fails prints nothing and exits 0, and `CONTEXT_CENTRAL_DEBUG` shows the error; with no session id the same pointers come on every prompt; in a linked work tree the hooks start from the work tree and `CLAUDE_PROJECT_DIR` is not read.
+- **The commands doc is held to the code.** It lists `help`, `--help` and `-h`, and `work list --json`, and a test fails on a command or a flag the doc lacks. Onboard names `route` among a connection's keys, held by a test against the keys the plugin reads.
+- **The checks on GitHub run the validator.** A job installs the Claude Code command line and runs `claude plugin validate .`, and the gate needs it, so every recorded check but the names scan runs on each push. The names scan reads a file that cannot go on GitHub.
+
+Not shown:
+
+- A live session meeting the host's own text under the new hook. The rule was run on the hook as a process with the two shapes taken from a saved transcript, and the tests hold both shapes and a person's prompt that carries a tag later in its text.
+- A map with a `notNodes` entry ending in a slash in a live estate: the tests and a scratch estate hold it.
+- A session on Windows or in a sandboxed shell, as before.
+
+For a map that already exists:
+
+- A work item with a `DESIGN.md` beside its spec has it as the pointer after the spec, labelled "design of the work item". Where the state file linked it, the pointer moves up and frees one place against the limit; where it did not, the item gets one more pointer and its other notes count one less. `resolve --json` carries it in `pointers`.
+- A prompt of a number alone gets no answer, and so does `resolve` of one, where a note or an item named by that number answered before.
+- A `notNodes` entry written with a trailing slash now takes effect, so the notes under it drop out of `graph`, `lint`, `resolve` and the hooks, and `config --get notNodes` shows it without the slash.
+- `note --new` under a folder named `node_modules` is refused where it wrote a file before, and `work new` with a link or a folder at the state file's place is refused where it died before.
+- The host's own notifications get no pointers. Nothing else changes in what the hooks add, and no setting and no file layout changes.
+
 ## 0.11.0 - 2026-10-11
 
 A session in a git work tree now works as one in the main checkout does: it reads and writes the map by itself through two new commands, with no file staged by hand and no question asked, and there is nothing to set up. Before this the skills left most of the map's writing to a session's editing tools, and Claude Code refuses those tools on the main checkout once it has put a session in a work tree, which is where a map kept out of git is. A session there staged its files and asked for a yes to copy them: five times in two sessions on one machine, with waits of up to 22 minutes. A session started with `claude --worktree` could not read the map either. The checks were run in the main checkout, a work tree outside the estate root had no map, and a copy of the map in a work tree was taken for the map and deleted with it.

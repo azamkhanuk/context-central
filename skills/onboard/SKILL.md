@@ -42,7 +42,7 @@ Done when every question has an answer or an explicit "none".
 
 ## 3. Draft the config
 
-Show the draft in this shape and wait for a yes. Omit a key that has no value. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `account`, `repos`.
+Show the draft in this shape and wait for a yes. Omit a key that has no value. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `route`, `account`, `repos`.
 
 ```json
 {

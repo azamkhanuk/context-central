@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, notOnWindows, run } from './helpers.mts'
 
 const tree = disposable()
 
@@ -424,6 +424,29 @@ test('a new work item is refused in plain words when a file stands where a folde
 
   assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: noFolder }), { code: 1, stdout: '', stderr: `context-central work: work ${NOT_A_FOLDER}\n` })
   assert.deepEqual(run(['work', 'new', 'PROJ-13'], { cwd: taken }), { code: 1, stdout: '', stderr: `context-central work: work/PROJ-13 ${NOT_A_FOLDER}\n` })
+})
+
+test('a new work item is refused in one line when a folder stands at the state file\'s place, and nothing is written', () => {
+  const root = tree(acme())
+  mkdirSync(join(root, 'work/boxed/STATE.md'), { recursive: true })
+
+  const result = run(['work', 'new', 'boxed'], { cwd: root })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central work: work/boxed/STATE.md is there already as a folder, so nothing was written: move it, then make the item again\n' })
+  assert.deepEqual(readdirSync(join(root, 'work/boxed')), ['STATE.md'])
+  assert.equal(list(root, '--all').some(item => item.id === 'boxed'), false)
+})
+
+test('a new work item is refused in one line when a link stands at the state file\'s place, wherever it points', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+  const root = tree(acme())
+  mkdirSync(join(root, 'work/linked'))
+  symlinkSync(join(root, 'nowhere/STATE.md'), join(root, 'work/linked/STATE.md'))
+
+  const result = run(['work', 'new', 'linked', '--title', 'Linked'], { cwd: root })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central work: work/linked/STATE.md is there already as a link, so nothing was written: move it, then make the item again\n' })
+  assert.deepEqual(readdirSync(join(root, 'work/linked')), ['STATE.md'])
+  assert.equal(list(root, '--all').some(item => item.id === 'linked'), false)
 })
 
 const OLD_NOTE = '# PROJ-7: Old shape\n\nWritten before state files. The change is in web only. See [[concepts/gateway]] and [the edge](../edges/web-api.md).\n'
