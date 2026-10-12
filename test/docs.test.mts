@@ -39,5 +39,5 @@ test('the commands doc has a row for every command and for help, naming every fl
     return rows.length === 0 ? [name] : flagsOf(name).filter(flag => !rows.some(row => row.includes(`--${flag}`))).map(flag => `${name} --${flag}`)
   })
 
-  assert.deepEqual([...missing, ...(rowsFor('help').length === 0 ? ['help'] : [])], [])
+  assert.deepEqual([...missing, ...(rowsFor('help').some(row => row.includes('`--help`') && row.includes('`-h`')) ? [] : ['help'])], [])
 })

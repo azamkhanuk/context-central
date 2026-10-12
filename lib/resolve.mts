@@ -152,8 +152,7 @@ function resolution({ by, key, item = null, name = null, label, pointers, more, 
 function numberAlone(estate: Estate, query: string) {
   const runs = countedRuns(query)
   if (runs.length !== 1 || !DIGITS_ALONE.test(runs[0])) return false
-  const asked = query.trim().toLowerCase()
-  if (listWorkItems(estate).some(item => item.ticket?.toLowerCase() === asked)) return false
+  if (listWorkItems(estate).some(item => item.ticket && wholeWord(item.ticket).test(query))) return false
   return referencesIn([...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)], query).length === 0
 }
 

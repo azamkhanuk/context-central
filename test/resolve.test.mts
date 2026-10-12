@@ -1195,6 +1195,7 @@ test("a work item's own ticket still finds it where no connection reads tickets,
   const state = '---\nitem: login-fix\ntitle: Fix the login\nstatus: active\nticket: "#77"\n---\n# login-fix\n'
   const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
 
-  assert.equal(resolve(root, '#77').stdout.split('\n')[0], 'Context for work item login-fix:')
+  for (const query of ['#77', '#77?', '(#77)', '#77.']) assert.equal(resolve(root, query).stdout.split('\n')[0], 'Context for work item login-fix:', query)
   assert.equal(resolve(root, '77').stdout, 'No confident match for "77".\n')
+  assert.equal(resolve(root, '#770').stdout, 'No confident match for "#770".\n')
 })

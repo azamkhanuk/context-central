@@ -697,4 +697,5 @@ test("a prompt that is a work item's own ticket is answered where no connection 
   const root = tree(acme({ 'work/login-fix/STATE.md': state }, { connections: {} }))
 
   assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '#77' })).split('\n')[0], 'Context for work item login-fix:')
+  assert.equal(context(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: '(#77)' })).split('\n')[0], 'Context for work item login-fix:')
 })
