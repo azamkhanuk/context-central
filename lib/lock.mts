@@ -7,15 +7,21 @@ const LOCK = '.context-central.lock'
 const WAIT_MS = 5000
 const STALE_MS = 30000
 const PAUSE_MS = 20
+const LET_GO_TRIES = 25
+const HELD = `the map is being written by another command, and still was after ${WAIT_MS / 1000} seconds, so nothing was written; run this again`
+// With these a system says that a folder another process is removing is not gone yet.
+const NOT_YET = ['EPERM', 'EBUSY']
 const nap = new Int32Array(new SharedArrayBuffer(4))
 
 export function locked<T>(mapDir: string, change: () => T): T {
   const lock = join(mapDir, LOCK)
   const until = performance.now() + WAIT_MS
-  while (!made(lock)) {
+  for (;;) {
+    const refused = refusalOf(lock)
+    if (!refused) break
     if (stale(lock) && tookOver(lock)) continue
-    if (performance.now() >= until) throw new PluginError(`the map is being written by another command, and still was after ${WAIT_MS / 1000} seconds, so nothing was written; run this again`)
-    Atomics.wait(nap, 0, 0, PAUSE_MS + Math.floor(Math.random() * PAUSE_MS))
+    if (performance.now() >= until) throw refused.code === 'EEXIST' ? new PluginError(HELD) : refused
+    pause()
   }
   try {
     return change()
@@ -59,7 +65,7 @@ function landWhole(path: string, write: (beside: string) => void) {
 function tookOver(lock: string) {
   const breaker = `${lock}.break`
   if (stale(breaker)) gone(breaker)
-  if (!made(breaker)) return false
+  if (refusalOf(breaker)) return false
   try {
     if (stale(lock)) gone(lock)
   } finally {
@@ -68,25 +74,43 @@ function tookOver(lock: string) {
   return true
 }
 
-function made(folder: string) {
+function refusalOf(folder: string) {
   try {
     mkdirSync(folder)
-    return true
+    return null
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    return false
+    const refusal = error as NodeJS.ErrnoException
+    if (refusal.code !== 'EEXIST' && !notYet(refusal)) throw error
+    return refusal
   }
 }
 
 function stale(folder: string) {
-  const held = statSync(folder, { throwIfNoEntry: false })
-  return held !== undefined && Date.now() - held.mtimeMs >= STALE_MS
+  try {
+    const held = statSync(folder, { throwIfNoEntry: false })
+    return held !== undefined && Date.now() - held.mtimeMs >= STALE_MS
+  } catch (error) {
+    if (!notYet(error)) throw error
+    return false
+  }
 }
 
 function gone(folder: string) {
-  try {
-    rmdirSync(folder)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  for (let triesLeft = LET_GO_TRIES; ; triesLeft -= 1) {
+    try {
+      return rmdirSync(folder)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+      if (triesLeft === 0 || !notYet(error)) throw error
+      pause()
+    }
   }
+}
+
+function notYet(error: unknown) {
+  return NOT_YET.includes((error as NodeJS.ErrnoException).code ?? '')
+}
+
+function pause() {
+  Atomics.wait(nap, 0, 0, PAUSE_MS + Math.floor(Math.random() * PAUSE_MS))
 }
