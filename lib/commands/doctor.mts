@@ -73,7 +73,7 @@ function describe({ check, ok, fix, note }: Result) {
 function load(io: Io): { estate?: Estate; fix?: string } {
   try {
     const estate = loadEstate(io.cwd, io.env)
-    return estate ? { estate } : { fix: `no context map found from ${io.cwd}; run context-central init --plain or /context-central:onboard` }
+    return estate ? { estate } : { fix: `no context map found from ${io.cwd}; context-central init --plain --dry-run lists what a plain map would write here, and /context-central:onboard sets a map up` }
   } catch (error) {
     if (!(error instanceof PluginError)) throw error
     return { fix: error.message }

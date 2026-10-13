@@ -14,7 +14,7 @@ Run `context-central draft <path>...` before a file of the map is read, edited, 
 
 ## 1. Load the item
 
-Run `context-central resolve <item> --absolute`. Where it answers `no context map found`, no map covers this folder yet: run `context-central init --plain --dry-run`, show the person the lines it prints and ask once whether to make that plain map. Only a yes makes it: on a yes, run `context-central init --plain` and start this step again. On a no, stop and say that `/context-central:onboard` sets a map up. If either command refuses, stop and say what it said. Otherwise the item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. In a map this step has just made that is every item: say that `/context-central:prep <item>` makes the item and writes its spec. Read the state file, the `SPEC.md` beside it and the code map note, when the state file names one. With no spec, stop and suggest `/context-central:prep <item>`. When `DESIGN.md` is already there, this is a revision: read it, keep what still holds, change it where it stands, and mark a slice that is already built as built. Where Done in the state file holds lines of the form `Built at <short commit>: <slice>`, a build with no design made them: mark those slices as built in the design, with those commits.
+Run `context-central resolve <item> --absolute`. Where it answers `no context map found`, no map covers this folder yet: run `context-central init --plain --dry-run`, show the person the lines it prints and ask once whether to make that plain map. Only a yes makes it: on a yes, run `context-central init --plain` and start this step again. On a no, stop and say that `/context-central:onboard` sets a map up. If either command refuses, stop and say what it said. Otherwise the item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match, so stop and say the item was not found. In a map this step has just made, that is every item: say that `/context-central:prep <item>` makes the item and writes its spec. Read the state file, the `SPEC.md` beside it and the code map note, when the state file names one. With no spec, stop and suggest `/context-central:prep <item>`. When `DESIGN.md` is already there, this is a revision: read it, keep what still holds, change it where it stands, and mark a slice that is already built as built. Where Done in the state file holds lines of the form `Built at <short commit>: <slice>`, a build with no design made them: mark those slices as built in the design, with those commits.
 
 Run `context-central work adopt <item>` before anything is written to the item. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: stop and say what it said. When it adopted the item, say so in step 5.
 
@@ -28,7 +28,7 @@ Delegate bulk reading to the `context-central:reader` agent. Give it each repo's
 
 ## 4. Write the design
 
-Save `DESIGN.md` beside the spec, headed with each repo, its commit (`git rev-parse --short HEAD`, run in that repo's folder) and the date, with these seven parts in this order:
+Save `DESIGN.md` beside the spec, headed with each repo, under the name the map registers it by where it does, its commit (`git rev-parse --short HEAD`, run in that repo's folder) and the date, with these seven parts in this order:
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.
@@ -42,7 +42,7 @@ The design names files and lines, which the spec does not, so it carries the com
 
 ## 5. Show it
 
-Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built, keeping the line a build wrote there about its branch. Run `context-central take`. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
+Link the design from "Where the detail lives" in the state file, as `[DESIGN.md](DESIGN.md)`, unless the link is there, and rewrite "Where it stands" and "Next" to say the item is designed and how much of it is built, keeping what a build wrote there about its branch and about a slice left uncommitted. Run `context-central take`. Then close in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
 <one line saying the item is designed, and how much of it is built>

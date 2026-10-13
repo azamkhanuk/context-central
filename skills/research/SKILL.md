@@ -81,7 +81,7 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 **Yours to decide**
 - <a choice only the person can make>. Recommended: <the answer, and why>.
 - <for a note with no item, that no repo note links it: it is about no repo the map registers, or that repo's note could not be made>. Recommended: link it from a note that is read, since `context-central graph` reports a note nothing links.
-- <a repo note this run made>. Recommended: link it from the hub's table of repos, as the hub asks.
+- <a repo note this run made>. Recommended: link it from the hub, in its table of repos where it has one.
 
 **Fine as it is**
 - <a claim that was checked and holds> (<its mark>, <the one source that shows it best>)

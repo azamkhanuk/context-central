@@ -122,7 +122,7 @@ test('a folder with no map is told how to make one', () => {
 
   const result = doctor(root)
 
-  assert.match(result.stdout, /^FIX {2}config: no context map found from .*; run context-central init --plain or \/context-central:onboard$/m)
+  assert.match(result.stdout, /^FIX {2}config: no context map found from .*; context-central init --plain --dry-run lists what a plain map would write here, and \/context-central:onboard sets a map up$/m)
   assert.equal(result.code, 1)
 })
 
