@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, notOnWindows, run } from './helpers.mts'
 import type { Env, Result } from './helpers.mts'
 
 const tree = disposable()
@@ -612,15 +612,20 @@ function aged(path: string, days: number) {
   utimesSync(path, then, then)
 }
 
+const temporary = (temp: string) => ({ TMPDIR: temp, TEMP: temp, TMP: temp })
+const ourFolders = (temp: string) => readdirSync(temp).filter(name => name.startsWith('context-central'))
+
 function recordsAged(days: { [name: string]: number }) {
   const temp = tree(makeTree({}))
-  const dir = join(temp, 'context-central')
-  mkdirSync(dir)
+  const env = temporary(temp)
+  hook('user-prompt-submit', { session_id: 'first', cwd: tree(acme()), prompt: 'PROJ-12' }, { env })
+  const dir = join(temp, ourFolders(temp)[0])
+  rmSync(join(dir, 'first.json'))
   for (const [name, age] of Object.entries(days)) {
     writeFileSync(join(dir, name), '{"delivered":[],"active":null}\n')
     aged(join(dir, name), age)
   }
-  return { dir, env: { TMPDIR: temp, TEMP: temp, TMP: temp } }
+  return { temp, dir, env }
 }
 
 test('saving a record removes the records no session has used for fourteen days, and nothing else', () => {
@@ -671,6 +676,107 @@ test('one record that cannot be removed does not keep the sweep from the records
   hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
 
   assert.deepEqual(readdirSync(dir).sort(), ['0-stuck.json', 's1.json'])
+})
+
+const BY_MODE = notOnWindows('Windows keeps no file mode')
+const PROJ_12 = { session_id: 's1', prompt: 'PROJ-12' }
+
+test('with the data folder the host gives the plugin, a session record is kept in a folder under it, and nothing goes under the temporary folder', () => {
+  const root = tree(acme())
+  const [data, temp] = [tree(makeTree({})), tree(makeTree({}))]
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data, ...temporary(temp) } })
+
+  assert.deepEqual(readdirSync(data), ['sessions'])
+  assert.deepEqual(readdirSync(join(data, 'sessions')), ['s1.json'])
+  assert.deepEqual(ourFolders(temp), [])
+})
+
+test('the folder of records under the data folder is made for the user alone', BY_MODE, () => {
+  const root = tree(acme())
+  const data = tree(makeTree({}))
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data } })
+
+  assert.equal(statSync(join(data, 'sessions')).mode & 0o777, 0o700)
+})
+
+test('records under the data folder are swept as records under the temporary folder are', () => {
+  const root = tree(acme())
+  const data = tree(makeTree({ 'sessions/old.json': '{}\n', 'sessions/young.json': '{}\n' }))
+  aged(join(data, 'sessions', 'old.json'), 15)
+  aged(join(data, 'sessions', 'young.json'), 1)
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data } })
+
+  assert.deepEqual(readdirSync(join(data, 'sessions')).sort(), ['s1.json', 'young.json'])
+})
+
+test('CONTEXT_CENTRAL_STATE_DIR still wins over the data folder the host gives', () => {
+  const root = tree(acme())
+  const [named, data] = [tree(makeTree({})), tree(makeTree({}))]
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CONTEXT_CENTRAL_STATE_DIR: named, CLAUDE_PLUGIN_DATA: data } })
+
+  assert.deepEqual(readdirSync(named), ['s1.json'])
+  assert.deepEqual(readdirSync(data), [])
+})
+
+test('with neither setting, a session record is kept in one folder under the temporary folder that is named for the user', () => {
+  const root = tree(acme())
+  const temp = tree(makeTree({}))
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: temporary(temp) })
+
+  const [own, ...others] = ourFolders(temp)
+  assert.deepEqual(others, [])
+  assert.match(own, /^context-central-[A-Za-z0-9_-]+$/)
+  assert.deepEqual(readdirSync(join(temp, own)), ['s1.json'])
+})
+
+test("the user's own folder of records under the temporary folder is made for the user alone", BY_MODE, () => {
+  const { dir } = recordsAged({})
+
+  assert.equal(statSync(dir).mode & 0o777, 0o700)
+})
+
+test('where the folder for records under the temporary folder is a link, nothing is written or removed through it, nothing is remembered, and the hook still answers', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({})
+  const elsewhere = tree(makeTree({ 'old.json': '{}\n' }))
+  aged(join(elsewhere, 'old.json'), 15)
+  rmSync(dir, { recursive: true })
+  symlinkSync(elsewhere, dir)
+
+  const first = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+  const second = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+
+  assert.deepEqual([first.code, first.stderr, context(first)], [0, '', acmePointers(root)])
+  assert.equal(context(second), acmePointers(root))
+  assert.deepEqual(readdirSync(elsewhere), ['old.json'])
+})
+
+test('records in the folder every user shared under the temporary folder are neither read nor removed', () => {
+  const root = tree(acme())
+  const temp = tree(makeTree({ 'context-central/s1.json': '{"delivered":["item:PROJ-12"],"active":"PROJ-12"}\n', 'context-central/old.json': '{}\n' }))
+  for (const name of ['s1.json', 'old.json']) aged(join(temp, 'context-central', name), 15)
+
+  const result = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: temporary(temp) })
+
+  assert.equal(context(result), acmePointers(root))
+  assert.deepEqual(readdirSync(join(temp, 'context-central')).sort(), ['old.json', 's1.json'])
+})
+
+test('a data folder that is a file leaves nothing remembered, and the hook still answers', () => {
+  const root = tree(acme())
+  const base = tree(makeTree({ data: 'a file\n' }))
+  const env = { CLAUDE_PLUGIN_DATA: join(base, 'data') }
+
+  const first = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+  const second = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+
+  assert.deepEqual([first.code, first.stderr, context(first)], [0, '', acmePointers(root)])
+  assert.equal(context(second), acmePointers(root))
 })
 
 const SHARED = {

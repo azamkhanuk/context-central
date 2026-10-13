@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { tmpdir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
 import { clock } from './text.mts'
 import type { Env } from './cli.mts'
@@ -71,6 +71,30 @@ export function resetSession(env: Env, id: unknown) {
 
 function recordPath(env: Env, id: unknown) {
   if (typeof id !== 'string' || !id) return null
-  const dir = env.CONTEXT_CENTRAL_STATE_DIR || join(tmpdir(), 'context-central')
-  return join(dir, `${id.replace(/[^A-Za-z0-9_-]/g, '_')}.json`)
+  const dir = env.CONTEXT_CENTRAL_STATE_DIR || ownFolder(env)
+  return dir && join(dir, `${plain(id)}.json`)
+}
+
+function ownFolder(env: Env) {
+  try {
+    return env.CLAUDE_PLUGIN_DATA ? forTheUser(join(env.CLAUDE_PLUGIN_DATA, 'sessions')) : underTemp()
+  } catch {
+    return null
+  }
+}
+
+function underTemp() {
+  const { uid, username } = userInfo()
+  const dir = forTheUser(join(tmpdir(), `context-central-${uid < 0 ? plain(username) : uid}`))
+  const held = lstatSync(dir)
+  return held.isDirectory() && (uid < 0 || held.uid === uid) ? dir : null
+}
+
+function forTheUser(dir: string) {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  return dir
+}
+
+function plain(name: string) {
+  return name.replace(/[^A-Za-z0-9_-]/g, '_')
 }
