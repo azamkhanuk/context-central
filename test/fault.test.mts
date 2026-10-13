@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
-import { chmodSync, existsSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { chmodSync, closeSync, existsSync, openSync, writeFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { test } from 'node:test'
-import { WINDOWS, acme, disposable, notOnWindows, pluginWith, run, runIn } from './helpers.mts'
+import { REPO, WINDOWS, acme, closedReader, disposable, notOnWindows, pluginWith, run, runIn } from './helpers.mts'
 
 const tree = disposable()
 
@@ -86,4 +87,23 @@ test('a value thrown that is no error is printed as it is', () => {
 
   assert.equal(result.code, 1)
   assert.equal(result.stderr, `context-central odd: just words. ${HINT}\n`)
+})
+
+test('a command whose reader has closed the pipe ends with exit 0 and says nothing', async () => {
+  const root = tree(acme())
+
+  const result = await closedReader(['graph'], { cwd: root })
+
+  assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
+})
+
+test('standard output that cannot be written for any other reason ends the command with exit 1 and no trace', () => {
+  const root = tree(acme())
+  const notForWriting = openSync(join(root, 'CLAUDE.md'), 'r')
+
+  const result = spawnSync(process.execPath, [join(REPO, 'bin', 'context-central'), 'graph'], { cwd: root, encoding: 'utf8', stdio: ['ignore', notForWriting, 'pipe'] })
+  closeSync(notForWriting)
+
+  assert.equal(result.status, 1)
+  assert.equal(result.stderr, '')
 })

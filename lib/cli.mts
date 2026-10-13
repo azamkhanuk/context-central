@@ -54,6 +54,7 @@ export async function main(argv: string[], io: Io = processIo()) {
 }
 
 function processIo(): Io {
+  for (const stream of [process.stdout, process.stderr]) stream.on('error', endQuietly)
   return {
     cwd: process.cwd(),
     env: process.env,
@@ -62,6 +63,10 @@ function processIo(): Io {
     err: text => void process.stderr.write(`${text}\n`),
     readStdin,
   }
+}
+
+function endQuietly(error: NodeJS.ErrnoException) {
+  process.exit(error.code === 'EPIPE' ? 0 : 1)
 }
 
 async function readStdin() {
