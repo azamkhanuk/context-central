@@ -93,8 +93,9 @@ export function take(estate: Estate, { dir, tracked }: Drafts, over: string[], f
         taken.kept.push({ rel, why: verdict.kept })
         continue
       }
-      if (verdict === 'took') taken.took.push(rel)
-      rmSync(join(dir, rel))
+      const refused = unremoved(join(dir, rel))
+      if (refused) taken.kept.push({ rel, why: `it is in the map, and its draft could not be removed (${refused}); remove it by hand` })
+      else if (verdict === 'took') taken.took.push(rel)
     }
     tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
     return taken
@@ -105,6 +106,17 @@ export function awaitsTaking(estate: Estate, env: Env, rel: string) {
   const dir = draftsDir(estate)
   if (!dir || !estate.workTree) return false
   return waitingIn(estate, dir, trackedIn(estate.workTree, dir, env) ?? NONE_TRACKED).includes(rel)
+}
+
+function unremoved(draft: string) {
+  try {
+    rmSync(draft)
+    return null
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    if (!code) throw error
+    return code
+  }
 }
 
 function trackedIn(tree: WorkTree, dir: string, env: Env): ReadonlySet<string> | null {

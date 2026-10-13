@@ -666,3 +666,38 @@ for (const round of [1, 2, 3, 4, 5]) {
     assert.deepEqual(readdirSync(join(made.main, MAP), { recursive: true, encoding: 'utf8' }).filter(name => name.includes('.context-central.')), [])
   })
 }
+
+const STUCK = kept('concepts/limits.md', 'it is in the map, and its draft could not be removed (EACCES); remove it by hand')
+
+function stuckDraft() {
+  const made = estate()
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+  write(made.inside, SPEC, '# Spec\n')
+  chmodSync(join(made.inside, MAP, 'concepts'), 0o555)
+  return { ...made, freed: () => chmodSync(join(made.inside, MAP, 'concepts'), 0o755) }
+}
+
+test('take keeps a draft it has put into the map and cannot then remove, in a line of its own, and takes the drafts after it', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = stuckDraft()
+
+  const result = take(made, made.inside)
+  made.freed()
+
+  assert.deepEqual(result, { code: 1, stdout: `took ${SPEC}\n`, stderr: STUCK })
+  assert.equal(read(made.main, 'concepts/limits.md'), '# Limits\n')
+  assert.equal(read(made.main, SPEC), '# Spec\n')
+  assert.equal(read(made.inside, 'concepts/limits.md'), '# Limits\n')
+})
+
+test('the next take says the same of a draft that still cannot be removed, and takes it away once it can be', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = stuckDraft()
+  take(made, made.inside)
+
+  const again = take(made, made.inside)
+  made.freed()
+  const freed = take(made, made.inside)
+
+  assert.deepEqual(again, { code: 1, stdout: '', stderr: STUCK })
+  assert.deepEqual(freed, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
