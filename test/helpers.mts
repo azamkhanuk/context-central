@@ -58,6 +58,10 @@ export function run(args: string[], { cwd = undefined, env = {}, stdin = '' }: R
   return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env })
 }
 
+export function together(runs: { args: string[], options?: RunOptions }[]): Promise<Result[]> {
+  return Promise.all(runs.map(({ args, options = {} }) => started(args, options)).map(ended))
+}
+
 export function closedReader(args: string[], options: RunOptions = {}): Promise<Result> {
   const child = started(args, options)
   child.stdout.destroy()

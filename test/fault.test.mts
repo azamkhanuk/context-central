@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, closeSync, existsSync, openSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { test } from 'node:test'
 import { REPO, WINDOWS, acme, closedReader, disposable, notOnWindows, pluginWith, run, runIn } from './helpers.mts'
@@ -54,6 +54,19 @@ test('an item name too long for the disk is one line that names the path and the
   assert.equal(result.code, 1)
   assert.equal(result.stdout, '')
   assert.match(result.stderr, faultUnder('work', TOO_LONG, root))
+})
+
+test("a month's log that is a folder is one line that names the path and the code, and nothing is left beside it", () => {
+  const root = tree(acme({ 'log/2026-01.md/kept.md': '# Kept\n' }))
+
+  const result = run(['note', 'Gateway limits agreed'], { cwd: root, env: { TZ: 'UTC' } })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, '')
+  assert.match(result.stderr, faultUnder('note', 'EISDIR', root))
+  assert.deepEqual(readdirSync(join(root, 'log', '2026-01.md')), ['kept.md'])
+  assert.deepEqual(readdirSync(join(root, 'log')), ['2026-01.md'])
+  assert.deepEqual(readdirSync(root).filter(name => name.startsWith('.')), [])
 })
 
 test('with CONTEXT_CENTRAL_DEBUG set the trace follows the line, in place of the sentence that names the variable', () => {

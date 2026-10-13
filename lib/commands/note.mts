@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
+import { locked, readWhole, writeWhole } from '../lock.mts'
 import { makeFolder, neverListed, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
@@ -40,9 +41,11 @@ function log(estate: Estate, text: string, io: Io) {
   const { month, day } = localDate(io.env)
   const rel = `log/${month}.md`
   const path = join(estate.mapDir, rel)
-  const before = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  makeFolder(estate.mapDir, 'log')
-  writeFileSync(path, underDay(before.trim() ? before : `# ${month}\n`, day, `- ${text}`))
+  locked(estate.mapDir, () => {
+    makeFolder(estate.mapDir, 'log')
+    const before = readWhole(path) ?? ''
+    writeWhole(path, underDay(before.trim() ? before : `# ${month}\n`, day, `- ${text}`))
+  })
   io.out(rel)
 }
 
