@@ -82,6 +82,7 @@ const NOT_ITEMS = ['readme.md', 'index.md']
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
 const listings = new Map<string, Set<string>>()
 const passed = new WeakMap<Estate, Map<string, string>>()
+const readable = new Map<string, Set<string>>()
 
 export function hubPath(estate: Estate) {
   return join(estate.estateRoot, estate.config.hub)
@@ -290,17 +291,25 @@ function sized(estate: Estate, rel: string): MapFile {
 }
 
 function isFolder(estate: Estate, rel: string) {
-  return reached(estate, rel, path => statSync(path).isDirectory()) ?? false
+  return reached(estate, rel, path => statSync(path, { throwIfNoEntry: false })?.isDirectory()) ?? false
 }
 
 function isNote(estate: Estate, rel: string) {
-  const held = reached(estate, rel, path => statSync(path))
+  const held = reached(estate, rel, path => statSync(path, { throwIfNoEntry: false }))
   if (held?.isDirectory()) passOver(estate, rel, 'is a folder where a note would be read')
   return (held?.isFile() && isReadable(estate, rel)) ?? false
 }
 
-function isReadable(estate: Estate, rel: string) {
-  return reached(estate, rel, path => (accessSync(path, constants.R_OK), true)) ?? false
+function isReadable(estate: Estate, rel: string, known = readableIn(estate)) {
+  if (known.has(rel)) return true
+  const can = reached(estate, rel, path => (accessSync(path, constants.R_OK), true)) ?? false
+  if (can) known.add(rel)
+  return can
+}
+
+function readableIn({ mapDir }: Estate) {
+  if (!readable.has(mapDir)) readable.set(mapDir, new Set())
+  return readable.get(mapDir)!
 }
 
 function entriesOf(estate: Estate, dirRel: string) {
@@ -342,12 +351,13 @@ function anyName() {
 
 function walk(estate: Estate, dirRel: string, keeps: (name: string) => boolean = isMarkdown): string[] {
   const found: string[] = []
+  const known = readableIn(estate)
   for (const entry of entriesOf(estate, dirRel)) {
     if (neverListed(entry.name)) continue
     const rel = `${dirRel}/${entry.name}`
     if (entry.isDirectory()) found.push(...walk(estate, rel, keeps))
     else if (entry.isSymbolicLink()) reached(estate, rel, path => statSync(path))
-    else if (entry.isFile() && keeps(entry.name) && isReadable(estate, rel)) found.push(rel)
+    else if (entry.isFile() && keeps(entry.name) && (known.has(rel) || isReadable(estate, rel, known))) found.push(rel)
   }
   return found.sort()
 }
