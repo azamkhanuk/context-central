@@ -16,7 +16,7 @@ Run `context-central resolve <item> --absolute`. Where it answers `no context ma
 
 For an item that was there already, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: stop and say what it said. When it adopted the item, say so in step 8.
 
-Read the state file and the research notes it points to, and the older note where the state file links one.
+Read the state file and the research notes it points to, and the older note where the state file links one. For each repo the work touches read the map's note of that repo too, `repos/<repo>.md`, where there is one: it holds the repo's traps, and it links the research that was kept with no item. Read such a research note where it bears on this item, and any the person names.
 
 Read the item's ticket before anything else, unless its `sources/` already holds a copy. Start with `context-central fetch ticket --item <item>`: it finds the item's ticket and the connection that ticket belongs to, and where that connection is read by fetch it saves the ticket and prints a digest. Never pick the connection yourself: an estate may hold tickets in more than one, and a guess reads the wrong system.
 
@@ -61,7 +61,7 @@ Run `context-central config --get writeRules`. `context-central connections --it
 
 ## 7. Update the state file
 
-Rewrite "Where it stands" and "Next" for an item that is specified and not built, and list the spec and the code map under "Where the detail lives". Then run `context-central take`.
+Rewrite "Where it stands" and "Next" for an item that is specified and not built, and list the spec and the code map under "Where the detail lives", with a link to each research note kept outside the item that the spec rests on. Then run `context-central take`.
 
 ## 8. Hand over
 

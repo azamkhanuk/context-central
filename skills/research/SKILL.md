@@ -54,7 +54,7 @@ A claim that would sit in two groups is two claims. Done when every claim carrie
 With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the closing answer says what the command said, under Needs a fix. When it adopted the item, the closing answer says so, under Fine as it is.
 
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
-- Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the file it prints.
+- Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the file it prints. Then link it from the map's note of each repo it is about, `repos/<repo>.md`, so that a later step finds it: draft that note and add one line to it, with the date, the link `[<title>](../concepts/<slug>.md)` and what the note answers. `context-central config --get repos` gives the repos the map registers, and where one of them that the note is about has no note yet, `context-central note --new repos/<repo>` makes it.
 
 The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
@@ -80,6 +80,7 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 
 **Fine as it is**
 - <a claim that was checked and holds> (<its mark>, <the one source that shows it best>)
+- <for a note with no item, each repo note that links it, or that it is about no repo and none links it>
 - <the adoption, where there was one>
 
 **Not known**
