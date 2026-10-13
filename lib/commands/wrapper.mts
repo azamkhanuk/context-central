@@ -1,7 +1,8 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { requireEstate } from '../estate.mts'
+import { locked, writeWhole } from '../lock.mts'
 import { cmdLauncherTemplate, launcherAttributesTemplate, launcherTemplate } from '../templates.mts'
 import type { Io } from '../cli.mts'
 
@@ -18,14 +19,14 @@ export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { write: { type: 'boolean' } } })
   if (!values.write) return void io.out(launcherTemplate().trimEnd())
   const { mapDir } = requireEstate(io)
-  for (const file of SAVED) io.out(save(mapDir, file))
+  for (const line of locked(mapDir, () => SAVED.map(file => save(mapDir, file)))) io.out(line)
 }
 
 function save(mapDir: string, { rel, content, mode, launcher }: (typeof SAVED)[number]) {
   const path = join(mapDir, rel)
   if (existsSync(path)) return `kept ${rel}${launcher && !holds(path, content()) ? DIFFERS : ''}`
   mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, content(), { flag: 'wx' })
+  writeWhole(path, content(), mode)
   chmodSync(path, mode)
   return `created ${rel}`
 }

@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after } from 'node:test'
@@ -85,6 +85,20 @@ function ended(child: ChildProcessWithoutNullStreams): Promise<Result> {
 
 export function hook(event: string, input: unknown, options: RunOptions = {}) {
   return run(['hook', event], { ...options, stdin: JSON.stringify(input) })
+}
+
+export const LOCK = '.context-central.lock'
+
+export function staleLock(mapDir: string, name = LOCK) {
+  const folder = join(mapDir, name)
+  const then = new Date(Date.now() - 31_000)
+  mkdirSync(folder)
+  utimesSync(folder, then, then)
+  return folder
+}
+
+export function leftByAWrite(root: string) {
+  return readdirSync(root, { recursive: true, encoding: 'utf8' }).filter(name => name.includes('.context-central.'))
 }
 
 export function pluginWith(presets: Record<string, string>) {

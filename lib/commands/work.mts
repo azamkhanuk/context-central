@@ -1,17 +1,18 @@
-import { lstatSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { lstatSync, readdirSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { listed, ticketOf } from '../connections.mts'
 import { awaitsTaking } from '../drafts.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
+import { locked, readWhole, writeWhole } from '../lock.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, leftOut, listWorkItems, makeFolder, underNotNodes } from '../nodes.mts'
 import { pointedTo } from '../resolve.mts'
 import { stateTemplate } from '../templates.mts'
 import { formatBytes, localDate, plural, setFrontmatter } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate } from '../estate.mts'
-import type { EntryFile, FileGroup, MapFile, WorkItem } from '../nodes.mts'
+import type { EntryFile, FileGroup, MapFile } from '../nodes.mts'
 
 interface Action {
   flags: string[]
@@ -65,21 +66,21 @@ export function run(args: string[], io: Io) {
 function create(estate: Estate, id: string, { title, ticket }: { title?: string; ticket?: string }, io: Io) {
   if (!id || !ITEM_NAME.test(id)) throw new UsageError('an item name is letters, digits, dots, dashes and underscores, for example PROJ-12 or portal-split')
   if (ticket !== undefined && !TICKET.test(ticket)) throw new UsageError('a ticket is one word with no double quote in it and no dash at its start, for example PROJ-12, #41 or a link')
-  if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
   const dirRel = `${estate.config.workDir}/${id}`
-  refuseUnlisted(estate, dirRel)
-  refuseTaken(estate, `${dirRel}/STATE.md`)
-  for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
-  writeFileSync(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })), { flag: 'wx' })
+  locked(estate.mapDir, () => {
+    if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
+    refuseUnlisted(estate, dirRel)
+    refuseTaken(estate, `${dirRel}/STATE.md`)
+    for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
+    writeWhole(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
+  })
   io.out(`${dirRel}/STATE.md`)
 }
 
 function adopt(estate: Estate, id: string | undefined, all: boolean | undefined, io: Io) {
   if (Boolean(id) === Boolean(all)) throw new UsageError('expected an item or --all: work adopt <item>, or work adopt --all')
   if (!id) return adoptAll(estate, io)
-  const item = findWorkItem(estate, id)
-  if (!item) throw new PluginError(`no work item "${id}"`)
-  io.out(adopted(estate, item, io.env))
+  io.out(adopted(estate, id, io.env))
 }
 
 function adoptAll(estate: Estate, io: Io) {
@@ -88,7 +89,7 @@ function adoptAll(estate: Estate, io: Io) {
   let refused = 0
   for (const item of older) {
     try {
-      io.out(adopted(estate, item, io.env))
+      io.out(adopted(estate, item.id, io.env))
     } catch (error) {
       if (!(error instanceof PluginError)) throw error
       io.err(`context-central work: ${error.message}`)
@@ -98,23 +99,21 @@ function adoptAll(estate: Estate, io: Io) {
   return refused > 0 ? 1 : 0
 }
 
-function adopted(estate: Estate, item: WorkItem, env: Env) {
-  const already = `${item.id} has a state file already`
-  if (item.entry?.kind === 'state') return already
-  refuseUnlisted(estate, item.dirRel)
-  const stateRel = `${item.dirRel}/STATE.md`
-  const inTheWay = namesIn(join(estate.mapDir, item.dirRel)).find(name => name !== 'STATE.md' && name.toLowerCase() === 'state.md')
-  if (inTheWay) throw new PluginError(`${item.dirRel}/${inTheWay} has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again`)
-  for (const folder of FOLDERS) makeFolder(estate.mapDir, `${item.dirRel}/${folder}`)
-  const fromFolder = (rel: string) => posix.relative(item.dirRel, rel)
-  const from = { status: item.status, day: localDate(env).day, older: item.entry ? fromFolder(item.entry.rel) : null, linked: item.entry ? pointedTo(estate, item.entry).map(fromFolder) : [] }
-  try {
-    writeFileSync(join(estate.mapDir, stateRel), stateTemplate(item.id, item.title, ticketOf(listed(estate.config.connections), item), from), { flag: 'wx' })
-  } catch (error) {
-    if (findWorkItem(estate, item.id)?.entry?.kind === 'state') return already
-    throw new PluginError(`${stateRel} could not be written: ${(error as Error).message}`)
-  }
-  return stateRel
+function adopted(estate: Estate, id: string, env: Env) {
+  return locked(estate.mapDir, () => {
+    const item = findWorkItem(estate, id)
+    if (!item) throw new PluginError(`no work item "${id}"`)
+    if (item.entry?.kind === 'state') return `${item.id} has a state file already`
+    refuseUnlisted(estate, item.dirRel)
+    const stateRel = `${item.dirRel}/STATE.md`
+    const inTheWay = namesIn(join(estate.mapDir, item.dirRel)).find(name => name !== 'STATE.md' && name.toLowerCase() === 'state.md')
+    if (inTheWay) throw new PluginError(`${item.dirRel}/${inTheWay} has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again`)
+    for (const folder of FOLDERS) makeFolder(estate.mapDir, `${item.dirRel}/${folder}`)
+    const fromFolder = (rel: string) => posix.relative(item.dirRel, rel)
+    const from = { status: item.status, day: localDate(env).day, older: item.entry ? fromFolder(item.entry.rel) : null, linked: item.entry ? pointedTo(estate, item.entry).map(fromFolder) : [] }
+    writeWhole(join(estate.mapDir, stateRel), stateTemplate(item.id, item.title, ticketOf(listed(estate.config.connections), item), from))
+    return stateRel
+  })
 }
 
 function refuseUnlisted(estate: Estate, dirRel: string) {
@@ -177,6 +176,11 @@ function setStatus(estate: Estate, id: string, status: string, io: Io) {
   if (!item) throw new PluginError(`no work item "${id}"`)
   if (!item.entry) throw new PluginError(`${item.id} has no entry file to mark`)
   if (awaitsTaking(estate, io.env, item.entry.rel)) throw new PluginError(`${item.entry.rel} has a draft in this work tree that is not in the map yet; run context-central take, then this again`)
-  writeFileSync(item.entry.path, setFrontmatter(readFileSync(item.entry.path, 'utf8'), 'status', status))
+  const { path, rel } = item.entry
+  locked(estate.mapDir, () => {
+    const text = readWhole(path)
+    if (text === null) throw new PluginError(`${rel} is no longer there, so nothing was marked`)
+    writeWhole(path, setFrontmatter(text, 'status', status))
+  })
   io.out(`${item.id}: ${status}`)
 }

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync, utimesSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, disposable, notOnWindows, run, together } from './helpers.mts'
+import { LOCK, acme, disposable, leftByAWrite, makeTree, notOnWindows, run, staleLock, together } from './helpers.mts'
+import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
-const LOCK = '.context-central.lock'
 const BREAKER = `${LOCK}.break`
 const JANUARY = 'log/2026-01.md'
 const EARLIER = Array.from({ length: 300 }, (_, at) => `- earlier ${at}`)
@@ -18,18 +18,10 @@ const note = (root: string, text: string) => run(['note', text], { cwd: root, en
 const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
 const hidden = (dir: string) => readdirSync(dir).filter(name => name.startsWith('.'))
 
-function leftStale(root: string, name: string) {
-  const folder = join(root, name)
-  const then = new Date(Date.now() - 31_000)
-  mkdirSync(folder)
-  utimesSync(folder, then, then)
-  return folder
-}
-
 for (const [what, stale] of Object.entries({ 'no lock in the way': [], 'a lock thirty seconds old in the way': [LOCK], 'such a lock and a breaker as old in the way': [LOCK, BREAKER] })) {
   test(`twenty notes written at once, with ${what}, are all in the log below every earlier line`, async () => {
     const root = tree(acme({ [JANUARY]: LOG }))
-    for (const name of stale) leftStale(root, name)
+    for (const name of stale) staleLock(root, name)
     const texts = Array.from({ length: 20 }, (_, at) => `new ${at}`)
 
     const results = await together(texts.map(text => ({ args: ['note', text], options: { cwd: root, env: { TZ: 'UTC' } } })))
@@ -57,7 +49,7 @@ test('a note that finds the lock held waits five seconds, then stops with one li
 
 test('a lock thirty seconds old is taken over, the note is written and the lock is gone', () => {
   const root = tree(acme())
-  leftStale(root, LOCK)
+  staleLock(root)
 
   const result = note(root, 'Gateway limits agreed')
 
@@ -108,4 +100,75 @@ test('a log that is a link stays a link, and the note lands in the file it leads
   assert.equal(lstatSync(join(root, JANUARY)).isSymbolicLink(), true)
   assert.equal(read(root, 'kept/january.md'), `${LOG}- Gateway limits agreed\n`)
   assert.deepEqual([...hidden(join(root, 'kept')), ...hidden(join(root, 'log'))], [])
+})
+
+const TAKERS: [what: string, files: TreeFiles, args: string[], written: string][] = [
+  ['note --new', {}, ['note', '--new', 'concepts/limits'], 'concepts/limits.md'],
+  ['work new', {}, ['work', 'new', 'PROJ-13'], 'work/PROJ-13/STATE.md'],
+  ['work adopt', { 'work/PROJ-7.md': '# PROJ-7: Old shape\n' }, ['work', 'adopt', 'PROJ-7'], 'work/PROJ-7/STATE.md'],
+  ['work done', {}, ['work', 'done', 'PROJ-12'], 'work/PROJ-12/STATE.md'],
+  ['work reopen', {}, ['work', 'reopen', 'PROJ-12'], 'work/PROJ-12/STATE.md'],
+  ['evidence add', { 'scratch/shot.png': 'x' }, ['evidence', 'add', 'scratch/shot.png', '--item', 'PROJ-12'], 'work/PROJ-12/evidence/2026-01-15-shot.png'],
+  ['wrapper --write', {}, ['wrapper', '--write'], 'bin/context-central'],
+]
+
+for (const [what, files, args, written] of TAKERS) {
+  test(`${what} takes the map lock: one thirty seconds old is taken over, and nothing but what was written is left`, () => {
+    const root = tree(acme(files))
+    staleLock(root)
+
+    const result = run(args, { cwd: root, env: { TZ: 'UTC' } })
+
+    assert.equal(result.stderr, '')
+    assert.equal(result.code, 0)
+    assert.equal(existsSync(join(root, written)), true)
+    assert.deepEqual(leftByAWrite(root), [])
+  })
+}
+
+for (const layout of ['root', 'inner']) {
+  test(`init of a map with the ${layout} layout takes the map lock in the map's folder, which it makes first, and leaves none there`, () => {
+    const root = tree(makeTree({ 'answers.json': { layout, config: { name: 'acme' } } }))
+    const mapDir = layout === 'inner' ? join(root, '.context-central') : root
+    mkdirSync(mapDir, { recursive: true })
+    staleLock(mapDir)
+
+    const result = run(['init', '--from', 'answers.json'], { cwd: root })
+
+    assert.equal(result.stderr, '')
+    assert.equal(result.code, 0)
+    assert.equal(existsSync(join(mapDir, 'estate.json')), true)
+    assert.deepEqual(leftByAWrite(root), [])
+  })
+}
+
+test('a dry run of init takes no lock and makes no folder for one', () => {
+  const root = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
+  const lock = staleLock(root)
+
+  const result = run(['init', '--from', 'answers.json', '--dry-run'], { cwd: root })
+
+  assert.equal(result.code, 0)
+  assert.equal(existsSync(lock), true)
+  assert.deepEqual(readdirSync(root).sort(), [LOCK, 'answers.json'])
+})
+
+test('answers that are refused for a map with the inner layout leave no map folder behind', () => {
+  const root = tree(makeTree({ 'answers.json': { layout: 'inner', config: { name: 'acme', nodeDirs: 'repos' } } }))
+
+  const result = run(['init', '--from', 'answers.json'], { cwd: root })
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(readdirSync(root), ['answers.json'])
+})
+
+test('ten decisions recorded at once are each given a number of their own', async () => {
+  const root = tree(acme())
+  const slugs = Array.from({ length: 10 }, (_, at) => `choice-${at}`)
+
+  const results = await together(slugs.map(slug => ({ args: ['note', '--new', `decisions/${slug}`], options: { cwd: root } })))
+
+  assert.deepEqual(results.map(result => result.stderr + result.code), slugs.map(() => '0'))
+  assert.deepEqual(readdirSync(join(root, 'decisions')).map(name => name.slice(0, 4)).sort(), ['0001', '0002', '0003', '0004', '0005', '0006', '0007', '0008', '0009', '0010'])
+  assert.deepEqual(leftByAWrite(root), [])
 })

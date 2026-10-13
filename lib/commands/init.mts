@@ -1,8 +1,9 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, validateConfig } from '../estate.mts'
+import { locked, readWhole, writeWhole } from '../lock.mts'
 import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
@@ -36,7 +37,20 @@ export function run(args: string[], io: Io) {
   if (!values.from) throw new UsageError('expected --from <answers.json>, or --print-settings')
   const dir = resolve(io.cwd, positionals[0] ?? '.')
   const answers = readAnswers(resolve(io.cwd, values.from))
-  for (const step of steps(dir, answers)) io.out(carryOut(dir, step, values['dry-run']))
+  const planned = steps(dir, answers)
+  const done: string[] = []
+  const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
+  try {
+    if (values['dry-run']) carryAll(true)
+    else locked(madeFolder(answers.layout === 'inner' ? join(dir, INNER_DIR) : dir), () => carryAll(false))
+  } finally {
+    for (const line of done) io.out(line)
+  }
+}
+
+function madeFolder(path: string) {
+  mkdirSync(path, { recursive: true })
+  return path
 }
 
 function readAnswers(path: string) {
@@ -92,12 +106,12 @@ function innerGitSteps(config: Settings, inMap: InMap): Step[] {
   return config.evidence.commit ? [] : [{ rel: inMap('.gitignore'), content: `${evidenceIgnoreRule(config.workDir)}\n` }]
 }
 
-function carryOut(dir: string, step: Step, dryRun: boolean | undefined) {
+function carryOut(dir: string, step: Step, dryRun: boolean) {
   const path = join(dir, step.rel)
   const action = actionFor(path, step)
   if (action === 'keep') return `kept ${step.rel}`
   if (dryRun) return `would ${action} ${step.rel}`
-  if (action === 'update') appendFileSync(path, `${separator(path)}${step.append}`)
+  if (action === 'update') addTo(path, step.append ?? '')
   else if (step.content === undefined) mkdirSync(path, { recursive: true })
   else writeNew(path, step.content)
   return `${action}d ${step.rel}`
@@ -108,15 +122,19 @@ function actionFor(path: string, step: Step) {
   return step.append && !readFileSync(path, 'utf8').includes(BLOCK_START) ? 'update' : 'keep'
 }
 
-function separator(path: string) {
-  const text = readFileSync(path, 'utf8')
+function addTo(path: string, block: string) {
+  const text = readWhole(path) ?? ''
+  writeWhole(path, `${text}${separator(text)}${block}`)
+}
+
+function separator(text: string) {
   if (text === '' || text.endsWith('\n\n')) return ''
   return text.endsWith('\n') ? '\n' : '\n\n'
 }
 
 function writeNew(path: string, content: string) {
   mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, content, { flag: 'wx' })
+  writeWhole(path, content)
 }
 
 function pluginRepo(env: Env) {
