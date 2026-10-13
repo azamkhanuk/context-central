@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PluginError, UsageError } from './errors.mts'
+import { PluginError, UsageError, messageOf } from './errors.mts'
 import { manifestPath } from './manifest.mts'
 
 export type Env = NodeJS.ProcessEnv
@@ -47,7 +47,7 @@ export async function main(argv: string[], io: Io = processIo()) {
     return typeof code === 'number' ? code : 0
   } catch (error) {
     const wrongFlags = String((error as NodeJS.ErrnoException | null)?.code).startsWith('ERR_PARSE_ARGS_')
-    const said = `context-central${known}: ${(error instanceof Error ? error.message : String(error)).replace(/\s*\n\s*/g, ' ')}`
+    const said = `context-central${known}: ${messageOf(error)}`
     if (wrongFlags || error instanceof PluginError) {
       io.err(said)
       return wrongFlags || error instanceof UsageError ? 2 : 1

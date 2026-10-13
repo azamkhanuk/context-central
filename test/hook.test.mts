@@ -117,28 +117,63 @@ test('a map with no notes yet gives its index and stays silent on prompts', () =
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'how do billing retries behave' }))
 })
 
-test('input that is not JSON, or an event the hook does not know, is met with silence', () => {
+const said = (result: Result) => (JSON.parse(result.stdout) as { systemMessage?: string }).systemMessage
+const DOCTOR = 'Run "context-central doctor".'
+
+test('a hook asked for an event it does not know says so to the person in one line that names doctor, and gives the model nothing', () => {
   const root = tree(acme())
 
-  silent(run(['hook', 'session-start'], { cwd: root, stdin: 'not json' }))
-  silent(fire('session-end', { cwd: root }))
+  const result = fire('session-end', { cwd: root })
+
+  assert.deepEqual({ ...result, stdout: JSON.parse(result.stdout) as unknown }, { code: 0, stderr: '', stdout: { systemMessage: `context-central: the session-end hook failed: unknown hook event "session-end". ${DOCTOR}` } })
 })
 
-test('an event named after something every object has is met with silence', () => {
+test('input that is not JSON is a failure the hook says in one line, and it still exits 0', () => {
   const root = tree(acme())
 
-  silent(fire('constructor', { cwd: root }))
-  silent(fire('toString', { cwd: root }))
+  const result = run(['hook', 'session-start'], { cwd: root, stdin: 'not\njson' })
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stderr, '')
+  assert.deepEqual(Object.keys(JSON.parse(result.stdout) as object), ['systemMessage'])
+  assert.match(said(result) ?? '', /^context-central: the session-start hook failed: [^\n]*JSON[^\n]*\. Run "context-central doctor"\.$/)
 })
 
-test('with debugging on, the reason for silence goes to stderr', () => {
+test('an event named after something every object has is an event the hook does not know', () => {
+  const root = tree(acme())
+
+  assert.equal(said(fire('constructor', { cwd: root })), `context-central: the constructor hook failed: unknown hook event "constructor". ${DOCTOR}`)
+  assert.equal(said(fire('toString', { cwd: root })), `context-central: the toString hook failed: unknown hook event "toString". ${DOCTOR}`)
+})
+
+test('a hook that fails says so each time it fails', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+
+  const first = hook('session-end', { session_id: 's1', cwd: root }, { env })
+  const second = hook('session-end', { session_id: 's1', cwd: root }, { env })
+
+  assert.equal(second.stdout, first.stdout)
+  assert.match(said(second) ?? '', /hook failed/)
+})
+
+test('a fault below the hook, as input whose folder is a number, is said in the same line and gives the model nothing', () => {
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: 5, prompt: 'pick up PROJ-12' })
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stderr, '')
+  assert.deepEqual(Object.keys(JSON.parse(result.stdout) as object), ['systemMessage'])
+  assert.match(said(result) ?? '', /^context-central: the user-prompt-submit hook failed: [^\n]+\. Run "context-central doctor"\.$/)
+})
+
+test('with debugging on, the trace of a failing hook goes to stderr beside the line for the person', () => {
   const root = tree(acme())
 
   const result = fire('session-end', { cwd: root }, { CONTEXT_CENTRAL_DEBUG: '1' })
 
   assert.equal(result.code, 0)
-  assert.equal(result.stdout, '')
-  assert.match(result.stderr, /unknown hook event "session-end"/)
+  assert.match(said(result) ?? '', /^context-central: the session-end hook failed: /)
+  assert.match(result.stderr, /^context-central hook: Error: unknown hook event "session-end"\n +at /)
 })
 
 test('a prompt that names a work item is given its pointers with absolute paths', () => {
