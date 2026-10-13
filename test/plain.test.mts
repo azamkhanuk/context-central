@@ -9,7 +9,7 @@ const tree = disposable()
 
 const MAP = '.context-central'
 const NODE_DIRS = ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work']
-const EXCLUDE = join('.git', 'info', 'exclude')
+const EXCLUDE = '.git/info/exclude'
 const EXCLUDED = '# what this checkout alone keeps out of git\n'
 const BLOCK = '<!-- context-central:start -->'
 const INNER_FILES = [`${MAP}/estate.json`, ...NODE_DIRS.map(dir => `${MAP}/${dir}/`), 'CLAUDE.local.md', `${MAP}/glossary.md`]
@@ -90,8 +90,8 @@ test('each of the two lines is added to the exclude file only where it is not th
   writeFileSync(join(half.main, EXCLUDE), `${MAP}/\n`)
   rmSync(join(none.main, '.git', 'info'), { recursive: true })
 
-  assert.match(plain(half, half.main).stdout, new RegExp(`^updated ${EXCLUDE.replaceAll('\\', '\\\\')}$`, 'm'))
-  assert.match(plain(none, none.main).stdout, new RegExp(`^created ${EXCLUDE.replaceAll('\\', '\\\\')}$`, 'm'))
+  assert.equal(plain(half, half.main).stdout.split('\n')[1], `updated ${EXCLUDE}`)
+  assert.equal(plain(none, none.main).stdout.split('\n')[1], `created ${EXCLUDE}`)
   assert.equal(read(half.main, EXCLUDE), `${MAP}/\n\nCLAUDE.local.md\n`)
   assert.equal(read(none.main, EXCLUDE), `${MAP}/\nCLAUDE.local.md\n`)
 })
