@@ -11,6 +11,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | Command | What it does |
 |---|---|
 | `help`, `--help`, `-h` | List the commands with a line each; `<command> --help` gives that command's line |
+| `--version` | Print the release, the Node it runs on and the system, in one line. Given after a command it is that command's own flag |
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
 | `where [--json]` | Show which map covers this folder, where the estate's glossary is and whether the hooks answer here, and in a git work tree the work tree, its main checkout and the drafts folder |
 | `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all] [--json]\|done <item>\|reopen <item>\|adopt <item>\|adopt --all` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item, as JSON with `--json`; mark an item done or reopen it; give an older item, or with `--all` every one, a state file beside its own note |

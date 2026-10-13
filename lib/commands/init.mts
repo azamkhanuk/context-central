@@ -1,9 +1,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, validateConfig } from '../estate.mts'
+import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
@@ -25,7 +25,6 @@ interface Step {
 export const summary = 'Write a new map from an answers file, or print the settings that enable the plugin'
 
 const LAYOUTS: Layout[] = ['root', 'inner']
-const PLUGIN_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
@@ -121,7 +120,7 @@ function writeNew(path: string, content: string) {
 }
 
 function pluginRepo(env: Env) {
-  const manifest = join(env.CONTEXT_CENTRAL_PLUGIN_ROOT ?? PLUGIN_ROOT, '.claude-plugin', 'plugin.json')
+  const manifest = manifestPath(env)
   if (!existsSync(manifest)) throw new PluginError(`${manifest} is missing, so the marketplace repository is not known`)
   const { repository } = readJson(manifest, 'plugin manifest') as { repository?: string | { url?: string } }
   const url = typeof repository === 'string' ? repository : repository?.url
