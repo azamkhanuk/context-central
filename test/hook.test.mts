@@ -377,13 +377,13 @@ test('the estate sets the size that earns the notice, and zero turns it off', ()
   assert.equal('systemMessage' in quiet, false)
 })
 
-test('the plugin wires both events to the hook command without a shell', () => {
+test('the plugin wires both events to the hook command without a shell, session start with a limit of 15 seconds and a prompt with 10', () => {
   const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { SessionStart: unknown, UserPromptSubmit: unknown } }
 
   assert.deepEqual(hooks.SessionStart, [
     {
       matcher: 'startup|resume|clear|compact|fork',
-      hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'session-start'] }],
+      hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'session-start'], timeout: 15 }],
     },
   ])
   assert.deepEqual(hooks.UserPromptSubmit, [

@@ -1,7 +1,7 @@
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "startup|resume|clear|compact|fork", "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "session-start"] }] }
+      { "matcher": "startup|resume|clear|compact|fork", "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "session-start"], "timeout": 15 }] }
     ],
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "user-prompt-submit"], "timeout": 10 }] }
