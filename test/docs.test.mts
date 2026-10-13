@@ -10,8 +10,8 @@ const prose = (file: string) => readFileSync(join(REPO, file), 'utf8').replace(/
 const anchors = (file: string) => [...prose(file).matchAll(/^#+ (.+?)\r?$/gm)].map(([, heading]) => heading.toLowerCase().replace(/[^\p{L}\p{N} _-]/gu, '').replaceAll(' ', '-'))
 const links = (file: string) => [...prose(file).replace(/`[^`\n]*`/g, '').matchAll(/\]\(([^)\s]+)\)/g)].map(([, target]) => target).filter(target => !/^[a-z]+:/.test(target))
 
-test('every link in the README and in a file under docs leads to a file that is there, and to a heading that file has', () => {
-  const dead = ['README.md', ...DOCS].flatMap(page => links(page)
+test('every link in the README, in the contributing page and in a file under docs leads to a file that is there, and to a heading that file has', () => {
+  const dead = ['README.md', 'CONTRIBUTING.md', ...DOCS].flatMap(page => links(page)
     .filter(target => {
       const [path, anchor] = target.split('#')
       const file = path ? join(dirname(page), path) : page

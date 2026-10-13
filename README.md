@@ -83,7 +83,7 @@ Then start a session in the folder that holds your checkouts and run:
 
 Restart or `/clear` afterwards so the hub loads.
 
-[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine) and [turning it off](docs/install.md#turning-it-off).
+[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 
 On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [On Windows](docs/terminal.md#on-windows) lists what was shown there, and [What it does not do](docs/limits.md) lists what was not.
 
@@ -109,7 +109,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 | Part | What its file covers |
 |---|---|
-| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, and turning it off |
+| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
 | [What it runs, what it writes and how to remove it](docs/what-it-runs.md) | Every program the plugin starts, every place it writes outside the map, and how to remove all of it |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, how a session in a git work tree reads and writes the map, the budget of each tier, and evidence |
@@ -120,7 +120,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | [Working from a terminal](docs/terminal.md) | The launcher that runs the CLI outside a session, and what the checks have shown on Windows |
 | [What it does not do](docs/limits.md) | Every limit, with what is untested on Windows |
 
-[CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
+[CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page. [CONTRIBUTING.md](CONTRIBUTING.md) says how to send a change, and [SECURITY.md](SECURITY.md) how to report a security fault in private.
 
 ## What it does not do
 

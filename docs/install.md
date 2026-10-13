@@ -100,3 +100,10 @@ The command only prints: `.claude/` is a protected path, so the write is yours t
 - **For good**: `claude plugin uninstall context-central@context-central`. [How to remove all of it](what-it-runs.md#how-to-remove-all-of-it) lists what the plugin wrote outside the map, which an uninstall leaves where it is.
 
 The map is plain Markdown and stays readable without the plugin.
+
+## What stays put before 1.0
+
+The plugin is before 1.0, so a release may still change things. Two kinds of thing are held apart:
+
+- **The map's layout and the keys of `estate.json` stay put.** Where a release changes what either means for a map that is already there, its section of [CHANGELOG.md](../CHANGELOG.md) says so under "For a map that already exists", with what to do.
+- **The wording may change in any release**: the text of a skill or an agent, and what a command prints. A script that reads a command's output should ask for `--json` where the command has it.
