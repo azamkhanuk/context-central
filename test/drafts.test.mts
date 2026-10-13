@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, together, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -642,3 +642,27 @@ test('work done goes ahead where the draft of the state file was only read', () 
   assert.equal(result.stdout, 'PROJ-12: done\n')
   assert.match(read(made.main, SOLO_STATE), /^status: done$/m)
 })
+
+for (const round of [1, 2, 3, 4, 5]) {
+  test(`two work trees that take an edited draft of one file at once end with one took and one kept, and nothing temporary in the map (round ${round})`, async () => {
+    const made = estate()
+    const trees = [made.inside, workTree(made, join(made.main, '.claude', 'worktrees', 'other'), 'work/other')]
+    const texts = ['# PROJ-12, by the first\n', '# PROJ-12, by the second\n']
+    for (const [at, inside] of trees.entries()) {
+      draft(made, inside, SOLO_STATE)
+      write(inside, SOLO_STATE, texts[at])
+    }
+
+    const results = await together(trees.map(cwd => ({ args: ['take'], options: { cwd, env: made.env } })))
+
+    const first = results[0].code === 0 ? 0 : 1
+    const second = 1 - first
+    const toCompare = join(trees[second], MAP, IN_THE_MAP, SOLO_STATE)
+    assert.deepEqual(results[first], { code: 0, stdout: `took ${SOLO_STATE}\n`, stderr: '' })
+    assert.deepEqual(results[second], { code: 1, stdout: '', stderr: kept(SOLO_STATE, `the map's file changed after this was drafted; compare it with ${toCompare}, a copy of the map's file as it now is, then run context-central take --over ${SOLO_STATE}`) })
+    assert.equal(read(made.main, SOLO_STATE), texts[first])
+    assert.equal(read(trees[second], SOLO_STATE), texts[second])
+    assert.equal(readFileSync(toCompare, 'utf8'), texts[first])
+    assert.deepEqual(readdirSync(join(made.main, MAP), { recursive: true, encoding: 'utf8' }).filter(name => name.includes('.context-central.')), [])
+  })
+}

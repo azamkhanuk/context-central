@@ -4,6 +4,7 @@ import { isAbsolute, join, posix, relative, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
+import { copyWhole, locked } from './lock.mts'
 import { makeFolder } from './nodes.mts'
 import { withoutBom } from './text.mts'
 import { holds, trackedUnder } from './worktree.mts'
@@ -83,19 +84,21 @@ export function take(estate: Estate, { dir, tracked }: Drafts, over: string[], f
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return taken
-  const record = readRecord(dir)
-  forgetCopies(dir, from)
-  for (const rel of waiting) {
-    const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
-    if (typeof verdict === 'object') {
-      taken.kept.push({ rel, why: verdict.kept })
-      continue
+  return locked(estate.mapDir, () => {
+    const record = readRecord(dir)
+    forgetCopies(dir, from)
+    for (const rel of waiting) {
+      const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
+      if (typeof verdict === 'object') {
+        taken.kept.push({ rel, why: verdict.kept })
+        continue
+      }
+      if (verdict === 'took') taken.took.push(rel)
+      rmSync(join(dir, rel))
     }
-    if (verdict === 'took') taken.took.push(rel)
-    rmSync(join(dir, rel))
-  }
-  tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
-  return taken
+    tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
+    return taken
+  })
 }
 
 export function awaitsTaking(estate: Estate, env: Env, rel: string) {
@@ -138,7 +141,7 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   if (held && !forced && base !== hashOf(ours)) return { kept: `${base ? "the map's file changed after this was drafted" : 'the map holds this file and the draft was not made from it'}; compare it with ${toCompare(drafts, rel, ours)}, then run context-central take --over ${rel}` }
   try {
     makeFolder(estate.mapDir, posix.dirname(rel))
-    copyFileSync(draft, ours)
+    copyWhole(draft, ours)
   } catch (error) {
     if (error instanceof PluginError) return { kept: error.message }
     const { code } = error as NodeJS.ErrnoException
