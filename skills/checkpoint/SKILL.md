@@ -28,7 +28,7 @@ A file that is not text and shows what this session saw (a screenshot, a recordi
 
 Its six parts, each replaced with what is true now:
 
-- **Where it stands**: the present position in a few lines.
+- **Where it stands**: the present position in a few lines. Where a build wrote there the branch the work is on, with its repo and the branch it was made from, keep that.
 - **Done**: what is finished, with the commit or PR that shows it. A PR is written as its link, so that the link finds the item later.
 - **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run.
 - **Blocked**: what is waiting, and on whom or what.
