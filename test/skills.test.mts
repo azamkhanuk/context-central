@@ -29,7 +29,7 @@ const FLAGS: Record<string, string[]> = {
   lint: ['json', 'strict'],
   doctor: ['json'],
   detect: ['json'],
-  init: ['from', 'dry-run', 'print-settings'],
+  init: ['from', 'plain', 'dry-run', 'print-settings'],
   wrapper: ['write'],
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],

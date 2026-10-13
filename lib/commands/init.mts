@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, validateConfig } from '../estate.mts'
+import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, findEstate, validateConfig } from '../estate.mts'
 import { locked, readWhole, writeWhole } from '../lock.mts'
 import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
+import { checkoutAround, checkoutsUnder } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Layout, Settings } from '../estate.mts'
 import type { InMap } from '../templates.mts'
@@ -21,24 +22,33 @@ interface Step {
   rel: string
   content?: string
   append?: string
+  lines?: string[]
 }
 
-export const summary = 'Write a new map from an answers file, or print the settings that enable the plugin'
+interface Plan {
+  dir: string
+  answers: Answers
+  first: Step[]
+}
+
+export const summary = 'Write a new map from an answers file, or a plain one with --plain; or print the settings that enable the plugin'
 
 const LAYOUTS: Layout[] = ['root', 'inner']
+const OWN_HUB = 'CLAUDE.local.md'
+const KEPT_OUT_OF_GIT = [`${INNER_DIR}/`, OWN_HUB]
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { from: { type: 'string' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
+    options: { from: { type: 'string' }, plain: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
   })
   if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(pluginRepo(io.env)), null, 2))
-  if (!values.from) throw new UsageError('expected --from <answers.json>, or --print-settings')
-  const dir = resolve(io.cwd, positionals[0] ?? '.')
-  const answers = readAnswers(resolve(io.cwd, values.from))
-  const planned = steps(dir, answers)
-  const done: string[] = []
+  if (Boolean(values.plain) === Boolean(values.from)) throw new UsageError('expected --from <answers.json> or --plain, one and not both, or --print-settings')
+  const given = resolve(io.cwd, positionals[0] ?? '.')
+  const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env)
+  const planned = [...first, ...steps(dir, answers)]
+  const done: string[] = values.plain ? [`plain map at ${dir}:`] : []
   const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
   try {
     if (values['dry-run']) carryAll(true)
@@ -51,6 +61,19 @@ export function run(args: string[], io: Io) {
 function madeFolder(path: string) {
   mkdirSync(path, { recursive: true })
   return path
+}
+
+function plain(given: string, env: Env): Plan {
+  const around = checkoutAround(given)
+  if (around && !around.main) throw new PluginError(`${join(around.root, '.git')} is a file that names no work tree, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
+  const dir = around?.main ?? given
+  const name = basename(dir)
+  const ours = around ? join(dir, INNER_DIR, CONFIG_FILE) : join(dir, CONFIG_FILE)
+  const found = findEstate(given, env)
+  if (found && found.configPath !== ours) throw new PluginError(`a map already covers this folder: ${found.configPath}`)
+  if (!around) return { dir, answers: { layout: 'root', config: { name, repos: checkoutsUnder(dir) } }, first: [] }
+  const keptOut = { rel: '.git/info/exclude', content: KEPT_OUT_OF_GIT.map(line => `${line}\n`).join(''), lines: KEPT_OUT_OF_GIT }
+  return { dir, answers: { layout: 'inner', config: { name, hub: OWN_HUB, repos: [{ name, path: '.' }] } }, first: found ? [] : [keptOut] }
 }
 
 function readAnswers(path: string) {
@@ -108,18 +131,22 @@ function innerGitSteps(config: Settings, inMap: InMap): Step[] {
 
 function carryOut(dir: string, step: Step, dryRun: boolean) {
   const path = join(dir, step.rel)
-  const action = actionFor(path, step)
+  const there = existsSync(path)
+  const lacks = there ? lacking(path, step) : null
+  const action = !there ? 'create' : lacks === null ? 'keep' : 'update'
   if (action === 'keep') return `kept ${step.rel}`
   if (dryRun) return `would ${action} ${step.rel}`
-  if (action === 'update') addTo(path, step.append ?? '')
+  if (lacks !== null) addTo(path, lacks)
   else if (step.content === undefined) mkdirSync(path, { recursive: true })
   else writeNew(path, step.content)
   return `${action}d ${step.rel}`
 }
 
-function actionFor(path: string, step: Step) {
-  if (!existsSync(path)) return 'create'
-  return step.append && !readFileSync(path, 'utf8').includes(BLOCK_START) ? 'update' : 'keep'
+function lacking(path: string, { content, append, lines }: Step) {
+  if (content === undefined) return null
+  const text = readFileSync(path, 'utf8')
+  if (lines) return lines.filter(line => !text.split(/\r?\n/).includes(line)).map(line => `${line}\n`).join('') || null
+  return append && !text.includes(BLOCK_START) ? append : null
 }
 
 function addTo(path: string, block: string) {
