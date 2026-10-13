@@ -183,18 +183,23 @@ function runsOf(text: string): string[] {
 
 function byLink(estate: Estate, query: string, max: number) {
   const connections = [...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)]
-  for (const { text, repo, connection } of referencesIn(connections, query).filter(isLink)) {
+  const links = referencesIn(connections, query).filter(isLink)
+  if (links.length === 0) return null
+  const items = listWorkItems(estate).filter(candidate => candidate.entry)
+  const read = new Map<string, string>()
+  const textOf = (path: string) => read.get(path) ?? read.set(path, readFileSync(path, 'utf8')).get(path)!
+  for (const { text, repo, connection } of links) {
     const by = connection.entry.holds === PULL_REQUESTS ? 'pr' : 'link'
-    const item = listWorkItems(estate).find(candidate => candidate.entry && mentions(candidate, text))
+    const item = items.find(candidate => mentions(candidate, text, textOf))
     const found = item ? itemResolution(estate, item, by, max) : repo ? repoResolution(estate, repo, by, max) : null
     if (found) return found
   }
   return null
 }
 
-function mentions(item: WorkItem, url: string) {
+function mentions(item: WorkItem, url: string, textOf: (path: string) => string) {
   const exact = new RegExp(`${escapeRegExp(url)}(?!\\d)`)
-  return [...(item.entry ? [item.entry] : []), ...item.files].some(file => exact.test(readFileSync(file.path, 'utf8')))
+  return [...(item.entry ? [item.entry] : []), ...item.files].some(file => textOf(file.path).includes(url) && exact.test(textOf(file.path)))
 }
 
 function byRepoName(estate: Estate, query: string, max: number) {

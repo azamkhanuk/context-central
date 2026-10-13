@@ -734,3 +734,48 @@ test("a prompt that is a work item's own ticket is answered where no connection 
   assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '#77' })).split('\n')[0], 'Context for work item login-fix:')
   assert.equal(context(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: '(#77)' })).split('\n')[0], 'Context for work item login-fix:')
 })
+
+const ITEMS = 300
+const itemId = (at: number) => `PROJ-${1000 + at}`
+const linkNobodyMentions = (at: number) => `https://github.com/acme/elsewhere/pull/${at + 1}`
+const linkOf = (at: number) => `https://github.com/acme/elsewhere/pull/${5000 + at}`
+
+function manyItems() {
+  const files = Array.from({ length: ITEMS }, (_, at) => [
+    [`work/${itemId(at)}/STATE.md`, `---\nitem: ${itemId(at)}\ntitle: Change ${at}\nstatus: active\n---\n# ${itemId(at)}: Change ${at}\n\n## Where it stands\n\nNot built.\n`],
+    [`work/${itemId(at)}/notes/2026-01-10-research.md`, `# Research for change ${at}\n\n${'What was read, and where. '.repeat(40)}\n`],
+    [`work/${itemId(at)}/notes/2026-01-11-pr.md`, `# The pull request of change ${at}\n\nRaised as ${linkOf(at)} on Monday.\n`],
+    [`work/${itemId(at)}/notes/2026-01-12-review.md`, `# Review of change ${at}\n\n${'What the review found. '.repeat(40)}\n`],
+  ]).flat()
+  return tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n', ...Object.fromEntries(files) }))
+}
+
+function timed(root: string, prompt: string) {
+  const from = performance.now()
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt })
+  return { result, ms: performance.now() - from }
+}
+
+test('a prompt of three hundred links that no work item mentions is answered inside ten times a prompt of one, and inside the limit the hooks file gives the hook', () => {
+  const root = manyItems()
+  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { UserPromptSubmit: { hooks: { timeout: number }[] }[] } }
+  const limitMs = hooks.UserPromptSubmit[0].hooks[0].timeout * 1000
+
+  const one = timed(root, `please review ${linkNobodyMentions(0)}`)
+  const many = timed(root, Array.from({ length: 300 }, (_, at) => linkNobodyMentions(at)).join(' '))
+
+  silent(one.result)
+  silent(many.result)
+  assert.ok(many.ms < one.ms * 10, `three hundred links took ${Math.round(many.ms)} ms and one took ${Math.round(one.ms)} ms`)
+  assert.ok(many.ms < limitMs, `three hundred links took ${Math.round(many.ms)} ms, and the limit is ${limitMs} ms`)
+})
+
+test('on a map of three hundred items a link that one item mentions, among links nobody mentions, still gives that item\'s pointers', () => {
+  const root = manyItems()
+  const prompt = [linkNobodyMentions(0), linkNobodyMentions(1), linkOf(250), linkNobodyMentions(2)].join(' ')
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt })
+
+  assert.equal(context(result).split('\n')[0], `Context for work item ${itemId(250)}:`)
+  assert.match(context(result), new RegExp(`\n- [^\n]*${itemId(250)}[^\n]*STATE\\.md `))
+})
