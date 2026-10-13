@@ -12,7 +12,7 @@ Run `context-central draft <path>...` before a file of the map is read, edited, 
 
 ## 1. Load the item
 
-Run `context-central resolve <item> --absolute`. The item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path.
+Run `context-central resolve <item> --absolute`. Where it answers `no context map found`, no map covers this folder yet: run `context-central init --plain --dry-run`, show the person the lines it prints and ask once whether to make that plain map. On a yes run `context-central init --plain` and start this step again. On a no stop, and say that `/context-central:onboard` sets a map up. If either command refuses, stop and say what it said. Otherwise the item exists only when the first line reads `Context for work item <item>:`; any other answer is a near match. If it does not exist yet, create it with `context-central work new <item> --title "<title>"`, which prints the state file's path.
 
 For an item that was there already, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: stop and say what it said. When it adopted the item, say so in step 8.
 

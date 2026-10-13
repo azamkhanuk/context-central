@@ -12,7 +12,7 @@ Run `context-central draft <path>...` before a file of the map is read, edited, 
 
 ## 1. Place the question
 
-Run `context-central resolve <item or question> --absolute`. Read the first pointer, which for a work item is its state file, and only the other pointers the question needs.
+Run `context-central resolve <item or question> --absolute`. Where it answers `no context map found`, no map covers this folder yet: run `context-central init --plain --dry-run`, show the person the lines it prints and ask once whether to make that plain map. On a yes run `context-central init --plain` and start this step again. On a no stop, and say that `/context-central:onboard` sets a map up. If either command refuses, stop and say what it said. Otherwise read the first pointer, which for a work item is its state file, and only the other pointers the question needs.
 
 When the answer says a reference reads as a ticket and no work item answers to it, the ticket is new to the map. Create its item before reading it: `context-central work new <item> --ticket "<reference>"`, where the item's name is the reference when that could be a folder's name, and a short plain name otherwise. Give it its title once the ticket has been read. In every command a reference goes in quotes, since a reference may start with `#`, which a shell reads as the start of a comment.
 
