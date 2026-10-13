@@ -67,6 +67,7 @@ export function drafted(estate: Estate, drafts: Drafts | null, rel: string, from
   const unedited = untouched(draft, record[rel])
   if (!isFile(ours)) {
     if (unedited) forget(drafts.dir, record, rel, from)
+    makeFolder(drafts.dir, posix.dirname(rel))
     return draft
   }
   if (!statSync(draft, { throwIfNoEntry: false }) || (unedited && hashOf(ours) !== record[rel])) copyIn(drafts.dir, record, rel, ours)

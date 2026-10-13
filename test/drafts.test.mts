@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, together, workTree } from './helpers.mts'
@@ -700,4 +700,44 @@ test('the next take says the same of a draft that still cannot be removed, and t
   assert.deepEqual(again, { code: 1, stdout: '', stderr: STUCK })
   assert.deepEqual(freed, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+const NEW_NOTE = 'work/PROJ-12/notes/2026-01-15-build.md'
+
+test('draft of a file the map does not hold leaves the folder for it in the work tree, and still writes no file', () => {
+  const made = estate()
+
+  const result = draft(made, made.inside, NEW_NOTE)
+
+  assert.deepEqual(result, { code: 0, stdout: `${join(made.inside, MAP, NEW_NOTE)}\n`, stderr: '' })
+  assert.equal(statSync(join(made.inside, MAP, 'work', 'PROJ-12', 'notes')).isDirectory(), true)
+  assert.deepEqual(readdirSync(join(made.inside, MAP, 'work', 'PROJ-12', 'notes')), [])
+})
+
+test('draft says in one line when a file stands where the folder of a new file would go', () => {
+  const made = estate()
+  write(made.inside, 'work/PROJ-12/notes', 'a file, not a folder\n')
+
+  const result = draft(made, made.inside, NEW_NOTE)
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central draft: work/PROJ-12/notes is a file, not a folder, so nothing can be written under it\n' })
+})
+
+test('a folder made for a draft that was never written goes at the next take', () => {
+  const made = estate()
+  draft(made, made.inside, NEW_NOTE)
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('in the main checkout draft of a file the map does not hold makes no folder in the map', () => {
+  const made = estate()
+
+  const result = draft(made, made.main, NEW_NOTE)
+
+  assert.equal(result.stdout, `${join(made.main, MAP, NEW_NOTE)}\n`)
+  assert.equal(existsSync(join(made.main, MAP, 'work', 'PROJ-12', 'notes')), false)
 })
