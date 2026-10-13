@@ -1,9 +1,9 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, resolve as resolvePath, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
-import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
+import { fileAt, findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -438,7 +438,7 @@ function otherNotes(estate: Estate, item: WorkItem, pointers: Pointer[]): Counte
 
 function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   const rel = `repos/${name}.md`
-  if (!existsSync(join(estate.mapDir, rel))) return null
+  if (!fileAt(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
   const standards = standardsNote(estate, name)
   const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, STANDARDS_WHY)] : [])]
@@ -493,7 +493,7 @@ function namedRepoNotes(estate: Estate, text: string) {
   return estate.config.repos
     .filter(repo => wholeWord(repo.name).test(text))
     .map(repo => `repos/${repo.name}.md`)
-    .filter(rel => existsSync(join(estate.mapDir, rel)))
+    .filter(rel => fileAt(join(estate.mapDir, rel)))
 }
 
 function wholeWord(word: string) {

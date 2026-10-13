@@ -10,7 +10,7 @@ import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
 import { lintEstate } from '../lint.mts'
 import { claudeConfigDir } from '../machine.mts'
-import { hubPath, listWorkItems } from '../nodes.mts'
+import { folderAt, hubPath, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
@@ -120,7 +120,7 @@ function notes(estate: Estate, io: Io) {
   if (!rule(CONFIG_FILE).startsWith('!')) return null
   const left = estate.config.nodeDirs
     .map(dir => dir.replace(/\/+$/, ''))
-    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory() && CATCH_ALL.includes(rule(dir)))
+    .filter(dir => folderAt(join(estate.mapDir, dir)) && CATCH_ALL.includes(rule(dir)))
   if (left.length === 0) return null
   return `git ignores ${left.map(dir => `${dir}/`).join(', ')} while it keeps the rest of the map, so notes there are never committed; allow ${left.length === 1 ? 'it' : 'them'} in the map's .gitignore`
 }

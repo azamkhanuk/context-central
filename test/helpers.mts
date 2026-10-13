@@ -70,6 +70,7 @@ export function closedReader(args: string[], options: RunOptions = {}): Promise<
 
 function started(args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions) {
   const child = spawn(process.execPath, [BIN, ...args], { cwd, env: withDefaults(env) })
+  child.stdin.on('error', () => {})
   child.stdin.end(stdin)
   return child
 }
@@ -79,6 +80,7 @@ function ended(child: ChildProcessWithoutNullStreams): Promise<Result> {
     const said = { stdout: '', stderr: '' }
     child.stdout.setEncoding('utf8').on('data', (text: string) => (said.stdout += text))
     child.stderr.setEncoding('utf8').on('data', (text: string) => (said.stderr += text))
+    child.on('error', error => resolve({ code: null, stdout: said.stdout, stderr: `not started: ${error.message}` }))
     child.on('close', code => resolve({ code, ...said }))
   })
 }
