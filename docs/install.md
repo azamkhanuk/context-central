@@ -4,11 +4,14 @@ How to install the plugin, how a release reaches it, what decides whether it loa
 
 ## What it needs
 
-- Node 22.18 or later
+- Claude Code 2.1.275 or later
+- Node 22.18 or later, as `node` on the `PATH` Claude Code starts with
 - macOS, Linux (WSL included) or Windows
 - on Windows, Git for Windows as well
 
 There are no runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed.
+
+With no `node` on that `PATH`, Claude Code reports each time a hook would run that it could not be started, with `Executable not found in $PATH: "node"`, and the session goes on without the index and the pointers. With a Node older than 22.18 the plugin says so itself. At session start it is one line to you, `context-central: this is Node <version>; the plugin needs Node 22.18 or later. Its hooks stay quiet until then.` Any command prints the first of those two sentences and exits 1, and at a prompt nothing is said.
 
 On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [Working from a terminal](terminal.md#on-windows) lists what was shown there, and [What it does not do](limits.md) lists what was not.
 
@@ -94,6 +97,6 @@ The command only prints: `.claude/` is a protected path, so the write is yours t
 - **In one folder**: add it to `leftAlone` in `estate.json`. The hooks stay silent there.
 - **On one machine, for a map that enables it**: set `"context-central@context-central": false` under `enabledPlugins` in the map's `.claude/settings.local.json`.
 - **For your account**: `claude plugin disable context-central@context-central`.
-- **For good**: `claude plugin uninstall context-central@context-central`.
+- **For good**: `claude plugin uninstall context-central@context-central`. [How to remove all of it](what-it-runs.md#how-to-remove-all-of-it) lists what the plugin wrote outside the map, which an uninstall leaves where it is.
 
 The map is plain Markdown and stays readable without the plugin.

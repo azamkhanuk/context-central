@@ -4,7 +4,7 @@ The plugin has two hooks: one runs when a session starts, and one when a prompt 
 
 ## At session start
 
-On startup, resume, clear, compaction and fork, the hook adds the live index.
+On startup, resume, clear, compaction and fork, the hook adds the live index. Claude Code gives it 15 seconds, and past that cancels it: the session starts without the index.
 
 - It names the map, the hub, and each work item in flight with its title and state file.
 - Where the map records connections, one line names each, what it holds and the ways recorded for it.
@@ -15,7 +15,7 @@ On startup, resume, clear, compaction and fork, the hook adds the live index.
 
 ## When a prompt is submitted
 
-The hook adds pointers when the prompt names something the map knows. First match wins:
+The hook adds pointers when the prompt names something the map knows. Claude Code gives it 10 seconds, and past that the prompt goes on without them. First match wins:
 
 1. a work item, by any spelling of its ticket or by name, or else by its name written with spaces or its title word for word
 2. a link that belongs to a connection: the work item that mentions it, or else the note of the repository it names
@@ -27,7 +27,7 @@ The hook adds pointers when the prompt names something the map knows. First matc
 
 Routes 5 to 7 are tried only where the four before them have no answer, so a prompt that had an answer keeps it. They leave out the work folder, the log and the deep tier. A prompt's counted words are its runs of letters and digits, without stop words and runs of one or two letters; a run that holds a digit always counts. An identifier of one word answers only when it is the whole prompt, and a number alone names nothing.
 
-The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. A work item's pointers are its state file, its spec, its design where there is one, the notes it links and the repo notes it names, and each repo note brings the repo's standards note straight after it. A repo's pointers are its note, its standards note and the notes its note links, among them a file of the repo itself when the note links one, in either layout, so long as the link stays inside the estate. They are facts, never instructions. Each answer is delivered once per session; with no session id nothing is remembered, so the same pointers come on every prompt. The record of what a session has been given is kept under the system's temporary folder, and is removed once no session has used it for fourteen days.
+The pointers are a short list of paths with sizes and a reason each, plus a count of the deep files and of the evidence behind the item. A work item's pointers are its state file, its spec, its design where there is one, the notes it links and the repo notes it names, and each repo note brings the repo's standards note straight after it. A repo's pointers are its note, its standards note and the notes its note links, among them a file of the repo itself when the note links one, in either layout, so long as the link stays inside the estate. They are facts, never instructions. Each answer is delivered once per session; with no session id nothing is remembered, so the same pointers come on every prompt. The record of what a session has been given is kept in the data folder Claude Code gives the plugin, under `sessions`, in a folder made for you alone. Where Claude Code names no such folder it is kept in `context-central-<your user id>` under the system's temporary folder, made for you alone too, and never used when it is a link or another user's: nothing is then remembered. `CONTEXT_CENTRAL_STATE_DIR` names another folder for it, which is never swept. A record is removed once no session has used it for fourteen days, the next time any session saves one.
 
 When a prompt names a ticket that no work item answers to, the hook adds one line saying so and which connection it reads as. A bare number is never reported, a reference is reported once per session, and three are reported at most.
 
@@ -49,4 +49,4 @@ The hook shows a notice to the person, not to the model. If Claude Code reports 
 - the same answer was already delivered in this session
 - the prompt is the host's own text, a background task's notification or an agent's report, which begins `<task-notification>` or `<agent-message`: it gets no pointers and the session record is left as it was
 
-If `estate.json` is invalid, the person sees a one-line message and the model sees nothing. A hook that fails prints nothing and exits 0; with `CONTEXT_CENTRAL_DEBUG` set, the error goes to standard error. The resolver makes no network call.
+If `estate.json` is invalid, the person sees a one-line message and the model sees nothing. A hook that fails says so to the person in one line, each time it fails, and still exits 0: `context-central: the <event> hook failed: <what failed>. Run "context-central doctor".` The model is given nothing, and with `CONTEXT_CENTRAL_DEBUG` set the trace goes to standard error. An entry of the map that cannot be read does not fail a hook: it is passed over, and `lint` names it. The resolver makes no network call.
