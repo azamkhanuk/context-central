@@ -70,7 +70,7 @@ function create(estate: Estate, id: string, { title, ticket }: { title?: string;
   locked(estate.mapDir, () => {
     if (findWorkItem(estate, id)) throw new PluginError(`${id} already exists`)
     refuseUnlisted(estate, dirRel)
-    refuseTaken(estate, `${dirRel}/STATE.md`)
+    refuseTaken(estate, `${dirRel}/STATE.md`, 'make')
     for (const folder of FOLDERS) makeFolder(estate.mapDir, `${dirRel}/${folder}`)
     writeWhole(join(estate.mapDir, dirRel, 'STATE.md'), stateTemplate(id, title ?? id, ticketOf(listed(estate.config.connections), { id, ticket: ticket ?? null })))
   })
@@ -108,6 +108,7 @@ function adopted(estate: Estate, id: string, env: Env) {
     const stateRel = `${item.dirRel}/STATE.md`
     const inTheWay = namesIn(join(estate.mapDir, item.dirRel)).find(name => name !== 'STATE.md' && name.toLowerCase() === 'state.md')
     if (inTheWay) throw new PluginError(`${item.dirRel}/${inTheWay} has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again`)
+    refuseTaken(estate, stateRel, 'adopt')
     for (const folder of FOLDERS) makeFolder(estate.mapDir, `${item.dirRel}/${folder}`)
     const fromFolder = (rel: string) => posix.relative(item.dirRel, rel)
     const from = { status: item.status, day: localDate(env).day, older: item.entry ? fromFolder(item.entry.rel) : null, linked: item.entry ? pointedTo(estate, item.entry).map(fromFolder) : [] }
@@ -122,11 +123,11 @@ function refuseUnlisted(estate: Estate, dirRel: string) {
   throw new PluginError(`${dirRel} ${why}, so a work item made there would never be listed`)
 }
 
-function refuseTaken(estate: Estate, stateRel: string) {
+function refuseTaken(estate: Estate, stateRel: string, verb: 'make' | 'adopt') {
   const found = statOf(join(estate.mapDir, stateRel))
   if (!found) return
   const kind = found.isSymbolicLink() ? 'link' : found.isDirectory() ? 'folder' : 'file'
-  throw new PluginError(`${stateRel} is there already as a ${kind}, so nothing was written: move it, then make the item again`)
+  throw new PluginError(`${stateRel} is there already as a ${kind}, so nothing was written: move it, then ${verb} the item again`)
 }
 
 function statOf(path: string) {

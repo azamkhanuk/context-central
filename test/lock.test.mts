@@ -172,3 +172,64 @@ test('ten decisions recorded at once are each given a number of their own', asyn
   assert.deepEqual(readdirSync(join(root, 'decisions')).map(name => name.slice(0, 4)).sort(), ['0001', '0002', '0003', '0004', '0005', '0006', '0007', '0008', '0009', '0010'])
   assert.deepEqual(leftByAWrite(root), [])
 })
+
+const LINKS = notOnWindows('symlinks need a right most Windows accounts lack')
+const linkToNowhere = (root: string, rel: string) => {
+  mkdirSync(join(root, rel, '..'), { recursive: true })
+  symlinkSync(join(root, 'nowhere', 'gone.md'), join(root, rel))
+}
+const isLink = (root: string, rel: string) => lstatSync(join(root, rel)).isSymbolicLink()
+
+test('a new note is refused where a link that leads nowhere stands at its place, and the link is left', LINKS, () => {
+  const root = tree(acme())
+  linkToNowhere(root, 'concepts/limits.md')
+
+  const result = run(['note', '--new', 'concepts/limits'], { cwd: root })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central note: concepts/limits.md already exists\n' })
+  assert.equal(isLink(root, 'concepts/limits.md'), true)
+})
+
+test('adopting an item is refused in one line where a link stands at the state file\'s place, and what it leads to is left as it was', LINKS, () => {
+  const root = tree(acme({ 'work/PROJ-7/README.md': '# PROJ-7: Old shape\n', 'kept/state.md': '# Kept elsewhere\n' }))
+  symlinkSync(join(root, 'kept', 'state.md'), join(root, 'work/PROJ-7/STATE.md'))
+
+  const result = run(['work', 'adopt', 'PROJ-7'], { cwd: root, env: { TZ: 'UTC' } })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central work: work/PROJ-7/STATE.md is there already as a link, so nothing was written: move it, then adopt the item again\n' })
+  assert.equal(read(root, 'kept/state.md'), '# Kept elsewhere\n')
+  assert.equal(isLink(root, 'work/PROJ-7/STATE.md'), true)
+})
+
+test('a launcher is kept where a link that leads nowhere stands at its place', LINKS, () => {
+  const root = tree(acme())
+  linkToNowhere(root, 'bin/context-central')
+
+  const result = run(['wrapper', '--write'], { cwd: root })
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stdout.split('\n')[0], 'kept bin/context-central (differs from the one this release writes: delete it and run this again to renew it)')
+  assert.equal(isLink(root, 'bin/context-central'), true)
+})
+
+test('init does not replace a hub that is a link leading nowhere: it stops with one line that names it', LINKS, () => {
+  const root = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
+  linkToNowhere(root, 'CLAUDE.md')
+
+  const result = run(['init', '--from', 'answers.json'], { cwd: root })
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stderr, `context-central init: ENOENT: no such file or directory, open '${join(root, 'CLAUDE.md')}'. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace.\n`)
+  assert.equal(isLink(root, 'CLAUDE.md'), true)
+  assert.deepEqual(leftByAWrite(root), [])
+})
+
+test('evidence is refused where a link that leads nowhere stands at its name, and the link is left', LINKS, () => {
+  const root = tree(acme({ 'scratch/shot.png': 'x' }))
+  linkToNowhere(root, 'work/PROJ-12/evidence/2026-01-15-shot.png')
+
+  const result = run(['evidence', 'add', 'scratch/shot.png', '--item', 'PROJ-12'], { cwd: root, env: { TZ: 'UTC' } })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central evidence: work/PROJ-12/evidence/2026-01-15-shot.png already exists; give other words with --as\n' })
+  assert.equal(isLink(root, 'work/PROJ-12/evidence/2026-01-15-shot.png'), true)
+})

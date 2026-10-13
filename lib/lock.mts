@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { accessSync, chmodSync, constants, copyFileSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, chmodSync, constants, copyFileSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { PluginError } from './errors.mts'
 
@@ -37,6 +37,14 @@ export function readWhole(path: string) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     if (error instanceof Error && !error.message.includes(path)) error.message += ` '${path}'`
     throw error
+  }
+}
+
+export function standsAt(path: string) {
+  try {
+    return lstatSync(path, { throwIfNoEntry: false }) !== undefined
+  } catch {
+    return false
   }
 }
 

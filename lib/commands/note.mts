@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
-import { locked, readWhole, writeWhole } from '../lock.mts'
+import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { makeFolder, neverListed, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
@@ -74,7 +74,7 @@ function create(estate: Estate, target: string, title: string | undefined, io: I
     const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, parts.join('/'), title || name)
     if (underNotNodes(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
     const path = join(estate.mapDir, rel)
-    if (existsSync(path)) throw new PluginError(`${rel} already exists`)
+    if (standsAt(path)) throw new PluginError(`${rel} already exists`)
     makeFolder(estate.mapDir, posix.dirname(rel))
     writeWhole(path, text)
     return rel

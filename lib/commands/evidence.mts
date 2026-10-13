@@ -1,9 +1,9 @@
-import { lstatSync, statSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
-import { copyWhole, locked } from '../lock.mts'
+import { copyWhole, locked, standsAt } from '../lock.mts'
 import { EVIDENCE_DIR, findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -28,7 +28,7 @@ export function run(args: string[], io: Io) {
   locked(estate.mapDir, () => {
     makeFolder(estate.mapDir, folder)
     const to = join(estate.mapDir, rel)
-    if (lstatSync(to, { throwIfNoEntry: false })) throw new PluginError(`${rel} already exists; give other words with --as`)
+    if (standsAt(to)) throw new PluginError(`${rel} already exists; give other words with --as`)
     copyWhole(from, to)
   })
   io.out(`saved: ${rel} (${formatBytes(size)})`)

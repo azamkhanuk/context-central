@@ -3,7 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, findEstate, validateConfig } from '../estate.mts'
-import { locked, readWhole, writeWhole } from '../lock.mts'
+import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
@@ -131,7 +131,7 @@ function innerGitSteps(config: Settings, inMap: InMap): Step[] {
 
 function carryOut(dir: string, step: Step, dryRun: boolean) {
   const path = join(dir, step.rel)
-  const there = existsSync(path)
+  const there = standsAt(path)
   const lacks = there ? lacking(path, step) : null
   const action = !there ? 'create' : lacks === null ? 'keep' : 'update'
   if (action === 'keep') return `kept ${step.rel}`
