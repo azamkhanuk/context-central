@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { REPO, disposable, makeTree } from './helpers.mts'
+import { REPO, disposable, makeTree, notOnWindows } from './helpers.mts'
 import type { Env, TreeFiles } from './helpers.mts'
 
 const SCRIPT = join(REPO, 'scripts', 'scan-names.mts')
@@ -233,4 +233,38 @@ test('run from a subfolder, the whole repository is scanned', () => {
 
   assert.equal(result.code, 1)
   assert.equal(result.stdout, 'README.md:1: Zorblatt\n')
+})
+
+const PICTURE = 'PNG\0\0\0\rIHDR Zorblatt \0\0'
+
+test('a tracked file that git takes for binary is not read for names, and is still counted', () => {
+  const root = repository({ 'README.md': '# Acme estate\n', 'docs/shot.png': PICTURE })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 0, stdout: 'clean: 1 name checked against 2 files and 1 commit\n', stderr: '' })
+})
+
+test('a name in the path of a file that git takes for binary is still a path hit', () => {
+  const root = repository({ 'docs/Zorblatt.png': PICTURE })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 1, stdout: 'docs/Zorblatt.png: path: Zorblatt\n', stderr: '' })
+})
+
+test('a text file beside a binary one is still read for names', () => {
+  const root = repository({ 'docs/shot.png': PICTURE, 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n' })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 1, stdout: 'docs/notes.md:3: Zorblatt\n', stderr: '' })
+})
+
+test('a path with a tab in it is scanned under its own name', notOnWindows('Windows takes no tab in the name of a file'), () => {
+  const root = repository({ 'docs/two\twords.md': '# Notes\n\nAsk Zorblatt.\n' })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 1, stdout: 'docs/two\twords.md:3: Zorblatt\n', stderr: '' })
 })

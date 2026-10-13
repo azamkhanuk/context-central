@@ -9,6 +9,7 @@ class Refusal extends Error {}
 
 type PrivateName = { name: string, pattern: RegExp }
 type Commit = { sha: string, message: string }
+type Tracked = { path: string, binary: boolean }
 
 function main(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   const names = readNames(args[0] ?? env.CONTEXT_CENTRAL_PRIVATE_NAMES)
@@ -47,8 +48,11 @@ function wholeWord(name: string) {
   return new RegExp(`(?<![\\p{L}\\p{N}])${literal}(?![\\p{L}\\p{N}])`, 'iu')
 }
 
-function trackedFiles(root: string) {
-  return git(root, ['ls-files', '-z']).split('\0').filter(Boolean)
+function trackedFiles(root: string): Tracked[] {
+  return git(root, ['ls-files', '--eol', '-z'])
+    .split('\0')
+    .filter(Boolean)
+    .map(entry => ({ path: entry.slice(entry.indexOf('\t') + 1), binary: entry.startsWith('i/-text') }))
 }
 
 function commitMessages(root: string): Commit[] {
@@ -65,11 +69,11 @@ function git(cwd: string, args: string[]) {
   return result.stdout
 }
 
-function fileHits(root: string, file: string, names: PrivateName[]) {
-  const staged = git(root, ['show', `:${file}`])
+function fileHits(root: string, { path, binary }: Tracked, names: PrivateName[]) {
+  const staged = binary ? [] : git(root, ['show', `:${path}`]).split('\n')
   return [
-    ...found(file, names).map(name => `${file}: path: ${name}`),
-    ...staged.split('\n').flatMap((line, index) => found(line, names).map(name => `${file}:${index + 1}: ${name}`)),
+    ...found(path, names).map(name => `${path}: path: ${name}`),
+    ...staged.flatMap((line, index) => found(line, names).map(name => `${path}:${index + 1}: ${name}`)),
   ]
 }
 
