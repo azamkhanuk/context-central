@@ -23,7 +23,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout. It always exits 0, and a failure is one line for the person. Claude Code gives it 15 seconds at session start and 10 at a prompt |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
-| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files and a glossary the estate names exist. An entry of the map that cannot be read is an error too, `read: <path> <why>, so the listings pass over it`: a folder or a note with no permission, a link that leads nowhere, a folder where a note would be read |
+| `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files and a glossary the estate names exist. An entry of the map that cannot be read is an error too, `read: <path> <why>, so the listings pass over it`: a folder or a note with no permission, a link that leads nowhere where a note would be listed, a folder where a note would be read. Nothing under a folder `notNodes` lists is one |
 | `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, drafts left in work trees, legacy hooks, connections |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/[<folder>/]<name> [--title <title>]` | Create a node from a small template, in a folder below its kind when one is given |
