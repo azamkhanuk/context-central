@@ -16,10 +16,10 @@ The plugin is a command, `context-central`, which Node runs as it is. Nothing is
 
 **The commands.** A command runs when a session or you type it. [Commands, skills and agents](commands.md) lists them.
 
-- `draft`, `take`, `work done`, `work reopen`, `doctor` and `detect` start `git`, to read what it tracks and ignores, and in a git work tree any command may start it once, to tell a draft from a file git tracks there. None of them commits, pushes or changes a branch.
+- `draft`, `take`, `work done`, `work reopen`, `doctor` and `detect` start `git`, to read what it tracks and ignores, and in a git work tree any command may start it once, to tell a draft from a file git tracks there. `init --plain` starts it once inside a repository that has no map yet, to learn whether git tracks `CLAUDE.local.md`. None of them commits, pushes or changes a branch.
 - `fetch` starts the tool of a connection's preset to read one ticket or one pull request: `gh`, `acli` or `az`. `doctor`, `connections` and `detect` start the same tool to ask which accounts are signed in. Each runs under your own sign-in. Where a connection pins an account that is not the active one, the plugin asks the tool for that account's token and hands it to the tool for that one read: it never prints a token and never saves one.
 - The plugin itself opens no network connection and sends nothing anywhere. What reaches the network is the tool a preset starts, and only for a read. Its own commands never post to a tracker or a code host.
-- `init --plain` and the two hooks read `.git` themselves where they can, and start no program for that.
+- To find the checkout they are in, `init --plain` and the two hooks read `.git` themselves where they can, and start no program for that.
 
 **The skills and the agents.** A skill is a set of instructions the session follows, and an agent is a session it starts for one job. What they run is what your session is allowed to run: `context-central`, `git`, and in a build the checks your repo recorded. A skill posts to a tracker or a code host only where your write rules allow it and you approve the exact text.
 
@@ -42,7 +42,7 @@ The map is where the plugin writes: `.context-central/` inside a repository, or 
 
 Three things inside the map are worth knowing too.
 
-- A command that changes the map makes an empty folder, `.context-central.lock`, in the map's own folder for the moment of the write, and a second, `.context-central.lock.break`, when it takes over a lock left by a process that died. Git never shows an empty folder.
+- A command that changes the map makes an empty folder, `.context-central.lock`, in the map's own folder for the moment of the write. To take over a lock left by a process that died it makes a second for that moment, `.context-central.lock.break`, and where that one was left behind too, a third named `.context-central.lock.break.break`. Git never shows an empty folder.
 - A write lands in a file named `.context-central.<eight letters>.tmp` beside its place and is moved onto it. One is left behind only where a process was killed in that moment, and it can be deleted.
 - A ticket, a pull request or a thread is saved word for word under a work item's `sources/`. It may carry names and other personal data, so think before a map that holds them is shared or kept in git.
 
