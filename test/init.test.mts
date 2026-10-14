@@ -444,6 +444,19 @@ test("the settings to approve name the author's marketplace with auto-update on,
   assert.equal(existsSync(join(root, '.claude')), false)
 })
 
+test("the settings to approve do not read the plugin's own manifest, so they print where it is not there", () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
+
+  const result = run(['init', '--print-settings'], { cwd: root, env: { CONTEXT_CENTRAL_PLUGIN_ROOT: root } })
+
+  assert.equal(result.code, 0)
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, {
+    extraKnownMarketplaces: { azamkhanuk: { source: { source: 'github', repo: 'azamkhanuk/claude-plugins' }, autoUpdate: true } },
+    enabledPlugins: { 'context-central@azamkhanuk': true },
+    permissions: { allow: ['Bash(context-central *)'] },
+  })
+})
+
 test('a new map starts with no broken links and no orphans', () => {
   const root = answers()
   run(['init', '--from', 'answers.json'], { cwd: root })
