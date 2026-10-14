@@ -18,7 +18,7 @@ It is for people whose work runs across several repositories, or across many ses
 ## How it helps
 
 - **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
-- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The plugin's own skills and agents add about 530 tokens to a session by Claude Code's count, which `claude plugin details context-central@context-central` prints, and `context-central budget` shows what a folder loads at the start. The rest is read when it is named or asked for.
+- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The plugin's own skills and agents add about 530 tokens to a session by Claude Code's count, which `claude plugin details context-central@azamkhanuk` prints, and `context-central budget` shows what a folder loads at the start. The rest is read when it is named or asked for.
 - **What is written stays written.** Long text is kept in full, and each short note names the full text behind it. Two sessions that write the map at the same moment cannot undo each other's lines: a command holds the map's lock while it writes, and one that cannot get it says so and writes nothing.
 - **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
 - **It works in a git work tree.** One map serves every work tree of a checkout: a session in one finds it, runs the repo's checks in the work tree, and writes the map through the plugin's own commands, with nothing to copy.
@@ -71,8 +71,8 @@ It needs:
 There are no runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed. With no Node, Claude Code reports that a hook could not be started each time one would run; with a Node that is too old, the plugin says so in one line. [What it needs](docs/install.md#what-it-needs) has both lines.
 
 ```sh
-claude plugin marketplace add azamkhanuk/context-central
-claude plugin install context-central@context-central
+claude plugin marketplace add azamkhanuk/claude-plugins
+claude plugin install context-central@azamkhanuk
 ```
 
 Then start a session in the folder that holds your checkouts and run:

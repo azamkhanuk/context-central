@@ -7,7 +7,9 @@ export const BLOCK_START = '<!-- context-central:start -->'
 export const BLOCK_END = '<!-- context-central:end -->'
 
 const PLUGIN = 'context-central'
-const MARKETPLACE = 'context-central'
+// The marketplace is its author's list of plugins, in a repository of its own, so its address is not the plugin's.
+const MARKETPLACE = 'azamkhanuk'
+const MARKETPLACE_REPO = 'azamkhanuk/claude-plugins'
 
 const PARTS: Record<string, string | undefined> = {
   repos: 'one note per repo: what it is, its traps, how to work in it.',
@@ -134,9 +136,9 @@ export function gitattributesTemplate() {
   return 'log/*.md merge=union\n'
 }
 
-export function settingsTemplate(repo: string) {
+export function settingsTemplate() {
   return {
-    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo }, autoUpdate: true } },
+    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo: MARKETPLACE_REPO }, autoUpdate: true } },
     enabledPlugins: { [`${PLUGIN}@${MARKETPLACE}`]: true },
     permissions: { allow: [`Bash(${PLUGIN} *)`] },
   }
@@ -170,14 +172,14 @@ exec node "$cli" "$@"
 
 const NO_NODE = `${PLUGIN}: node was not found on the PATH. Install Node 22.18 or later.`
 const NO_PLUGIN = [
-  `${PLUGIN}: the plugin was not found. Add its marketplace with claude plugin marketplace add, then: claude plugin install ${PLUGIN}@${MARKETPLACE}`,
+  `${PLUGIN}: the plugin was not found. Add its marketplace with claude plugin marketplace add ${MARKETPLACE_REPO}, then: claude plugin install ${PLUGIN}@${MARKETPLACE}`,
   `Or set CONTEXT_CENTRAL_CLI to the path of its bin/${PLUGIN} file.`,
 ]
 // One text for both launchers: sh wraps it in single quotes and cmd in double, so every string in it is in backticks and it holds no percent sign.
 const CHOOSE_INSTALL = [
   'const choose = (record, launcher) => { const fs = require(`fs`), path = require(`path`)',
   'const real = file => { try { return fs.realpathSync.native(file) } catch (error) { return `` } }',
-  `const read = () => { try { const plugins = JSON.parse(fs.readFileSync(record, \`utf8\`)).plugins || {}; return Object.keys(plugins).filter(name => name.startsWith(\`${PLUGIN}@\`)).reduce((all, name) => all.concat(plugins[name]), []).filter(install => install && install.installPath) } catch (error) { return [] } }`,
+  `const read = () => { try { const plugins = JSON.parse(fs.readFileSync(record, \`utf8\`)).plugins || {}; return Object.keys(plugins).filter(name => name.startsWith(\`${PLUGIN}@\`)).sort((a, b) => Number(b === \`${PLUGIN}@${MARKETPLACE}\`) - Number(a === \`${PLUGIN}@${MARKETPLACE}\`)).reduce((all, name) => all.concat(plugins[name]), []).filter(install => install && install.installPath) } catch (error) { return [] } }`,
   'const installs = read()',
   'const projects = installs.filter(install => install.projectPath).map(install => [real(install.projectPath), install.installPath])',
   'const person = installs.find(install => install.scope === `user`)',

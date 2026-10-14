@@ -7,7 +7,7 @@ import { REPO, disposable, makeTree, pluginWith, runIn, run } from './helpers.mt
 const tree = disposable()
 
 const PRESETS_FOLDER = ['lib', 'presets'].join('/')
-const OWN_MARKETPLACE_ADDRESS = ['lib/templates.mts', 'lib/commands/init.mts']
+const OWN_MARKETPLACE_ADDRESS = ['lib/templates.mts']
 
 function filesUnder(folder: string): string[] {
   return readdirSync(join(REPO, folder), { withFileTypes: true }).flatMap(entry => {

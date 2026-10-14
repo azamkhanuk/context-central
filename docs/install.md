@@ -20,19 +20,21 @@ On Windows it has been tried only on GitHub's Windows machines, not in a live Cl
 From a shell:
 
 ```sh
-claude plugin marketplace add azamkhanuk/context-central
-claude plugin install context-central@context-central
+claude plugin marketplace add azamkhanuk/claude-plugins
+claude plugin install context-central@azamkhanuk
 ```
 
 Or both at once from inside a session (Claude Code v2.1.275 or later):
 
 ```
-/plugin install context-central --marketplace azamkhanuk/context-central
+/plugin install context-central --marketplace azamkhanuk/claude-plugins
 ```
 
-**Trying a local clone.** The repository is its own marketplace. Give `claude plugin marketplace add` the path of the clone. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
+The marketplace is the list of its author's plugins, kept in a repository of its own.
 
-**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@context-central` fetches it. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin` turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
+**Trying a local clone.** The repository is also a marketplace of its own, called `context-central`. Give `claude plugin marketplace add` the path of the clone and install `context-central@context-central`. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
+
+**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@azamkhanuk` fetches it. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin` turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
 
 **Releases.** [CHANGELOG.md](../CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
@@ -88,16 +90,16 @@ Put the printed JSON in one of:
 - the map's `.claude/settings.json`, shared with everyone who clones the map
 - the map's `.claude/settings.local.json`, for this machine only
 
-It declares the marketplace with auto-update on, enables `context-central@context-central`, and allows `Bash(context-central *)`. With auto-update on, a release reaches everyone who has the plugin this way, and the plugin's own version still decides when there is one to fetch.
+It declares the marketplace with auto-update on, enables `context-central@azamkhanuk`, and allows `Bash(context-central *)`. With auto-update on, a release reaches everyone who has the plugin this way, and the plugin's own version still decides when there is one to fetch.
 
 The command only prints: `.claude/` is a protected path, so the write is yours to approve. [What decides whether it loads](#what-decides-whether-it-loads) says when Claude Code then applies those settings: only in sessions started in that folder, and only once a person has accepted its trust prompt.
 
 ## Turning it off
 
 - **In one folder**: add it to `leftAlone` in `estate.json`. The hooks stay silent there.
-- **On one machine, for a map that enables it**: set `"context-central@context-central": false` under `enabledPlugins` in the map's `.claude/settings.local.json`.
-- **For your account**: `claude plugin disable context-central@context-central`.
-- **For good**: `claude plugin uninstall context-central@context-central`. [How to remove all of it](what-it-runs.md#how-to-remove-all-of-it) lists what the plugin wrote outside the map, which an uninstall leaves where it is.
+- **On one machine, for a map that enables it**: set `"context-central@azamkhanuk": false` under `enabledPlugins` in the map's `.claude/settings.local.json`.
+- **For your account**: `claude plugin disable context-central@azamkhanuk`.
+- **For good**: `claude plugin uninstall context-central@azamkhanuk`. [How to remove all of it](what-it-runs.md#how-to-remove-all-of-it) lists what the plugin wrote outside the map, which an uninstall leaves where it is.
 
 The map is plain Markdown and stays readable without the plugin.
 
