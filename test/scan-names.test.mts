@@ -19,11 +19,13 @@ function git(root: string, ...args: string[]) {
 
 const PICTURE = Buffer.from('\x89PNG\r\n\x1a\n\0\0\0\rIHDR Zorblatt \xff\xd9', 'latin1')
 
-function repository(files: TreeFiles, message = 'first commit', pictures: string[] = []) {
+const DECLARED = { '.gitattributes': '*.png binary\n' }
+
+function repository(files: TreeFiles, message = 'first commit', bytes: Record<string, Buffer> = {}) {
   const root = tree(makeTree(files))
-  for (const path of pictures) {
+  for (const [path, held] of Object.entries(bytes)) {
     mkdirSync(join(root, path, '..'), { recursive: true })
-    writeFileSync(join(root, path), PICTURE)
+    writeFileSync(join(root, path), held)
   }
   git(root, 'init', '--quiet', '--initial-branch=main')
   git(root, 'config', 'user.name', 'Test Author')
@@ -241,27 +243,62 @@ test('run from a subfolder, the whole repository is scanned', () => {
   assert.equal(result.stdout, 'README.md:1: Zorblatt\n')
 })
 
-test('a tracked picture whose bytes spell a name is not read for names, and is still counted', () => {
-  const root = repository({ 'README.md': '# Acme estate\n' }, 'first commit', ['docs/shot.png'])
+test('a tracked picture that .gitattributes declares binary is not read for names, and is still counted', () => {
+  const root = repository({ 'README.md': '# Acme estate\n', ...DECLARED }, 'first commit', { 'docs/shot.png': PICTURE })
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
-  assert.deepEqual(result, { code: 0, stdout: 'clean: 1 name checked against 2 files and 1 commit\n', stderr: '' })
+  assert.deepEqual(result, { code: 0, stdout: 'clean: 1 name checked against 3 files and 1 commit\n', stderr: '' })
 })
 
-test('a name in the path of a picture is still a path hit', () => {
-  const root = repository({}, 'first commit', ['docs/Zorblatt.png'])
+test('a picture that .gitattributes does not declare binary is read for names', () => {
+  const root = repository({ 'README.md': '# Acme estate\n' }, 'first commit', { 'docs/shot.png': PICTURE })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 1, stdout: 'docs/shot.png:3: Zorblatt\n', stderr: '' })
+})
+
+test('a name in the path of a picture declared binary is still a path hit', () => {
+  const root = repository(DECLARED, 'first commit', { 'docs/Zorblatt.png': PICTURE })
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
   assert.deepEqual(result, { code: 1, stdout: 'docs/Zorblatt.png: path: Zorblatt\n', stderr: '' })
 })
 
-test('a text file beside a picture is still read for names', () => {
-  const root = repository({ 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n' }, 'first commit', ['docs/shot.png'])
+test('a text file beside a picture declared binary is still read for names', () => {
+  const root = repository({ 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n', ...DECLARED }, 'first commit', { 'docs/shot.png': PICTURE })
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
+  assert.deepEqual(result, { code: 1, stdout: 'docs/notes.md:3: Zorblatt\n', stderr: '' })
+})
+
+test('a text file in Latin-1 with a stray carriage return, which git takes for binary, is still read for names', () => {
+  const root = repository({}, 'first commit', { 'docs/captured.txt': Buffer.from('Caf\xe9 notes\rkept from an old export.\n\nAsk Zorblatt.\n', 'latin1') })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.equal(git(root, 'ls-files', '--eol', 'docs/captured.txt').startsWith('i/-text'), true)
+  assert.deepEqual(result, { code: 1, stdout: 'docs/captured.txt:3: Zorblatt\n', stderr: '' })
+})
+
+test('a file .gitattributes declares binary is not read for names, whatever its bytes', () => {
+  const root = repository({ 'docs/export.dat': 'Ask Zorblatt.\n', '.gitattributes': '*.dat binary\n' })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.deepEqual(result, { code: 0, stdout: 'clean: 1 name checked against 2 files and 1 commit\n', stderr: '' })
+})
+
+test('only the repository declares a file binary: a global attributes file is not read', () => {
+  const root = repository({ 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n' })
+  const config = tree(makeTree({ 'git/attributes': '*.md binary\n' }))
+
+  const result = scan(root, [namesFile('Zorblatt\n')], { XDG_CONFIG_HOME: config })
+
+  assert.equal(git(root, '-c', `core.attributesFile=${join(config, 'git', 'attributes')}`, 'check-attr', 'binary', 'docs/notes.md'), 'docs/notes.md: binary: set')
   assert.deepEqual(result, { code: 1, stdout: 'docs/notes.md:3: Zorblatt\n', stderr: '' })
 })
 
