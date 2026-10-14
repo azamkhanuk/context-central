@@ -340,6 +340,27 @@ test('a second run keeps a file it has nothing to add to without reading it, so 
   assert.deepEqual(result, { code: 0, stdout: ['kept estate.json', ...NODE_DIRS.map(dir => `kept ${dir}/`), 'kept CLAUDE.md', 'kept glossary.md', ''].join('\n'), stderr: '' })
 })
 
+test('a folder at the place of the hub stops the run in one line that names it', () => {
+  const root = answers()
+  mkdirSync(join(root, 'CLAUDE.md'))
+
+  const result = init(root)
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(lines(result.stdout), ['created estate.json', ...NODE_DIRS.map(dir => `created ${dir}/`)])
+  assert.equal(result.stderr, `context-central init: EISDIR: illegal operation on a directory, read '${join(root, 'CLAUDE.md')}'. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace.\n`)
+})
+
+test('a folder at the place of the settings stops the run in one line that names it, and nothing is written', () => {
+  const root = answers()
+  mkdirSync(join(root, 'estate.json'))
+
+  const result = init(root)
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: `context-central init: EISDIR: illegal operation on a directory, read '${join(root, 'estate.json')}'. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace.\n` })
+  assert.deepEqual(readdirSync(root).sort(), ['answers.json', 'estate.json'])
+})
+
 test('an estate.json that belongs to another tool is not taken over', () => {
   const root = answers({}, { 'estate.json': { agent: 'someone else' } })
 

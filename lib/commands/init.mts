@@ -3,7 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, findEstate, validateConfig } from '../estate.mts'
-import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
+import { locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
@@ -115,7 +115,7 @@ function steps(dir: string, { layout, git, config: answered }: Answers): Step[] 
 function existingConfig(dir: string, configRel: string) {
   const path = join(dir, configRel)
   if (!existsSync(path)) return null
-  if (!readFileSync(path, 'utf8').includes(CONFIG_MARKER)) throw new PluginError(`${configRel} exists and is not a context-central config`)
+  if (!readThere(path).includes(CONFIG_MARKER)) throw new PluginError(`${configRel} exists and is not a context-central config`)
   return validateConfig(readJson(path, 'config'), configRel)
 }
 
@@ -145,7 +145,7 @@ function carryOut(dir: string, step: Step, dryRun: boolean) {
 
 function lacking(path: string, { append, lines }: Step) {
   if (!append && !lines) return null
-  const text = readFileSync(path, 'utf8')
+  const text = readThere(path)
   if (lines) return lines.filter(line => !text.split(/\r?\n/).includes(line)).map(line => `${line}\n`).join('') || null
   return append && !text.includes(BLOCK_START) ? append : null
 }

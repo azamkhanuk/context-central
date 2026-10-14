@@ -32,9 +32,17 @@ export function locked<T>(mapDir: string, change: () => T): T {
 
 export function readWhole(path: string) {
   try {
-    return readFileSync(path, 'utf8')
+    return readThere(path)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
+export function readThere(path: string) {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch (error) {
     if (error instanceof Error && !error.message.includes(path)) error.message += ` '${path}'`
     throw error
   }
