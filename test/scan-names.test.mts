@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, disposable, makeTree, notOnWindows } from './helpers.mts'
@@ -17,8 +17,14 @@ function git(root: string, ...args: string[]) {
   return result.stdout.trim()
 }
 
-function repository(files: TreeFiles, message = 'first commit') {
+const PICTURE = Buffer.from('\x89PNG\r\n\x1a\n\0\0\0\rIHDR Zorblatt \xff\xd9', 'latin1')
+
+function repository(files: TreeFiles, message = 'first commit', pictures: string[] = []) {
   const root = tree(makeTree(files))
+  for (const path of pictures) {
+    mkdirSync(join(root, path, '..'), { recursive: true })
+    writeFileSync(join(root, path), PICTURE)
+  }
   git(root, 'init', '--quiet', '--initial-branch=main')
   git(root, 'config', 'user.name', 'Test Author')
   git(root, 'config', 'user.email', 'author@acme.example')
@@ -235,30 +241,37 @@ test('run from a subfolder, the whole repository is scanned', () => {
   assert.equal(result.stdout, 'README.md:1: Zorblatt\n')
 })
 
-const PICTURE = 'PNG\0\0\0\rIHDR Zorblatt \0\0'
-
-test('a tracked file that git takes for binary is not read for names, and is still counted', () => {
-  const root = repository({ 'README.md': '# Acme estate\n', 'docs/shot.png': PICTURE })
+test('a tracked picture whose bytes spell a name is not read for names, and is still counted', () => {
+  const root = repository({ 'README.md': '# Acme estate\n' }, 'first commit', ['docs/shot.png'])
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
   assert.deepEqual(result, { code: 0, stdout: 'clean: 1 name checked against 2 files and 1 commit\n', stderr: '' })
 })
 
-test('a name in the path of a file that git takes for binary is still a path hit', () => {
-  const root = repository({ 'docs/Zorblatt.png': PICTURE })
+test('a name in the path of a picture is still a path hit', () => {
+  const root = repository({}, 'first commit', ['docs/Zorblatt.png'])
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
   assert.deepEqual(result, { code: 1, stdout: 'docs/Zorblatt.png: path: Zorblatt\n', stderr: '' })
 })
 
-test('a text file beside a binary one is still read for names', () => {
-  const root = repository({ 'docs/shot.png': PICTURE, 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n' })
+test('a text file beside a picture is still read for names', () => {
+  const root = repository({ 'docs/notes.md': '# Notes\n\nAsk Zorblatt.\n' }, 'first commit', ['docs/shot.png'])
 
   const result = scan(root, [namesFile('Zorblatt\n')])
 
   assert.deepEqual(result, { code: 1, stdout: 'docs/notes.md:3: Zorblatt\n', stderr: '' })
+})
+
+test('a text file that git takes for binary, as one with a stray carriage return is, is still read for names', () => {
+  const root = repository({ 'docs/captured.md': 'A stray return\rhere.\n\nAsk Zorblatt.\n' })
+
+  const result = scan(root, [namesFile('Zorblatt\n')])
+
+  assert.equal(git(root, 'ls-files', '--eol', 'docs/captured.md').startsWith('i/-text'), true)
+  assert.deepEqual(result, { code: 1, stdout: 'docs/captured.md:3: Zorblatt\n', stderr: '' })
 })
 
 test('a path with a tab in it is scanned under its own name', notOnWindows('Windows takes no tab in the name of a file'), () => {

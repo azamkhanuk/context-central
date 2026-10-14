@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { isUtf8 } from 'node:buffer'
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { plural } from '../lib/text.mts'
@@ -63,17 +64,22 @@ function commitMessages(root: string): Commit[] {
 }
 
 function git(cwd: string, args: string[]) {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: MAX_GIT_OUTPUT })
+  return gitBytes(cwd, args).toString('utf8')
+}
+
+function gitBytes(cwd: string, args: string[]) {
+  const result = spawnSync('git', args, { cwd, maxBuffer: MAX_GIT_OUTPUT })
   if (result.error) throw new Refusal(`cannot run git (${result.error.message})`)
   if (result.status !== 0) throw new Refusal(`${cwd} is not a git repository that git can read`)
   return result.stdout
 }
 
 function fileHits(root: string, { path, binary }: Tracked, names: PrivateName[]) {
-  const staged = binary ? [] : git(root, ['show', `:${path}`]).split('\n')
+  const staged = gitBytes(root, ['show', `:${path}`])
+  const lines = binary && !isUtf8(staged) ? [] : staged.toString('utf8').split('\n')
   return [
     ...found(path, names).map(name => `${path}: path: ${name}`),
-    ...staged.flatMap((line, index) => found(line, names).map(name => `${path}:${index + 1}: ${name}`)),
+    ...lines.flatMap((line, index) => found(line, names).map(name => `${path}:${index + 1}: ${name}`)),
   ]
 }
 
