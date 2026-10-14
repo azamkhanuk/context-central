@@ -179,7 +179,7 @@ const NO_PLUGIN = [
 const CHOOSE_INSTALL = [
   'const choose = (record, launcher) => { const fs = require(`fs`), path = require(`path`)',
   'const real = file => { try { return fs.realpathSync.native(file) } catch (error) { return `` } }',
-  `const read = () => { try { const plugins = JSON.parse(fs.readFileSync(record, \`utf8\`)).plugins || {}; return Object.keys(plugins).filter(name => name.startsWith(\`${PLUGIN}@\`)).reduce((all, name) => all.concat(plugins[name]), []).filter(install => install && install.installPath) } catch (error) { return [] } }`,
+  `const read = () => { try { const plugins = JSON.parse(fs.readFileSync(record, \`utf8\`)).plugins || {}; return Object.keys(plugins).filter(name => name.startsWith(\`${PLUGIN}@\`)).sort((a, b) => Number(b === \`${PLUGIN}@${MARKETPLACE}\`) - Number(a === \`${PLUGIN}@${MARKETPLACE}\`)).reduce((all, name) => all.concat(plugins[name]), []).filter(install => install && install.installPath) } catch (error) { return [] } }`,
   'const installs = read()',
   'const projects = installs.filter(install => install.projectPath).map(install => [real(install.projectPath), install.installPath])',
   'const person = installs.find(install => install.scope === `user`)',

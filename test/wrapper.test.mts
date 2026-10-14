@@ -172,6 +172,21 @@ test('the launcher runs a copy installed from another marketplace, such as the r
   assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
+test("with the plugin installed under both ids, the launcher runs the copy from its author's marketplace, though the other is recorded first", () => {
+  const root = machine()
+  const plugins = {
+    'context-central@context-central': [{ scope: 'user', installPath: join(root, 'elsewhere'), version: '0.13.0' }],
+    'context-central@azamkhanuk': [{ scope: 'user', installPath: join(root, 'installed/context-central'), version: '0.14.0' }],
+  }
+  mkdirSync(join(root, 'config/plugins'), { recursive: true })
+  writeFileSync(join(root, 'config/plugins/installed_plugins.json'), `${JSON.stringify({ version: 2, plugins }, null, 2)}\n`)
+
+  const result = launch(root, ['index'], { CLAUDE_CONFIG_DIR: join(root, 'config') })
+
+  assert.equal(result.code, 0)
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
 const NODE_TO_SH = notOnWindows('Windows reads arguments again between Node and sh, so the Git Bash step of the checks shows this there')
 
 test('the launcher passes every argument through unchanged', NODE_TO_SH, () => {
