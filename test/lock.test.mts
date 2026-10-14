@@ -8,17 +8,26 @@ import type { TreeFiles } from './helpers.mts'
 const tree = disposable()
 
 const BREAKER = `${LOCK}.break`
+const ITS_BREAKER = `${BREAKER}.break`
 const JANUARY = 'log/2026-01.md'
 const EARLIER = Array.from({ length: 300 }, (_, at) => `- earlier ${at}`)
 const LOG = `# 2026-01\n\n## 2026-01-15\n\n${EARLIER.join('\n')}\n`
 const HELD = 'context-central note: the map is being written by another command, and still was after 5 seconds, so nothing was written; run this again\n'
 const BY_MODE = notOnWindows('a file on Windows is not closed to writing by its mode in the same way')
+const LINKS = notOnWindows('symlinks need a right most Windows accounts lack')
 
 const note = (root: string, text: string) => run(['note', text], { cwd: root, env: { TZ: 'UTC' } })
 const read = (root: string, rel: string) => readFileSync(join(root, rel), 'utf8')
 const hidden = (dir: string) => readdirSync(dir).filter(name => name.startsWith('.'))
 
-for (const [what, stale] of Object.entries({ 'no lock in the way': [], 'a lock thirty seconds old in the way': [LOCK], 'such a lock and a breaker as old in the way': [LOCK, BREAKER] })) {
+const IN_THE_WAY = {
+  'no lock in the way': [],
+  'a lock thirty seconds old in the way': [LOCK],
+  'such a lock and a breaker as old in the way': [LOCK, BREAKER],
+  "such a lock, a breaker and that breaker's own breaker, all as old, in the way": [LOCK, BREAKER, ITS_BREAKER],
+}
+
+for (const [what, stale] of Object.entries(IN_THE_WAY)) {
   test(`twenty notes written at once, with ${what}, are all in the log below every earlier line`, async () => {
     const root = tree(acme({ [JANUARY]: LOG }))
     for (const name of stale) staleLock(root, name)
@@ -58,6 +67,19 @@ test('a lock thirty seconds old is taken over, the note is written and the lock 
   assert.deepEqual(hidden(root), [])
 })
 
+test('a breaker left by a process that died is not removed while another command holds the breaker of that breaker: the note waits and stops', () => {
+  const root = tree(acme({ [JANUARY]: LOG }))
+  staleLock(root)
+  staleLock(root, BREAKER)
+  mkdirSync(join(root, ITS_BREAKER))
+
+  const result = note(root, 'Too late')
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: HELD })
+  assert.equal(read(root, JANUARY), LOG)
+  assert.deepEqual(hidden(root).sort(), [LOCK, BREAKER, ITS_BREAKER])
+})
+
 test('a note leaves nothing beside the log but the log', () => {
   const root = tree(acme())
 
@@ -90,7 +112,7 @@ test('a log keeps the mode it had when a note is added to it', BY_MODE, () => {
   assert.equal(read(root, JANUARY), `${LOG}- Gateway limits agreed\n`)
 })
 
-test('a log that is a link stays a link, and the note lands in the file it leads to', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+test('a log that is a link stays a link, and the note lands in the file it leads to', LINKS, () => {
   const root = tree(acme({ 'kept/january.md': LOG }))
   mkdirSync(join(root, 'log'))
   symlinkSync(join(root, 'kept', 'january.md'), join(root, JANUARY))
@@ -173,7 +195,6 @@ test('ten decisions recorded at once are each given a number of their own', asyn
   assert.deepEqual(leftByAWrite(root), [])
 })
 
-const LINKS = notOnWindows('symlinks need a right most Windows accounts lack')
 const linkToNowhere = (root: string, rel: string) => {
   mkdirSync(join(root, rel, '..'), { recursive: true })
   symlinkSync(join(root, 'nowhere', 'gone.md'), join(root, rel))

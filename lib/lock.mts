@@ -70,12 +70,13 @@ function landWhole(path: string, write: (beside: string) => void) {
   }
 }
 
-function tookOver(lock: string) {
-  const breaker = `${lock}.break`
-  if (stale(breaker)) gone(breaker)
+// A stale folder is removed only under a breaker of its own: on a look alone, two takers each remove what the other has just made.
+function tookOver(folder: string) {
+  const breaker = `${folder}.break`
+  if (stale(breaker)) tookOver(breaker)
   if (refusalOf(breaker)) return false
   try {
-    if (stale(lock)) gone(lock)
+    if (stale(folder)) gone(folder)
   } finally {
     gone(breaker)
   }
