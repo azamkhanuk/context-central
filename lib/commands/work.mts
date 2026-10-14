@@ -91,12 +91,17 @@ function adoptAll(estate: Estate, io: Io) {
     try {
       io.out(adopted(estate, item.id, io.env))
     } catch (error) {
-      if (!(error instanceof PluginError)) throw error
-      io.err(`context-central work: ${error.message}`)
+      io.err(`context-central work: ${refusal(error, `${item.dirRel}/STATE.md`)}`)
       refused += 1
     }
   }
   return refused > 0 ? 1 : 0
+}
+
+function refusal(error: unknown, stateRel: string) {
+  if (error instanceof PluginError) return error.message
+  if (!(error as NodeJS.ErrnoException).code) throw error
+  return `${stateRel} could not be written: ${(error as Error).message}`
 }
 
 function adopted(estate: Estate, id: string, env: Env) {

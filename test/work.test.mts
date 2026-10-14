@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_FILES, ACME_SHOT, acme, disposable, makeTree, notOnWindows, run } from './helpers.mts'
@@ -673,6 +673,21 @@ test('adopting all goes on past an item it must refuse, names it on the error st
     stdout: 'work/PROJ-7/STATE.md\nwork/PROJ-9/STATE.md\n',
     stderr: "context-central work: work/PROJ-8/state.md has the state file's name in another letter case, so nothing was written: rename it, then adopt the item again\n",
   })
+})
+
+test('adopting all goes on past an item whose folder cannot be written, names it on the error stream and exits 1', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const files = { 'work/aaa/README.md': '# aaa: Old shape\n', 'work/aaa/notes/x.md': '# x\n', 'work/aaa/sources/x.md': '# x\n', 'work/aaa/evidence/x.png': 'x', 'work/bbb/README.md': '# bbb: Old shape\n' }
+  const root = tree(acme(files))
+  chmodSync(join(root, 'work/aaa'), 0o555)
+
+  const result = adopt(root, '--all')
+  chmodSync(join(root, 'work/aaa'), 0o755)
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, 'work/bbb/STATE.md\n')
+  assert.match(result.stderr, /^context-central work: work\/aaa\/STATE\.md could not be written: EACCES: [^\n]+\n$/)
+  assert.equal(existsSync(join(root, 'work/aaa/STATE.md')), false)
+  assert.equal(existsSync(join(root, 'work/bbb/STATE.md')), true)
 })
 
 test('a new work item is refused where notNodes lists its folder, and a state file kept there is left as it is', () => {
