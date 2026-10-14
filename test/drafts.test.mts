@@ -143,6 +143,16 @@ test('take writes through a link in the map that leads to a file not yet there, 
   assert.equal(readFileSync(join(made.main, 'kept', 'limits.md'), 'utf8'), '# Limits\n')
 })
 
+test('take puts an empty draft into the map as an empty file', () => {
+  const made = estate()
+  write(made.inside, 'concepts/empty.md', '')
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'took concepts/empty.md\n', stderr: '' })
+  assert.equal(read(made.main, 'concepts/empty.md'), '')
+})
+
 test("take puts a draft made from the map's file in its place", () => {
   const made = estate()
   draft(made, made.inside, SOLO_STATE)

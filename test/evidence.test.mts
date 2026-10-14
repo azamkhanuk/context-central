@@ -19,6 +19,15 @@ test('a file is copied into the item\'s evidence folder under the day and a clea
   assert.equal(existsSync(join(root, 'scratch/Limit Reached (2).PNG')), true)
 })
 
+test('an empty file lands as an empty file', () => {
+  const root = tree(acme({ 'scratch/empty.log': '' }))
+
+  const result = add(root, 'scratch/empty.log', '--item', 'PROJ-12')
+
+  assert.deepEqual(result, { code: 0, stdout: 'saved: work/PROJ-12/evidence/2026-01-15-empty.log (0 B)\n', stderr: '' })
+  assert.equal(readFileSync(join(root, 'work/PROJ-12/evidence/2026-01-15-empty.log'), 'utf8'), '')
+})
+
 test('what follows the last dot is an extension only when it is letters and digits', () => {
   const root = tree(acme({ 'scratch/a.My Ext': 'x', 'scratch/notes v1.2 final': 'x', 'scratch/Trace.JSON5': 'x' }))
 
