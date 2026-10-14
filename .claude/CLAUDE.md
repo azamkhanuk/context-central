@@ -30,7 +30,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
 - A skill has a file of the map read and written at the path `context-central draft` prints, and put into the map by `context-central take`, never at a path it works out for itself: in a git work tree a host may keep a session's tools to the work tree.
 - `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release.
-- The plugin installs from its author's marketplace, a repository of its own that lists it. `lib/templates.mts` holds that marketplace's name and address, and a test holds the README and the install doc to them. The repository's own marketplace, named after the plugin, is for installing from a clone.
+- The plugin installs from its author's marketplace, a repository of its own that lists it. `lib/templates.mts` holds that marketplace's name and address, and a test holds the README and the install doc to them. The repository's own marketplace, named after the plugin, is for installing from a clone and for the copies installed from it before 0.14.0.
 - No lockfile is committed. With a `package.json` and a lockfile at the plugin root, Claude Code runs an npm install in every user's plugin cache, and the plugin has no runtime dependencies.
 
 ## Releases
