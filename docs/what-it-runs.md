@@ -51,8 +51,8 @@ A session's record is removed once no session has used it for fourteen days, the
 ## How to remove all of it
 
 1. In each git work tree where drafts wait, run `context-central take` while the command is still there, or delete that work tree's `.context-central/` folder.
-2. `claude plugin uninstall context-central@context-central`, then `claude plugin marketplace remove context-central`. By Claude Code's own documentation the plugin's data folder goes with it.
-3. Take the entries out of `.claude/settings.json` and `.claude/settings.local.json` in each folder where they were written: `context-central` under `extraKnownMarketplaces`, `context-central@context-central` under `enabledPlugins`, and `Bash(context-central *)` under `permissions.allow`, with anything onboard copied into `.mcp.json` that you no longer want.
+2. `claude plugin uninstall context-central@azamkhanuk`. By Claude Code's own documentation the plugin's data folder goes with it. The `azamkhanuk` marketplace lists its author's other plugins too, so remove it with `claude plugin marketplace remove azamkhanuk` only where none of them is installed. A copy installed before 0.14.0 is `context-central@context-central`, from the marketplace `context-central`, and goes the same way.
+3. Take the entries out of `.claude/settings.json` and `.claude/settings.local.json` in each folder where they were written: `context-central@azamkhanuk` under `enabledPlugins`, `azamkhanuk` under `extraKnownMarketplaces` where no other plugin of it is enabled there, and `Bash(context-central *)` under `permissions.allow`, with anything onboard copied into `.mcp.json` that you no longer want. Settings printed before 0.14.0 name `context-central@context-central` and the marketplace `context-central` instead.
 4. Delete the block between the two marks in the hub, or the hub itself where the plugin wrote all of it.
 5. For a plain map, take the two lines out of `.git/info/exclude` and delete `CLAUDE.local.md` if nothing else of yours is in it.
 6. Delete the folders named `context-central` and `context-central-<your user id>` under the system's temporary folder.

@@ -4,7 +4,6 @@ import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, findEstate, validateConfig } from '../estate.mts'
 import { locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
-import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
 import { checkoutAround, checkoutsUnder, gitTracks } from '../worktree.mts'
@@ -43,7 +42,7 @@ export function run(args: string[], io: Io) {
     allowPositionals: true,
     options: { from: { type: 'string' }, plain: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
   })
-  if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(pluginRepo(io.env)), null, 2))
+  if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(), null, 2))
   if (Boolean(values.plain) === Boolean(values.from)) throw new UsageError('expected --from <answers.json> or --plain, one and not both, or --print-settings')
   const given = resolve(io.cwd, positionals[0] ?? '.')
   const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env)
@@ -163,14 +162,4 @@ function separator(text: string) {
 function writeNew(path: string, content: string) {
   mkdirSync(dirname(path), { recursive: true })
   writeWhole(path, content)
-}
-
-function pluginRepo(env: Env) {
-  const manifest = manifestPath(env)
-  if (!existsSync(manifest)) throw new PluginError(`${manifest} is missing, so the marketplace repository is not known`)
-  const { repository } = readJson(manifest, 'plugin manifest') as { repository?: string | { url?: string } }
-  const url = typeof repository === 'string' ? repository : repository?.url
-  const match = /github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?\/?$/.exec(url ?? '')
-  if (!match) throw new PluginError(`${manifest}: "repository" is not a GitHub address`)
-  return `${match[1]}/${match[2]}`
 }

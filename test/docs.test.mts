@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { REPO } from './helpers.mts'
+import { REPO, run } from './helpers.mts'
 
 const DOCS = readdirSync(join(REPO, 'docs')).filter(name => name.endsWith('.md')).sort().map(name => `docs/${name}`)
 
@@ -32,6 +32,18 @@ const COMMANDS = join(REPO, 'lib', 'commands')
 const commandNames = () => readdirSync(COMMANDS).filter(name => name.endsWith('.mts')).map(name => name.slice(0, -4)).sort()
 const flagsOf = (name: string) => [...readFileSync(join(COMMANDS, `${name}.mts`), 'utf8').matchAll(/'?([a-z][a-z-]*)'?: \{ type: '(?:string|boolean)'/g)].map(([, flag]) => flag)
 const rowsFor = (name: string) => prose('docs/commands.md').split('\n').filter(line => line.startsWith(`| \`${name}`))
+
+test('the README and the install doc give the two commands the launcher gives, so the plugin installs from one marketplace', () => {
+  const add = 'claude plugin marketplace add azamkhanuk/claude-plugins'
+  const install = 'claude plugin install context-central@azamkhanuk'
+  const missing = ['README.md', 'docs/install.md'].flatMap(page => {
+    const lines = readFileSync(join(REPO, page), 'utf8').split(/\r?\n/)
+    return [add, install].filter(command => !lines.includes(command)).map(command => `${page}: ${command}`)
+  })
+
+  assert.deepEqual(missing, [])
+  assert.ok(run(['wrapper']).stdout.includes(`${add}, then: ${install}`))
+})
 
 test('the commands doc has a row for every command, for help and for --version, naming every flag each command takes', () => {
   const missing = commandNames().flatMap(name => {

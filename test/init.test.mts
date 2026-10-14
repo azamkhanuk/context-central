@@ -430,18 +430,18 @@ test('init without answers is wrong usage', () => {
   assert.equal(run(['init'], { cwd: root }).code, 2)
 })
 
-test('the settings to approve name the marketplace with auto-update on, the plugin and the one permission', () => {
-  const plugin = tree(makeTree({ '.claude-plugin/plugin.json': { name: 'context-central', repository: 'https://github.com/acme/context-central' } }))
+test("the settings to approve name the author's marketplace with auto-update on, the plugin and the one permission", () => {
+  const root = tree(makeTree({ 'readme.txt': 'x\n' }))
 
-  const result = run(['init', '--print-settings'], { cwd: plugin, env: { CONTEXT_CENTRAL_PLUGIN_ROOT: plugin } })
+  const result = run(['init', '--print-settings'], { cwd: root })
 
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
-    extraKnownMarketplaces: { 'context-central': { source: { source: 'github', repo: 'acme/context-central' }, autoUpdate: true } },
-    enabledPlugins: { 'context-central@context-central': true },
+    extraKnownMarketplaces: { azamkhanuk: { source: { source: 'github', repo: 'azamkhanuk/claude-plugins' }, autoUpdate: true } },
+    enabledPlugins: { 'context-central@azamkhanuk': true },
     permissions: { allow: ['Bash(context-central *)'] },
   })
-  assert.equal(existsSync(join(plugin, '.claude')), false)
+  assert.equal(existsSync(join(root, '.claude')), false)
 })
 
 test('a new map starts with no broken links and no orphans', () => {
