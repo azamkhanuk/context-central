@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, checkout, disposable, git, leftByAWrite, makeTree, run, workTree } from './helpers.mts'
+import { NEEDS_STAND_IN, acme, checkout, disposable, git, leftByAWrite, makeTree, run, standIns, workTree } from './helpers.mts'
 import type { Checkout, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -179,14 +179,23 @@ test('a plain map is refused where git tracks CLAUDE.local.md, in a dry run as w
   assert.equal(shownByGit(made), '')
 })
 
-test('with no git on the PATH a plain map cannot ask what git tracks, and goes on as it does for a file of the person\'s own', () => {
-  const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n' })
+const NO_ANSWER_FROM_GIT: [when: string, standIn: string | null][] = [
+  ['with no git on the PATH', null],
+  ['where git refuses to answer', '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n'],
+  ['where git gives no answer in five seconds', '#!/bin/sh\nexec /bin/sleep 7\n'],
+]
 
-  const result = plain({ env: { ...made.env, PATH: tree(makeTree({})) } }, made.main)
+for (const [when, standIn] of NO_ANSWER_FROM_GIT) {
+  test(`${when} a plain map cannot learn what git tracks, and goes on as it does for a file of the person's own`, standIn ? NEEDS_STAND_IN : {}, () => {
+    const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n' })
+    const path = tree(standIn ? standIns({ git: standIn }) : makeTree({}))
 
-  assert.equal(result.code, 0)
-  assert.match(result.stdout, /^updated CLAUDE\.local\.md$/m)
-})
+    const result = plain({ env: { ...made.env, PATH: path } }, made.main)
+
+    assert.equal(result.code, 0)
+    assert.match(result.stdout, /^updated CLAUDE\.local\.md$/m)
+  })
+}
 
 test('--plain takes no answers file, and init with neither is still wrong usage', () => {
   const root = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
