@@ -71,10 +71,10 @@ function plain(given: string, env: Env): Plan {
   const ours = around ? join(dir, INNER_DIR, CONFIG_FILE) : join(dir, CONFIG_FILE)
   const found = findEstate(given, env)
   if (found && found.configPath !== ours) throw new PluginError(`a map already covers this folder: ${found.configPath}`)
-  if (!around) return { dir, answers: { layout: 'root', config: { name, repos: checkoutsUnder(dir) } }, first: [] }
+  if (!around) return { dir, answers: { layout: 'root', config: { name, repos: checkoutsUnder(dir), connections: {} } }, first: [] }
   if (!found && gitTracks(dir, join(dir, OWN_HUB), env)) throw new PluginError(`${join(dir, OWN_HUB)} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
   const keptOut = { rel: '.git/info/exclude', content: KEPT_OUT_OF_GIT.map(line => `${line}\n`).join(''), lines: KEPT_OUT_OF_GIT }
-  return { dir, answers: { layout: 'inner', config: { name, hub: OWN_HUB, repos: [{ name, path: '.' }] } }, first: found ? [] : [keptOut] }
+  return { dir, answers: { layout: 'inner', config: { name, hub: OWN_HUB, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut] }
 }
 
 function readAnswers(path: string) {

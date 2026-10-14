@@ -13,7 +13,7 @@ const EXCLUDE = '.git/info/exclude'
 const EXCLUDED = '# what this checkout alone keeps out of git\n'
 const BLOCK = '<!-- context-central:start -->'
 const INNER_FILES = [`${MAP}/estate.json`, ...NODE_DIRS.map(dir => `${MAP}/${dir}/`), 'CLAUDE.local.md', `${MAP}/glossary.md`]
-const SOLO = { contextCentral: 1, name: 'solo', hub: 'CLAUDE.local.md', repos: [{ name: 'solo', path: '.' }] }
+const SOLO = { contextCentral: 1, name: 'solo', hub: 'CLAUDE.local.md', repos: [{ name: 'solo', path: '.' }], connections: {} }
 
 function fresh(files: TreeFiles = {}) {
   const made = checkout({ 'README.md': '# Solo\n', 'src/app.js': 'export {}\n', ...files })
@@ -61,6 +61,15 @@ test('a plain map registers the checkout as its one repo, so standards gives its
   assert.deepEqual(json(made, made.main, 'standards', 'solo', '--json'), [{ repo: 'solo', root: made.main, checks: [], standards: [] }])
   assert.deepEqual(doctor.stdout.split('\n').filter(line => line.startsWith('FIX')), [])
   assert.equal(doctor.code, 0)
+})
+
+test('a plain map records no connection, so a pull request link is read through none until one is added', () => {
+  const made = fresh()
+  plain(made, made.main)
+
+  const result = run(['connections', '--pr', 'https://github.com/acme/solo/pull/7'], { cwd: made.main, env: made.env })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central connections: no connection holds pull-requests\n' })
 })
 
 test('a second run of a plain map keeps everything and changes nothing', () => {
@@ -132,7 +141,7 @@ test('in a folder that holds two checkouts a plain map is the root layout with b
   const result = plain(made, made.base)
 
   assert.deepEqual(result, { code: 0, stdout: said(made.base, 'created', ['estate.json', ...NODE_DIRS.map(dir => `${dir}/`), 'CLAUDE.md', 'glossary.md']), stderr: '' })
-  assert.deepEqual(JSON.parse(read(made.base, 'estate.json')) as unknown, { contextCentral: 1, name: made.base.split(/[\\/]/).at(-1), repos: ['api', 'web'] })
+  assert.deepEqual(JSON.parse(read(made.base, 'estate.json')) as unknown, { contextCentral: 1, name: made.base.split(/[\\/]/).at(-1), repos: ['api', 'web'], connections: {} })
   assert.deepEqual(json(made, made.base, 'config', '--get', 'repos'), [{ path: 'api', name: 'api' }, { path: 'web', name: 'web' }])
 })
 
@@ -142,7 +151,7 @@ test('in a folder that holds no checkout a plain map registers no repo', () => {
   const result = plain({ env: {} }, root)
 
   assert.equal(result.code, 0)
-  assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { contextCentral: 1, name: root.split(/[\\/]/).at(-1), repos: [] })
+  assert.deepEqual(JSON.parse(read(root, 'estate.json')) as unknown, { contextCentral: 1, name: root.split(/[\\/]/).at(-1), repos: [], connections: {} })
 })
 
 test('a plain map is refused where another map already covers the folder, and nothing is written', () => {
