@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { accessSync, chmodSync, constants, copyFileSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { accessSync, chmodSync, constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, rmdirSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { PluginError } from './errors.mts'
 
 const LOCK = '.context-central.lock'
@@ -59,7 +59,7 @@ export function copyWhole(from: string, path: string) {
 function landWhole(path: string, write: (beside: string) => void) {
   const held = statSync(path, { throwIfNoEntry: false })
   if (held) accessSync(path, constants.W_OK)
-  const place = held ? realpathSync(path) : path
+  const place = held ? realpathSync(path) : ledTo(path)
   const beside = join(dirname(place), `.context-central.${randomBytes(4).toString('hex')}.tmp`)
   try {
     write(beside)
@@ -68,6 +68,11 @@ function landWhole(path: string, write: (beside: string) => void) {
   } finally {
     rmSync(beside, { force: true })
   }
+}
+
+function ledTo(path: string): string {
+  const link = lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() ? readlinkSync(path) : null
+  return link === null ? path : ledTo(resolve(realpathSync(dirname(path)), link))
 }
 
 // A stale folder is removed only under a breaker of its own: on a look alone, two takers each remove what the other has just made.

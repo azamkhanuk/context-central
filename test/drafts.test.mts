@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, together, workTree } from './helpers.mts'
@@ -127,6 +127,20 @@ test('take puts a new draft into the map and removes it from the work tree', () 
   assert.equal(result.code, 0)
   assert.equal(read(made.main, SPEC), '# Spec\n')
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('take writes through a link in the map that leads to a file not yet there, and the link stays a link', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+  const made = estate()
+  mkdirSync(join(made.main, 'kept'))
+  mkdirSync(join(made.main, MAP, 'concepts'))
+  symlinkSync(join(made.main, 'kept', 'limits.md'), join(made.main, MAP, 'concepts', 'limits.md'))
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'took concepts/limits.md\n', stderr: '' })
+  assert.equal(lstatSync(join(made.main, MAP, 'concepts', 'limits.md')).isSymbolicLink(), true)
+  assert.equal(readFileSync(join(made.main, 'kept', 'limits.md'), 'utf8'), '# Limits\n')
 })
 
 test("take puts a draft made from the map's file in its place", () => {

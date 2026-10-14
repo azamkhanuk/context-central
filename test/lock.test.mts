@@ -124,6 +124,19 @@ test('a log that is a link stays a link, and the note lands in the file it leads
   assert.deepEqual([...hidden(join(root, 'kept')), ...hidden(join(root, 'log'))], [])
 })
 
+test('a log that is a link to a file not yet there stays a link, and the note makes the file it leads to', LINKS, () => {
+  const root = tree(acme({ 'kept/README.md': '# Kept\n' }))
+  mkdirSync(join(root, 'log'))
+  symlinkSync(join(root, 'kept', 'january.md'), join(root, JANUARY))
+
+  const result = note(root, 'Gateway limits agreed')
+
+  assert.deepEqual(result, { code: 0, stdout: `${JANUARY}\n`, stderr: '' })
+  assert.equal(lstatSync(join(root, JANUARY)).isSymbolicLink(), true)
+  assert.equal(read(root, 'kept/january.md'), '# 2026-01\n\n## 2026-01-15\n\n- Gateway limits agreed\n')
+  assert.deepEqual([...hidden(join(root, 'kept')), ...hidden(join(root, 'log'))], [])
+})
+
 const TAKERS: [what: string, files: TreeFiles, args: string[], written: string][] = [
   ['note --new', {}, ['note', '--new', 'concepts/limits'], 'concepts/limits.md'],
   ['work new', {}, ['work', 'new', 'PROJ-13'], 'work/PROJ-13/STATE.md'],
