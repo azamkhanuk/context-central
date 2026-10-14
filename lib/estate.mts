@@ -151,7 +151,7 @@ export function estateAt(found: MapLocation): Estate {
 
 export function requireEstate(io: Io) {
   const estate = loadEstate(io.cwd, io.env)
-  if (!estate) throw new PluginError(`no context map found from ${io.cwd}. Run "context-central init" or /context-central:onboard.`)
+  if (!estate) throw new PluginError(`no context map found from ${io.cwd}. "context-central init --plain --dry-run" lists what a plain map would write here, and /context-central:onboard sets a map up.`)
   return estate
 }
 

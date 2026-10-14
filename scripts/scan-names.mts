@@ -9,6 +9,7 @@ class Refusal extends Error {}
 
 type PrivateName = { name: string, pattern: RegExp }
 type Commit = { sha: string, message: string }
+type Tracked = { path: string, binary: boolean }
 
 function main(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   const names = readNames(args[0] ?? env.CONTEXT_CENTRAL_PRIVATE_NAMES)
@@ -47,8 +48,18 @@ function wholeWord(name: string) {
   return new RegExp(`(?<![\\p{L}\\p{N}])${literal}(?![\\p{L}\\p{N}])`, 'iu')
 }
 
-function trackedFiles(root: string) {
-  return git(root, ['ls-files', '-z']).split('\0').filter(Boolean)
+function trackedFiles(root: string): Tracked[] {
+  const paths = git(root, ['ls-files', '-z']).split('\0').filter(Boolean)
+  const binary = declaredBinary(root, paths)
+  return paths.map(path => ({ path, binary: binary.has(path) }))
+}
+
+// Only the repository's own attributes may keep a file from being read, never one file on this machine.
+function declaredBinary(root: string, paths: string[]) {
+  const fields = git(root, ['-c', 'core.attributesFile=/dev/null', 'check-attr', '--cached', '-z', '--stdin', 'binary'], paths.map(path => `${path}\0`).join('')).split('\0')
+  const declared = new Set<string>()
+  for (let at = 0; at + 2 < fields.length; at += 3) if (fields[at + 2] === 'set') declared.add(fields[at])
+  return declared
 }
 
 function commitMessages(root: string): Commit[] {
@@ -58,18 +69,23 @@ function commitMessages(root: string): Commit[] {
     .map(entry => ({ sha: entry.slice(0, entry.indexOf('\n')), message: entry.slice(entry.indexOf('\n') + 1) }))
 }
 
-function git(cwd: string, args: string[]) {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: MAX_GIT_OUTPUT })
+function git(cwd: string, args: string[], input?: string) {
+  return gitBytes(cwd, args, input).toString('utf8')
+}
+
+function gitBytes(cwd: string, args: string[], input?: string) {
+  const result = spawnSync('git', args, { cwd, input, maxBuffer: MAX_GIT_OUTPUT })
   if (result.error) throw new Refusal(`cannot run git (${result.error.message})`)
   if (result.status !== 0) throw new Refusal(`${cwd} is not a git repository that git can read`)
   return result.stdout
 }
 
-function fileHits(root: string, file: string, names: PrivateName[]) {
-  const staged = git(root, ['show', `:${file}`])
+function fileHits(root: string, { path, binary }: Tracked, names: PrivateName[]) {
+  const staged = gitBytes(root, ['show', `:${path}`])
+  const lines = binary ? [] : staged.toString('utf8').split('\n')
   return [
-    ...found(file, names).map(name => `${file}: path: ${name}`),
-    ...staged.split('\n').flatMap((line, index) => found(line, names).map(name => `${file}:${index + 1}: ${name}`)),
+    ...found(path, names).map(name => `${path}: path: ${name}`),
+    ...lines.flatMap((line, index) => found(line, names).map(name => `${path}:${index + 1}: ${name}`)),
   ]
 }
 

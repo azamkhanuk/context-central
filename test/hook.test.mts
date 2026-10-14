@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, run } from './helpers.mts'
+import { ACME_FILES, ACME_SHOT, REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree, notOnWindows, run } from './helpers.mts'
 import type { Env, Result } from './helpers.mts'
 
 const tree = disposable()
@@ -117,28 +117,63 @@ test('a map with no notes yet gives its index and stays silent on prompts', () =
   silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'how do billing retries behave' }))
 })
 
-test('input that is not JSON, or an event the hook does not know, is met with silence', () => {
+const said = (result: Result) => (JSON.parse(result.stdout) as { systemMessage?: string }).systemMessage
+const DOCTOR = 'Run "context-central doctor".'
+
+test('a hook asked for an event it does not know says so to the person in one line that names doctor, and gives the model nothing', () => {
   const root = tree(acme())
 
-  silent(run(['hook', 'session-start'], { cwd: root, stdin: 'not json' }))
-  silent(fire('session-end', { cwd: root }))
+  const result = fire('session-end', { cwd: root })
+
+  assert.deepEqual({ ...result, stdout: JSON.parse(result.stdout) as unknown }, { code: 0, stderr: '', stdout: { systemMessage: `context-central: the session-end hook failed: unknown hook event "session-end". ${DOCTOR}` } })
 })
 
-test('an event named after something every object has is met with silence', () => {
+test('input that is not JSON is a failure the hook says in one line, and it still exits 0', () => {
   const root = tree(acme())
 
-  silent(fire('constructor', { cwd: root }))
-  silent(fire('toString', { cwd: root }))
+  const result = run(['hook', 'session-start'], { cwd: root, stdin: 'not\njson' })
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stderr, '')
+  assert.deepEqual(Object.keys(JSON.parse(result.stdout) as object), ['systemMessage'])
+  assert.match(said(result) ?? '', /^context-central: the session-start hook failed: [^\n]*JSON[^\n]*\. Run "context-central doctor"\.$/)
 })
 
-test('with debugging on, the reason for silence goes to stderr', () => {
+test('an event named after something every object has is an event the hook does not know', () => {
+  const root = tree(acme())
+
+  assert.equal(said(fire('constructor', { cwd: root })), `context-central: the constructor hook failed: unknown hook event "constructor". ${DOCTOR}`)
+  assert.equal(said(fire('toString', { cwd: root })), `context-central: the toString hook failed: unknown hook event "toString". ${DOCTOR}`)
+})
+
+test('a hook that fails says so each time it fails', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+
+  const first = hook('session-end', { session_id: 's1', cwd: root }, { env })
+  const second = hook('session-end', { session_id: 's1', cwd: root }, { env })
+
+  assert.equal(second.stdout, first.stdout)
+  assert.match(said(second) ?? '', /hook failed/)
+})
+
+test('a fault below the hook, as input whose folder is a number, is said in the same line and gives the model nothing', () => {
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: 5, prompt: 'pick up PROJ-12' })
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stderr, '')
+  assert.deepEqual(Object.keys(JSON.parse(result.stdout) as object), ['systemMessage'])
+  assert.match(said(result) ?? '', /^context-central: the user-prompt-submit hook failed: [^\n]+\. Run "context-central doctor"\.$/)
+})
+
+test('with debugging on, the trace of a failing hook goes to stderr beside the line for the person', () => {
   const root = tree(acme())
 
   const result = fire('session-end', { cwd: root }, { CONTEXT_CENTRAL_DEBUG: '1' })
 
   assert.equal(result.code, 0)
-  assert.equal(result.stdout, '')
-  assert.match(result.stderr, /unknown hook event "session-end"/)
+  assert.match(said(result) ?? '', /^context-central: the session-end hook failed: /)
+  assert.match(result.stderr, /^context-central hook: Error: unknown hook event "session-end"\n +at /)
 })
 
 test('a prompt that names a work item is given its pointers with absolute paths', () => {
@@ -342,13 +377,13 @@ test('the estate sets the size that earns the notice, and zero turns it off', ()
   assert.equal('systemMessage' in quiet, false)
 })
 
-test('the plugin wires both events to the hook command without a shell', () => {
+test('the plugin wires both events to the hook command without a shell, session start with a limit of 15 seconds and a prompt with 10', () => {
   const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { SessionStart: unknown, UserPromptSubmit: unknown } }
 
   assert.deepEqual(hooks.SessionStart, [
     {
       matcher: 'startup|resume|clear|compact|fork',
-      hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'session-start'] }],
+      hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'session-start'], timeout: 15 }],
     },
   ])
   assert.deepEqual(hooks.UserPromptSubmit, [
@@ -577,15 +612,20 @@ function aged(path: string, days: number) {
   utimesSync(path, then, then)
 }
 
+const temporary = (temp: string) => ({ TMPDIR: temp, TEMP: temp, TMP: temp })
+const ourFolders = (temp: string) => readdirSync(temp).filter(name => name.startsWith('context-central'))
+
 function recordsAged(days: { [name: string]: number }) {
   const temp = tree(makeTree({}))
-  const dir = join(temp, 'context-central')
-  mkdirSync(dir)
+  const env = temporary(temp)
+  hook('user-prompt-submit', { session_id: 'first', cwd: tree(acme()), prompt: 'PROJ-12' }, { env })
+  const dir = join(temp, ourFolders(temp)[0])
+  rmSync(join(dir, 'first.json'))
   for (const [name, age] of Object.entries(days)) {
     writeFileSync(join(dir, name), '{"delivered":[],"active":null}\n')
     aged(join(dir, name), age)
   }
-  return { dir, env: { TMPDIR: temp, TEMP: temp, TMP: temp } }
+  return { temp, dir, env }
 }
 
 test('saving a record removes the records no session has used for fourteen days, and nothing else', () => {
@@ -636,6 +676,107 @@ test('one record that cannot be removed does not keep the sweep from the records
   hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
 
   assert.deepEqual(readdirSync(dir).sort(), ['0-stuck.json', 's1.json'])
+})
+
+const BY_MODE = notOnWindows('Windows keeps no file mode')
+const PROJ_12 = { session_id: 's1', prompt: 'PROJ-12' }
+
+test('with the data folder the host gives the plugin, a session record is kept in a folder under it, and nothing goes under the temporary folder', () => {
+  const root = tree(acme())
+  const [data, temp] = [tree(makeTree({})), tree(makeTree({}))]
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data, ...temporary(temp) } })
+
+  assert.deepEqual(readdirSync(data), ['sessions'])
+  assert.deepEqual(readdirSync(join(data, 'sessions')), ['s1.json'])
+  assert.deepEqual(ourFolders(temp), [])
+})
+
+test('the folder of records under the data folder is made for the user alone', BY_MODE, () => {
+  const root = tree(acme())
+  const data = tree(makeTree({}))
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data } })
+
+  assert.equal(statSync(join(data, 'sessions')).mode & 0o777, 0o700)
+})
+
+test('records under the data folder are swept as records under the temporary folder are', () => {
+  const root = tree(acme())
+  const data = tree(makeTree({ 'sessions/old.json': '{}\n', 'sessions/young.json': '{}\n' }))
+  aged(join(data, 'sessions', 'old.json'), 15)
+  aged(join(data, 'sessions', 'young.json'), 1)
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CLAUDE_PLUGIN_DATA: data } })
+
+  assert.deepEqual(readdirSync(join(data, 'sessions')).sort(), ['s1.json', 'young.json'])
+})
+
+test('CONTEXT_CENTRAL_STATE_DIR still wins over the data folder the host gives', () => {
+  const root = tree(acme())
+  const [named, data] = [tree(makeTree({})), tree(makeTree({}))]
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: { CONTEXT_CENTRAL_STATE_DIR: named, CLAUDE_PLUGIN_DATA: data } })
+
+  assert.deepEqual(readdirSync(named), ['s1.json'])
+  assert.deepEqual(readdirSync(data), [])
+})
+
+test('with neither setting, a session record is kept in one folder under the temporary folder that is named for the user', () => {
+  const root = tree(acme())
+  const temp = tree(makeTree({}))
+
+  hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: temporary(temp) })
+
+  const [own, ...others] = ourFolders(temp)
+  assert.deepEqual(others, [])
+  assert.match(own, /^context-central-[A-Za-z0-9_-]+$/)
+  assert.deepEqual(readdirSync(join(temp, own)), ['s1.json'])
+})
+
+test("the user's own folder of records under the temporary folder is made for the user alone", BY_MODE, () => {
+  const { dir } = recordsAged({})
+
+  assert.equal(statSync(dir).mode & 0o777, 0o700)
+})
+
+test('where the folder for records under the temporary folder is a link, nothing is written or removed through it, nothing is remembered, and the hook still answers', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+  const root = tree(acme())
+  const { dir, env } = recordsAged({})
+  const elsewhere = tree(makeTree({ 'old.json': '{}\n' }))
+  aged(join(elsewhere, 'old.json'), 15)
+  rmSync(dir, { recursive: true })
+  symlinkSync(elsewhere, dir)
+
+  const first = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+  const second = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+
+  assert.deepEqual([first.code, first.stderr, context(first)], [0, '', acmePointers(root)])
+  assert.equal(context(second), acmePointers(root))
+  assert.deepEqual(readdirSync(elsewhere), ['old.json'])
+})
+
+test('records in the folder every user shared under the temporary folder are neither read nor removed', () => {
+  const root = tree(acme())
+  const temp = tree(makeTree({ 'context-central/s1.json': '{"delivered":["item:PROJ-12"],"active":"PROJ-12"}\n', 'context-central/old.json': '{}\n' }))
+  for (const name of ['s1.json', 'old.json']) aged(join(temp, 'context-central', name), 15)
+
+  const result = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env: temporary(temp) })
+
+  assert.equal(context(result), acmePointers(root))
+  assert.deepEqual(readdirSync(join(temp, 'context-central')).sort(), ['old.json', 's1.json'])
+})
+
+test('a data folder that is a file leaves nothing remembered, and the hook still answers', () => {
+  const root = tree(acme())
+  const base = tree(makeTree({ data: 'a file\n' }))
+  const env = { CLAUDE_PLUGIN_DATA: join(base, 'data') }
+
+  const first = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+  const second = hook('user-prompt-submit', { ...PROJ_12, cwd: root }, { env })
+
+  assert.deepEqual([first.code, first.stderr, context(first)], [0, '', acmePointers(root)])
+  assert.equal(context(second), acmePointers(root))
 })
 
 const SHARED = {
@@ -698,4 +839,49 @@ test("a prompt that is a work item's own ticket is answered where no connection 
 
   assert.equal(context(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '#77' })).split('\n')[0], 'Context for work item login-fix:')
   assert.equal(context(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: '(#77)' })).split('\n')[0], 'Context for work item login-fix:')
+})
+
+const ITEMS = 300
+const itemId = (at: number) => `PROJ-${1000 + at}`
+const linkNobodyMentions = (at: number) => `https://github.com/acme/elsewhere/pull/${at + 1}`
+const linkOf = (at: number) => `https://github.com/acme/elsewhere/pull/${5000 + at}`
+
+function manyItems() {
+  const files = Array.from({ length: ITEMS }, (_, at) => [
+    [`work/${itemId(at)}/STATE.md`, `---\nitem: ${itemId(at)}\ntitle: Change ${at}\nstatus: active\n---\n# ${itemId(at)}: Change ${at}\n\n## Where it stands\n\nNot built.\n`],
+    [`work/${itemId(at)}/notes/2026-01-10-research.md`, `# Research for change ${at}\n\n${'What was read, and where. '.repeat(40)}\n`],
+    [`work/${itemId(at)}/notes/2026-01-11-pr.md`, `# The pull request of change ${at}\n\nRaised as ${linkOf(at)} on Monday.\n`],
+    [`work/${itemId(at)}/notes/2026-01-12-review.md`, `# Review of change ${at}\n\n${'What the review found. '.repeat(40)}\n`],
+  ]).flat()
+  return tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'acme' }, 'CLAUDE.md': '# Acme\n', ...Object.fromEntries(files) }))
+}
+
+function timed(root: string, prompt: string) {
+  const from = performance.now()
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt })
+  return { result, ms: performance.now() - from }
+}
+
+test('a prompt of three hundred links that no work item mentions is answered inside ten times a prompt of one, and inside the limit the hooks file gives the hook', () => {
+  const root = manyItems()
+  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { UserPromptSubmit: { hooks: { timeout: number }[] }[] } }
+  const limitMs = hooks.UserPromptSubmit[0].hooks[0].timeout * 1000
+
+  const one = timed(root, `please review ${linkNobodyMentions(0)}`)
+  const many = timed(root, Array.from({ length: 300 }, (_, at) => linkNobodyMentions(at)).join(' '))
+
+  silent(one.result)
+  silent(many.result)
+  assert.ok(many.ms < one.ms * 10, `three hundred links took ${Math.round(many.ms)} ms and one took ${Math.round(one.ms)} ms`)
+  assert.ok(many.ms < limitMs, `three hundred links took ${Math.round(many.ms)} ms, and the limit is ${limitMs} ms`)
+})
+
+test('on a map of three hundred items a link that one item mentions, among links nobody mentions, still gives that item\'s pointers', () => {
+  const root = manyItems()
+  const prompt = [linkNobodyMentions(0), linkNobodyMentions(1), linkOf(250), linkNobodyMentions(2)].join(' ')
+
+  const result = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt })
+
+  assert.equal(context(result).split('\n')[0], `Context for work item ${itemId(250)}:`)
+  assert.match(context(result), new RegExp(`\n- [^\n]*${itemId(250)}[^\n]*STATE\\.md `))
 })

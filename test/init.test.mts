@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_SHOT, disposable, makeTree, run } from './helpers.mts'
@@ -327,6 +327,38 @@ test('running it twice overwrites nothing', () => {
 
   assert.deepEqual(lines(result.stdout), ['kept estate.json', ...NODE_DIRS.map(dir => `kept ${dir}/`), 'kept CLAUDE.md', 'kept glossary.md'])
   assert.equal(read(root, 'CLAUDE.md'), hub)
+})
+
+test('a second run keeps a file it has nothing to add to without reading it, so a folder at the glossary\'s place is kept', () => {
+  const root = answers()
+  init(root)
+  rmSync(join(root, 'glossary.md'))
+  mkdirSync(join(root, 'glossary.md'))
+
+  const result = init(root)
+
+  assert.deepEqual(result, { code: 0, stdout: ['kept estate.json', ...NODE_DIRS.map(dir => `kept ${dir}/`), 'kept CLAUDE.md', 'kept glossary.md', ''].join('\n'), stderr: '' })
+})
+
+test('a folder at the place of the hub stops the run in one line that names it', () => {
+  const root = answers()
+  mkdirSync(join(root, 'CLAUDE.md'))
+
+  const result = init(root)
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(lines(result.stdout), ['created estate.json', ...NODE_DIRS.map(dir => `created ${dir}/`)])
+  assert.equal(result.stderr, `context-central init: EISDIR: illegal operation on a directory, read '${join(root, 'CLAUDE.md')}'. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace.\n`)
+})
+
+test('a folder at the place of the settings stops the run in one line that names it, and nothing is written', () => {
+  const root = answers()
+  mkdirSync(join(root, 'estate.json'))
+
+  const result = init(root)
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: `context-central init: EISDIR: illegal operation on a directory, read '${join(root, 'estate.json')}'. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace.\n` })
+  assert.deepEqual(readdirSync(root).sort(), ['answers.json', 'estate.json'])
 })
 
 test('an estate.json that belongs to another tool is not taken over', () => {

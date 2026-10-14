@@ -33,9 +33,18 @@ export function inTree(tree: WorkTree, path: string) {
 }
 
 export function mainCheckoutOf(dir: string) {
+  return checkoutAround(dir)?.main ?? null
+}
+
+export function checkoutAround(dir: string): { root: string; main: string | null } | null {
   const above = checkoutAbove(resolve(dir))
-  if (!above) return null
-  return above.linked ? (linkedWorkTree(above.dir)?.main ?? null) : above.dir
+  return above && { root: above.dir, main: above.linked ? (linkedWorkTree(above.dir)?.main ?? null) : above.dir }
+}
+
+export function checkoutsUnder(dir: string) {
+  return namesIn(dir)
+    .filter(name => entryAt(join(dir, name))?.isDirectory() && entryAt(join(dir, name, GIT)) && !linkedWorkTree(join(dir, name)))
+    .sort()
 }
 
 export function workTreesOf(main: string) {

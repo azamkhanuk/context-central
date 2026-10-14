@@ -1,9 +1,9 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, resolve as resolvePath, sep } from 'node:path'
 import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, referencesIn, sameReference } from './connections.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
-import { findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
+import { fileAt, findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
 import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -183,18 +183,23 @@ function runsOf(text: string): string[] {
 
 function byLink(estate: Estate, query: string, max: number) {
   const connections = [...listed(estate.config.connections), ...holding(estate.unasked, PULL_REQUESTS)]
-  for (const { text, repo, connection } of referencesIn(connections, query).filter(isLink)) {
+  const links = referencesIn(connections, query).filter(isLink)
+  if (links.length === 0) return null
+  const items = listWorkItems(estate).filter(candidate => candidate.entry)
+  const read = new Map<string, string>()
+  const textOf = (path: string) => read.get(path) ?? read.set(path, readFileSync(path, 'utf8')).get(path)!
+  for (const { text, repo, connection } of links) {
     const by = connection.entry.holds === PULL_REQUESTS ? 'pr' : 'link'
-    const item = listWorkItems(estate).find(candidate => candidate.entry && mentions(candidate, text))
+    const item = items.find(candidate => mentions(candidate, text, textOf))
     const found = item ? itemResolution(estate, item, by, max) : repo ? repoResolution(estate, repo, by, max) : null
     if (found) return found
   }
   return null
 }
 
-function mentions(item: WorkItem, url: string) {
+function mentions(item: WorkItem, url: string, textOf: (path: string) => string) {
   const exact = new RegExp(`${escapeRegExp(url)}(?!\\d)`)
-  return [...(item.entry ? [item.entry] : []), ...item.files].some(file => exact.test(readFileSync(file.path, 'utf8')))
+  return [...(item.entry ? [item.entry] : []), ...item.files].some(file => textOf(file.path).includes(url) && exact.test(textOf(file.path)))
 }
 
 function byRepoName(estate: Estate, query: string, max: number) {
@@ -438,7 +443,7 @@ function otherNotes(estate: Estate, item: WorkItem, pointers: Pointer[]): Counte
 
 function repoResolution(estate: Estate, name: string, by: Route, max: number) {
   const rel = `repos/${name}.md`
-  if (!existsSync(join(estate.mapDir, rel))) return null
+  if (!fileAt(join(estate.mapDir, rel))) return null
   const note = readNode(estate, { id: rel.slice(0, -3), rel, path: join(estate.mapDir, rel) })
   const standards = standardsNote(estate, name)
   const first = [pointer(estate, rel, 'repo note'), ...(standards ? [pointer(estate, standards, STANDARDS_WHY)] : [])]
@@ -493,7 +498,7 @@ function namedRepoNotes(estate: Estate, text: string) {
   return estate.config.repos
     .filter(repo => wholeWord(repo.name).test(text))
     .map(repo => `repos/${repo.name}.md`)
-    .filter(rel => existsSync(join(estate.mapDir, rel)))
+    .filter(rel => fileAt(join(estate.mapDir, rel)))
 }
 
 function wholeWord(word: string) {

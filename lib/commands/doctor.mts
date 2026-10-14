@@ -9,8 +9,8 @@ import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
 import { lintEstate } from '../lint.mts'
-import { claudeConfigDir } from '../machine.mts'
-import { hubPath, listWorkItems } from '../nodes.mts'
+import { claudeConfigDir, onPath } from '../machine.mts'
+import { folderAt, hubPath, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
@@ -42,6 +42,8 @@ const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/')
 const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
 const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, hooks, connections }
+const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees']
+const NO_GIT = { note: 'git is not on the PATH, so this was not checked' }
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
@@ -54,7 +56,8 @@ function checks(io: Io) {
   const { estate, fix } = load(io)
   const first = [result('node', node(io.nodeVersion)), result('config', fix)]
   if (!estate) return first
-  return [...first, ...Object.entries(ESTATE_CHECKS).map(([name, check]) => result(name, check(estate, io)))]
+  const unasked = onPath('git', io.env) ? [] : ASK_GIT
+  return [...first, ...Object.entries(ESTATE_CHECKS).map(([name, check]) => result(name, unasked.includes(name) ? NO_GIT : check(estate, io)))]
 }
 
 function result(check: string, finding: Finding): Result {
@@ -70,7 +73,7 @@ function describe({ check, ok, fix, note }: Result) {
 function load(io: Io): { estate?: Estate; fix?: string } {
   try {
     const estate = loadEstate(io.cwd, io.env)
-    return estate ? { estate } : { fix: `no context map found from ${io.cwd}; run context-central init or /context-central:onboard` }
+    return estate ? { estate } : { fix: `no context map found from ${io.cwd}; context-central init --plain --dry-run lists what a plain map would write here, and /context-central:onboard sets a map up` }
   } catch (error) {
     if (!(error instanceof PluginError)) throw error
     return { fix: error.message }
@@ -120,7 +123,7 @@ function notes(estate: Estate, io: Io) {
   if (!rule(CONFIG_FILE).startsWith('!')) return null
   const left = estate.config.nodeDirs
     .map(dir => dir.replace(/\/+$/, ''))
-    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory() && CATCH_ALL.includes(rule(dir)))
+    .filter(dir => folderAt(join(estate.mapDir, dir)) && CATCH_ALL.includes(rule(dir)))
   if (left.length === 0) return null
   return `git ignores ${left.map(dir => `${dir}/`).join(', ')} while it keeps the rest of the map, so notes there are never committed; allow ${left.length === 1 ? 'it' : 'them'} in the map's .gitignore`
 }

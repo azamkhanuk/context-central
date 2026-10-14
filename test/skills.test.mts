@@ -29,7 +29,7 @@ const FLAGS: Record<string, string[]> = {
   lint: ['json', 'strict'],
   doctor: ['json'],
   detect: ['json'],
-  init: ['from', 'dry-run', 'print-settings'],
+  init: ['from', 'plain', 'dry-run', 'print-settings'],
   wrapper: ['write'],
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
@@ -216,13 +216,30 @@ test('prep, design and implement tell an existing item from a near match by the 
   for (const name of ['prep', 'design', 'implement']) assert.ok(skillText(name).includes('`Context for work item <item>:`'), name)
 })
 
-test('checkpoint names the message the plugin gives where no map covers the folder', () => {
+test('the four steps and checkpoint name the message the plugin gives where no map covers the folder, and the steps name the two commands that make a plain one', () => {
   const root = tree(makeTree({ 'readme.md': '# no map here\n' }))
   const listed = run(['work', 'list'], { cwd: root })
+  const resolved = run(['resolve', 'PROJ-12', '--absolute'], { cwd: root })
 
   assert.equal(listed.code, 1)
   assert.match(listed.stderr, /no context map found/)
-  assert.ok(skillText('checkpoint').includes('`no context map found`'))
+  assert.equal(resolved.code, 1)
+  assert.match(resolved.stderr, /no context map found/)
+  for (const name of ['research', 'prep', 'design', 'implement', 'checkpoint']) assert.ok(skillText(name).includes('`no context map found`'), name)
+  for (const name of ['research', 'prep', 'design', 'implement']) {
+    assert.ok(skillText(name).includes('`context-central init --plain --dry-run`'), name)
+    assert.ok(skillText(name).includes('`context-central init --plain`'), name)
+  }
+})
+
+test('design and implement name the line standards prints for a repo the map does not register', () => {
+  const root = tree(acme())
+
+  const result = run(['standards', 'billing'], { cwd: root })
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /^context-central standards: no repo "billing" in this estate\./)
+  for (const name of ['design', 'implement']) assert.ok(skillText(name).includes('`no repo "<repo>" in this estate`'), name)
 })
 
 test('the onboard draft carries whether evidence is committed', () => {

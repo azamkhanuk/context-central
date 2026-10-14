@@ -3,7 +3,7 @@ import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
-import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, strayFiles } from './nodes.mts'
+import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, strayFiles } from './nodes.mts'
 import { formatBytes } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
@@ -11,7 +11,7 @@ import type { Node, StrayFile, WorkItem } from './nodes.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index'
+export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read'
 
 export interface Finding {
   level: Level
@@ -36,6 +36,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...strayFiles(estate).map(strayFinding),
     ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo)),
     ...indexFindings(estate, itemsInFlight.length),
+    ...passedOver(estate).map(({ rel, why }) => finding('ERROR', 'read', rel, `${rel} ${why}, so the listings pass over it`)),
   ]
 }
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
-import { EXE_NAMES, NEEDS_STAND_IN, acme, disposable, makeTree, run } from './helpers.mts'
+import { EXE_NAMES, NEEDS_STAND_IN, acme, disposable, leftByAWrite, makeTree, run, staleLock } from './helpers.mts'
 import type { Env } from './helpers.mts'
 
 const tree = disposable()
@@ -412,4 +412,16 @@ test('nothing is read or saved for an item whose folder notNodes lists', NEEDS_S
   assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: work/arch is under a notNodes entry, so nothing is saved there for arch\n' })
   assert.equal(existsSync(join(gh, 'args')), false)
   assert.deepEqual(readdirSync(join(root, 'work/arch')), ['kept.md'])
+})
+
+test('fetch takes the map lock to save what it read: one thirty seconds old is taken over, and nothing but the source is left', NEEDS_STAND_IN, () => {
+  const root = tree(acme())
+  staleLock(root)
+
+  const result = fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-12'])
+
+  assert.equal(result.stderr, '')
+  assert.equal(result.code, 0)
+  assert.deepEqual(sources(root), ['01-2026-01-09-PROJ-12-full-text.md', '02-2026-01-15-pr-88-full-text.md'])
+  assert.deepEqual(leftByAWrite(root), [])
 })

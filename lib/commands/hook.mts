@@ -1,5 +1,5 @@
 import { readFileSync, realpathSync } from 'node:fs'
-import { ConfigError } from '../errors.mts'
+import { ConfigError, messageOf } from '../errors.mts'
 import { coverage, estateAt, findEstate } from '../estate.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -40,6 +40,7 @@ export async function run(args: string[], io: Io) {
     if (answer) io.out(JSON.stringify(answer))
   } catch (error) {
     if (io.env.CONTEXT_CENTRAL_DEBUG) io.err(`context-central hook: ${(error as Error).stack ?? error}`)
+    io.out(JSON.stringify({ systemMessage: `context-central: the ${args[0] ? `${args[0]} ` : ''}hook failed: ${messageOf(error)}. Run "context-central doctor".` }))
   }
   return 0
 }

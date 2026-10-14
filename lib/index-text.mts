@@ -1,9 +1,9 @@
-import { existsSync, statSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { listed } from './connections.mts'
 import { draftsDir, waitingIn } from './drafts.mts'
 import { repoAt, standardsFiles } from './estate.mts'
-import { hubPath, inFlight, listWorkItems } from './nodes.mts'
+import { fileAt, hubPath, inFlight, listWorkItems } from './nodes.mts'
 import type { Connection } from './connections.mts'
 import type { Estate } from './estate.mts'
 
@@ -44,7 +44,7 @@ function repoAround(estate: Estate, startDir: string | undefined): IndexRepo | n
   if (!repo) return null
   const note = `repos/${repo.name}.md`
   const path = join(estate.mapDir, note)
-  if (!statSync(path, { throwIfNoEntry: false })?.isFile()) return null
+  if (!fileAt(path)) return null
   const standards = standardsFiles(estate, repo).find(file => file.note) ?? null
   return { name: repo.name, note, path, standards: standards && relative(estate.mapDir, standards.path).split(sep).join('/'), standardsPath: standards?.path ?? null }
 }

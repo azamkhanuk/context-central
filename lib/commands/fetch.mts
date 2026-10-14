@@ -1,10 +1,11 @@
 import { spawnSync } from 'node:child_process'
-import { readdirSync, writeFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, chosenAmong, kindOf, listed, notRunningAs, parametersOf, pinnedAccount, pinnedToken, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
+import { locked, writeWhole } from '../lock.mts'
 import { findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
 import { formatBytes, localDate } from '../text.mts'
@@ -47,9 +48,12 @@ export function run(args: string[], io: Io) {
   const { day } = localDate(io.env)
   const laid = laidOut(preset, reading, printed, day) ?? asPrinted(connection, kind, asked, printed, day)
   if (!sourcesRel) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
-  const sourcesAbs = makeFolder(estate.mapDir, sourcesRel)
-  const name = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
-  writeFileSync(join(sourcesAbs, name), laid.text, { flag: 'wx' })
+  const name = locked(estate.mapDir, () => {
+    const sourcesAbs = makeFolder(estate.mapDir, sourcesRel)
+    const numbered = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
+    writeWhole(join(sourcesAbs, numbered), laid.text)
+    return numbered
+  })
   io.out(laid.digest)
   io.out(`saved: ${sourcesRel}/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
 }

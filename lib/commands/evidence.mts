@@ -1,8 +1,9 @@
-import { copyFileSync, constants, statSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { basename, extname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
+import { copyWhole, locked, standsAt } from '../lock.mts'
 import { EVIDENCE_DIR, findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -24,8 +25,12 @@ export function run(args: string[], io: Io) {
   const extension = EXTENSION.test(extname(from)) ? extname(from) : ''
   const folder = `${folderToSaveIn(estate, item)}/${EVIDENCE_DIR}`
   const rel = `${folder}/${dated(values.as ?? basename(from, extension), localDate(io.env).day)}${extension.toLowerCase()}`
-  makeFolder(estate.mapDir, folder)
-  copy(from, join(estate.mapDir, rel), rel)
+  locked(estate.mapDir, () => {
+    makeFolder(estate.mapDir, folder)
+    const to = join(estate.mapDir, rel)
+    if (standsAt(to)) throw new PluginError(`${rel} already exists; give other words with --as`)
+    copyWhole(from, to)
+  })
   io.out(`saved: ${rel} (${formatBytes(size)})`)
 }
 
@@ -55,13 +60,4 @@ function cleaned(words: string) {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '')
-}
-
-function copy(from: string, to: string, rel: string) {
-  try {
-    copyFileSync(from, to, constants.COPYFILE_EXCL)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    throw new PluginError(`${rel} already exists; give other words with --as`)
-  }
 }

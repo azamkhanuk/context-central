@@ -4,6 +4,7 @@ import { isAbsolute, join, posix, relative, sep } from 'node:path'
 import { ConfigError, PluginError } from './errors.mts'
 import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
+import { copyWhole, locked } from './lock.mts'
 import { makeFolder } from './nodes.mts'
 import { withoutBom } from './text.mts'
 import { holds, trackedUnder } from './worktree.mts'
@@ -66,6 +67,7 @@ export function drafted(estate: Estate, drafts: Drafts | null, rel: string, from
   const unedited = untouched(draft, record[rel])
   if (!isFile(ours)) {
     if (unedited) forget(drafts.dir, record, rel, from)
+    makeFolder(drafts.dir, posix.dirname(rel))
     return draft
   }
   if (!statSync(draft, { throwIfNoEntry: false }) || (unedited && hashOf(ours) !== record[rel])) copyIn(drafts.dir, record, rel, ours)
@@ -83,25 +85,39 @@ export function take(estate: Estate, { dir, tracked }: Drafts, over: string[], f
   if (unmet) throw new PluginError(`no draft of ${unmet} waits here`)
   const taken: Taken = { took: [], kept: [] }
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return taken
-  const record = readRecord(dir)
-  forgetCopies(dir, from)
-  for (const rel of waiting) {
-    const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
-    if (typeof verdict === 'object') {
-      taken.kept.push({ rel, why: verdict.kept })
-      continue
+  return locked(estate.mapDir, () => {
+    const record = readRecord(dir)
+    forgetCopies(dir, from)
+    for (const rel of waiting) {
+      const verdict = settle(estate, dir, rel, record[rel], over.includes(rel))
+      if (typeof verdict === 'object') {
+        taken.kept.push({ rel, why: verdict.kept })
+        continue
+      }
+      const refused = unremoved(join(dir, rel))
+      if (refused) taken.kept.push({ rel, why: `it is in the map, and its draft could not be removed (${refused}); remove it by hand` })
+      else if (verdict === 'took') taken.took.push(rel)
     }
-    if (verdict === 'took') taken.took.push(rel)
-    rmSync(join(dir, rel))
-  }
-  tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
-  return taken
+    tidy(dir, Object.fromEntries(Object.entries(record).filter(([rel]) => isFile(join(dir, rel)))), from)
+    return taken
+  })
 }
 
 export function awaitsTaking(estate: Estate, env: Env, rel: string) {
   const dir = draftsDir(estate)
   if (!dir || !estate.workTree) return false
   return waitingIn(estate, dir, trackedIn(estate.workTree, dir, env) ?? NONE_TRACKED).includes(rel)
+}
+
+function unremoved(path: string, remove: (path: string) => void = rmSync) {
+  try {
+    remove(path)
+    return null
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    if (!code) throw error
+    return code
+  }
 }
 
 function trackedIn(tree: WorkTree, dir: string, env: Env): ReadonlySet<string> | null {
@@ -138,7 +154,7 @@ function settle(estate: Estate, drafts: string, rel: string, base: string | unde
   if (held && !forced && base !== hashOf(ours)) return { kept: `${base ? "the map's file changed after this was drafted" : 'the map holds this file and the draft was not made from it'}; compare it with ${toCompare(drafts, rel, ours)}, then run context-central take --over ${rel}` }
   try {
     makeFolder(estate.mapDir, posix.dirname(rel))
-    copyFileSync(draft, ours)
+    copyWhole(draft, ours)
   } catch (error) {
     if (error instanceof PluginError) return { kept: error.message }
     const { code } = error as NodeJS.ErrnoException
@@ -201,15 +217,16 @@ function draftsIn(dir: string, tracked: ReadonlySet<string>, below = ''): string
     .sort()
 }
 
+// The record and a folder that cannot be removed hold nothing of the map, so each is left for the next take.
 function tidy(drafts: string, record: Drafted, from: string) {
   if (Object.keys(record).length > 0) writeRecord(drafts, record)
-  else rmSync(join(drafts, RECORD), { force: true })
+  else unremoved(join(drafts, RECORD))
   prune(drafts, from)
 }
 
 function prune(dir: string, from: string) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory() && !entry.name.startsWith('.')) prune(join(dir, entry.name), from)
-  if (readdirSync(dir).length === 0 && !holds(dir, from)) rmdirSync(dir)
+  if (readdirSync(dir).length === 0 && !holds(dir, from)) unremoved(dir, rmdirSync)
 }
 
 function isMapFile(estate: Estate, rel: string) {

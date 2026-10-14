@@ -2,6 +2,8 @@
 
 A Claude Code plugin that gives all the context behind your work one central place: a map of plain Markdown notes about your repositories and the work in flight.
 
+It is for people whose work runs across several repositories, or across many sessions on one, and who are tired of telling each new session where things stand.
+
 ![How context-central works: connections such as GitHub, Jira, Azure DevOps or anything else you use bring tickets, pull requests and threads into the map, saved in full. The map holds three tiers, and a session is given the hub and the live index at the start, the state file and the notes when your prompt names the work, and the deep tier and evidence only when asked. Five skills do the work, each starting from the files the last one wrote, and every step writes its files back to the map](docs/how-it-works.png)
 
 ## What it does
@@ -16,8 +18,8 @@ A Claude Code plugin that gives all the context behind your work one central pla
 ## How it helps
 
 - **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
-- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The rest is read when it is named or asked for.
-- **Nothing is lost.** Long text is kept in full, and each short note names the full text behind it.
+- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The plugin's own skills and agents add about 530 tokens to a session by Claude Code's count, which `claude plugin details context-central@context-central` prints, and `context-central budget` shows what a folder loads at the start. The rest is read when it is named or asked for.
+- **What is written stays written.** Long text is kept in full, and each short note names the full text behind it. Two sessions that write the map at the same moment cannot undo each other's lines: a command holds the map's lock while it writes, and one that cannot get it says so and writes nothing.
 - **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
 - **It works in a git work tree.** One map serves every work tree of a checkout: a session in one finds it, runs the repo's checks in the work tree, and writes the map through the plugin's own commands, with nothing to copy.
 - **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
@@ -42,22 +44,31 @@ Two rules keep it honest:
 
 ## How it works for you
 
-1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map.
+1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map. Or start with the work: where there is no map yet, research, prep, design and implement offer to make a plain one on the spot, which git does not show.
 2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
 3. **Start a session.** Claude already has the list of work in flight.
 4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. Claude is pointed at its state file and the notes behind it.
 5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
+## What it runs
+
+- **Two hooks.** Claude Code starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once.
+- **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
+- **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere.
+
+[What it runs, what it writes and how to remove it](docs/what-it-runs.md) has all of it: each program it starts, each place it writes outside the map, and how to take every trace away.
+
 ## Install
 
 It needs:
 
-- Node 22.18 or later
+- Claude Code 2.1.275 or later
+- Node 22.18 or later, as `node` on the `PATH` Claude Code starts with
 - macOS, Linux (WSL included) or Windows
 - on Windows, Git for Windows as well
 
-There are no runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed.
+There are no runtime dependencies. It is written in TypeScript, which Node runs as it is: nothing is compiled or installed. With no Node, Claude Code reports that a hook could not be started each time one would run; with a Node that is too old, the plugin says so in one line. [What it needs](docs/install.md#what-it-needs) has both lines.
 
 ```sh
 claude plugin marketplace add azamkhanuk/context-central
@@ -72,7 +83,7 @@ Then start a session in the folder that holds your checkouts and run:
 
 Restart or `/clear` afterwards so the hub loads.
 
-[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine) and [turning it off](docs/install.md#turning-it-off).
+[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 
 On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [On Windows](docs/terminal.md#on-windows) lists what was shown there, and [What it does not do](docs/limits.md) lists what was not.
 
@@ -98,7 +109,8 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 | Part | What its file covers |
 |---|---|
-| [Install, update and turn off](docs/install.md) | Installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, and turning it off |
+| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
+| [What it runs, what it writes and how to remove it](docs/what-it-runs.md) | Every program the plugin starts, every place it writes outside the map, and how to remove all of it |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, how a session in a git work tree reads and writes the map, the budget of each tier, and evidence |
 | [Connections](docs/connections.md) | How a connection is recorded, references, presets, the three ways a connection is read, and a pinned account |
@@ -108,7 +120,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | [Working from a terminal](docs/terminal.md) | The launcher that runs the CLI outside a session, and what the checks have shown on Windows |
 | [What it does not do](docs/limits.md) | Every limit, with what is untested on Windows |
 
-[CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
+[CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page. [CONTRIBUTING.md](CONTRIBUTING.md) says how to send a change, and [SECURITY.md](SECURITY.md) how to report a security fault in private.
 
 ## What it does not do
 

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, SOLO_STATE, checkout, disposable, git, makeTree, notOnWindows, run, solo, spawned, standIns, together, workTree } from './helpers.mts'
 import type { Checkout } from './helpers.mts'
 
 const tree = disposable()
@@ -127,6 +127,30 @@ test('take puts a new draft into the map and removes it from the work tree', () 
   assert.equal(result.code, 0)
   assert.equal(read(made.main, SPEC), '# Spec\n')
   assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('take writes through a link in the map that leads to a file not yet there, and the link stays a link', notOnWindows('symlinks need a right most Windows accounts lack'), () => {
+  const made = estate()
+  mkdirSync(join(made.main, 'kept'))
+  mkdirSync(join(made.main, MAP, 'concepts'))
+  symlinkSync(join(made.main, 'kept', 'limits.md'), join(made.main, MAP, 'concepts', 'limits.md'))
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'took concepts/limits.md\n', stderr: '' })
+  assert.equal(lstatSync(join(made.main, MAP, 'concepts', 'limits.md')).isSymbolicLink(), true)
+  assert.equal(readFileSync(join(made.main, 'kept', 'limits.md'), 'utf8'), '# Limits\n')
+})
+
+test('take puts an empty draft into the map as an empty file', () => {
+  const made = estate()
+  write(made.inside, 'concepts/empty.md', '')
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'took concepts/empty.md\n', stderr: '' })
+  assert.equal(read(made.main, 'concepts/empty.md'), '')
 })
 
 test("take puts a draft made from the map's file in its place", () => {
@@ -641,4 +665,135 @@ test('work done goes ahead where the draft of the state file was only read', () 
 
   assert.equal(result.stdout, 'PROJ-12: done\n')
   assert.match(read(made.main, SOLO_STATE), /^status: done$/m)
+})
+
+for (const round of [1, 2, 3, 4, 5]) {
+  test(`two work trees that take an edited draft of one file at once end with one took and one kept, and nothing temporary in the map (round ${round})`, async () => {
+    const made = estate()
+    const trees = [made.inside, workTree(made, join(made.main, '.claude', 'worktrees', 'other'), 'work/other')]
+    const texts = ['# PROJ-12, by the first\n', '# PROJ-12, by the second\n']
+    for (const [at, inside] of trees.entries()) {
+      draft(made, inside, SOLO_STATE)
+      write(inside, SOLO_STATE, texts[at])
+    }
+
+    const results = await together(trees.map(cwd => ({ args: ['take'], options: { cwd, env: made.env } })))
+
+    const first = results[0].code === 0 ? 0 : 1
+    const second = 1 - first
+    const toCompare = join(trees[second], MAP, IN_THE_MAP, SOLO_STATE)
+    assert.deepEqual(results[first], { code: 0, stdout: `took ${SOLO_STATE}\n`, stderr: '' })
+    assert.deepEqual(results[second], { code: 1, stdout: '', stderr: kept(SOLO_STATE, `the map's file changed after this was drafted; compare it with ${toCompare}, a copy of the map's file as it now is, then run context-central take --over ${SOLO_STATE}`) })
+    assert.equal(read(made.main, SOLO_STATE), texts[first])
+    assert.equal(read(trees[second], SOLO_STATE), texts[second])
+    assert.equal(readFileSync(toCompare, 'utf8'), texts[first])
+    assert.deepEqual(readdirSync(join(made.main, MAP), { recursive: true, encoding: 'utf8' }).filter(name => name.includes('.context-central.')), [])
+  })
+}
+
+const STUCK = kept('concepts/limits.md', 'it is in the map, and its draft could not be removed (EACCES); remove it by hand')
+
+function stuckDraft() {
+  const made = estate()
+  write(made.inside, 'concepts/limits.md', '# Limits\n')
+  write(made.inside, SPEC, '# Spec\n')
+  chmodSync(join(made.inside, MAP, 'concepts'), 0o555)
+  return { ...made, freed: () => chmodSync(join(made.inside, MAP, 'concepts'), 0o755) }
+}
+
+test('take keeps a draft it has put into the map and cannot then remove, in a line of its own, and takes the drafts after it', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = stuckDraft()
+
+  const result = take(made, made.inside)
+  made.freed()
+
+  assert.deepEqual(result, { code: 1, stdout: `took ${SPEC}\n`, stderr: STUCK })
+  assert.equal(read(made.main, 'concepts/limits.md'), '# Limits\n')
+  assert.equal(read(made.main, SPEC), '# Spec\n')
+  assert.equal(read(made.inside, 'concepts/limits.md'), '# Limits\n')
+})
+
+test('the next take says the same of a draft that still cannot be removed, and takes it away once it can be', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = stuckDraft()
+  take(made, made.inside)
+
+  const again = take(made, made.inside)
+  made.freed()
+  const freed = take(made, made.inside)
+
+  assert.deepEqual(again, { code: 1, stdout: '', stderr: STUCK })
+  assert.deepEqual(freed, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+const NEW_NOTE = 'work/PROJ-12/notes/2026-01-15-build.md'
+
+test('take says what it took and kept where a draft folder closed to writing holds a folder, and the next take clears what is left once it can', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+  write(made.inside, NEW_NOTE, '# Build\n')
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o555)
+
+  const result = take(made, made.inside)
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o755)
+  const after = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 1, stdout: `took ${NEW_NOTE}\n`, stderr: kept(SPEC, 'it is in the map, and its draft could not be removed (EACCES); remove it by hand') })
+  assert.equal(read(made.main, SPEC), '# Spec\n')
+  assert.equal(read(made.main, NEW_NOTE), '# Build\n')
+  assert.deepEqual(after, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('draft prints its path where it removes an unedited draft from a folder it then cannot remove', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = estate()
+  const note = 'work/PROJ-12/notes/2026-01-10-plan.md'
+  write(made.main, note, '# Plan\n')
+  draft(made, made.inside, note)
+  rmSync(join(made.main, MAP, note))
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o555)
+
+  const result = draft(made, made.inside, note)
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o755)
+
+  assert.deepEqual(result, { code: 0, stdout: `${join(made.inside, MAP, note)}\n`, stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP, note)), false)
+})
+
+test('draft of a file the map does not hold leaves the folder for it in the work tree, and still writes no file', () => {
+  const made = estate()
+
+  const result = draft(made, made.inside, NEW_NOTE)
+
+  assert.deepEqual(result, { code: 0, stdout: `${join(made.inside, MAP, NEW_NOTE)}\n`, stderr: '' })
+  assert.equal(statSync(join(made.inside, MAP, 'work', 'PROJ-12', 'notes')).isDirectory(), true)
+  assert.deepEqual(readdirSync(join(made.inside, MAP, 'work', 'PROJ-12', 'notes')), [])
+})
+
+test('draft says in one line when a file stands where the folder of a new file would go', () => {
+  const made = estate()
+  write(made.inside, 'work/PROJ-12/notes', 'a file, not a folder\n')
+
+  const result = draft(made, made.inside, NEW_NOTE)
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central draft: work/PROJ-12/notes is a file, not a folder, so nothing can be written under it\n' })
+})
+
+test('a folder made for a draft that was never written goes at the next take', () => {
+  const made = estate()
+  draft(made, made.inside, NEW_NOTE)
+
+  const result = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('in the main checkout draft of a file the map does not hold makes no folder in the map', () => {
+  const made = estate()
+
+  const result = draft(made, made.main, NEW_NOTE)
+
+  assert.equal(result.stdout, `${join(made.main, MAP, NEW_NOTE)}\n`)
+  assert.equal(existsSync(join(made.main, MAP, 'work', 'PROJ-12', 'notes')), false)
 })

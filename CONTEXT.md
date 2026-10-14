@@ -78,6 +78,15 @@ _Avoid_: link, reference, result, hit
 **Host text**: Text the host queues as a prompt that no person typed: a background task's notification or an agent's report, which in Claude Code begin `<task-notification>` and `<agent-message`. The prompt hook gives it no pointers and leaves the session record as it was.
 _Avoid_: system message, injected prompt, notification prompt
 
+**Plain map**: A map made by `init --plain` with no questions asked, which a step offers where it finds no map. Inside a repository it is the person's own: the map in `.context-central/`, its hub in `CLAUDE.local.md`, nothing that git tracks touched, and that repository registered. In a folder that holds checkouts it is the root layout with those checkouts registered. A shared map kept in git is onboard's to make.
+_Avoid_: bare map, default map, quick map
+
+**Map lock**: What a command holds while it reads and writes the map, so that two sessions writing at the same moment cannot lose each other's work. One lock serves the whole map, a command that cannot get it within five seconds stops and writes nothing, and a hook never takes it. It is an empty folder in the map's own folder.
+_Avoid_: lock file, mutex, semaphore
+
+**Unexpected fault**: A failure a command did not throw as an expected failure: the system refused something, or the code is wrong. It is one line and exit 1, with the trace only under `CONTEXT_CENTRAL_DEBUG`. In a hook it is one line to the person and exit 0.
+_Avoid_: crash, exception, internal error
+
 **Identifier**: What a node is known by besides its words: the `id` and each of the `aliases` in its frontmatter, and for a numbered node its kind and number.
 _Avoid_: key, slug, reference
 

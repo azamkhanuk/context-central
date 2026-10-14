@@ -17,6 +17,14 @@ function sandbox(stubs: Record<string, string> = {}, homeFiles: TreeFiles = {}) 
 
 const doctor = (root: string, env: Env = sandbox(), ...flags: string[]) => run(['doctor', ...flags], { cwd: root, env })
 
+function realGit() {
+  const home = tree(makeTree({ gitconfig: '' }))
+  return { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+}
+
+const NOT_CHECKED = 'git is not on the PATH, so this was not checked'
+const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees'].map(row => `note ${row}: ${NOT_CHECKED}`)
+
 const GIT_IGNORING_WEB_ONLY = 'case "$*" in *rev-parse*) echo true ;; *"check-ignore -q web") exit 0 ;; *) exit 1 ;; esac'
 const GIT_IGNORING_BOTH = 'case "$*" in *rev-parse*) echo true ;; *) exit 0 ;; esac'
 const GH_PRESENT = 'exit 0'
@@ -64,10 +72,28 @@ const hooksLine = (result: Result) => result.stdout.split('\n').find(line => lin
 const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
-test('a healthy map passes every check', () => {
+test('with no git on the PATH the four rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
   const root = tree(acme({}, BY_A_SERVER))
 
   const result = doctor(root)
+
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', ...WITHOUT_GIT, 'ok   hooks', 'ok   connections', ''].join('\n'))
+  assert.equal(result.code, 0)
+})
+
+test('with no git on the PATH a row that needs a fix still makes doctor exit 1', () => {
+  const root = tree(acme({ 'CLAUDE.md': '# Acme\n' }, { ...BY_A_SERVER, hub: 'HUB.md' }))
+
+  const result = doctor(root)
+
+  assert.equal(result.code, 1)
+  assert.deepEqual(result.stdout.split('\n').filter(line => !line.startsWith('ok')), ['FIX  hub: HUB.md does not exist; write it, or point "hub" in estate.json at the file that is there', 'FIX  lint: 1 error; run context-central lint', ...WITHOUT_GIT, ''])
+})
+
+test('a healthy map passes every check', () => {
+  const root = tree(acme({}, BY_A_SERVER))
+
+  const result = doctor(root, realGit())
 
   assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
@@ -96,7 +122,7 @@ test('a folder with no map is told how to make one', () => {
 
   const result = doctor(root)
 
-  assert.match(result.stdout, /^FIX {2}config: no context map found from .*; run context-central init or \/context-central:onboard$/m)
+  assert.match(result.stdout, /^FIX {2}config: no context map found from .*; context-central init --plain --dry-run lists what a plain map would write here, and \/context-central:onboard sets a map up$/m)
   assert.equal(result.code, 1)
 })
 
@@ -494,7 +520,7 @@ test('a hub path that is a folder is a fix, not a crash', () => {
   assert.equal(result.stderr, '')
 })
 
-test('json lists every check with its fix and its note', () => {
+test('json lists every check with its fix and its note, and with no git on the PATH the four rows that ask git carry that as their note', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox(), '--json')
@@ -506,10 +532,10 @@ test('json lists every check with its fix and its note', () => {
     { check: 'lint', ok: true, fix: null, note: null },
     { check: 'links', ok: true, fix: null, note: null },
     { check: 'repos', ok: true, fix: null, note: null },
-    { check: 'git', ok: true, fix: null, note: null },
-    { check: 'notes', ok: true, fix: null, note: null },
-    { check: 'evidence', ok: true, fix: null, note: null },
-    { check: 'worktrees', ok: true, fix: null, note: null },
+    { check: 'git', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'notes', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'evidence', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'worktrees', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
   ])
@@ -518,11 +544,6 @@ test('json lists every check with its fix and its note', () => {
 
 const TRACE = 'work/PROJ-12/evidence/2026-01-14-trace.json'
 const NO_REPOS = { repos: [] }
-
-function realGit() {
-  const home = tree(makeTree({ gitconfig: '' }))
-  return { PATH: process.env.PATH, HOME: home, GIT_CONFIG_GLOBAL: join(home, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
-}
 
 function repository(files: TreeFiles, config: { [key: string]: Json } = {}) {
   const root = tree(acme(files, { ...NO_REPOS, ...config }))
@@ -786,7 +807,7 @@ test('a map in no git checkout passes the work trees check', () => {
   assert.equal(doctor(outside, realGit()).stdout.split('\n').find(line => line.includes(' worktrees')), 'ok   worktrees')
 })
 
-test('with no git on the PATH a map that sits in a work tree is not said to be ignored there', () => {
+test('with no git on the PATH the work trees row says it was not checked, of a map that sits in a work tree as of any other', () => {
   const made = checkout({ '.gitignore': `${MAP}/\n`, 'CLAUDE.md': '# Solo\n' })
   tree(made.base)
   const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
@@ -794,7 +815,7 @@ test('with no git on the PATH a map that sits in a work tree is not said to be i
 
   const result = doctor(inside, { ...made.env, PATH: tree(makeTree({})), HOME: made.base })
 
-  assert.equal(result.stdout.split('\n').find(line => line.includes(' worktrees')), 'ok   worktrees')
+  assert.equal(result.stdout.split('\n').find(line => line.includes(' worktrees')), `note worktrees: ${NOT_CHECKED}`)
 })
 
 test('from inside a work tree that was moved by hand, doctor names it where drafts wait in it', () => {

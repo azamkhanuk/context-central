@@ -1,9 +1,10 @@
-import { spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BIN = join(REPO, 'bin', 'context-central')
@@ -46,13 +47,10 @@ export function disposable() {
   return (root: string) => (trees.push(root), root)
 }
 
+const withDefaults = (env: Env) => ({ PATH: process.env.PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z', ...env })
+
 export function spawned(command: string, args: string[], { cwd = undefined, env = {}, input = undefined }: SpawnOptions = {}): Result {
-  const result = spawnSync(command, args, {
-    cwd,
-    input,
-    encoding: 'utf8',
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z', ...env },
-  })
+  const result = spawnSync(command, args, { cwd, input, encoding: 'utf8', env: withDefaults(env) })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
@@ -60,8 +58,49 @@ export function run(args: string[], { cwd = undefined, env = {}, stdin = '' }: R
   return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env })
 }
 
+export function together(runs: { args: string[], options?: RunOptions }[]): Promise<Result[]> {
+  return Promise.all(runs.map(({ args, options = {} }) => started(args, options)).map(ended))
+}
+
+export function closedReader(args: string[], options: RunOptions = {}): Promise<Result> {
+  const child = started(args, options)
+  child.stdout.destroy()
+  return ended(child)
+}
+
+function started(args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions) {
+  const child = spawn(process.execPath, [BIN, ...args], { cwd, env: withDefaults(env) })
+  child.stdin.on('error', () => {})
+  child.stdin.end(stdin)
+  return child
+}
+
+function ended(child: ChildProcessWithoutNullStreams): Promise<Result> {
+  return new Promise(resolve => {
+    const said = { stdout: '', stderr: '' }
+    child.stdout.setEncoding('utf8').on('data', (text: string) => (said.stdout += text))
+    child.stderr.setEncoding('utf8').on('data', (text: string) => (said.stderr += text))
+    child.on('error', error => resolve({ code: null, stdout: said.stdout, stderr: `not started: ${error.message}` }))
+    child.on('close', code => resolve({ code, ...said }))
+  })
+}
+
 export function hook(event: string, input: unknown, options: RunOptions = {}) {
   return run(['hook', event], { ...options, stdin: JSON.stringify(input) })
+}
+
+export const LOCK = '.context-central.lock'
+
+export function staleLock(mapDir: string, name = LOCK) {
+  const folder = join(mapDir, name)
+  const then = new Date(Date.now() - 31_000)
+  mkdirSync(folder)
+  utimesSync(folder, then, then)
+  return folder
+}
+
+export function leftByAWrite(root: string) {
+  return readdirSync(root, { recursive: true, encoding: 'utf8' }).filter(name => name.includes('.context-central.'))
 }
 
 export function pluginWith(presets: Record<string, string>) {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { accessSync, constants, lstatSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve, sep } from 'node:path'
 import { PluginError } from './errors.mts'
 import { firstHeading, headings, parseFrontmatter, withoutCode } from './text.mts'
@@ -71,11 +71,18 @@ export interface StrayFile {
   dirRel: string
 }
 
+export interface PassedOver {
+  rel: string
+  why: string
+}
+
 export const EVIDENCE_DIR = 'evidence'
 
 const NOT_ITEMS = ['readme.md', 'index.md']
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
 const listings = new Map<string, Set<string>>()
+const passed = new WeakMap<Estate, Map<string, string>>()
+const readable = new Map<string, Set<string>>()
 
 export function hubPath(estate: Estate) {
   return join(estate.estateRoot, estate.config.hub)
@@ -97,10 +104,32 @@ export function isEvidence(config: Settings, rel: string) {
   return folder === EVIDENCE_DIR && below.length > 0
 }
 
+export function passedOver(estate: Estate): PassedOver[] {
+  return [...(passed.get(estate) ?? [])].map(([rel, why]) => ({ rel, why })).sort((a, b) => a.rel.localeCompare(b.rel))
+}
+
+export function fileAt(path: string) {
+  try {
+    accessSync(path, constants.R_OK)
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
+export function folderAt(path: string) {
+  try {
+    return statSync(path).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 export function listFiles(estate: Estate) {
   return estate.config.nodeDirs
-    .filter(dir => statSync(join(estate.mapDir, dir), { throwIfNoEntry: false })?.isDirectory())
-    .flatMap(dir => walk(estate.mapDir, dir))
+    .map(dir => dir.replace(/\/+$/, ''))
+    .filter(dir => isFolder(estate, dir))
+    .flatMap(dir => walk(estate, dir))
     .filter(rel => !leftOut(estate.config, rel))
     .filter(rel => !isEvidence(estate.config, rel))
     .map(rel => describe(estate, rel))
@@ -166,10 +195,9 @@ export function folderToSaveIn(estate: Estate, item: WorkItem) {
 
 export function workItemIds(estate: Estate) {
   const { workDir } = estate.config
-  const workAbs = join(estate.mapDir, workDir)
-  if (!isFolder(workAbs)) return []
+  if (!isFolder(estate, workDir)) return []
   const ids = new Set<string>()
-  for (const entry of readdirSync(workAbs, { withFileTypes: true })) {
+  for (const entry of entriesOf(estate, workDir)) {
     if (entry.name.startsWith('.') || entry.name.startsWith('_') || leftOut(estate.config, `${workDir}/${entry.name}`)) continue
     if (entry.isDirectory()) ids.add(entry.name)
     else if (entry.isFile() && entry.name.endsWith('.md')) ids.add(entry.name.slice(0, -3))
@@ -180,9 +208,9 @@ export function workItemIds(estate: Estate) {
 export function strayFiles(estate: Estate): StrayFile[] {
   return workItemIds(estate)
     .map(id => `${estate.config.workDir}/${id}`)
-    .filter(dirRel => !leftOut(estate.config, dirRel) && isFolder(join(estate.mapDir, dirRel)))
+    .filter(dirRel => !leftOut(estate.config, dirRel) && isFolder(estate, dirRel))
     .flatMap(dirRel =>
-      walk(estate.mapDir, dirRel, name => !isMarkdown(name))
+      walk(estate, dirRel, name => !isMarkdown(name))
         .filter(rel => !isEvidence(estate.config, rel))
         .map(rel => ({ rel, dirRel })),
     )
@@ -205,13 +233,13 @@ function workItem(estate: Estate, id: string): WorkItem | null {
   const noteRel = `${workDir}/${id}.md`
   const evidenceRel = `${dirRel}/${EVIDENCE_DIR}`
   const kept = !leftOut(estate.config, dirRel)
-  const inFolder = kept && isFolder(join(estate.mapDir, dirRel))
-    ? walk(estate.mapDir, dirRel)
+  const inFolder = kept && isFolder(estate, dirRel)
+    ? walk(estate, dirRel)
         .filter(rel => !isEvidence(estate.config, rel))
         .map(rel => describe(estate, rel))
     : []
-  const evidence = kept && isFolder(join(estate.mapDir, evidenceRel)) ? walk(estate.mapDir, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
-  const note = existsSync(join(estate.mapDir, noteRel)) && !leftOut(estate.config, noteRel) ? describe(estate, noteRel) : null
+  const evidence = kept && folderAt(join(estate.mapDir, evidenceRel)) ? walk(estate, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
+  const note = !leftOut(estate.config, noteRel) && isNote(estate, noteRel) ? describe(estate, noteRel) : null
   const [entry = null, next = null] = entryFiles(inFolder, dirRel, note)
   if (!entry && inFolder.length === 0 && evidence.length === 0) return null
   const head: Parsed = entry ? parseFrontmatter(readFileSync(entry.path, 'utf8')) : { data: {}, body: '' }
@@ -262,8 +290,56 @@ function sized(estate: Estate, rel: string): MapFile {
   return { rel, path, bytes: statSync(path).size }
 }
 
-function isFolder(path: string) {
-  return statSync(path, { throwIfNoEntry: false })?.isDirectory() ?? false
+function isFolder(estate: Estate, rel: string) {
+  return reached(estate, rel, path => statSync(path, { throwIfNoEntry: false })?.isDirectory()) ?? false
+}
+
+function isNote(estate: Estate, rel: string) {
+  const held = reached(estate, rel, path => statSync(path, { throwIfNoEntry: false }))
+  if (held?.isDirectory()) passOver(estate, rel, 'is a folder where a note would be read')
+  return (held?.isFile() && isReadable(estate, rel)) ?? false
+}
+
+function isReadable(estate: Estate, rel: string, known = readableIn(estate)) {
+  if (known.has(rel)) return true
+  const can = reached(estate, rel, path => (accessSync(path, constants.R_OK), true)) ?? false
+  if (can) known.add(rel)
+  return can
+}
+
+function readableIn({ mapDir }: Estate) {
+  if (!readable.has(mapDir)) readable.set(mapDir, new Set())
+  return readable.get(mapDir)!
+}
+
+function entriesOf(estate: Estate, dirRel: string) {
+  return reached(estate, dirRel, path => readdirSync(path, { withFileTypes: true })) ?? []
+}
+
+function reached<Found>(estate: Estate, rel: string, reach: (path: string) => Found): Found | null {
+  const path = join(estate.mapDir, rel)
+  try {
+    return reach(path)
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    const link = isLink(path)
+    if (link || code !== 'ENOENT') passOver(estate, rel, link ? `is a link that leads nowhere (${code})` : `cannot be read (${code})`)
+    return null
+  }
+}
+
+function isLink(path: string) {
+  try {
+    return lstatSync(path).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+function passOver(estate: Estate, rel: string, why: string) {
+  if (leftOut(estate.config, rel)) return
+  if (!passed.has(estate)) passed.set(estate, new Map())
+  passed.get(estate)!.set(rel, why)
 }
 
 function isMarkdown(name: string) {
@@ -274,15 +350,22 @@ function anyName() {
   return true
 }
 
-function walk(mapDir: string, dirRel: string, keeps: (name: string) => boolean = isMarkdown): string[] {
+function walk(estate: Estate, dirRel: string, keeps: (name: string) => boolean = isMarkdown): string[] {
   const found: string[] = []
-  for (const entry of readdirSync(join(mapDir, dirRel), { withFileTypes: true })) {
+  const known = readableIn(estate)
+  for (const entry of entriesOf(estate, dirRel)) {
     if (neverListed(entry.name)) continue
     const rel = `${dirRel}/${entry.name}`
-    if (entry.isDirectory()) found.push(...walk(mapDir, rel, keeps))
-    else if (entry.isFile() && keeps(entry.name)) found.push(rel)
+    const note = listedAsNote(estate.config, rel)
+    if (entry.isDirectory()) found.push(...walk(estate, rel, keeps))
+    else if (entry.isSymbolicLink() && note) reached(estate, rel, path => statSync(path))
+    else if (entry.isFile() && keeps(entry.name) && (!note || known.has(rel) || isReadable(estate, rel, known))) found.push(rel)
   }
   return found.sort()
+}
+
+function listedAsNote(config: Settings, rel: string) {
+  return isMarkdown(rel) && !leftOut(config, rel) && !isEvidence(config, rel)
 }
 
 // A case-insensitive disk would accept [[Concepts/Gateway]]; a case-sensitive one would not.
@@ -293,7 +376,7 @@ function existsExactly(root: string, rel: string) {
     else if (!namesIn(dir).has(part)) return false
     else dir = join(dir, part)
   }
-  return statSync(dir, { throwIfNoEntry: false })?.isFile() ?? false
+  return fileAt(dir)
 }
 
 function namesIn(dir: string) {

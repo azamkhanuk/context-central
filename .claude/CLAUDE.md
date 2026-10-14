@@ -23,7 +23,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - `io` is `{ cwd, env, nodeVersion, out, err, readStdin }`. Commands never touch `process` directly.
 - Expected failures throw `PluginError` (exit 1) or `UsageError` (exit 2) from `lib/errors.mts`. Exit 0 means fine.
 - `--json` on commands whose output a skill or script parses.
-- The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`.
+- The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`. The map lock alone reads the system's clock, since a lock folder's age is the file system's own time, which `CONTEXT_CENTRAL_NOW` cannot move.
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub, a repo's standards).
 - The plugin holds no rule for any language, framework or build tool, in `lib/`, a skill or an agent. How a repo's code is written and checked comes from its own files, its standards note and its recorded checks.
 - Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.

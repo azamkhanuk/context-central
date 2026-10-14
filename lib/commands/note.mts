@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
+import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { makeFolder, neverListed, underNotNodes } from '../nodes.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
@@ -40,9 +41,11 @@ function log(estate: Estate, text: string, io: Io) {
   const { month, day } = localDate(io.env)
   const rel = `log/${month}.md`
   const path = join(estate.mapDir, rel)
-  const before = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  makeFolder(estate.mapDir, 'log')
-  writeFileSync(path, underDay(before.trim() ? before : `# ${month}\n`, day, `- ${text}`))
+  locked(estate.mapDir, () => {
+    makeFolder(estate.mapDir, 'log')
+    const before = readWhole(path) ?? ''
+    writeWhole(path, underDay(before.trim() ? before : `# ${month}\n`, day, `- ${text}`))
+  })
   io.out(rel)
 }
 
@@ -66,13 +69,17 @@ function create(estate: Estate, target: string, title: string | undefined, io: I
   if (!kinds.includes(kind) || name === undefined) throw new UsageError(expected)
   const broken = brokenRule(estate, kind, parts)
   if (broken) throw new UsageError(`${broken}: ${expected}`)
-  const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, parts.join('/'), title || name)
-  if (underNotNodes(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
-  const path = join(estate.mapDir, rel)
-  if (existsSync(path)) throw new PluginError(`${rel} already exists`)
-  makeFolder(estate.mapDir, posix.dirname(rel))
-  writeFileSync(path, text, { flag: 'wx' })
-  io.out(rel)
+  if (kind === 'decisions' && /^\d{4}-/.test(name)) throw new UsageError('name the decision without a number; it is given the next one')
+  const made = locked(estate.mapDir, () => {
+    const { rel, text } = kind === 'decisions' ? decision(estate, name, title || name) : node(kind, parts.join('/'), title || name)
+    if (underNotNodes(estate.config, rel)) throw new UsageError(`${rel} is under a notNodes entry: ${expected}`)
+    const path = join(estate.mapDir, rel)
+    if (standsAt(path)) throw new PluginError(`${rel} already exists`)
+    makeFolder(estate.mapDir, posix.dirname(rel))
+    writeWhole(path, text)
+    return rel
+  })
+  io.out(made)
 }
 
 function brokenRule(estate: Estate, kind: string, parts: string[]) {
@@ -91,7 +98,6 @@ function node(kind: string, name: string, title: string) {
 }
 
 function decision(estate: Estate, slug: string, title: string) {
-  if (/^\d{4}-/.test(slug)) throw new UsageError('name the decision without a number; it is given the next one')
   const recorded = decisions(estate)
   const same = recorded.find(entry => entry.slug === slug)
   if (same) throw new PluginError(`decisions/${same.file} already exists`)

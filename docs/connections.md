@@ -1,6 +1,6 @@
 # Connections
 
-A connection is a named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate can have any number, and none is required: with no connection every command, hook and skill works as before. One is recommended, so that a session can read the ticket or the pull request behind the work.
+A connection is a named way the estate reaches one outside system for one kind of thing: tickets, pull requests, meetings, chat or any other. An estate can have any number, and none is required: with no connection every command, hook and skill works as before. One is recommended, so that a session can read the ticket or the pull request behind the work. A plain map, made by `init --plain`, records none until you add one.
 
 ![How a reference is read: a reference names one thing, the plugin finds its connection, and the text is read by fetch, by a session or by hand, then kept in full while only a digest comes back](connections.png)
 
