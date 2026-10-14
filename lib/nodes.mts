@@ -238,7 +238,7 @@ function workItem(estate: Estate, id: string): WorkItem | null {
         .filter(rel => !isEvidence(estate.config, rel))
         .map(rel => describe(estate, rel))
     : []
-  const evidence = kept && isFolder(estate, evidenceRel) ? walk(estate, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
+  const evidence = kept && folderAt(join(estate.mapDir, evidenceRel)) ? walk(estate, evidenceRel, anyName).map(rel => sized(estate, rel)) : []
   const note = !leftOut(estate.config, noteRel) && isNote(estate, noteRel) ? describe(estate, noteRel) : null
   const [entry = null, next = null] = entryFiles(inFolder, dirRel, note)
   if (!entry && inFolder.length === 0 && evidence.length === 0) return null
@@ -337,6 +337,7 @@ function isLink(path: string) {
 }
 
 function passOver(estate: Estate, rel: string, why: string) {
+  if (leftOut(estate.config, rel)) return
   if (!passed.has(estate)) passed.set(estate, new Map())
   passed.get(estate)!.set(rel, why)
 }
@@ -355,11 +356,16 @@ function walk(estate: Estate, dirRel: string, keeps: (name: string) => boolean =
   for (const entry of entriesOf(estate, dirRel)) {
     if (neverListed(entry.name)) continue
     const rel = `${dirRel}/${entry.name}`
+    const note = listedAsNote(estate.config, rel)
     if (entry.isDirectory()) found.push(...walk(estate, rel, keeps))
-    else if (entry.isSymbolicLink()) reached(estate, rel, path => statSync(path))
-    else if (entry.isFile() && keeps(entry.name) && (known.has(rel) || isReadable(estate, rel, known))) found.push(rel)
+    else if (entry.isSymbolicLink() && note) reached(estate, rel, path => statSync(path))
+    else if (entry.isFile() && keeps(entry.name) && (!note || known.has(rel) || isReadable(estate, rel, known))) found.push(rel)
   }
   return found.sort()
+}
+
+function listedAsNote(config: Settings, rel: string) {
+  return isMarkdown(rel) && !leftOut(config, rel) && !isEvidence(config, rel)
 }
 
 // A case-insensitive disk would accept [[Concepts/Gateway]]; a case-sensitive one would not.

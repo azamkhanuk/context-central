@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, acme, acmeIndex, acmePointers, checkout, disposable, hook, makeTree, notOnWindows, run } from './helpers.mts'
+import { ACME_CONFIG, ACME_SHOT, acme, acmeIndex, acmePointers, checkout, disposable, hook, makeTree, notOnWindows, run } from './helpers.mts'
 import type { Result, Skip } from './helpers.mts'
 
 const tree = disposable()
@@ -115,6 +115,59 @@ test('a link among the notes that leads to a file is passed over and nothing is 
 
   assert.deepEqual(run(['lint'], { cwd: root }), { code: 0, stdout: 'ok\n', stderr: '' })
   assert.equal(run(['graph'], { cwd: root }).stdout, GRAPH)
+})
+
+const nowhere = (root: string, rel: string) => {
+  mkdirSync(join(root, rel, '..'), { recursive: true })
+  symlinkSync(join(root, 'nowhere', 'gone'), join(root, rel))
+}
+
+test('a link that leads nowhere where no note would be listed is passed over in silence, as it was before', LINKS, () => {
+  const root = tree(acme({}, { notNodes: ['docs/archive'] }))
+  for (const rel of ['docs/archive/old.md', 'concepts/pic.png', 'work/PROJ-12/evidence/2026-01-15-shot.png', 'work/PROJ-12/evidence/notes.md', 'work/readme.md']) nowhere(root, rel)
+
+  assert.deepEqual(run(['lint'], { cwd: root }), { code: 0, stdout: 'ok\n', stderr: '' })
+  assert.equal(run(['doctor'], { cwd: root }).stdout.split('\n').some(line => line.startsWith('FIX')), false)
+})
+
+test("a link that leads nowhere at the place of an item's evidence folder is passed over in silence", LINKS, () => {
+  const root = tree(acme())
+  nowhere(root, 'work/PROJ-12/evidence')
+
+  assert.deepEqual(run(['lint'], { cwd: root }), { code: 0, stdout: 'ok\n', stderr: '' })
+  assert.deepEqual(run(['work', 'list'], { cwd: root }), { code: 0, stdout: WORK_LIST, stderr: '' })
+})
+
+test('a link that leads nowhere in the log is an error, since a month of the log is listed', LINKS, () => {
+  const root = tree(acme())
+  nowhere(root, 'log/2026-02.md')
+
+  assert.deepEqual(run(['lint'], { cwd: root }), { code: 1, stdout: 'ERROR read: log/2026-02.md is a link that leads nowhere (ENOENT), so the listings pass over it\n', stderr: '' })
+})
+
+test('what cannot be read under a folder notNodes lists is passed over in silence', BY_MODE, () => {
+  const root = tree(acme({ 'docs/archive/closed.md': '# Closed\n', 'docs/archive/shut/kept.md': '# Kept\n' }, { notNodes: ['docs/archive'] }))
+
+  const lint = withEntry(root, () => {
+    chmodSync(join(root, 'docs/archive/closed.md'), 0o000)
+    chmodSync(join(root, 'docs/archive/shut'), 0o000)
+    return [join(root, 'docs/archive/closed.md'), join(root, 'docs/archive/shut')]
+  }, () => run(['lint'], { cwd: root }))
+
+  assert.deepEqual(lint, { code: 0, stdout: 'ok\n', stderr: '' })
+})
+
+test('a file that is no note and cannot be read is listed as before, and lint says nothing of its mode', BY_MODE, () => {
+  const root = tree(acme({ 'work/PROJ-12/export.csv': 'a,b\n', [ACME_SHOT]: 'x' }))
+
+  const said = withEntry(root, () => {
+    chmodSync(join(root, 'work/PROJ-12/export.csv'), 0o000)
+    chmodSync(join(root, ACME_SHOT), 0o000)
+    return [join(root, 'work/PROJ-12/export.csv'), join(root, ACME_SHOT)]
+  }, () => ({ lint: run(['lint'], { cwd: root }), list: run(['work', 'list'], { cwd: root }) }))
+
+  assert.deepEqual(said.lint, { code: 0, stdout: 'WARN evidence: work/PROJ-12/export.csv is not Markdown and is outside work/PROJ-12/evidence/\n', stderr: '' })
+  assert.deepEqual(said.list, { code: 0, stdout: 'PROJ-12 | Rate limit the gateway | work/PROJ-12/STATE.md | 2 notes, 1 deep file (53 B), 1 evidence file (1 B)\n', stderr: '' })
 })
 
 test('a folder at the place of a repo note is no repo note, to a prompt that names the repo and to an item that names it', () => {
