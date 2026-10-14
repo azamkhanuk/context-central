@@ -1,6 +1,25 @@
 # Changelog
 
-Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@context-central` finds a newer one, or until auto-update does where that is on.
+Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update context-central@azamkhanuk` finds a newer one, or until auto-update does where that is on.
+
+## 0.14.0 - 2026-10-14
+
+The plugin installs from its author's marketplace, `azamkhanuk`, as `context-central@azamkhanuk`.
+
+- **One marketplace, named after its author.** The install is now `claude plugin marketplace add azamkhanuk/claude-plugins`, then `claude plugin install context-central@azamkhanuk`. The marketplace is a list kept in a repository of its own, and it names each plugin by the plugin's own repository, so the plugins of one author install under one name. Claude Code keeps one marketplace to a name, and a second one added under a name already registered takes the first one's place, so that name could not be carried by a marketplace in each plugin's repository.
+- **`init --print-settings` declares that marketplace.** The settings it prints add `azamkhanuk` from `azamkhanuk/claude-plugins` with auto-update on, and enable `context-central@azamkhanuk`. They no longer take the marketplace's address from the plugin's own manifest.
+- **The launcher gives both commands.** With no plugin installed it names the marketplace to add and the plugin to install. It still starts a copy installed from any marketplace, the repository's own among them.
+- **Removing it names the new id.** The page of what the plugin runs, `docs/what-it-runs.md`, gives `claude plugin uninstall context-central@azamkhanuk`, and removes the shared `azamkhanuk` marketplace only where none of its plugins is installed.
+
+Not shown:
+
+- A session given the plugin by the printed settings, which needs a person to accept a folder's trust prompt. The marketplace was added and the plugin installed from it under a scratch config directory, on Claude Code 2.1.296.
+
+For a map that already exists:
+
+- A copy installed as `context-central@context-central` keeps working. The repository is still a marketplace of that name, and the launcher still finds that copy. To move, install `context-central@azamkhanuk` and then uninstall the older one, so that two copies are not enabled at once.
+- Settings an older release printed keep working too. To move a map, print them again and put them in place of the older `extraKnownMarketplaces` and `enabledPlugins` entries.
+- A saved launcher keeps working, and names the older command until it is renewed: delete `bin/context-central` and `bin/context-central.cmd` from the map, then run `context-central wrapper --write`.
 
 ## 0.13.0 - 2026-10-14
 
