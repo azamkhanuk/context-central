@@ -168,6 +168,26 @@ test('a plain map is refused in a checkout whose git folder is elsewhere, since 
   assert.deepEqual(readdirSync(join(root, 'held')).sort(), ['.git', 'README.md'])
 })
 
+test('a plain map is refused where git tracks CLAUDE.local.md, in a dry run as well, and nothing is written', () => {
+  const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n' })
+  const refused = { code: 1, stdout: '', stderr: `context-central init: ${join(made.main, 'CLAUDE.local.md')} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard\n` }
+
+  assert.deepEqual(plain(made, made.main, '--dry-run'), refused)
+  assert.deepEqual(plain(made, made.main), refused)
+  assert.equal(existsSync(join(made.main, MAP)), false)
+  assert.equal(read(made.main, EXCLUDE), EXCLUDED)
+  assert.equal(shownByGit(made), '')
+})
+
+test('with no git on the PATH a plain map cannot ask what git tracks, and goes on as it does for a file of the person\'s own', () => {
+  const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n' })
+
+  const result = plain({ env: { ...made.env, PATH: tree(makeTree({})) } }, made.main)
+
+  assert.equal(result.code, 0)
+  assert.match(result.stdout, /^updated CLAUDE\.local\.md$/m)
+})
+
 test('--plain takes no answers file, and init with neither is still wrong usage', () => {
   const root = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
 

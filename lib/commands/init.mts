@@ -7,7 +7,7 @@ import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { manifestPath } from '../manifest.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
-import { checkoutAround, checkoutsUnder } from '../worktree.mts'
+import { checkoutAround, checkoutsUnder, gitTracks } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Layout, Settings } from '../estate.mts'
 import type { InMap } from '../templates.mts'
@@ -72,6 +72,7 @@ function plain(given: string, env: Env): Plan {
   const found = findEstate(given, env)
   if (found && found.configPath !== ours) throw new PluginError(`a map already covers this folder: ${found.configPath}`)
   if (!around) return { dir, answers: { layout: 'root', config: { name, repos: checkoutsUnder(dir) } }, first: [] }
+  if (!found && gitTracks(dir, join(dir, OWN_HUB), env)) throw new PluginError(`${join(dir, OWN_HUB)} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
   const keptOut = { rel: '.git/info/exclude', content: KEPT_OUT_OF_GIT.map(line => `${line}\n`).join(''), lines: KEPT_OUT_OF_GIT }
   return { dir, answers: { layout: 'inner', config: { name, hub: OWN_HUB, repos: [{ name, path: '.' }] } }, first: found ? [] : [keptOut] }
 }
