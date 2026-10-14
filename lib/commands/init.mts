@@ -142,8 +142,8 @@ function carryOut(dir: string, step: Step, dryRun: boolean) {
   return `${action}d ${step.rel}`
 }
 
-function lacking(path: string, { content, append, lines }: Step) {
-  if (content === undefined) return null
+function lacking(path: string, { append, lines }: Step) {
+  if (!append && !lines) return null
   const text = readFileSync(path, 'utf8')
   if (lines) return lines.filter(line => !text.split(/\r?\n/).includes(line)).map(line => `${line}\n`).join('') || null
   return append && !text.includes(BLOCK_START) ? append : null

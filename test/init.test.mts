@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_SHOT, disposable, makeTree, run } from './helpers.mts'
@@ -327,6 +327,17 @@ test('running it twice overwrites nothing', () => {
 
   assert.deepEqual(lines(result.stdout), ['kept estate.json', ...NODE_DIRS.map(dir => `kept ${dir}/`), 'kept CLAUDE.md', 'kept glossary.md'])
   assert.equal(read(root, 'CLAUDE.md'), hub)
+})
+
+test('a second run keeps a file it has nothing to add to without reading it, so a folder at the glossary\'s place is kept', () => {
+  const root = answers()
+  init(root)
+  rmSync(join(root, 'glossary.md'))
+  mkdirSync(join(root, 'glossary.md'))
+
+  const result = init(root)
+
+  assert.deepEqual(result, { code: 0, stdout: ['kept estate.json', ...NODE_DIRS.map(dir => `kept ${dir}/`), 'kept CLAUDE.md', 'kept glossary.md', ''].join('\n'), stderr: '' })
 })
 
 test('an estate.json that belongs to another tool is not taken over', () => {
