@@ -718,6 +718,38 @@ test('the next take says the same of a draft that still cannot be removed, and t
 
 const NEW_NOTE = 'work/PROJ-12/notes/2026-01-15-build.md'
 
+test('take says what it took and kept where a draft folder closed to writing holds a folder, and the next take clears what is left once it can', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = estate()
+  write(made.inside, SPEC, '# Spec\n')
+  write(made.inside, NEW_NOTE, '# Build\n')
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o555)
+
+  const result = take(made, made.inside)
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o755)
+  const after = take(made, made.inside)
+
+  assert.deepEqual(result, { code: 1, stdout: `took ${NEW_NOTE}\n`, stderr: kept(SPEC, 'it is in the map, and its draft could not be removed (EACCES); remove it by hand') })
+  assert.equal(read(made.main, SPEC), '# Spec\n')
+  assert.equal(read(made.main, NEW_NOTE), '# Build\n')
+  assert.deepEqual(after, { code: 0, stdout: 'Nothing waits to be taken.\n', stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP)), false)
+})
+
+test('draft prints its path where it removes an unedited draft from a folder it then cannot remove', notOnWindows('a folder on Windows is not closed to writing by its mode'), () => {
+  const made = estate()
+  const note = 'work/PROJ-12/notes/2026-01-10-plan.md'
+  write(made.main, note, '# Plan\n')
+  draft(made, made.inside, note)
+  rmSync(join(made.main, MAP, note))
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o555)
+
+  const result = draft(made, made.inside, note)
+  chmodSync(join(made.inside, MAP, 'work', 'PROJ-12'), 0o755)
+
+  assert.deepEqual(result, { code: 0, stdout: `${join(made.inside, MAP, note)}\n`, stderr: '' })
+  assert.equal(existsSync(join(made.inside, MAP, note)), false)
+})
+
 test('draft of a file the map does not hold leaves the folder for it in the work tree, and still writes no file', () => {
   const made = estate()
 

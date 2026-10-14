@@ -109,9 +109,9 @@ export function awaitsTaking(estate: Estate, env: Env, rel: string) {
   return waitingIn(estate, dir, trackedIn(estate.workTree, dir, env) ?? NONE_TRACKED).includes(rel)
 }
 
-function unremoved(draft: string) {
+function unremoved(path: string, remove: (path: string) => void = rmSync) {
   try {
-    rmSync(draft)
+    remove(path)
     return null
   } catch (error) {
     const { code } = error as NodeJS.ErrnoException
@@ -217,15 +217,16 @@ function draftsIn(dir: string, tracked: ReadonlySet<string>, below = ''): string
     .sort()
 }
 
+// The record and a folder that cannot be removed hold nothing of the map, so each is left for the next take.
 function tidy(drafts: string, record: Drafted, from: string) {
   if (Object.keys(record).length > 0) writeRecord(drafts, record)
-  else rmSync(join(drafts, RECORD), { force: true })
+  else unremoved(join(drafts, RECORD))
   prune(drafts, from)
 }
 
 function prune(dir: string, from: string) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) if (entry.isDirectory() && !entry.name.startsWith('.')) prune(join(dir, entry.name), from)
-  if (readdirSync(dir).length === 0 && !holds(dir, from)) rmdirSync(dir)
+  if (readdirSync(dir).length === 0 && !holds(dir, from)) unremoved(dir, rmdirSync)
 }
 
 function isMapFile(estate: Estate, rel: string) {
