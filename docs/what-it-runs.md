@@ -42,7 +42,7 @@ The map is where the plugin writes: `.context-central/` inside a repository, or 
 
 Three things inside the map are worth knowing too.
 
-- A command that changes the map makes an empty folder, `.context-central.lock`, in the map's own folder for the moment of the write. To take over a lock left by a process that died it makes a second for that moment, `.context-central.lock.break`, and where that one was left behind too, a third named `.context-central.lock.break.break`. Git never shows an empty folder.
+- A command that changes the map makes an empty folder, `.context-central.lock`, in the map's own folder for the moment of the write. To take over a lock left by a process that died it makes a second for that moment, `.context-central.lock.break`. A second that was itself left behind is taken over the same way, by a folder with `.break` added to its name once more, and so on. Git never shows an empty folder.
 - A write lands in a file named `.context-central.<eight letters>.tmp` beside its place and is moved onto it. One is left behind only where a process was killed in that moment, and it can be deleted.
 - A ticket, a pull request or a thread is saved word for word under a work item's `sources/`. It may carry names and other personal data, so think before a map that holds them is shared or kept in git.
 
