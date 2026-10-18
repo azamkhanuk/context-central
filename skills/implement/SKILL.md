@@ -88,7 +88,7 @@ The build closes on one answer, given last, after the checkpoint of step 7. It h
 - <a check beyond this machine not yet run>
 - <what the checkpoint left out, and why>
 
-State file: <its path>. Next: <the ruling the build waits for, where it stopped; else what is left for the person, in this order: the requirements and checks the first line speaks of, the yes asked for above, then a fresh session>.
+State file: <its path>. Next: <the ruling the build waits for, where it stopped; else what is left for the person, in this order: the requirements and checks the first line speaks of, then the yes asked for above>, then a fresh session.
 ```
 
 The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
