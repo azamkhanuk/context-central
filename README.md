@@ -81,7 +81,7 @@ Then start a session in the folder that holds your checkouts and run:
 /context-central:onboard
 ```
 
-Restart or `/clear` afterwards so the hub loads.
+Start a fresh session afterwards so the hub loads: `/clear` in the terminal, or **+ New session** in the desktop app.
 
 [Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 

@@ -32,7 +32,7 @@ Save `DESIGN.md` beside the spec, headed with each repo, under the name the map 
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.
-- **Choices**: each choice with its reason, the rule in the standards it follows (as the standards file's `path:line`), and the option turned down. A choice that departs from a rule says so and why. Each names the smaller option weighed, or `none`; one turned down for now says, on one line, `Smaller: <option>. Not now: <why>. Revisit when: <trigger>.`
+- **Choices**: each choice a bullet of its own in bold, with lines nested under it, one label to a line: `- Why:` its reason and the rule in the standards it follows (as the standards file's `path:line`), `- Turned down:` the option turned down, and `- Smaller:` the smaller option weighed, or `none`. A choice that departs from a rule says so and why on its `Why:` line. Where the smaller option is turned down for now, `- Not now: <why>` and `- Revisit when: <trigger>` follow it.
 - **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice, named under the slice that covers it, or named as not covered with the reason. A built slice ends with one line, `Built at <short commit>.`
 - **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.
 - **If time is short**: the order in which the work is cut, and what is never cut, or `none`.
@@ -49,13 +49,17 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 
 **Needs a fix**
 - <a point where the design could not follow the spec>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <a rule whose cited file has changed since the rule was read>
 - <a draft still kept, with its reason>
 
 **Yours to decide**
-- <a point where the design departs from the standards, and why>. Recommended: <the answer>.
-- <a question the spec does not answer>. Recommended: <the answer, and why>.
-- <a repo the map does not register, whose design rests on its own files>. Recommended: name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
+- <a point where the design departs from the standards, and why>
+  - **Recommended:** <the answer, and why>.
+- <a question the spec does not answer>
+  - **Recommended:** <the answer, and why>.
+- <a repo the map does not register, whose design rests on its own files>
+  - **Recommended:** name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
 
 **Fine as it is**
 - <the slices in their order, in short, with the ones already built>
@@ -65,7 +69,7 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 **Not known**
 - <a check beyond this machine>
 
-Design: <its path>. Next: <what holds the build back, where something does: first a point where the design could not follow the spec, then a question the spec does not answer; else `/clear`, then `/context-central:implement <item>`; or `/clear` alone where every slice is built>.
+Design: <its path>. Next: <what holds the build back, where something does: first a point where the design could not follow the spec, then a question the spec does not answer; else in a fresh session `/context-central:implement <item>`; or a fresh session alone where every slice is built>.
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.

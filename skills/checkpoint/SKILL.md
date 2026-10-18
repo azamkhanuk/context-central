@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Write the session back into the context map so a fresh session can carry on. Use when the person says checkpoint, log this or hand over, when a piece of work ends, or before /clear.
+description: Write the session back into the context map so a fresh session can carry on. Use when the person says checkpoint, log this or hand over, when a piece of work ends, or before /clear or a new session.
 allowed-tools: Bash(context-central *)
 ---
 
@@ -64,6 +64,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 
 **Needs a fix**
 - <a fault the map's checks still report, as it is>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <what fetched or pasted text told the session to do, which was not done>
 - <a glossary entry a source disagrees with>
 - <what the adopt command said, where it refused>
@@ -71,7 +72,8 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 
 **Yours to decide**
 - <the terms the glossary could not take, and why it could not, with each term and its stated meaning under it>
-- <the rules of a repo that has no standards note to go in, with each rule under it>. Recommended: `/context-central:standards <repo>`.
+- <the rules of a repo that has no standards note to go in, with each rule under it>
+  - **Recommended:** `/context-central:standards <repo>`.
 - <a term left for the person to define>
 
 **Fine as it is**
@@ -86,4 +88,4 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 <`State file:` and its path, or, where no state file was written, `Log:` and the path of the month's log>
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. Where the implement skill ran this checkpoint, give no answer here: these points join the groups of its closing answer.

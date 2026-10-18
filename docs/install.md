@@ -24,7 +24,7 @@ claude plugin marketplace add azamkhanuk/claude-plugins
 claude plugin install context-central@azamkhanuk
 ```
 
-Or both at once from inside a session (Claude Code v2.1.275 or later):
+Or both at once from inside a session in the terminal (Claude Code v2.1.275 or later):
 
 ```
 /plugin install context-central --marketplace azamkhanuk/claude-plugins
@@ -32,9 +32,11 @@ Or both at once from inside a session (Claude Code v2.1.275 or later):
 
 The marketplace is the list of its author's plugins, kept in a repository of its own.
 
+**In the desktop app.** The two shell commands install it for the desktop app as well, since the app and the terminal read the same settings files. The app's own menu is the **+** button beside the prompt box, then **Plugins**: **Add plugin** installs one there, and **Manage plugins** turns one on or off, or removes it.
+
 **Trying a local clone.** The repository is also a marketplace of its own, called `context-central`. Give `claude plugin marketplace add` the path of the clone and install `context-central@context-central`. The plugin then loads in place, and edits apply at the next session or `/reload-plugins`.
 
-**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@azamkhanuk` fetches it. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin` turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
+**Updating.** The plugin carries a version, and an installed copy stays on its release until a newer one is published. `claude plugin update context-central@azamkhanuk` fetches it. Run from a shell, that works for the desktop app too. Auto-update is off by default for a marketplace you add yourself, and the Enable auto-update toggle under `/plugin`, in a terminal session, turns it on. It is on from the start where the plugin was enabled from project settings as `init --print-settings` prints them.
 
 **Releases.** [CHANGELOG.md](../CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
@@ -75,7 +77,7 @@ It then:
 
 In a git work tree onboard stops and names the main checkout: a map is set up from there, since the hub and the settings that enable the plugin belong to it.
 
-Restart or `/clear` afterwards so the hub loads. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
+Start a fresh session afterwards so the hub loads: `/clear` in the terminal, or **+ New session** in the desktop app. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
 
 ## Two accounts on one machine
 

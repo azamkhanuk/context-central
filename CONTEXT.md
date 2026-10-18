@@ -30,7 +30,13 @@ _Avoid_:
 **Group**: One of the four parts of a closing answer, named for what its points ask of the person: Needs a fix, Yours to decide, Fine as it is, Not known. They come in that order, and one with no point is left out.
 _Avoid_:
 
-**Point**: One line of a group: one thing, in one sentence. Two things that could be acted on apart are two points, and the parts of one thing may sit under it as sub-points.
+**Point**: One line of a group: one thing, in one sentence. Two things that could be acted on apart are two points, and the parts of one thing may sit under it as sub-points. Its recommendation, where it has one, is the first line under it.
+_Avoid_:
+
+**Recommendation**: The line under a point that says what the run recommends: `- **Recommended:** <the answer, and why>`, nested under the point and before its parts. A choice under Yours to decide has one; a point under Needs a fix has one where the run found what would fix it. A numbered question put to the person has one under it the same way.
+_Avoid_:
+
+**Fresh session**: A session that starts with nothing of the last one in its context: `/clear` in the terminal, **+ New session** in the desktop app. Each step from the spec onwards can start in one, and the state file carries the item across.
 _Avoid_:
 
 **Mark**: The word on a research claim that says how it is known: `verified`, read in a primary source, or `inferred`, reasoned from something else.
