@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Write the session back into the context map so a fresh session can carry on. Use when the person says checkpoint, log this or hand over, when a piece of work ends, or before /clear.
+description: Write the session back into the context map so a fresh session can carry on. Use when the person says checkpoint, log this or hand over, when a piece of work ends, or before /clear or a new session.
 allowed-tools: Bash(context-central *)
 ---
 

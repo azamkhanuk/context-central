@@ -75,7 +75,7 @@ It then:
 
 In a git work tree onboard stops and names the main checkout: a map is set up from there, since the hub and the settings that enable the plugin belong to it.
 
-Restart or `/clear` afterwards so the hub loads. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
+Start a fresh session afterwards so the hub loads: `/clear` in the terminal, or **+ New session** in the desktop app. When work starts in a repo, `/context-central:standards <repo>` records how its code is written and checked.
 
 ## Two accounts on one machine
 

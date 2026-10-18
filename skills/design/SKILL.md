@@ -68,7 +68,7 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 **Not known**
 - <a check beyond this machine>
 
-Design: <its path>. Next: <what holds the build back, where something does: first a point where the design could not follow the spec, then a question the spec does not answer; else `/clear`, then `/context-central:implement <item>`; or `/clear` alone where every slice is built>.
+Design: <its path>. Next: <what holds the build back, where something does: first a point where the design could not follow the spec, then a question the spec does not answer; else in a fresh session `/context-central:implement <item>`; or a fresh session alone where every slice is built>.
 ```
 
 The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.

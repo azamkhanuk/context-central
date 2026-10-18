@@ -2,6 +2,8 @@
 
 A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
 
+A fresh session is `/clear` in the terminal, or **+ New session** in the desktop app (Cmd+N on macOS, Ctrl+N on Windows). Either starts with nothing of the last session in its context, and the state file carries the item across. The skills say "in a fresh session" and leave the way to you.
+
 ![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits and evidence, and checkpoint rewrites the state file and adds to the log](step-by-step.png)
 
 | Step | You type | It starts from |
@@ -67,7 +69,7 @@ It makes the item when it is not there yet, with its ticket where you named one,
 - **The state file** has "Where it stands" and "Next" rewritten, and lists the spec and the code map under "Where the detail lives", with the research the spec rests on that is kept outside the item.
 - **It ends on a [closing answer](#how-every-step-ends)**: what kept the spec from being whole under Needs a fix, the brief where it waits for your yes or is yours to post and whether a design comes first under Yours to decide, what was written under Fine as it is, and what the spec leaves open under Not known. Its first line says the item is specified, or that its spec was revised, and its last line names your word on the brief first, where the brief waits for one.
 
-Then `/clear`, and `/context-central:implement <item>`, or `/context-central:design <item>` first where the work needs its structure settled.
+Then, in a fresh session, `/context-central:implement <item>`, or `/context-central:design <item>` first where the work needs its structure settled.
 
 ## 3. The design
 
@@ -94,9 +96,9 @@ Optional. It settles how the spec will be built, in the repos it touches and in 
 - **It reads the standards** of each repo the code map names, the Design part first, and the map's note of that repo for its traps. With no code map it asks which repos the work touches. Where a repo has none recorded, or the map does not register it, the design rests on the instruction files and on what the code already does, and says so.
 - **The reader agent reads the code the design will meet**: the modules the change touches, their interfaces, how a neighbouring feature of the same shape was built, and where its tests sit.
 - **It adds no requirement.** Something the spec does not ask for comes back to you as a question. Every requirement of the spec lands in at least one slice.
-- **It ends on a [closing answer](#how-every-step-ends)**: where it could not follow the spec under Needs a fix, where it departs from the standards, and a repo the map does not register, under Yours to decide, the slices and the choices in short under Fine as it is, and the checks beyond this machine under Not known. Its last line names what holds the build back, where something does: first a point where it could not follow the spec, then a question the spec does not answer. Otherwise it names the build, or `/clear` alone where every slice is built. It links the design from the state file.
+- **It ends on a [closing answer](#how-every-step-ends)**: where it could not follow the spec under Needs a fix, where it departs from the standards, and a repo the map does not register, under Yours to decide, the slices and the choices in short under Fine as it is, and the checks beyond this machine under Not known. Its last line names what holds the build back, where something does: first a point where it could not follow the spec, then a question the spec does not answer. Otherwise it names the build, or a fresh session alone where every slice is built. It links the design from the state file.
 
-You approve by starting the build: `/clear`, then `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design without showing it wrong revises it in place, dated, so the design you read is the one the code was built to.
+You approve by starting the build: in a fresh session, `/context-central:implement <item>`. Run design again when a build has shown it wrong: it keeps what still holds, changes the rest where it stands, and marks the slices already built. A build that departs from the design without showing it wrong revises it in place, dated, so the design you read is the one the code was built to.
 
 ## 4. The build
 
@@ -133,7 +135,7 @@ It needs the spec, and it reads the design when there is one, the code map the s
 
 **What it posts.** Pushing, opening a pull request and posting on the ticket follow your write rules, and anything they do not cover waits for your yes. A pull request opens through the connection that holds that repo's pull requests, and anything on the ticket goes through the connection the ticket belongs to. Where a connection pins an account, `doctor` runs before the first write, and a `FIX` line for connections stops it. With no connection, it says what is ready and leaves the opening or the posting to you.
 
-**At the end** it checkpoints, and then gives one [closing answer](#how-every-step-ends) for the build and its checkpoint: what is not done, not shown or still open under Needs a fix, what waits for your yes and a repo the map does not register under Yours to decide, what was built, what the verification showed, the review and the design's revisions under Fine as it is, each one point with its slices, its findings or its revisions under it, and what was not shown under Not known. Its first line says whether the build is done, is done but for the requirements and the recorded checks under Needs a fix, or stopped. Its last line asks for your ruling where the build stopped. Otherwise it names what is left for you, in order: those requirements and checks, the yes it waits for, then `/clear`. The state file now carries the item.
+**At the end** it checkpoints, and then gives one [closing answer](#how-every-step-ends) for the build and its checkpoint: what is not done, not shown or still open under Needs a fix, what waits for your yes and a repo the map does not register under Yours to decide, what was built, what the verification showed, the review and the design's revisions under Fine as it is, each one point with its slices, its findings or its revisions under it, and what was not shown under Not known. Its first line says whether the build is done, is done but for the requirements and the recorded checks under Needs a fix, or stopped. Its last line asks for your ruling where the build stopped. Otherwise it names what is left for you, in order: those requirements and checks, the yes it waits for, then a fresh session. The state file now carries the item.
 
 ## 5. The checkpoint
 
@@ -143,7 +145,7 @@ It needs the spec, and it reads the design when there is one, the code map the s
 
 ![Checkpoint in eight steps: find the item, take the facts from git and files, save long text and evidence in full, rewrite the state file, keep the lessons that outlive the item, add a line to the log, check the map, and say what was not recorded](checkpoint.png)
 
-Implement runs it at the end of a build, and where a build stops part-way. Run it yourself when a session ends, before `/clear`, or whenever you say checkpoint, log this or hand over. It is the one skill Claude may also pick up unasked.
+Implement runs it at the end of a build, and where a build stops part-way. Run it yourself when a session ends, before a fresh session, or whenever you say checkpoint, log this or hand over. It is the one skill Claude may also pick up unasked.
 
 - **The facts** are the status, the log since the base branch, the diff, the pull request's state read through its connection, and the last test run. A claim with nothing on disk behind it is written as unverified or left out.
 - **Long text** goes under `sources/` in full, before any brief of it. A file that is not text is saved with `evidence add` and listed in `notes/<YYYY-MM-DD>-evidence.md`, with what it shows and the commit it was taken at.
