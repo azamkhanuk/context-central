@@ -65,10 +65,14 @@ The build closes on one answer, given last, after the checkpoint of step 7. It h
 - <a draft still kept, with its reason>
 
 **Yours to decide**
-- <what waits for the person's yes under the write rules, or is ready and left to the person to open or post>. Recommended: <the answer, and why>.
-- <a question the build raised>. Recommended: <the answer, and why>.
-- <a repo the map registers with no check recorded>. Recommended: `/context-central:standards <repo>`.
-- <a repo the map does not register>. Recommended: name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
+- <what waits for the person's yes under the write rules, or is ready and left to the person to open or post>
+  - **Recommended:** <the answer, and why>.
+- <a question the build raised>
+  - **Recommended:** <the answer, and why>.
+- <a repo the map registers with no check recorded>
+  - **Recommended:** `/context-central:standards <repo>`.
+- <a repo the map does not register>
+  - **Recommended:** name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
 
 **Fine as it is**
 - <the slices built, with each slice and its commit under it>
@@ -86,7 +90,7 @@ The build closes on one answer, given last, after the checkpoint of step 7. It h
 State file: <its path>. Next: <the ruling the build waits for, where it stopped; else what is left for the person, in this order: the requirements and checks the first line speaks of, the yes asked for above, then `/clear`>.
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
 
 ## 7. Checkpoint
 

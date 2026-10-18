@@ -53,9 +53,12 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 - <a draft still kept, with its reason>
 
 **Yours to decide**
-- <a point where the design departs from the standards, and why>. Recommended: <the answer>.
-- <a question the spec does not answer>. Recommended: <the answer, and why>.
-- <a repo the map does not register, whose design rests on its own files>. Recommended: name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
+- <a point where the design departs from the standards, and why>
+  - **Recommended:** <the answer>.
+- <a question the spec does not answer>
+  - **Recommended:** <the answer, and why>.
+- <a repo the map does not register, whose design rests on its own files>
+  - **Recommended:** name it under `repos` in the map's `estate.json`, with its `path` where its folder is not the estate root's folder of that name, then `/context-central:standards <repo>`.
 
 **Fine as it is**
 - <the slices in their order, in short, with the ones already built>
@@ -68,4 +71,4 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 Design: <its path>. Next: <what holds the build back, where something does: first a point where the design could not follow the spec, then a question the spec does not answer; else `/clear`, then `/context-central:implement <item>`; or `/clear` alone where every slice is built>.
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last. The person approves by starting the build.

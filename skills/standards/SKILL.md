@@ -70,7 +70,8 @@ Run `context-central standards <repo>`, `context-central lint`, `context-central
 - <a draft still kept, with its reason>
 
 **Yours to decide**
-- <a question left open>. Recommended: <the answer, and why>.
+- <a question left open>
+  - **Recommended:** <the answer, and why>.
 - <the `FIX` line for `notes`, as it is>
 
 **Fine as it is**
@@ -83,4 +84,4 @@ Run `context-central standards <repo>`, `context-central lint`, `context-central
 Standards note: <its path>
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.

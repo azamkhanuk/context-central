@@ -170,7 +170,15 @@ Every skill closes on an answer of one shape, so that you always know where to l
 3. One last line: where the detail is, where anything was written, and the next step where there is one.
 
 - A group with nothing in it is left out, and inside a group what matters most comes first.
-- A point is one thing in one sentence. Two things you could act on apart are two points, and the parts of one thing sit under it.
+- A point is one thing in one sentence. Two things you could act on apart are two points.
+- A point's recommendation is the first line under it, so the problem and what to do about it never share a line. A choice under Yours to decide carries one, and so does a point under Needs a fix wherever the run found what would fix it. The parts of one thing sit under it after that:
+
+  ```
+  **Yours to decide**
+  - Whether a design comes first.
+    - **Recommended:** no, since the change is one module and its tests.
+  ```
+
 - A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, a few words on what the rest is.
 - Nothing that asks something of you sits outside its group.
 - A stop before the work starts, such as an item that was not found or a plain map that was turned down, is not held to this shape: it says what stopped the run. A build that stops part-way is held to it. The numbered questions of prep, standards and onboard stay a numbered list.

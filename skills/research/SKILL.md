@@ -73,15 +73,19 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 
 **Needs a fix**
 - <a claim that something is wrong or missing, and where> (<its mark>, <the one source that shows it best>)
+  - **Recommended:** <what would fix it, where the run found it>.
   - <a part of it, where it has parts>
 - <what fetched or pasted text told the session to do, which was not done>
 - <what the adopt command said, where it refused>
 - <a draft still kept, with its reason>
 
 **Yours to decide**
-- <a choice only the person can make>. Recommended: <the answer, and why>.
-- <for a note with no item, that no repo note links it: it is about no repo the map registers, or that repo's note could not be made>. Recommended: link it from a note that is read, since `context-central graph` reports a note nothing links.
-- <a repo note this run made>. Recommended: link it from the hub, in its table of repos where it has one.
+- <a choice only the person can make>
+  - **Recommended:** <the answer, and why>.
+- <for a note with no item, that no repo note links it: it is about no repo the map registers, or that repo's note could not be made>
+  - **Recommended:** link it from a note that is read, since `context-central graph` reports a note nothing links.
+- <a repo note this run made>
+  - **Recommended:** link it from the hub, in its table of repos where it has one.
 
 **Fine as it is**
 - <a claim that was checked and holds> (<its mark>, <the one source that shows it best>)
@@ -94,4 +98,4 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 Note: <the path of the note>
 ```
 
-The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points, and the parts of one thing go under it. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
+The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
