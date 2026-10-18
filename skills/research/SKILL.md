@@ -44,7 +44,7 @@ How it is known:
 
 What it asks of the person, as one of four groups:
 
-- **Needs a fix**: something is wrong or missing.
+- **Needs a fix**: something is wrong or missing. Where the run found what would fix it, recommend that.
 - **Yours to decide**: a choice only the person can make. Give the answer you recommend and why.
 - **Fine as it is**: it was checked and it holds.
 - **Not known**: it could not be checked. Say what stood in the way.
@@ -58,7 +58,7 @@ With an item, run `context-central work adopt <item>` before anything is written
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the file it prints. Then link it from the map's note of each repo it is about, `repos/<repo>.md`, so that a later step finds it. `context-central config --get repos` gives the repos the map registers. Where one that the note is about has no note yet, make it first, with `context-central note --new repos/<repo>`. Then draft the repo's note and add one line at its end: `- <YYYY-MM-DD>: [<the note's title>](../concepts/<slug>.md), <what it answers>`.
 
-The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
+The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. Each claim starts on a line of its own, with its recommendation on the line under it as `- **Recommended:** <the answer, and why>` and its evidence after that. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
 
 With an item, add the note's path to "Where the detail lives" in the state file.
 

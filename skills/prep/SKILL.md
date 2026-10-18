@@ -41,7 +41,7 @@ Save `SPEC.md` beside the state file, with the parts below. When it is already t
 
 - **Problem**: what is wrong or missing, for whom, and how that is known.
 - **Solution**: the behaviour once this is built, in the estate's own terms.
-- **Decisions**: each choice with its reason and the option turned down.
+- **Decisions**: each choice in bold on a line of its own, then under it, each on a line of its own, `- Why:` its reason and `- Turned down:` the option turned down.
 - **Test seams**: where behaviour is observed from outside, and what each test would show.
 - **Out of scope**: what a reader might expect and will not get.
 
