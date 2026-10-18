@@ -50,7 +50,7 @@ Run it once for each question. Each run writes its own note, and prep reads the 
 
 It makes the item when it is not there yet, with its ticket where you named one, and it reads the ticket with `fetch ticket --item <item>` unless `sources/` already holds a copy. It reads the note of each repo the work touches too, for the repo's traps and for the research that note links. Run on an item that already has a spec, it revises the spec where it stands, each change with its date and its reason.
 
-- **The questions come once.** Every question that neither the conversation nor the notes settle comes in one numbered message, each with the answer it recommends and why. Answer them all in one reply. It goes on when no decision in the spec would be its guess.
+- **The questions come once.** Every question that neither the conversation nor the notes settle comes in one numbered message, each with the answer it recommends and why on the line under it. Answer them all in one reply. It goes on when no decision in the spec would be its guess.
 - **`SPEC.md`** sits beside the state file, in five parts. It names behaviour and modules and holds no file paths, which go stale as the code moves.
 
   | Part | What it holds |
@@ -181,7 +181,7 @@ Every skill closes on an answer of one shape, so that you always know where to l
 
 - A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, a few words on what the rest is.
 - Nothing that asks something of you sits outside its group.
-- A stop before the work starts, such as an item that was not found or a plain map that was turned down, is not held to this shape: it says what stopped the run. A build that stops part-way is held to it. The numbered questions of prep, standards and onboard stay a numbered list.
+- A stop before the work starts, such as an item that was not found or a plain map that was turned down, is not held to this shape: it says what stopped the run. A build that stops part-way is held to it. The numbered questions of prep, standards and onboard stay a numbered list, with the answer each recommends on the line under its question.
 - A build gives one answer for itself and its checkpoint.
 
 ## What the item's folder holds afterwards

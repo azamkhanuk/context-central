@@ -31,7 +31,7 @@ Then read the map's note of each repo the work touches, `repos/<repo>.md`, where
 
 ## 2. Ask once
 
-List every question the spec needs answered that neither the conversation nor the notes settle. Send them all in one message, numbered, each with the answer you recommend and why. Wait for the reply.
+List every question the spec needs answered that neither the conversation nor the notes settle. Send them all in one message, numbered, each question on its own line and the answer you recommend under it, as `- **Recommended:** <the answer, and why>`. Wait for the reply.
 
 Done when no decision in the spec would be your guess.
 

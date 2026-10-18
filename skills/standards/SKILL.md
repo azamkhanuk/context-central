@@ -44,7 +44,7 @@ Draft the checks as a list of commands, each taken from the repo's own configura
 
 ## 4. Ask once
 
-Show the draft note and the draft checks. Below them list every question the files could not answer and every habit from step 2 that needs a ruling, numbered, each with the answer you recommend. Wait for the reply.
+Show the draft note and the draft checks. Below them list every question the files could not answer and every habit from step 2 that needs a ruling, numbered, each on its own line and the answer you recommend under it, as `- **Recommended:** <the answer>`. Wait for the reply.
 
 Done when no rule in the note would be your guess.
 
