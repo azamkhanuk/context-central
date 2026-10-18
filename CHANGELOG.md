@@ -2,6 +2,25 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.15.0 - 2026-10-18
+
+A recommendation no longer shares its line with the problem, and the steps speak the desktop app's words as well as the terminal's.
+
+- **A recommendation has a line of its own.** In every closing answer it is the first line under its point, as `- **Recommended:** <the answer, and why>`, before the point's parts. A choice under Yours to decide carries one, and so does a point under Needs a fix wherever the run found what would fix it. A point is still one thing in one sentence.
+- **So does each numbered question.** Prep, standards and onboard put the answer they recommend on the line under each question, and you still answer by number.
+- **The notes are laid out the same way.** A research note gives each claim a line of its own, its recommendation under it, then its evidence. A spec's Decisions and a design's Choices put each label on a line of its own under the choice: why, what was turned down, and in a design the smaller option, why not now and when to revisit it.
+- **A fresh session, in either host.** Each step's last line says "in a fresh session" where it said `/clear`. The step-by-step page says how each host starts one: `/clear` in the terminal, **+ New session** in the desktop app. The README, the install doc and two pictures say the same.
+- **The install doc names the desktop app's way.** The two shell commands install for the desktop app too, since both read the same settings files, and the app's own **Plugins** menu adds, turns on and off, and removes a plugin.
+- Nothing changes in what the commands, the hooks or the agents do.
+
+Not shown:
+
+- Whether `/clear` and `/plugin` work when typed in the desktop app, and whether its plugin manager has the auto-update toggle. The vendor's pages do not say, so the docs name `/clear` and `/plugin` for the terminal only.
+
+For a map that already exists:
+
+- Notes written before this release keep their layout. A run from now on writes the new one, and a revision of an older spec or design writes the new layout where it changes it.
+
 ## 0.14.0 - 2026-10-14
 
 The plugin installs from its author's marketplace, `azamkhanuk`, as `context-central@azamkhanuk`.
