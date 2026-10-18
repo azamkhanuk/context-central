@@ -32,7 +32,7 @@ Save `DESIGN.md` beside the spec, headed with each repo, under the name the map 
 
 - **Shape**: the modules that change and the ones that are new, what each is for, and what may call what.
 - **Interfaces**: each new or changed interface as it will be written in its repo, with what it takes, what it returns and how it fails on the failing inputs: the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as that dependency's source at the version the repo pins, or a run of it, shows; what neither shows goes under Checks beyond this machine.
-- **Choices**: each choice in bold on a line of its own, then under it, each on a line of its own: `- Why:` its reason and the rule in the standards it follows (as the standards file's `path:line`), `- Turned down:` the option turned down, and `- Smaller:` the smaller option weighed, or `none`. A choice that departs from a rule says so and why. Where the smaller option is turned down for now, `- Not now: <why>` and `- Revisit when: <trigger>` follow, each on a line of its own.
+- **Choices**: each choice a bullet of its own in bold, with lines nested under it, one label to a line: `- Why:` its reason and the rule in the standards it follows (as the standards file's `path:line`), `- Turned down:` the option turned down, and `- Smaller:` the smaller option weighed, or `none`. A choice that departs from a rule says so and why on its `Why:` line. Where the smaller option is turned down for now, `- Not now: <why>` and `- Revisit when: <trigger>` follow it.
 - **Slices**: the order of the build. Each slice is one behaviour through every layer it touches, in the one repo it names, with the test seam of the spec it starts from, the Interfaces headings it builds and the seams it covers. Every test seam of the spec is either started from by a slice, named under the slice that covers it, or named as not covered with the reason. A built slice ends with one line, `Built at <short commit>.`
 - **Checks beyond this machine**: what the design assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared, or `none`.
 - **If time is short**: the order in which the work is cut, and what is never cut, or `none`.
@@ -49,12 +49,13 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 
 **Needs a fix**
 - <a point where the design could not follow the spec>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <a rule whose cited file has changed since the rule was read>
 - <a draft still kept, with its reason>
 
 **Yours to decide**
 - <a point where the design departs from the standards, and why>
-  - **Recommended:** <the answer>.
+  - **Recommended:** <the answer, and why>.
 - <a question the spec does not answer>
   - **Recommended:** <the answer, and why>.
 - <a repo the map does not register, whose design rests on its own files>

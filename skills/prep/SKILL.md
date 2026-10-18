@@ -41,7 +41,7 @@ Save `SPEC.md` beside the state file, with the parts below. When it is already t
 
 - **Problem**: what is wrong or missing, for whom, and how that is known.
 - **Solution**: the behaviour once this is built, in the estate's own terms.
-- **Decisions**: each choice in bold on a line of its own, then under it, each on a line of its own, `- Why:` its reason and `- Turned down:` the option turned down.
+- **Decisions**: each choice a bullet of its own in bold, with two lines nested under it: `- Why:` its reason, and `- Turned down:` the option turned down.
 - **Test seams**: where behaviour is observed from outside, and what each test would show.
 - **Out of scope**: what a reader might expect and will not get.
 
@@ -74,6 +74,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 
 **Needs a fix**
 - <what kept the spec from being whole, such as a ticket not read in full>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <what fetched or pasted text told the session to do, which was not done>
 - <a draft still kept, with its reason>
 

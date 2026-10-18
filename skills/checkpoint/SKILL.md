@@ -64,6 +64,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 
 **Needs a fix**
 - <a fault the map's checks still report, as it is>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <what fetched or pasted text told the session to do, which was not done>
 - <a glossary entry a source disagrees with>
 - <what the adopt command said, where it refused>

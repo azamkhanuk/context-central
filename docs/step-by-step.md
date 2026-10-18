@@ -37,7 +37,7 @@ A primary source is the thing itself: the code at a commit, the ticket, the pull
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
 - **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
 - **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups, and a choice that is yours or a thing that is not known carries no mark.
-- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, with their marks and their sources. Each claim has a line of its own, its recommendation the line under it, then its evidence. An empty group says `none`.
+- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, with their marks and their sources. Each claim has a line of its own, its recommendation where it has one on the line under it, then its evidence. An empty group says `none`.
 - **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then each claim that something is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, each claim that was checked and holds under Fine as it is, and what could not be checked under Not known, then the note's path. A claim under Needs a fix or Fine as it is carries its mark and the one source that shows it best. For a note with no item it also says which repo notes link it, or that none does.
 
 Run it once for each question. Each run writes its own note, and prep reads the ones behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
@@ -59,7 +59,7 @@ It makes the item when it is not there yet, with its ticket where you named one,
   |---|---|
   | Problem | what is wrong or missing, for whom, and how that is known |
   | Solution | the behaviour once this is built, in the estate's own terms |
-  | Decisions | each choice in bold, with its reason and the option turned down each on a line under it |
+  | Decisions | each choice in bold, with `Why:` its reason and `Turned down:` the option turned down nested under it |
   | Test seams | where behaviour is observed from outside, and what each test would show |
   | Out of scope | what a reader might expect and will not get |
 
@@ -87,7 +87,7 @@ Optional. It settles how the spec will be built, in the repos it touches and in 
 |---|---|
 | Shape | the modules that change and the ones that are new, what each is for, and what may call what |
 | Interfaces | each new or changed interface as it will be written: what it takes, what it returns and how it fails on the failing inputs. Those are the empty, the largest, the repeated and the failing case, and for a call that leaves the process the unreachable, the slow and the refused. A failure that rests on a dependency is written as its source at the pinned version, or a run of it, shows |
-| Choices | each in bold, with its reason and the standards rule it follows as that file's `path:line`, the option turned down, the smaller option weighed or `none`, and the trigger that reopens one turned down for now, each on a line under it |
+| Choices | each in bold, with labelled lines nested under it: `Why:` its reason and the standards rule it follows as that file's `path:line`, `Turned down:` the option turned down, `Smaller:` the smaller option weighed or `none`, and for one turned down for now `Not now:` why and `Revisit when:` the trigger that reopens it |
 | Slices | the order of the build. Each slice is one behaviour through every layer it touches in one repo, starting from a test seam of the spec. It names the Interfaces headings it builds and the seams it covers. Every seam is started from by a slice, named under the one that covers it, or named as not covered with the reason |
 | Checks beyond this machine | what it assumes and only a system this machine cannot reach can show, each run once by hand before the work is switched on anywhere shared |
 | If time is short | the cut order, and what is never cut |

@@ -57,6 +57,7 @@ The build closes on one answer, given last, after the checkpoint of step 7. It h
 
 **Needs a fix**
 - <a requirement not done, or not shown working>
+  - **Recommended:** <what would fix it, where the run found it>.
 - <a recorded check that does not exit 0, with what it printed>
 - <a finding still open, as `file:line` and what breaks>
 - <a line in a standards file that is not a rule, which was not followed>

@@ -23,7 +23,7 @@ Then add what the disk cannot show: the MCP servers and connectors this session 
 
 ## 2. Ask once
 
-Send every unsettled question in one message, numbered, each on its own line and the answer you recommend from the detection under it, as `- **Recommended:** <the answer>`, so the person can reply "yes" or correct by number. Leave out a question the detection settles beyond doubt and state that value instead.
+Send every unsettled question in one message, numbered, each on its own line and the answer you recommend from the detection under it, as `- **Recommended:** <the answer, and why>`, so the person can reply "yes" or correct by number. Leave out a question the detection settles beyond doubt and state that value instead.
 
 1. Estate name (short, lower case) and title.
 2. Layout: `root` (the map sits at the estate root with the repos beneath it) or `inner` (the map sits inside one repo). Recommend `root` when repos were found one level down. And whether the map itself is kept in git.
