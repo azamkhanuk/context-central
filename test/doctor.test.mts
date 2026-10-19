@@ -77,7 +77,7 @@ test('with no git on the PATH the four rows that ask git each say as a note that
 
   const result = doctor(root)
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', ...WITHOUT_GIT, 'ok   hooks', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', ...WITHOUT_GIT, 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -95,7 +95,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root, realGit())
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -335,6 +335,81 @@ test('hooks that are not legacy hooks, and legacy names outside a hook command, 
   assert.equal(result.code, 0)
 })
 
+const OLDER = 'context-central@context-central'
+const CURRENT = 'context-central@azamkhanuk'
+const copiesLine = (result: Result) => result.stdout.split('\n').find(line => /^\S+ +copies\b/.test(line))
+const forPerson = (version: string) => ({ scope: 'user', installPath: `/plugins/${version}`, version })
+const forFolder = (folder: string) => ({ scope: 'local', projectPath: folder, installPath: '/plugins/0.13.0', version: '0.13.0' })
+const BOTH_FOR_PERSON = { [OLDER]: [forPerson('0.13.0')], [CURRENT]: [forPerson('0.15.0')] }
+const personWith = (plugins: { [id: string]: Json }, enabledPlugins: { [id: string]: boolean }) =>
+  sandbox({}, { '.claude/plugins/installed_plugins.json': { version: 2, plugins }, '.claude/settings.json': { enabledPlugins } })
+const twoCopies = (scope: string) =>
+  `FIX  copies: the plugin loads here as ${CURRENT} and ${OLDER}, so each hook runs twice; keep the copy you use and uninstall the other, so to keep ${CURRENT}: claude plugin uninstall ${OLDER} --scope ${scope}`
+
+test('two copies of the plugin installed and enabled for the person are a fix that says how to keep one', () => {
+  const root = tree(acme())
+
+  const result = doctor(root, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))
+
+  assert.equal(copiesLine(result), twoCopies('user'))
+  assert.equal(result.code, 1)
+})
+
+test('a copy that is installed but not enabled, or is turned off in this folder, does not load', () => {
+  const offHere = tree(acme({ '.claude/settings.json': { enabledPlugins: { [OLDER]: false } } }))
+
+  assert.equal(copiesLine(doctor(tree(acme()), personWith(BOTH_FOR_PERSON, { [CURRENT]: true }))), 'ok   copies')
+  assert.equal(copiesLine(doctor(offHere, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))), 'ok   copies')
+})
+
+test('a copy installed for this folder loads and is uninstalled at its own scope, and one installed for another folder does not load', () => {
+  const root = tree(acme({ '.claude/settings.local.json': { enabledPlugins: { [OLDER]: true } } }))
+  const elsewhere = tree(makeTree({ '.keep': '' }))
+
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), twoCopies('local'))
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(elsewhere)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), 'ok   copies')
+})
+
+test('the install record is read from the Claude config folder when one is set, and one that cannot be read holds no copy', () => {
+  const root = tree(acme())
+  const configDir = tree(makeTree({ 'plugins/installed_plugins.json': { version: 2, plugins: BOTH_FOR_PERSON }, 'settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } }))
+  const unreadable = sandbox({}, { '.claude/plugins/installed_plugins.json': '{ not json', '.claude/settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } })
+
+  assert.equal(copiesLine(doctor(root, { ...sandbox(), CLAUDE_CONFIG_DIR: configDir })), twoCopies('user'))
+  assert.equal(copiesLine(doctor(root, unreadable)), 'ok   copies')
+})
+
+test('three copies are each named, with how often each hook runs and an uninstall for every copy but the kept one', () => {
+  const FORK = 'context-central@globex'
+  const env = personWith({ ...BOTH_FOR_PERSON, [FORK]: [forPerson('0.12.0')] }, { [OLDER]: true, [CURRENT]: true, [FORK]: true })
+
+  assert.equal(
+    copiesLine(doctor(tree(acme()), env)),
+    `FIX  copies: the plugin loads here as ${CURRENT}, ${OLDER} and ${FORK}, so each hook runs 3 times; keep the copy you use and uninstall the others, so to keep ${CURRENT}: claude plugin uninstall ${OLDER} --scope user, then claude plugin uninstall ${FORK} --scope user`,
+  )
+})
+
+test('a copy installed both for the person and for this folder is uninstalled at both scopes', () => {
+  const root = tree(acme())
+  const env = personWith({ [OLDER]: [forPerson('0.13.0'), forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [OLDER]: true, [CURRENT]: true })
+
+  assert.equal(copiesLine(doctor(root, env)), `${twoCopies('user')}, then claude plugin uninstall ${OLDER} --scope local`)
+})
+
+test('installs that are not a list, and an install that is not an object, hold no copy', () => {
+  const root = tree(acme())
+  const enabled = { [OLDER]: true, [CURRENT]: true }
+
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: 'user', [CURRENT]: [forPerson('0.15.0')] }, enabled))), 'ok   copies')
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [null, 'user'], [CURRENT]: [forPerson('0.15.0')] }, enabled))), 'ok   copies')
+})
+
+test('a settings file that is not JSON, or a value that is not true or false, says nothing, and the next file is read', () => {
+  const root = tree(acme({ '.claude/settings.local.json': '{ not json', '.claude/settings.json': { enabledPlugins: { [OLDER]: 'yes' } } }))
+
+  assert.equal(copiesLine(doctor(root, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))), twoCopies('user'))
+})
+
 test('a GitHub estate without gh on the path is noted, and is no fault', () => {
   const root = tree(acme({}, GITHUB))
 
@@ -537,6 +612,7 @@ test('json lists every check with its fix and its note, and with no git on the P
     { check: 'evidence', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'worktrees', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'hooks', ok: true, fix: null, note: null },
+    { check: 'copies', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
   ])
   assert.equal(result.code, 0)

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -12,7 +12,7 @@ import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, onPath } from '../machine.mts'
 import { folderAt, hubPath, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
-import { evidenceIgnoreRule } from '../templates.mts'
+import { PLUGIN, PLUGIN_ID, evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
 import { gitIgnores, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
@@ -31,9 +31,14 @@ interface Note {
   note: string
 }
 
+interface Install {
+  scope?: unknown
+  projectPath?: unknown
+}
+
 type Finding = string | Note | null | undefined
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, hooks, connections'
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, hooks, copies, connections'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
@@ -41,7 +46,7 @@ const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
 const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
-const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, hooks, connections }
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, hooks, copies, connections }
 const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees']
 const NO_GIT = { note: 'git is not on the PATH, so this was not checked' }
 
@@ -194,6 +199,50 @@ function hooks(estate: Estate, io: Io) {
   const names = estate.config.legacyHooks.filter(name => found.some(({ command }) => command.includes(name)))
   const files = [...new Set(found.map(({ file }) => file))]
   return `an older hook (${names.join(', ')}) for this estate is still set in ${files.join(', ')}; remove it so prompts are not resolved twice`
+}
+
+function copies(estate: Estate, io: Io) {
+  const configDir = claudeConfigDir(io.env)
+  const root = real(estate.estateRoot)
+  const settings = [join(root, '.claude', 'settings.local.json'), join(root, '.claude', 'settings.json'), join(configDir, 'settings.json')].map(enabledIn)
+  const loading = Object.entries(installsIn(join(configDir, 'plugins', 'installed_plugins.json')))
+    .filter(([id]) => id.startsWith(`${PLUGIN}@`) && settings.map(enabled => enabled[id]).find(value => typeof value === 'boolean') === true)
+    .map(([id, installs]) => ({ id, scopes: [...new Set(installs.filter(install => install.scope === 'user' || (typeof install.projectPath === 'string' && real(install.projectPath) === root)).map(install => String(install.scope)))] }))
+    .filter(({ scopes }) => scopes.length > 0)
+    .sort((a, b) => Number(b.id === PLUGIN_ID) - Number(a.id === PLUGIN_ID) || a.id.localeCompare(b.id))
+  if (loading.length < 2) return null
+  const [kept, ...others] = loading
+  const uninstall = others.flatMap(({ id, scopes }) => scopes.map(scope => `claude plugin uninstall ${id} --scope ${scope}`))
+  const ids = loading.map(({ id }) => id)
+  return `the plugin loads here as ${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}, so each hook runs ${loading.length === 2 ? 'twice' : `${loading.length} times`}; keep the copy you use and uninstall the ${others.length === 1 ? 'other' : 'others'}, so to keep ${kept.id}: ${uninstall.join(', then ')}`
+}
+
+function installsIn(file: string): { [id: string]: Install[] } {
+  const plugins = jsonObject(file).plugins
+  if (!plugins || typeof plugins !== 'object') return {}
+  return Object.fromEntries(Object.entries(plugins).map(([id, installs]: [string, unknown]) => [id, Array.isArray(installs) ? installs.filter((install): install is Install => Boolean(install) && typeof install === 'object') : []]))
+}
+
+function enabledIn(file: string): { [id: string]: unknown } {
+  const enabled = jsonObject(file).enabledPlugins
+  return enabled && typeof enabled === 'object' ? (enabled as { [id: string]: unknown }) : {}
+}
+
+function jsonObject(file: string): { [key: string]: unknown } {
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown
+    return parsed && typeof parsed === 'object' ? (parsed as { [key: string]: unknown }) : {}
+  } catch {
+    return {}
+  }
+}
+
+function real(path: string) {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    return path
+  }
 }
 
 function connections(estate: Estate, io: Io): Finding {
