@@ -96,6 +96,9 @@ _Avoid_: crash, exception, internal error
 **Identifier**: What a node is known by besides its words: the `id` and each of the `aliases` in its frontmatter, and for a numbered node its kind and number.
 _Avoid_: key, slug, reference
 
+**Code name**: A word in a query that names something in the code: one with an underscore in it, a path, or anything in backticks. A slash between two plain words is prose, and a web address is never one. The last route finds the notes that mention it, most often first.
+_Avoid_: symbol, identifier
+
 **Counted run**: A run of letters and digits in a query that is not a stop word and is not one or two letters alone; a run that holds a digit always counts. The routes for a node's name and a glossary term match on counted runs, and a query with none is answered by neither, nor by the route for an identifier.
 _Avoid_: token, keyword
 

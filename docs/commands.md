@@ -19,7 +19,7 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
 | `where [--json]` | Show which map covers this folder, where the estate's glossary is and whether the hooks answer here, and in a git work tree the work tree, its main checkout and the drafts folder |
 | `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all] [--json]\|done <item>\|reopen <item>\|adopt <item>\|adopt --all` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item, as JSON with `--json`; mark an item done or reopen it; give an older item, or with `--all` every one, a state file beside its own note |
-| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, or else the node an identifier or a name finds or the glossary for a term, and say which ticket named has no work item |
+| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, or else the node an identifier or a name finds, the glossary for a term or the notes that mention a code name, and say which ticket named has no work item |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout. It always exits 0, and a failure is one line for the person. Claude Code gives it 15 seconds at session start and 10 at a prompt |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
