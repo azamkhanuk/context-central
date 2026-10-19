@@ -362,21 +362,31 @@ test('a copy that is installed but not enabled, or is turned off in this folder,
   assert.equal(copiesLine(doctor(offHere, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))), 'ok   copies')
 })
 
-test('a copy installed for this folder loads and is uninstalled at its own scope, and one installed for another folder does not load', () => {
+test('a copy installed for this folder loads and is uninstalled at its own scope', () => {
+  const root = tree(acme({ '.claude/settings.local.json': { enabledPlugins: { [OLDER]: true } } }))
+
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), twoCopies('local'))
+})
+
+test('a copy installed for another folder does not load here', () => {
   const root = tree(acme({ '.claude/settings.local.json': { enabledPlugins: { [OLDER]: true } } }))
   const elsewhere = tree(makeTree({ '.keep': '' }))
 
-  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), twoCopies('local'))
   assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(elsewhere)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), 'ok   copies')
 })
 
-test('the install record is read from the Claude config folder when one is set, and one that cannot be read holds no copy', () => {
-  const root = tree(acme())
+test('the install record is read from the Claude config folder when one is set', () => {
   const configDir = tree(makeTree({ 'plugins/installed_plugins.json': { version: 2, plugins: BOTH_FOR_PERSON }, 'settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } }))
-  const unreadable = sandbox({}, { '.claude/plugins/installed_plugins.json': '{ not json', '.claude/settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } })
 
-  assert.equal(copiesLine(doctor(root, { ...sandbox(), CLAUDE_CONFIG_DIR: configDir })), twoCopies('user'))
-  assert.equal(copiesLine(doctor(root, unreadable)), 'ok   copies')
+  assert.equal(copiesLine(doctor(tree(acme()), { ...sandbox(), CLAUDE_CONFIG_DIR: configDir })), twoCopies('user'))
+})
+
+test('an install record that is not JSON, or holds no plugins, holds no copy', () => {
+  const root = tree(acme())
+  const recordOf = (record: Json) => sandbox({}, { '.claude/plugins/installed_plugins.json': record, '.claude/settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } })
+
+  assert.equal(copiesLine(doctor(root, recordOf('{ not json'))), 'ok   copies')
+  assert.equal(copiesLine(doctor(root, recordOf({ version: 2, plugins: null }))), 'ok   copies')
 })
 
 test('three copies are each named, with how often each hook runs and an uninstall for every copy but the kept one', () => {
@@ -406,8 +416,10 @@ test('installs that are not a list, and an install that is not an object, hold n
 
 test('a settings file that is not JSON, or a value that is not true or false, says nothing, and the next file is read', () => {
   const root = tree(acme({ '.claude/settings.local.json': '{ not json', '.claude/settings.json': { enabledPlugins: { [OLDER]: 'yes' } } }))
+  const noList = tree(acme({ '.claude/settings.json': { enabledPlugins: null } }))
 
   assert.equal(copiesLine(doctor(root, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))), twoCopies('user'))
+  assert.equal(copiesLine(doctor(noList, personWith(BOTH_FOR_PERSON, { [OLDER]: true, [CURRENT]: true }))), twoCopies('user'))
 })
 
 test('a GitHub estate without gh on the path is noted, and is no fault', () => {
