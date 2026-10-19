@@ -343,8 +343,8 @@ const forFolder = (folder: string) => ({ scope: 'local', projectPath: folder, in
 const BOTH_FOR_PERSON = { [OLDER]: [forPerson('0.13.0')], [CURRENT]: [forPerson('0.15.0')] }
 const personWith = (plugins: { [id: string]: Json }, enabledPlugins: { [id: string]: boolean }) =>
   sandbox({}, { '.claude/plugins/installed_plugins.json': { version: 2, plugins }, '.claude/settings.json': { enabledPlugins } })
-const twoCopies = (scope: string) =>
-  `FIX  copies: the plugin loads here as ${CURRENT} and ${OLDER}, so each hook runs twice; keep the copy you use and uninstall the other, so to keep ${CURRENT}: claude plugin uninstall ${OLDER} --scope ${scope}`
+const twoCopies = (scope: string, folder = '') =>
+  `FIX  copies: the plugin loads here as ${CURRENT} and ${OLDER}, so each hook runs twice; keep the copy you use and uninstall the other, so to keep ${CURRENT}: claude plugin uninstall ${OLDER} --scope ${scope}${folder && ` (from ${folder})`}`
 
 test('two copies of the plugin installed and enabled for the person are a fix that says how to keep one', () => {
   const root = tree(acme())
@@ -365,7 +365,7 @@ test('a copy that is installed but not enabled, or is turned off in this folder,
 test('a copy installed for this folder loads and is uninstalled at its own scope', () => {
   const root = tree(acme({ '.claude/settings.local.json': { enabledPlugins: { [OLDER]: true } } }))
 
-  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), twoCopies('local'))
+  assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), twoCopies('local', root))
 })
 
 test('a copy installed for another folder does not load here', () => {
@@ -411,7 +411,7 @@ test('a copy installed both for the person and for this folder is uninstalled at
   const root = tree(acme())
   const env = personWith({ [OLDER]: [forPerson('0.13.0'), forFolder(root)], [CURRENT]: [forPerson('0.15.0')] }, { [OLDER]: true, [CURRENT]: true })
 
-  assert.equal(copiesLine(doctor(root, env)), `${twoCopies('user')}, then claude plugin uninstall ${OLDER} --scope local`)
+  assert.equal(copiesLine(doctor(root, env)), `${twoCopies('user')}, then claude plugin uninstall ${OLDER} --scope local (from ${root})`)
 })
 
 test('installs that are not a list, and an install that is not an object, hold no copy', () => {

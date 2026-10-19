@@ -207,14 +207,19 @@ function copies(estate: Estate, io: Io) {
   const settings = [join(root, '.claude', 'settings.local.json'), join(root, '.claude', 'settings.json'), join(configDir, 'settings.json')].map(enabledIn)
   const loading = Object.entries(installsIn(join(configDir, 'plugins', 'installed_plugins.json')))
     .filter(([id]) => id.startsWith(`${PLUGIN}@`) && settings.map(enabled => enabled[id]).find(value => typeof value === 'boolean') === true)
-    .map(([id, installs]) => ({ id, scopes: [...new Set(installs.filter(install => install.scope === 'user' || (typeof install.projectPath === 'string' && real(install.projectPath) === root)).map(install => String(install.scope)))] }))
-    .filter(({ scopes }) => scopes.length > 0)
+    .map(([id, installs]) => ({ id, places: installs.filter(install => install.scope === 'user' || (typeof install.projectPath === 'string' && real(install.projectPath) === root)) }))
+    .filter(({ places }) => places.length > 0)
     .sort((a, b) => Number(b.id === PLUGIN_ID) - Number(a.id === PLUGIN_ID) || a.id.localeCompare(b.id))
   if (loading.length < 2) return null
   const [kept, ...others] = loading
-  const uninstall = others.flatMap(({ id, scopes }) => scopes.map(scope => `claude plugin uninstall ${id} --scope ${scope}`))
+  const uninstall = others.flatMap(({ id, places }) => places.map(install => uninstallLine(id, install)))
   const ids = loading.map(({ id }) => id)
   return `the plugin loads here as ${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}, so each hook runs ${loading.length === 2 ? 'twice' : `${loading.length} times`}; keep the copy you use and uninstall the ${others.length === 1 ? 'other' : 'others'}, so to keep ${kept.id}: ${uninstall.join(', then ')}`
+}
+
+function uninstallLine(id: string, { scope, projectPath }: Install) {
+  const from = scope !== 'user' && typeof projectPath === 'string' ? ` (from ${projectPath})` : ''
+  return `claude plugin uninstall ${id} --scope ${String(scope)}${from}`
 }
 
 function installsIn(file: string): { [id: string]: Install[] } {
