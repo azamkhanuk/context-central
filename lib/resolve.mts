@@ -85,7 +85,9 @@ const BY_WORDS: Route[] = ['text', 'id', 'name', 'term', 'code']
 const BY_NODE: Route[] = ['id', 'name', 'code']
 const IN_BACKTICKS = /`([^`\n]+)`/g
 const WIKI_LINK = /\[\[[^\]|\n]*(?:\|([^\]\n]*))?\]\]/g
-const LINK_TARGET = /\]\([^)\n]*\)|^ {0,3}\[(?!\^)[^\]\n]+\]:.*$|\b[a-z][a-z\d+.-]*:\/\/[^\s|)\]>]+/gim
+const LINK_TARGET = /\]\([^)\n]*\)|^ {0,3}\[(?!\^)[^\]\n]+\]:.*$/gm
+const ADDRESS_IN_TEXT = /\b(?:[a-z][a-z\d+.-]*:\/\/|www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}\/|[\p{L}\p{N}.-]+:\d+\/)[^\s|)\]>]*/giu
+const LINE_NUMBER = /:\d+(?::\d+)?$/
 const WEB_ADDRESS = /:\/\/|^(?:www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}\/|[\p{L}\p{N}.-]+:\d+\/)/iu
 const PATH_SEPARATOR = /[\\/]/
 const CODE_PART = /[_.\d]/
@@ -313,7 +315,7 @@ function byCodeName(estate: Estate, query: string, max: number) {
 function codeNamesIn(query: string) {
   const quoted = [...query.matchAll(IN_BACKTICKS)].map(match => match[1].trim())
   const words = query.replace(IN_BACKTICKS, ' ').split(/\s+/).map(trimmed).filter(isCodeName)
-  const names = [...quoted, ...words].filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).map(searchedAs)
+  const names = [...quoted, ...words].map(name => name.replace(LINE_NUMBER, '')).filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).map(searchedAs)
   return names.filter((name, at) => names.findIndex(other => other.toLowerCase() === name.toLowerCase()) === at)
 }
 
@@ -339,7 +341,7 @@ function partsOf(name: string) {
 function mentionable(node: Node) {
   try {
     const text = readFileSync(node.path, 'utf8').replace(WIKI_LINK, (_: string, shown?: string) => ` ${shown ?? ''} `)
-    return [{ rel: node.rel, text: text.replace(LINK_TARGET, ' ') }]
+    return [{ rel: node.rel, text: text.replace(LINK_TARGET, ' ').replace(ADDRESS_IN_TEXT, ' ') }]
   } catch {
     return []
   }

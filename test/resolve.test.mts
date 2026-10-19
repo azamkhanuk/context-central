@@ -1214,6 +1214,13 @@ test('a path written with backslashes is a path', () => {
   assert.deepEqual(answer(root, 'restart', 'services\\payout_daemon'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
 })
 
+test('a line number after a code name is not part of it', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nRestart payout_daemon.py, then check ledger.mts.\n' }))
+
+  assert.deepEqual(answer(root, 'fix', 'services/payout_daemon.py:42'), ['code', 'node:areas/books.md', 'mentions: payout_daemon.py'])
+  assert.deepEqual(answer(root, 'see', '`lib/ledger.mts:12:5`'), ['code', 'node:areas/books.md', 'mentions: ledger.mts'])
+})
+
 test("a code name followed by 's is searched without it", () => {
   const root = tree(acme(DAEMON))
 
@@ -1279,6 +1286,12 @@ test("a code name in a link's target, a link's reference or a web address in a n
   )
 
   assert.equal(answer(root, 'payout_daemon'), null)
+})
+
+test('a web address without its scheme in a note is not a mention', () => {
+  const root = tree(acme({ 'concepts/search.md': '# Search\n\nSearch at acme.example/search?page_size=10, www.acme.example/q?page_size=5 or localhost:8080/?page_size=1.\n' }))
+
+  assert.equal(answer(root, 'fix', 'page_size'), null)
 })
 
 test('the text of a wiki link is a mention', () => {
