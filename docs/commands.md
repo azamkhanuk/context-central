@@ -52,7 +52,7 @@ About `doctor`:
 - Name those hooks in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`. The list is empty by default, and the check then passes.
 - A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
 - Its copies check says `FIX` where more than one copy of the plugin loads in the estate's folder, as with `context-central@azamkhanuk` and the `context-central@context-central` installed before 0.14.0. A copy loads where it is installed for you or for that folder, and the settings that apply there enable it. Each hook would run once for each copy. The fix names the uninstall command for every copy but the one from the author's marketplace.
-- A copy installed for you can be kept off in one folder: `"context-central@context-central": false` under `enabledPlugins` in that folder's `.claude/settings.json` turns it off for everyone who opens the map there.
+- A copy installed for you can be kept off in one folder: `"context-central@context-central": false` under `enabledPlugins` in that folder's `.claude/settings.json` turns it off for everyone who opens the map there, except a person whose own `.claude/settings.local.json` turns it back on.
 
 ## Skills
 
