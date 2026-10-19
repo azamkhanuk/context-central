@@ -375,6 +375,14 @@ test('a copy installed for another folder does not load here', () => {
   assert.equal(copiesLine(doctor(root, personWith({ [OLDER]: [forFolder(elsewhere)], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true }))), 'ok   copies')
 })
 
+test('a copy whose project folder is gone, or is not written as text, does not load here', () => {
+  const root = tree(acme({ '.claude/settings.local.json': { enabledPlugins: { [OLDER]: true } } }))
+  const at = (projectPath: Json) => personWith({ [OLDER]: [{ scope: 'local', projectPath, installPath: '/plugins/0.13.0', version: '0.13.0' }], [CURRENT]: [forPerson('0.15.0')] }, { [CURRENT]: true })
+
+  assert.equal(copiesLine(doctor(root, at(join(root, 'gone')))), 'ok   copies')
+  assert.equal(copiesLine(doctor(root, at(42))), 'ok   copies')
+})
+
 test('the install record is read from the Claude config folder when one is set', () => {
   const configDir = tree(makeTree({ 'plugins/installed_plugins.json': { version: 2, plugins: BOTH_FOR_PERSON }, 'settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } }))
 
