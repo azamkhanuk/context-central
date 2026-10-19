@@ -1240,6 +1240,26 @@ test('a web address is no code name, with its scheme, in backticks or without a 
   assert.equal(answer(root, 'see', '`https://acme.example/payout_daemon`'), null)
   assert.equal(answer(root, 'see', 'acme.example/payout_daemon'), null)
   assert.equal(answer(root, 'see', 'www.acme.example/svc/payout_daemon'), null)
+  assert.equal(answer(root, 'see', 'localhost:8080/payout_daemon'), null)
+})
+
+test('a path whose first folder holds a dot is a path, not a web address', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nIt reads payout_daemon.conf, and v1.2/ledger serves it.\n' }))
+
+  assert.deepEqual(answer(root, 'open', 'conf.d/payout_daemon.conf'), ['code', 'node:areas/books.md', 'mentions: payout_daemon.conf'])
+  assert.deepEqual(answer(root, 'who', 'serves', 'v1.2/ledger'), ['code', 'node:areas/books.md', 'mentions: v1.2/ledger'])
+})
+
+test('a footnote is a mention', () => {
+  const root = tree(acme({ 'concepts/restarts.md': '# Restarts\n\nSee the note.[^1]\n\n[^1]: The ledger_api restarts at two.\n' }))
+
+  assert.deepEqual(answer(root, 'ledger_api'), ['code', 'node:concepts/restarts.md', 'mentions: ledger_api'])
+})
+
+test('text joined to a web address in a note by a table bar is a mention', () => {
+  const root = tree(acme({ 'concepts/hosts.md': '# Hosts\n\n| Address | Service |\n|---|---|\n|https://acme.example/a|ledger_api|\n' }))
+
+  assert.deepEqual(answer(root, 'ledger_api'), ['code', 'node:concepts/hosts.md', 'mentions: ledger_api'])
 })
 
 test('a code name is never matched in the work folder, the log or the deep tier', () => {
@@ -1261,7 +1281,7 @@ test("a code name in a link's target, a link's reference or a web address in a n
   assert.equal(answer(root, 'payout_daemon'), null)
 })
 
-test("the text of a wiki link is a mention", () => {
+test('the text of a wiki link is a mention', () => {
   const root = tree(acme({ 'concepts/ledger.md': '# Ledger\n\nSee [[areas/runbook|the payout_daemon runbook]].\n' }))
 
   assert.deepEqual(answer(root, 'payout_daemon'), ['code', 'node:concepts/ledger.md', 'mentions: payout_daemon'])
