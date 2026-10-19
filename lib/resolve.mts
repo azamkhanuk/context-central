@@ -236,10 +236,11 @@ function byItemWords(estate: Estate, query: string, max: number) {
 }
 
 function byIdentifier(estate: Estate, query: string, max: number) {
-  if (countedRuns(query).length === 0) return null
+  const counted = countedRuns(query).join(' ')
+  if (!counted) return null
   const asked = runsOf(query)
   const found = knownNodes(estate).flatMap(node => {
-    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0) ?? numberedIn(node, asked)
+    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0 || runsOf(written).join(' ') === counted) ?? numberedIn(node, asked)
     return identifier ? [pointer(estate, node.rel, `known as: ${identifier}`)] : []
   })
   return nodesFound('id', query, found, max)

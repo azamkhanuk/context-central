@@ -940,12 +940,20 @@ test('a node is found by the id in its frontmatter, alone or inside a sentence, 
   assert.deepEqual(answer(root, 'what', 'did', 'ADR', '12', 'settle'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: ADR-12'])
 })
 
-test('a node is found by each of its aliases, and one of a single word only when it is the whole question', () => {
+test("a node is found by each of its aliases, and one of a single word only when it is the whole of the question's counted words", () => {
   const root = tree(acme(KNOWN))
 
   assert.deepEqual(answer(root, 'the', 'gateway-rfc', 'again'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: gateway-rfc'])
   assert.deepEqual(answer(root, 'RFC7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
+  assert.deepEqual(answer(root, 'what', 'is', 'rfc7', 'for'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
   assert.equal(answer(root, 'see', 'rfc7', 'again'), null)
+})
+
+test('an alias of one ordinary word does not answer a sentence that uses the word', () => {
+  const root = tree(acme({ 'concepts/web-team.md': '---\naliases: pod\n---\n# Web team\n' }))
+
+  assert.deepEqual(answer(root, 'what', 'is', 'the', 'pod', 'for'), ['id', 'node:concepts/web-team.md', 'known as: pod'])
+  assert.equal(answer(root, 'fix', 'the', 'pod', 'spacing', 'on', 'the', 'card'), null)
 })
 
 test('an id or an alias of digits alone names nothing', () => {
