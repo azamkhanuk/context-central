@@ -20,7 +20,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term'
+export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term' | 'code'
 
 export interface Resolution {
   by: Route
@@ -81,8 +81,17 @@ const UNANSWERED_MAX = 3
 const DIGITS_ALONE = /^\d+$/
 const NUMBERED = /^(\d+)-/
 const DATED = /^\d{4}-\d{2}-\d{2}/
-const BY_WORDS: Route[] = ['text', 'id', 'name', 'term']
-const BY_NODE: Route[] = ['id', 'name']
+const BY_WORDS: Route[] = ['text', 'id', 'name', 'term', 'code']
+const BY_NODE: Route[] = ['id', 'name', 'code']
+const IN_BACKTICKS = /`([^`\n]+)`/g
+const WIKI_LINK = /\[\[[^\]|\n]*(?:\|([^\]\n]*))?\]\]/g
+const LINK_TARGET = /\]\([^)\n]*\)|^ {0,3}\[(?!\^)[^\]\n]+\]:.*$/gm
+const ADDRESS_IN_TEXT = /\b(?:[a-z][a-z\d+.-]*:\/\/|www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}\/|[\p{L}\p{N}.-]+:\d+\/)[^\s|)\]>]*/giu
+const LINE_NUMBER = /:\d+(?::\d+)?$/
+const WEB_ADDRESS = /:\/\/|^(?:www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}\/|[\p{L}\p{N}.-]+:\d+\/)/iu
+const PATH_SEPARATOR = /[\\/]/
+const CODE_PART = /[_.\d]/
+const CODE_MARK = /[_/\\\d]|\p{L}\.\p{L}|\p{Ll}\p{Lu}/u
 const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
@@ -93,7 +102,7 @@ const STOP_WORDS = new Set(
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
   if (numberAlone(estate, query)) return null
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byOneWordIdentifier, byCodeName] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -238,11 +247,20 @@ function byItemWords(estate: Estate, query: string, max: number) {
 function byIdentifier(estate: Estate, query: string, max: number) {
   if (countedRuns(query).length === 0) return null
   const asked = runsOf(query)
-  const found = knownNodes(estate).flatMap(node => {
-    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0) ?? numberedIn(node, asked)
+  return nodesFound('id', query, knownBy(estate, written => startOf(asked, written) >= 0, node => numberedIn(node, asked)), max)
+}
+
+function byOneWordIdentifier(estate: Estate, query: string, max: number) {
+  const counted = countedRuns(query)
+  if (counted.length !== 1) return null
+  return nodesFound('id', query, knownBy(estate, written => written.join(' ') === counted[0]), max)
+}
+
+function knownBy(estate: Estate, matches: (written: string[]) => boolean, numbered: (node: Known) => string | null = () => null) {
+  return knownNodes(estate).flatMap(node => {
+    const identifier = node.identifiers.find(written => matches(runsOf(written))) ?? numbered(node)
     return identifier ? [pointer(estate, node.rel, `known as: ${identifier}`)] : []
   })
-  return nodesFound('id', query, found, max)
 }
 
 function numberedIn({ numbered }: Known, asked: string[]) {
@@ -274,9 +292,68 @@ function byGlossaryTerm(estate: Estate, query: string) {
   return resolution({ by: 'term', key: `term:${found.term}`, label: `"${brief(query)}"`, pointers: [pointer(estate, rel, `defines: ${found.term}, line ${found.line}`)], more: 0 })
 }
 
-function nodesFound(by: Route, query: string, found: Pointer[], max: number) {
+function byCodeName(estate: Estate, query: string, max: number) {
+  const names = codeNamesIn(query)
+  if (names.length === 0) return null
+  const notes = routedNodes(estate).flatMap(mentionable)
+  const said = names
+    .map(name => ({ name, times: notes.map(note => timesNamed(note.text, name)) }))
+    .filter(({ times }) => !isCommon(times.filter(Boolean).length, notes.length))
+  const found = notes
+    .map((note, at) => ({ rel: note.rel, names: said.filter(({ times }) => times[at] > 0).map(({ name }) => name), times: said.reduce((sum, { times }) => sum + times[at], 0) }))
+    .filter(note => note.times > 0)
+  const times = new Map(found.map(note => [note.rel, note.times]))
+  return nodesFound(
+    'code',
+    query,
+    found.map(note => pointer(estate, note.rel, `mentions: ${note.names.join(', ')}`)),
+    max,
+    (a, b) => times.get(b.rel)! - times.get(a.rel)! || rank(a.rel) - rank(b.rel),
+  )
+}
+
+function codeNamesIn(query: string) {
+  const quoted = [...query.matchAll(IN_BACKTICKS)].map(match => match[1].trim()).filter(span => CODE_MARK.test(span))
+  const words = query.replace(IN_BACKTICKS, ' ').split(/\s+/).map(trimmed).filter(isCodeName)
+  const names = [...quoted, ...words].map(name => name.replace(LINE_NUMBER, '')).filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).flatMap(searchedAs)
+  return names.filter((name, at) => names.findIndex(other => other.toLowerCase() === name.toLowerCase()) === at)
+}
+
+function trimmed(word: string) {
+  return word.replace(/^[^\p{L}\p{N}_./\\~]+/u, '').replace(/[^\p{L}\p{N}_]+$/u, '').replace(/['’]s$/u, '')
+}
+
+function isCodeName(word: string) {
+  if (word.includes('_')) return true
+  const parts = partsOf(word)
+  return parts.length >= 3 || (parts.length === 2 && parts.some(part => CODE_PART.test(part)))
+}
+
+function searchedAs(name: string) {
+  const parts = partsOf(name)
+  return parts.length < 2 ? [name] : [name, ...parts.filter(part => part.includes('_'))]
+}
+
+function partsOf(name: string) {
+  return name.split(PATH_SEPARATOR).filter(Boolean)
+}
+
+function mentionable(node: Node) {
+  try {
+    const text = readFileSync(node.path, 'utf8').replace(WIKI_LINK, (_: string, shown?: string) => ` ${shown ?? ''} `)
+    return [{ rel: node.rel, text: text.replace(LINK_TARGET, ' ').replace(ADDRESS_IN_TEXT, ' ') }]
+  } catch {
+    return []
+  }
+}
+
+function timesNamed(text: string, name: string) {
+  return text.match(new RegExp(wholeWord(name).source, 'gi'))?.length ?? 0
+}
+
+function nodesFound(by: Route, query: string, found: Pointer[], max: number, order = (a: Pointer, b: Pointer) => rank(a.rel) - rank(b.rel)) {
   if (found.length === 0) return null
-  const pointers = found.sort((a, b) => rank(a.rel) - rank(b.rel)).slice(0, max)
+  const pointers = found.sort(order).slice(0, max)
   return resolution({ by, key: nodeKey(pointers), label: `"${brief(query)}"`, pointers, more: found.length - pointers.length })
 }
 
@@ -287,12 +364,14 @@ function nodeKey(pointers: Pointer[]) {
 function knownNodes(estate: Estate) {
   const held = known.get(estate)
   if (held) return held
-  const inWork = `${estate.config.workDir}/`
-  const nodes = listNodes(estate)
-    .filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
-    .flatMap(knownAs)
+  const nodes = routedNodes(estate).flatMap(knownAs)
   known.set(estate, nodes)
   return nodes
+}
+
+function routedNodes(estate: Estate) {
+  const inWork = `${estate.config.workDir}/`
+  return listNodes(estate).filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
 }
 
 function knownAs(node: Node): Known[] {
@@ -329,8 +408,11 @@ function countedWords(query: string) {
 }
 
 function common(notes: Profile[], word: string) {
-  const carrying = notes.filter(note => note.all.has(word)).length
-  return carrying > COMMON_FLOOR && carrying > notes.length * COMMON_SHARE
+  return isCommon(notes.filter(note => note.all.has(word)).length, notes.length)
+}
+
+function isCommon(carrying: number, total: number) {
+  return carrying > COMMON_FLOOR && carrying > total * COMMON_SHARE
 }
 
 function profile(node: Node): Profile {

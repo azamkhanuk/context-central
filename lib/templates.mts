@@ -6,10 +6,11 @@ export type InMap = (rel: string) => string
 export const BLOCK_START = '<!-- context-central:start -->'
 export const BLOCK_END = '<!-- context-central:end -->'
 
-const PLUGIN = 'context-central'
+export const PLUGIN = 'context-central'
 // The marketplace is its author's list of plugins, in a repository of its own, so its address is not the plugin's.
 const MARKETPLACE = 'azamkhanuk'
 const MARKETPLACE_REPO = 'azamkhanuk/claude-plugins'
+export const PLUGIN_ID = `${PLUGIN}@${MARKETPLACE}`
 
 const PARTS: Record<string, string | undefined> = {
   repos: 'one note per repo: what it is, its traps, how to work in it.',
@@ -139,7 +140,7 @@ export function gitattributesTemplate() {
 export function settingsTemplate() {
   return {
     extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo: MARKETPLACE_REPO }, autoUpdate: true } },
-    enabledPlugins: { [`${PLUGIN}@${MARKETPLACE}`]: true },
+    enabledPlugins: { [PLUGIN_ID]: true },
     permissions: { allow: [`Bash(${PLUGIN} *)`] },
   }
 }

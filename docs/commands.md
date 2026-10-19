@@ -19,12 +19,12 @@ Exit codes: 0 fine, 1 a problem was found, 2 wrong usage.
 | `config [--get <key>]` | Print the estate settings, or one of them by dotted key |
 | `where [--json]` | Show which map covers this folder, where the estate's glossary is and whether the hooks answer here, and in a git work tree the work tree, its main checkout and the drafts folder |
 | `work new <item> [--title <title>] [--ticket "<reference>"]\|list [--all] [--json]\|done <item>\|reopen <item>\|adopt <item>\|adopt --all` | Create a work item with its state file, its title and its ticket; list work in flight, or with `--all` every item, as JSON with `--json`; mark an item done or reopen it; give an older item, or with `--all` every one, a state file beside its own note |
-| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, or else the node an identifier or a name finds or the glossary for a term, and say which ticket named has no work item |
+| `resolve <query...> [--max N] [--json] [--absolute]` | List the notes behind a work item, a link, a repo name or free text, or else the node an identifier or a name finds, the glossary for a term or the notes that mention a code name, and say which ticket named has no work item |
 | `index [--absolute] [--json]` | Print the live index of work in flight |
 | `hook <session-start\|user-prompt-submit>` | The hook entry point: JSON on stdin, JSON on stdout. It always exits 0, and a failure is one line for the person. Claude Code gives it 15 seconds at session start and 10 at a prompt |
 | `graph [--json] [--strict]` | Report broken links, orphan nodes, and deep files and evidence nothing points to |
 | `lint [--json] [--strict]` | Check the hub, state files, nodes, evidence and index against their budgets, and that each repo's standards files and a glossary the estate names exist. An entry of the map that cannot be read is an error too, `read: <path> <why>, so the listings pass over it`: a folder or a note with no permission, a link that leads nowhere where a note would be listed, a folder where a note would be read. Nothing under a folder `notNodes` lists is one |
-| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, drafts left in work trees, legacy hooks, connections |
+| `doctor [--json]` | Check the setup: Node, settings, hub, lint, links, repo folders, git ignore rules, note folders against git, evidence against git, drafts left in work trees, legacy hooks, copies of the plugin loaded twice, connections |
 | `note <text...>` | Append a dated line to this month's log |
 | `note --new <kind>/[<folder>/]<name> [--title <title>]` | Create a node from a small template, in a folder below its kind when one is given |
 | `draft <path>...` | Print the file to use for each file of the map named: the map's own, or in a git work tree a draft at the same place under the work tree, copied from the map's file where there is one and kept up to date until it is edited. For a file the map does not hold yet it makes the folder in the work tree and writes no file. A path is counted from the map's folder, or is an absolute path inside it |
@@ -51,6 +51,8 @@ About `doctor`:
 - Its hooks check looks for hooks from an earlier tool that would resolve the same prompts a second time.
 - Name those hooks in `estate.json`, for example `"legacyHooks": ["old-resolver.mjs"]`. The list is empty by default, and the check then passes.
 - A hook command that contains one of those strings counts when it is in the estate's own `.claude/settings.json` or `.claude/settings.local.json`, or in your user settings and pointing at this estate's root.
+- Its copies check says `FIX` where more than one copy of the plugin loads in the estate's folder, as with `context-central@azamkhanuk` and the `context-central@context-central` installed before 0.14.0. A copy loads where it is installed for you or for that folder, and the settings that apply there enable it. Each hook would run once for each copy. The fix names the uninstall command for every copy but the one from the author's marketplace, with the folder to run it from where the copy was installed for one folder.
+- A copy installed for you can be kept off in one folder: `"context-central@context-central": false` under `enabledPlugins` in that folder's `.claude/settings.json` turns it off for everyone who opens the map there, except a person whose own `.claude/settings.local.json` turns it back on.
 
 ## Skills
 

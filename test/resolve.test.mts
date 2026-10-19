@@ -940,12 +940,33 @@ test('a node is found by the id in its frontmatter, alone or inside a sentence, 
   assert.deepEqual(answer(root, 'what', 'did', 'ADR', '12', 'settle'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: ADR-12'])
 })
 
-test('a node is found by each of its aliases, and one of a single word only when it is the whole question', () => {
+test("a node is found by each of its aliases, and one of a single word only when it is the whole of the question's counted words", () => {
   const root = tree(acme(KNOWN))
 
   assert.deepEqual(answer(root, 'the', 'gateway-rfc', 'again'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: gateway-rfc'])
   assert.deepEqual(answer(root, 'RFC7'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
+  assert.deepEqual(answer(root, 'what', 'is', 'rfc7', 'for'), ['id', 'node:decisions/0007-one-gateway.md', 'known as: rfc7'])
   assert.equal(answer(root, 'see', 'rfc7', 'again'), null)
+})
+
+test("a node's name and a glossary term answer before a one-word alias among stop words", () => {
+  const root = tree(
+    acme({
+      'concepts/ledger.md': '# Ledger\n',
+      'decisions/0003-one-book.md': '---\naliases: ledger, tallyman\n---\n# One book\n',
+      'glossary.md': '# Glossary\n\n**Tallyman**: The counter.\n',
+    }),
+  )
+
+  assert.deepEqual(answer(root, 'what', 'is', 'the', 'ledger', 'for'), ['name', 'node:concepts/ledger.md', 'named: ledger'])
+  assert.deepEqual(answer(root, 'what', 'is', 'tallyman', 'for'), ['term', 'term:Tallyman', 'defines: Tallyman, line 3'])
+})
+
+test('an alias of one ordinary word does not answer a sentence that uses the word', () => {
+  const root = tree(acme({ 'concepts/web-team.md': '---\naliases: pod\n---\n# Web team\n' }))
+
+  assert.deepEqual(answer(root, 'what', 'is', 'the', 'pod', 'for'), ['id', 'node:concepts/web-team.md', 'known as: pod'])
+  assert.equal(answer(root, 'fix', 'the', 'pod', 'spacing', 'on', 'the', 'card'), null)
 })
 
 test('an id or an alias of digits alone names nothing', () => {
@@ -1149,6 +1170,212 @@ test('a number alone names nothing, though a note, a decision and a work item be
   assert.equal(resolve(root, 'the 42').stdout, 'No confident match for "the 42".\n')
   assert.equal(resolve(root, ' 0042 ').stdout, 'No confident match for "0042".\n')
   assert.deepEqual(answer(root, 'decision', '42'), ['id', 'node:decisions/0042-the-answer.md', 'known as: decision 42'])
+})
+
+const DAEMON = {
+  'concepts/ledger.md': '# Ledger\n\nThe payout_daemon reads settled rows.\n',
+  'areas/settlement.md': '# Settlement\n\nBatches feed the payout_daemon. Restart payout_daemon after a change and read the payout_daemon log.\n',
+}
+
+test('a code name finds the notes that mention it, most often first', () => {
+  const root = tree(acme(DAEMON))
+
+  const result = resolve(root, 'who owns the payout_daemon?')
+
+  assert.equal(
+    result.stdout,
+    [
+      'Context for "who owns the payout_daemon?":',
+      `- areas/settlement.md (${Buffer.byteLength(DAEMON['areas/settlement.md'])} B) mentions: payout_daemon`,
+      `- concepts/ledger.md (${Buffer.byteLength(DAEMON['concepts/ledger.md'])} B) mentions: payout_daemon`,
+      '',
+    ].join('\n'),
+  )
+  assert.deepEqual(answer(root, 'payout_daemon'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
+  assert.equal(resolve(root, 'payout_daemon', '--max', '1').stdout.split('\n')[2], '1 more matching note is not listed; a higher --max lists it.')
+})
+
+test('a span in backticks with a mark of code is a code name', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nThe retryWorker reads estate.json.\n' }))
+
+  assert.deepEqual(answer(root, 'what', 'is', '`retryWorker`'), ['code', 'node:areas/books.md', 'mentions: retryWorker'])
+  assert.deepEqual(answer(root, 'what', 'reads', '`estate.json`'), ['code', 'node:areas/books.md', 'mentions: estate.json'])
+})
+
+test('a word in backticks with no mark of code is prose', () => {
+  const root = tree(acme({ 'concepts/drafts.md': '# Drafts\n\nWe save a draft every hour, and the main branch keeps settled rows.\n' }))
+
+  assert.equal(answer(root, 'click', '`Save`'), null)
+  assert.equal(answer(root, 'merge', 'to', '`main`'), null)
+  assert.equal(answer(root, 'what', 'reads', '`settled rows`'), null)
+})
+
+test('a path is found whole and by each part that holds an underscore', () => {
+  const root = tree(acme({ ...DAEMON, 'areas/books.md': '# Books\n\nThe rows live in src/payments/ledger.ts.\n' }))
+
+  assert.deepEqual(answer(root, 'restart', 'services/payout_daemon', 'now'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
+  assert.deepEqual(answer(root, 'open', 'src/payments/ledger.ts'), ['code', 'node:areas/books.md', 'mentions: src/payments/ledger.ts'])
+})
+
+test('a file name at the end of a path is not searched alone', () => {
+  const root = tree(acme({ 'areas/web-docs.md': '# Web docs\n\nUpdate the README.md and ledger.ts when the install changes.\n', 'concepts/settle.md': '# Settle\n\nSettlement runs via payout_daemon.\n' }))
+
+  assert.deepEqual(answer(root, 'fix', 'svc/payout_daemon/README.md'), ['code', 'node:concepts/settle.md', 'mentions: payout_daemon'])
+  assert.equal(answer(root, 'open', 'src/payments/ledger.ts'), null)
+})
+
+test('a path written with backslashes is a path', () => {
+  const root = tree(acme(DAEMON))
+
+  assert.deepEqual(answer(root, 'restart', 'services\\payout_daemon'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
+})
+
+test('a line number after a code name is not part of it', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nRestart payout_daemon.py, then check lib/ledger.mts.\n' }))
+
+  assert.deepEqual(answer(root, 'fix', 'services/payout_daemon.py:42'), ['code', 'node:areas/books.md', 'mentions: payout_daemon.py'])
+  assert.deepEqual(answer(root, 'see', '`lib/ledger.mts:12:5`'), ['code', 'node:areas/books.md', 'mentions: lib/ledger.mts'])
+})
+
+test("a code name followed by 's is searched without it", () => {
+  const root = tree(acme(DAEMON))
+
+  assert.deepEqual(answer(root, 'what', 'is', "payout_daemon's", 'job'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
+})
+
+test('a slash between plain words is prose', () => {
+  const root = tree(acme({ 'concepts/ledger.md': '# Ledger\n\nThe server writes each row and/or the client reads it, a client/server split.\n' }))
+
+  assert.equal(answer(root, 'is', 'it', 'client/server'), null)
+  assert.equal(answer(root, 'read', 'and/or', 'write'), null)
+})
+
+test('a path whose last part is a plain word is found only whole', () => {
+  const root = tree(acme({ 'concepts/ledger.md': '# Ledger\n\nThe server writes each row.\n', 'areas/billing.md': '# Billing\n\nThe code is in src/payments/server.\n' }))
+
+  assert.deepEqual(answer(root, 'see', 'src/payments/server'), ['code', 'node:areas/billing.md', 'mentions: src/payments/server'])
+})
+
+test('a web address is no code name, with its scheme, in backticks or without a scheme', () => {
+  const root = tree(acme(DAEMON))
+
+  assert.equal(answer(root, 'see', 'https://acme.example/payout_daemon'), null)
+  assert.equal(answer(root, 'see', '`https://acme.example/payout_daemon`'), null)
+  assert.equal(answer(root, 'see', 'acme.example/payout_daemon'), null)
+  assert.equal(answer(root, 'see', 'www.acme.example/svc/payout_daemon'), null)
+  assert.equal(answer(root, 'see', 'localhost:8080/payout_daemon'), null)
+})
+
+test('a path whose first folder holds a dot is a path, not a web address', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nIt reads payout_daemon.conf, and v1.2/ledger serves it.\n' }))
+
+  assert.deepEqual(answer(root, 'open', 'conf.d/payout_daemon.conf'), ['code', 'node:areas/books.md', 'mentions: payout_daemon.conf'])
+  assert.deepEqual(answer(root, 'who', 'serves', 'v1.2/ledger'), ['code', 'node:areas/books.md', 'mentions: v1.2/ledger'])
+})
+
+test('a footnote is a mention', () => {
+  const root = tree(acme({ 'concepts/restarts.md': '# Restarts\n\nSee the note.[^1]\n\n[^1]: The ledger_api restarts at two.\n' }))
+
+  assert.deepEqual(answer(root, 'ledger_api'), ['code', 'node:concepts/restarts.md', 'mentions: ledger_api'])
+})
+
+test('text joined to a web address in a note by a table bar is a mention', () => {
+  const root = tree(acme({ 'concepts/hosts.md': '# Hosts\n\n| Address | Service |\n|---|---|\n|https://acme.example/a|ledger_api|\n' }))
+
+  assert.deepEqual(answer(root, 'ledger_api'), ['code', 'node:concepts/hosts.md', 'mentions: ledger_api'])
+})
+
+test('a code name is never matched in the work folder, the log or the deep tier', () => {
+  const said = '# Said\n\nRestart payout_daemon.\n'
+  const root = tree(acme({ 'work/PROJ-12/notes/said.md': said, 'log/2026-01.md': said, 'docs/sources/said.md': said }))
+
+  assert.equal(answer(root, 'payout_daemon'), null)
+  assert.equal(answer(tree(smallMap({ 'log/2026-01.md': said })), 'payout_daemon'), null)
+})
+
+test("a code name in a link's target, a link's reference or a web address in a note is not a mention", () => {
+  const root = tree(
+    acme({
+      'concepts/ledger.md': '# Ledger\n\nSee [the daemon](../areas/payout_daemon.md) and [[areas/payout_daemon]].\n',
+      'concepts/board.md': '# Board\n\nSee [the board][1], or https://grafana.acme.example/d/payout_daemon.\n\n[1]: ../areas/payout_daemon.md\n',
+    }),
+  )
+
+  assert.equal(answer(root, 'payout_daemon'), null)
+})
+
+test('a web address without its scheme in a note is not a mention', () => {
+  const root = tree(acme({ 'concepts/search.md': '# Search\n\nSearch at acme.example/search?page_size=10, www.acme.example/q?page_size=5 or localhost:8080/?page_size=1.\n' }))
+
+  assert.equal(answer(root, 'fix', 'page_size'), null)
+})
+
+test('the text of a wiki link is a mention', () => {
+  const root = tree(acme({ 'concepts/ledger.md': '# Ledger\n\nSee [[areas/runbook|the payout_daemon runbook]].\n' }))
+
+  assert.deepEqual(answer(root, 'payout_daemon'), ['code', 'node:concepts/ledger.md', 'mentions: payout_daemon'])
+})
+
+test('a code name that more than four notes in ten mention is passed over', () => {
+  const said = '# Said\n\nRestart payout_daemon.\n'
+  const root = tree(acme({ 'concepts/one.md': said, 'concepts/two.md': said, 'areas/three.md': said }))
+
+  assert.equal(answer(root, 'payout_daemon'), null)
+})
+
+test('a code name answers only where no route of today does', () => {
+  const root = tree(acme({ 'docs/runbook.md': '---\naliases: payout_daemon\n---\n# Runbook\n' }))
+
+  assert.equal(resolved(tree(acme(DAEMON)), 'web', 'payout_daemon').key, 'repo:web')
+  assert.deepEqual(answer(root, 'payout_daemon'), ['id', 'node:docs/runbook.md', 'known as: payout_daemon'])
+})
+
+test("a node's name and a glossary term answer before a code name", () => {
+  const root = tree(
+    acme({
+      'concepts/books.md': '---\ntitle: Ledger api\n---\n# Books\n',
+      'areas/ops.md': '# Ops\n\nRestart ledger_api.\n',
+      'glossary.md': '# Glossary\n\n**Settle batch**: One run of settlement.\n',
+      'areas/runs.md': '# Runs\n\nEach settle_batch is logged.\n',
+    }),
+  )
+
+  assert.deepEqual(answer(root, 'ledger_api'), ['name', 'node:concepts/books.md', 'named: ledger api'])
+  assert.deepEqual(answer(root, 'settle_batch'), ['term', 'term:Settle batch', 'defines: Settle batch, line 3'])
+})
+
+test('a note that mentions two code names is one pointer naming both', () => {
+  const root = tree(acme({ 'concepts/settle.md': '# Settle\n\nThe payout_daemon calls ledger_api.\n' }))
+
+  assert.deepEqual(answer(root, 'payout_daemon', 'and', 'ledger_api'), ['code', 'node:concepts/settle.md', 'mentions: payout_daemon, ledger_api'])
+})
+
+test('a name given twice, or as a path and as its last part, is searched once, as first written', () => {
+  const root = tree(acme({ 'concepts/settle.md': '# Settle\n\nThe payout_daemon calls ledger_api.\n' }))
+
+  assert.deepEqual(answer(root, 'payout_daemon', 'or', 'PAYOUT_DAEMON'), ['code', 'node:concepts/settle.md', 'mentions: payout_daemon'])
+  assert.deepEqual(answer(root, 'services/payout_daemon', 'or', 'payout_daemon'), ['code', 'node:concepts/settle.md', 'mentions: payout_daemon'])
+})
+
+test('a code name with no letter in it is no code name', () => {
+  const root = tree(acme({ 'concepts/rota.md': '# Rota\n\nSupport is on call 24/7, split 50/50.\n' }))
+
+  assert.equal(answer(root, 'is', 'it', '24/7'), null)
+  assert.equal(answer(root, 'see', '`50/50`'), null)
+  assert.equal(answer(root, 'see', '` `'), null)
+})
+
+test('a code name that holds a dot is matched as written, not as a pattern', () => {
+  const root = tree(acme({ 'concepts/limits.md': '# Limits\n\nSet retryXmax to three.\n' }))
+
+  assert.equal(answer(root, 'what', 'sets', '`retry.max`'), null)
+})
+
+test('a note that cannot be read is passed over by a code name', notOnWindows('Windows has no file mode that stops a read'), () => {
+  const root = tree(acme(DAEMON))
+  chmodSync(join(root, 'areas/settlement.md'), 0o000)
+
+  assert.deepEqual(rels(resolved(root, 'payout_daemon')), ['concepts/ledger.md'])
 })
 
 test('a design beside the spec is a pointer after it, labelled, and is not counted among the other notes', () => {
