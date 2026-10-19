@@ -91,7 +91,7 @@ const LINE_NUMBER = /:\d+(?::\d+)?$/
 const WEB_ADDRESS = /:\/\/|^(?:www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)*\.\p{L}{2,}\/|[\p{L}\p{N}.-]+:\d+\/)/iu
 const PATH_SEPARATOR = /[\\/]/
 const CODE_PART = /[_.\d]/
-const FILE_NAME = /_|\p{L}\.\p{L}/u
+const CODE_MARK = /[_/\\\d]|\p{L}\.\p{L}|\p{Ll}\p{Lu}/u
 const known = new WeakMap<Estate, Known[]>()
 const HEADING_LINE = /^#{1,6}\s+.*$/gm
 const STOP_WORDS = new Set(
@@ -313,9 +313,9 @@ function byCodeName(estate: Estate, query: string, max: number) {
 }
 
 function codeNamesIn(query: string) {
-  const quoted = [...query.matchAll(IN_BACKTICKS)].map(match => match[1].trim())
+  const quoted = [...query.matchAll(IN_BACKTICKS)].map(match => match[1].trim()).filter(span => CODE_MARK.test(span))
   const words = query.replace(IN_BACKTICKS, ' ').split(/\s+/).map(trimmed).filter(isCodeName)
-  const names = [...quoted, ...words].map(name => name.replace(LINE_NUMBER, '')).filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).map(searchedAs)
+  const names = [...quoted, ...words].map(name => name.replace(LINE_NUMBER, '')).filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).flatMap(searchedAs)
   return names.filter((name, at) => names.findIndex(other => other.toLowerCase() === name.toLowerCase()) === at)
 }
 
@@ -330,8 +330,8 @@ function isCodeName(word: string) {
 }
 
 function searchedAs(name: string) {
-  const last = partsOf(name).at(-1) ?? name
-  return last !== name && FILE_NAME.test(last) ? last : name
+  const parts = partsOf(name)
+  return parts.length < 2 ? [name] : [name, ...parts.filter(part => part.includes('_'))]
 }
 
 function partsOf(name: string) {

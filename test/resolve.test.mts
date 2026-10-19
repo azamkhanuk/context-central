@@ -1195,17 +1195,33 @@ test('a code name finds the notes that mention it, most often first', () => {
   assert.equal(resolve(root, 'payout_daemon', '--max', '1').stdout.split('\n')[2], '1 more matching note is not listed; a higher --max lists it.')
 })
 
-test('a name in backticks is a code name', () => {
-  const root = tree(acme(DAEMON))
+test('a span in backticks with a mark of code is a code name', () => {
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nThe retryWorker reads estate.json.\n' }))
 
-  assert.deepEqual(answer(root, 'what', 'reads', '`settled rows`'), ['code', 'node:concepts/ledger.md', 'mentions: settled rows'])
+  assert.deepEqual(answer(root, 'what', 'is', '`retryWorker`'), ['code', 'node:areas/books.md', 'mentions: retryWorker'])
+  assert.deepEqual(answer(root, 'what', 'reads', '`estate.json`'), ['code', 'node:areas/books.md', 'mentions: estate.json'])
 })
 
-test('a path is found by a last part that holds an underscore or a dot', () => {
-  const root = tree(acme({ ...DAEMON, 'areas/books.md': '# Books\n\nSee ledger.ts for the rows.\n' }))
+test('a word in backticks with no mark of code is prose', () => {
+  const root = tree(acme({ 'concepts/drafts.md': '# Drafts\n\nWe save a draft every hour, and the main branch keeps settled rows.\n' }))
+
+  assert.equal(answer(root, 'click', '`Save`'), null)
+  assert.equal(answer(root, 'merge', 'to', '`main`'), null)
+  assert.equal(answer(root, 'what', 'reads', '`settled rows`'), null)
+})
+
+test('a path is found whole and by each part that holds an underscore', () => {
+  const root = tree(acme({ ...DAEMON, 'areas/books.md': '# Books\n\nThe rows live in src/payments/ledger.ts.\n' }))
 
   assert.deepEqual(answer(root, 'restart', 'services/payout_daemon', 'now'), ['code', 'node:areas/settlement.md,concepts/ledger.md', 'mentions: payout_daemon', 'mentions: payout_daemon'])
-  assert.deepEqual(answer(root, 'open', 'src/payments/ledger.ts'), ['code', 'node:areas/books.md', 'mentions: ledger.ts'])
+  assert.deepEqual(answer(root, 'open', 'src/payments/ledger.ts'), ['code', 'node:areas/books.md', 'mentions: src/payments/ledger.ts'])
+})
+
+test('a file name at the end of a path is not searched alone', () => {
+  const root = tree(acme({ 'areas/web-docs.md': '# Web docs\n\nUpdate the README.md and ledger.ts when the install changes.\n', 'concepts/settle.md': '# Settle\n\nSettlement runs via payout_daemon.\n' }))
+
+  assert.deepEqual(answer(root, 'fix', 'svc/payout_daemon/README.md'), ['code', 'node:concepts/settle.md', 'mentions: payout_daemon'])
+  assert.equal(answer(root, 'open', 'src/payments/ledger.ts'), null)
 })
 
 test('a path written with backslashes is a path', () => {
@@ -1215,10 +1231,10 @@ test('a path written with backslashes is a path', () => {
 })
 
 test('a line number after a code name is not part of it', () => {
-  const root = tree(acme({ 'areas/books.md': '# Books\n\nRestart payout_daemon.py, then check ledger.mts.\n' }))
+  const root = tree(acme({ 'areas/books.md': '# Books\n\nRestart payout_daemon.py, then check lib/ledger.mts.\n' }))
 
   assert.deepEqual(answer(root, 'fix', 'services/payout_daemon.py:42'), ['code', 'node:areas/books.md', 'mentions: payout_daemon.py'])
-  assert.deepEqual(answer(root, 'see', '`lib/ledger.mts:12:5`'), ['code', 'node:areas/books.md', 'mentions: ledger.mts'])
+  assert.deepEqual(answer(root, 'see', '`lib/ledger.mts:12:5`'), ['code', 'node:areas/books.md', 'mentions: lib/ledger.mts'])
 })
 
 test("a code name followed by 's is searched without it", () => {
