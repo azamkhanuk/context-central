@@ -99,7 +99,7 @@ _Avoid_: key, slug, reference
 **Code name**: A word in a query that names something in the code: one with an underscore in it, a path, or anything in backticks. A slash between two plain words is prose, and a web address is never one. The last route finds the notes that mention it, most often first.
 _Avoid_: symbol, identifier
 
-**Counted run**: A run of letters and digits in a query that is not a stop word and is not one or two letters alone; a run that holds a digit always counts. The routes for a node's name and a glossary term match on counted runs, and a query with none is answered by neither, nor by the route for an identifier.
+**Counted run**: A run of letters and digits in a query that is not a stop word and is not one or two letters alone; a run that holds a digit always counts. The routes for a node's name, a glossary term and an identifier of one word match on counted runs, and a query with none is answered by neither, nor by the route for an identifier.
 _Avoid_: token, keyword
 
 **Coverage**: Whether the map answers for a given folder: the estate root, a registered repo, a node folder, or anywhere inside an inner-layout repository. A folder in a work tree counts as the same folder of its main checkout. Where there is no coverage the hooks stay silent.
