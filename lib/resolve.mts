@@ -84,7 +84,10 @@ const DATED = /^\d{4}-\d{2}-\d{2}/
 const BY_WORDS: Route[] = ['text', 'id', 'name', 'term', 'code']
 const BY_NODE: Route[] = ['id', 'name', 'code']
 const IN_BACKTICKS = /`([^`\n]+)`/g
-const LINK_TARGET = /\[\[[^\]\n]*\]\]|\]\([^)\n]*\)/g
+const WIKI_LINK = /\[\[[^\]|\n]*(?:\|([^\]\n]*))?\]\]/g
+const LINK_TARGET = /\]\([^)\n]*\)|^ {0,3}\[[^\]\n]+\]:.*$|\b[a-z][a-z\d+.-]*:\/\/\S+/gim
+const WEB_ADDRESS = /:\/\/|^(?:www\.|[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+\/)/iu
+const PATH_SEPARATOR = /[\\/]/
 const CODE_PART = /[_.\d]/
 const FILE_NAME = /_|\p{L}\.\p{L}/u
 const known = new WeakMap<Estate, Known[]>()
@@ -97,7 +100,7 @@ const STOP_WORDS = new Set(
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
   if (numberAlone(estate, query)) return null
-  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byCodeName] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byOneWordIdentifier, byCodeName] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -240,14 +243,22 @@ function byItemWords(estate: Estate, query: string, max: number) {
 }
 
 function byIdentifier(estate: Estate, query: string, max: number) {
-  const counted = countedRuns(query).join(' ')
-  if (!counted) return null
+  if (countedRuns(query).length === 0) return null
   const asked = runsOf(query)
-  const found = knownNodes(estate).flatMap(node => {
-    const identifier = node.identifiers.find(written => startOf(asked, runsOf(written)) >= 0 || runsOf(written).join(' ') === counted) ?? numberedIn(node, asked)
+  return nodesFound('id', query, knownBy(estate, written => startOf(asked, written) >= 0, node => numberedIn(node, asked)), max)
+}
+
+function byOneWordIdentifier(estate: Estate, query: string, max: number) {
+  const counted = countedRuns(query)
+  if (counted.length !== 1) return null
+  return nodesFound('id', query, knownBy(estate, written => written.join(' ') === counted[0]), max)
+}
+
+function knownBy(estate: Estate, matches: (written: string[]) => boolean, numbered: (node: Known) => string | null = () => null) {
+  return knownNodes(estate).flatMap(node => {
+    const identifier = node.identifiers.find(written => matches(runsOf(written))) ?? numbered(node)
     return identifier ? [pointer(estate, node.rel, `known as: ${identifier}`)] : []
   })
-  return nodesFound('id', query, found, max)
 }
 
 function numberedIn({ numbered }: Known, asked: string[]) {
@@ -302,29 +313,33 @@ function byCodeName(estate: Estate, query: string, max: number) {
 function codeNamesIn(query: string) {
   const quoted = [...query.matchAll(IN_BACKTICKS)].map(match => match[1].trim())
   const words = query.replace(IN_BACKTICKS, ' ').split(/\s+/).map(trimmed).filter(isCodeName)
-  const names = [...quoted, ...words].filter(name => /\p{L}/u.test(name)).map(searchedAs)
+  const names = [...quoted, ...words].filter(name => /\p{L}/u.test(name) && !WEB_ADDRESS.test(name)).map(searchedAs)
   return names.filter((name, at) => names.findIndex(other => other.toLowerCase() === name.toLowerCase()) === at)
 }
 
 function trimmed(word: string) {
-  return word.replace(/^[^\p{L}\p{N}_./~]+/u, '').replace(/[^\p{L}\p{N}_]+$/u, '')
+  return word.replace(/^[^\p{L}\p{N}_./\\~]+/u, '').replace(/[^\p{L}\p{N}_]+$/u, '').replace(/['’]s$/u, '')
 }
 
 function isCodeName(word: string) {
-  if (word.includes('://')) return false
   if (word.includes('_')) return true
-  const parts = word.split('/').filter(Boolean)
+  const parts = partsOf(word)
   return parts.length >= 3 || (parts.length === 2 && parts.some(part => CODE_PART.test(part)))
 }
 
 function searchedAs(name: string) {
-  const last = name.split('/').filter(Boolean).at(-1) ?? name
+  const last = partsOf(name).at(-1) ?? name
   return last !== name && FILE_NAME.test(last) ? last : name
+}
+
+function partsOf(name: string) {
+  return name.split(PATH_SEPARATOR).filter(Boolean)
 }
 
 function mentionable(node: Node) {
   try {
-    return [{ rel: node.rel, text: readFileSync(node.path, 'utf8').replace(LINK_TARGET, ' ') }]
+    const text = readFileSync(node.path, 'utf8').replace(WIKI_LINK, (_: string, shown?: string) => ` ${shown ?? ''} `)
+    return [{ rel: node.rel, text: text.replace(LINK_TARGET, ' ') }]
   } catch {
     return []
   }

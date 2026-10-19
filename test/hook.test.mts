@@ -592,7 +592,7 @@ test('a node given by its identifier is not given again by its name in the same 
   silent(ask('doorway'))
 })
 
-test('a short prompt that holds a code name is given each note that mentions it once in a session, and a long one is met with silence', () => {
+test('a short prompt that holds a code name is given each note that mentions it once in a session', () => {
   const notes = { 'concepts/ledger.md': '# Ledger\n\nThe payout_daemon calls ledger_api.\n', 'areas/settlement.md': '# Settlement\n\nBatches go to ledger_api.\n' }
   const root = tree(acme(notes))
   const dir = stateDir()
@@ -601,7 +601,12 @@ test('a short prompt that holds a code name is given each note that mentions it 
 
   assert.equal(context(ask('who owns the payout_daemon')), ['Context for "who owns the payout_daemon":', line('concepts/ledger.md', 'payout_daemon')].join('\n'))
   assert.equal(context(ask('and the ledger_api')), ['Context for "and the ledger_api":', line('areas/settlement.md', 'ledger_api')].join('\n'))
-  silent(fire('user-prompt-submit', { session_id: 's2', cwd: root, prompt: `${'x1 '.repeat(250)}payout_daemon` }))
+})
+
+test('a long prompt that holds a code name is met with silence', () => {
+  const root = tree(acme({ 'concepts/ledger.md': '# Ledger\n\nThe payout_daemon calls ledger_api.\n' }))
+
+  silent(fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: `${'x1 '.repeat(250)}payout_daemon` }))
 })
 
 const TERMS = '# Glossary\n\n**Rate limit**: The most calls a client may make in a minute.\n'
