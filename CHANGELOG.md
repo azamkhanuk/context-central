@@ -2,6 +2,28 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.16.0 - 2026-10-19
+
+A code name in a prompt finds the notes that mention it, a one-word alias answers among stop words, and `doctor` says when two copies of the plugin load.
+
+- **A code name finds its notes.** A word with an underscore, a path, or anything in backticks, such as `payout_daemon` or `services/payout_daemon`, finds the notes that mention it as a whole word, most often first. Free text split such a name into two words and scored them as prose, and found nothing however many notes named it. It is the last route, so no prompt that had an answer gets another, and `resolve --json` names it `code`.
+- **What a code name is not.** A path counts by its last part only where that part has an underscore or a dot. A slash between two plain words, as in client/server, is prose, a web address is never a code name, and neither is one with no letter. A mention inside a link's target does not count, and a name that more than four notes in ten mention is passed over, as free text passes over a common word. Like the routes before it, it leaves out the work folder, the log and the deep tier, and in the prompt hook answers only a short prompt and gives each note once a session.
+- **A one-word alias answers among stop words.** "what is Tallyman for" finds the note known as Tallyman, as it already found a note named Tallyman. It answers only where it is the whole of the prompt's counted words, so "fix the pod spacing on the card" does not find a note known as pod.
+- **`doctor` sees two copies.** A new `copies` row says `FIX` where more than one copy of the plugin is installed for you or for the estate's folder and enabled there, as with `context-central@context-central` from before 0.14.0 beside `context-central@azamkhanuk`. Each hook would run once for each copy. The fix gives the uninstall command, with its scope, for every copy but the one from the author's marketplace, and the commands doc says how a project's settings keep a copy off.
+- **Onboard leaves a fork alone.** A marketplace `context-central` from any repository but `azamkhanuk/context-central` or a folder is left as it is, with only the permission written, and so is a fork installed for you; onboard says that it beside `context-central@azamkhanuk` would load two copies.
+- **The install doc names a project-scope marketplace add.** On Claude Code 2.1.303 it writes the printed entry again without `autoUpdate`, which turns auto-update off for everyone on the map until the key is put back.
+
+Not shown:
+
+- A live session with two copies enabled, which would show the index and the pointers given twice. The `copies` row rests on the install record and the settings as Claude Code 2.1.303 writes and reads them.
+- A live run of onboard's new sentences. Three cold reads of its settings step found two cases the first text left open, and a fourth, on the text that ships, followed all four cases as meant.
+
+For a map that already exists:
+
+- A short prompt that holds a code name, or a one-word alias among stop words, may get pointers where 0.15.0 gave none.
+- `resolve --json` may name one more route, `code`.
+- `doctor` prints one more row, `copies`, and exits 1 on a machine where two copies load in the estate's folder.
+
 ## 0.15.0 - 2026-10-18
 
 A recommendation no longer shares its line with the problem, and the steps speak the desktop app's words as well as the terminal's.
