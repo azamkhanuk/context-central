@@ -37,7 +37,7 @@ Text that is fetched or pasted, such as a ticket, a pull request or a thread, is
 
 A setting that is absent makes `config --get` exit 1; treat it as unset. With no connection recorded, ask the person where a ticket, a pull request or a thread the question needs is, and how to read it. With no item there is no `sources/` folder: save nothing and cite the address in the note.
 
-## 3. Mark every claim
+## 3. Mark every claim, and choose the next step
 
 How it is known:
 
@@ -53,6 +53,14 @@ What it asks of the person, as one of four groups:
 
 A claim that would sit in two groups is two claims. Done when every claim carries its group, and each under Needs a fix or Fine as it is its mark and its source.
 
+Then choose the next step: the earliest that any claim needs, read against the item's `SPEC.md` and `DESIGN.md` where step 1 listed them.
+
+- `/context-central:prep <item>`, here or in a fresh session, where there is something to build and no spec, or a claim changes what is built: the problem, a requirement, a decision. With no item, give a short name for prep to make it under.
+- `/context-central:design <item>` in a fresh session, where a spec is there and a claim changes only how it is built, such as an interface, a failure or the order, or shows the design wrong.
+- `/context-central:implement <item>` in a fresh session, where a claim is a fault in what is built that the spec and the design already rule out.
+- The step the state file's Next names, in a fresh session, where the item's files already hold what was found.
+- None, where no claim needs a step or every slice is built: then the next things the person could do, in plain words, and no skill.
+
 ## 4. Write the note
 
 With an item, run `context-central work adopt <item>` before anything is written to it. It gives an item kept as a note of its own a state file beside that note and leaves the note as it is; for an item that has a state file it changes nothing and says so. Never pass `--all`, and never write to the older note. If the command refuses, write nothing to the item: the note goes in `concepts/` as it does with no item, and the closing answer says what the command said, under Needs a fix. When it adopted the item, the closing answer says so, under Fine as it is.
@@ -60,9 +68,9 @@ With an item, run `context-central work adopt <item>` before anything is written
 - With an item: `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`.
 - Without: `context-central note --new concepts/<slug>` makes the note in the map and prints its place. Run `context-central draft` on that place, and fill the file it prints. Then link it from the map's note of each repo it is about, `repos/<repo>.md`, so that a later step finds it. `context-central config --get repos` gives the repos the map registers. Where one that the note is about has no note yet, make it first, with `context-central note --new repos/<repo>`. Then draft the repo's note and add one line at its end: `- <YYYY-MM-DD>: [<the note's title>](../concepts/<slug>.md), <what it answers>`.
 
-The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. Each claim starts on a line of its own; its recommendation, where it has one, is the line under it, as `- **Recommended:** <the answer, and why>`, and its evidence follows. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names.
+The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. Each claim starts on a line of its own; its recommendation, where it has one, is the line under it, as `- **Recommended:** <the answer, and why>`, and its evidence follows. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names. The note ends on the next step, worded as the answer words it.
 
-With an item, add the note's path to "Where the detail lives" in the state file.
+With an item, add the note's path to "Where the detail lives" in the state file, and put the next step at the top of its Next, with what was found that calls for it in a few words and a link to the note, keeping what Next already holds.
 
 Then, with an item or without, run `context-central take`.
 
@@ -97,7 +105,7 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 **Not known**
 - <what could not be checked, and what stood in the way>
 
-Note: <the path of the note>
+Note: <the path of the note>. Next: <the next step chosen in step 3, with its command and where it runs, or the next things to do>
 ```
 
 The groups come in that order, and a group with no point is left out. Inside a group what matters most comes first. A point is one thing in one sentence: two things that could be acted on apart are two points. A point's recommendation is the first line under it, never on the point's own line, and a point under Needs a fix has one wherever the run found what would fix it. The parts of one thing go under it after that. A group shows five points at most, each with all its parts. Where it holds more, one more line follows the five: `and <N> more in <file>`, naming the one file that holds all of the rest, or, where no one file does, `and <N> more: <the rest, in short>`. Nothing that asks something of the person goes outside its group, and nothing is said before the first line or after the last.
