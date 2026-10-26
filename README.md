@@ -48,7 +48,7 @@ Two rules keep it honest:
 2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
 3. **Start a session.** Claude already has the list of work in flight.
 4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. Claude is pointed at its state file and the notes behind it.
-5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
+5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, writes no code and names the step that comes next, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
 ## What it runs
