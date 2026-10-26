@@ -29,18 +29,32 @@ A fresh session is `/clear` in the terminal, or **+ New session** in the desktop
 /context-central:research <question> [item]
 ```
 
-![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim and sort it into four groups, then write the note and answer in those groups](research.png)
+![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim and sort it into four groups, then write the note, answer in those groups and name the step that comes next](research.png)
 
 A primary source is the thing itself: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
 
 - **Where the question goes.** With an item, the state file is read first. A ticket that no work item answers to gets its item first, `work new <item> --ticket "<reference>"`, so that its full text has somewhere to go. With no item at all, the note goes in `concepts/` and is linked from the note of each repo it is about, which is made where the map has none yet, so that prep finds it.
+- **It writes only the map.** From its start until you type another skill, research reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It makes no fix, test, probe or stand-in, and starts no other skill. What only new code could show is left under Not known, naming design or implement.
+- **A request to build** is researched as what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it.
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
 - **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
 - **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups, and a choice that is yours or a thing that is not known carries no mark.
 - **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, with their marks and their sources. Each claim has a line of its own, its recommendation where it has one on the line under it, then its evidence. An empty group says `none`.
-- **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then each claim that something is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, each claim that was checked and holds under Fine as it is, and what could not be checked under Not known, then the note's path. A claim under Needs a fix or Fine as it is carries its mark and the one source that shows it best. For a note with no item it also says which repo notes link it, or that none does.
+- **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then each claim that something is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, each claim that was checked and holds under Fine as it is, and what could not be checked under Not known, then the note's path and the next step. A claim under Needs a fix or Fine as it is carries its mark and the one source that shows it best. For a note with no item it also says which repo notes link it, or that none does.
 
-Run it once for each question. Each run writes its own note, and prep reads the ones behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
+Run it once for each question. Each run writes its own note and ends by naming the next step, the earliest that any of its claims needs:
+
+| Next step | When |
+|---|---|
+| `/context-central:prep <item>`, here or in a fresh session | there is something to build and no spec, or a claim changes what is built. With no item, research gives a short name for prep to make the item under |
+| `/context-central:design <item>`, in a fresh session | a spec is there, and a claim changes only how it is built or shows the design wrong |
+| `/context-central:implement <item>`, in a fresh session | a claim is a fault in what is built that the spec and the design already rule out |
+| the step the state file names | the item's files already hold what was found |
+| none | no claim needs a step: the line gives the next things you could do |
+
+The note ends on the same step. With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the note, since design and implement read the state file and no research note. Prep reads the notes behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
+
+A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note and names the step again, and nothing is built until you type that step.
 
 ## 2. The spec
 

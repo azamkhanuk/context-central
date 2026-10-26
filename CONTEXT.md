@@ -27,6 +27,12 @@ _Avoid_: iteration, loop, pass
 **Closing answer**: What a skill says to the person when its run ends: one line that gives the outcome, then the groups that have a point, then one line saying where the detail is and, where there is one, the next step. A run that stops before its closing step gives none, and a list of questions put to the person is not one.
 _Avoid_:
 
+**Map-only rule**: What research keeps to from its start until the person types another skill: it reads, runs only what reads the estate as it is, and writes nothing but files of the map. It makes no fix, test, probe, stand-in or throwaway estate, and starts no other skill; what only new code could show is left under Not known, naming the step that can show it.
+_Avoid_: read-only mode, plan mode, no-code mode
+
+**Ruling**: The person's answer to a recommended answer or a choice, such as a yes to every recommendation. It is written where the choice was written and is no longer listed as waiting. After research it settles the step research names, and is never leave to build.
+_Avoid_: approval, go-ahead, sign-off
+
 **Group**: One of the four parts of a closing answer, named for what its points ask of the person: Needs a fix, Yours to decide, Fine as it is, Not known. They come in that order, and one with no point is left out.
 _Avoid_:
 
