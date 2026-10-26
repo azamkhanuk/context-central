@@ -34,8 +34,8 @@ A fresh session is `/clear` in the terminal, or **+ New session** in the desktop
 A primary source is the thing itself: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
 
 - **Where the question goes.** With an item, the state file is read first. A ticket that no work item answers to gets its item first, `work new <item> --ticket "<reference>"`, so that its full text has somewhere to go. With no item at all, the note goes in `concepts/` and is linked from the note of each repo it is about, which is made where the map has none yet, so that prep finds it.
-- **It writes only the map.** From its start until you type another skill, research reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It makes no fix, test, probe or stand-in, and starts no other skill. What only new code could show is left under Not known, naming design or implement.
-- **A request to build** is researched as what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it.
+- **It writes only the map.** From its start until you type another skill, research reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It makes no fix, test, probe or stand-in, and starts no other skill. What only new code could show is left under Not known, naming the step that can show it.
+- **A request to build** is researched as what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it, unless the request names a ticket new to the map, which gets its item first.
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
 - **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
 - **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups, and a choice that is yours or a thing that is not known carries no mark.
@@ -54,7 +54,7 @@ Run it once for each question. Each run writes its own note and ends by naming t
 
 The note ends on the same step. With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the note, since design and implement read the state file and no research note. Prep reads the notes behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
 
-A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note and names the step again, and nothing is built until you type that step.
+A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note and names the step again. It makes a recommendation you said yes to where that changes only the map, such as a link from the hub, and nothing is built until you type that step.
 
 ## 2. The spec
 

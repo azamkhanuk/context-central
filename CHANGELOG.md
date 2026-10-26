@@ -6,19 +6,20 @@ Each release of context-central, newest first. The version is the one in `.claud
 
 Research finds out and writes no code, and its answer ends by naming the step that comes next.
 
-- **Research keeps to the map.** From its start until you type another skill, it reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It writes no code, not even a line typed into a command to try something, makes no fix, test, probe or stand-in, and starts no other skill. What only new code could show is left under Not known, naming the step that can show it. The agents it starts are told the same.
+- **Research keeps to the map.** From its start until you type another skill, it reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It writes no code, not even a line typed into a command to try something, makes no fix, test, probe or stand-in, and starts no other skill. What only new code could show is left under Not known, naming the step that can show it. The agents it starts are told to run only what reads and to write nothing but the path they are given.
 - **Its answer ends on the next step.** The last line names the note, then `Next:` with the earliest step any claim needs: `/context-central:prep <item>`, here or in a fresh session, where there is something to build and no spec or a claim changes what is built; `/context-central:design <item>` where a claim changes only how it is built or shows the design wrong; `/context-central:implement <item>` for a fault in what is built that the spec and the design already rule out; the step the state file names where the item's files already hold what was found; or none, with the next things you could do. With no item, prep is given a short name to make the item under. The note ends on the same step.
-- **A yes is a ruling.** A reply that says yes to its recommendations, or asks for the fix, the spec or the build, is written into the note as `Ruled <date>: ...`, and research names the step again and builds nothing. A reply that asks it to run or try something it would have to write goes under Not known.
+- **A yes is a ruling.** A reply that says yes to its recommendations, or asks for the fix, the spec or the build, is written into the note as `Ruled <date>: ...`, and research names the step again and builds nothing. It makes a recommendation that changes only the map, such as a link from the hub. A reply that asks it to run or try something it would have to write goes under Not known.
 - **A request to build** is researched as what the build has to fit and what the ask leaves open, and goes on to prep. Research makes no item for it, unless the request names a ticket new to the map.
 - **The docs say the same.** The walkthrough gives the next steps and the ruling, the README and the table of skills say that research names the step that comes next, and the research picture's last row and footer are redrawn.
 
-Shown by headless runs of the text that ships, on Claude Code 2.1.310, on a throwaway estate with a small repo and four items: a question with nothing to build, a request to build, an item with no spec, a finding that changes a requirement, one that shows the design wrong, an item whose files already hold the answer, and "yes to all recommended" then "build it" with superpowers loaded beside the plugin. Each named the step it should, and none wrote a file outside the map, ran a probe or started another skill. The same "yes to all recommended" on 0.16.0 edited the repo's code and its test.
+Shown by headless runs of the text that ships, on Claude Code 2.1.310, on a throwaway estate with a small repo and four items: a question with nothing to build, a request to build, an item with no spec, a finding that changes a requirement, one that shows the design wrong, an item whose files already hold the answer, and "yes to all recommended" then "build it" with superpowers loaded beside the plugin. Each named a step that fits what it found, and none wrote a file outside the map, ran a probe or started another skill. The same "yes to all recommended" on 0.16.0 edited the repo's code and its test.
 
 Not shown:
 
 - One run for each case, so a sample of one, not a rate.
 - A run in a git work tree, on Windows, or after the host compacts the conversation.
 - A reply that asks research to run something, which only a cold read followed.
+- A run that starts the reader or the fetcher: none of the runs needed one.
 
 For a map that already exists:
 
