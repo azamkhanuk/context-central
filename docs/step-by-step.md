@@ -46,15 +46,15 @@ Run it once for each question. Each run writes its own note and ends by naming t
 
 | Next step | When |
 |---|---|
-| `/context-central:prep <item>`, here or in a fresh session | there is something to build and no spec, or a claim changes what is built. With no item, research gives a short name for prep to make the item under |
+| `/context-central:prep <item>`, here or in a fresh session | there is something to build and no spec, or a claim changes what is built. With no item, research gives a short name for prep to make the item under, or the name of the item the finding fits |
 | `/context-central:design <item>`, in a fresh session | a spec is there, and a claim changes only how it is built or shows the design wrong |
 | `/context-central:implement <item>`, in a fresh session | a claim is a fault in what is built that the spec and the design already rule out |
 | the step the state file names | the item's files already hold what was found |
 | none | no claim needs a step: the line gives the next things you could do |
 
-The note ends on the same step. With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the note, since design and implement read the state file and no research note. Prep reads the notes behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
+The note ends on the same step. With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the note, since design and implement read the state file and no research note. With no item, the step is prep or none for the same reason. Prep reads the notes behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
 
-A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note and names the step again. It makes a recommendation you said yes to where that changes only the map, such as a link from the hub, and nothing is built until you type that step.
+A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note, writes to no other item, and names the step again, then any recommendation that is yours to carry out, such as a link from the hub. Nothing is built until you type that step.
 
 ## 2. The spec
 
