@@ -20,7 +20,7 @@ When the answer says a reference reads as a ticket and no work item answers to i
 
 When no item is named and none resolves, the research has no item and its note goes in `concepts/`.
 
-Where the question asks for something to be built, research what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it.
+Where the question asks for something to be built, research what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it, unless the question names a ticket new to the map, which gets its item as above.
 
 If the task arrived as work already in progress (a branch, an open PR, a half-finished ticket), read both the code diff against the repo's base branch and the ticket. The diff shows what was done and the ticket what was asked; either alone misleads. `context-central config --get repos` gives each repo's base branch.
 
