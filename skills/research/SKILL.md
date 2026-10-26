@@ -61,7 +61,7 @@ Then choose the next step: the earliest that any claim needs, read against the i
 - `/context-central:design <item>` in a fresh session, where a spec is there and a claim changes only how it is built, such as an interface, a failure or the order, or shows the design wrong.
 - `/context-central:implement <item>` in a fresh session, where a claim is a fault in what is built that the spec and the design already rule out.
 - The step the state file's Next names, in a fresh session, where the item's files already hold what was found.
-- None, where no claim needs a step or every slice is built: then the next things the person could do, in plain words, and no skill.
+- None, where no claim needs a step and there is no item, or every slice of it is built: then the next things the person could do, in plain words, and no skill.
 
 ## 4. Write the note
 
@@ -72,7 +72,7 @@ With an item, run `context-central work adopt <item>` before anything is written
 
 The note holds the question, the answer in a few lines, then the claims under the four groups of step 3 in that order, with their marks and their sources. Each claim starts on a line of its own; its recommendation, where it has one, is the line under it, as `- **Recommended:** <the answer, and why>`, and its evidence follows. A group with no claim says `none`. Name each file saved under `sources/` once by its file name: `context-central graph` reports a saved source that no note names. The note ends on the next step, worded as the answer words it.
 
-With an item, add the note's path to "Where the detail lives" in the state file, and put the next step at the top of its Next, with what was found that calls for it in a few words and a link to the note, keeping what Next already holds.
+With an item, add the note's path to "Where the detail lives" in the state file, and put the next step at the top of its Next, with what was found that calls for it in a few words and a link to the note, keeping what Next already holds. Where Next already names that step, add the finding and the link to that line instead, and where the next step is none, leave Next as it is.
 
 Then, with an item or without, run `context-central take`.
 
