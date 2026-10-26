@@ -12,10 +12,12 @@ Research finds out and writes no code, and its answer ends by naming the step th
 - **A request to build** is researched as what the build has to fit and what the ask leaves open, and goes on to prep. Research makes no item for it, unless the request names a ticket new to the map.
 - **The docs say the same.** The walkthrough gives the next steps and the ruling, the README and the table of skills say that research names the step that comes next, and the research picture's last row and footer are redrawn.
 
-Shown by headless runs of the text that ships, on Claude Code 2.1.310, on a throwaway estate with a small repo and four items: a question with nothing to build, a request to build, an item with no spec, a finding that changes a requirement, one that shows the design wrong, an item whose files already hold the answer, and "yes to all recommended" then "build it" with superpowers loaded beside the plugin. Each named a step that fits what it found, and none wrote a file outside the map, ran a probe or started another skill. The same "yes to all recommended" on 0.16.0 edited the repo's code and its test.
+Shown by headless runs on Claude Code 2.1.310, on a throwaway estate with a small repo and four items: a question with nothing to build, a request to build, an item with no spec, a finding that changes a requirement, one that shows the design wrong, an item whose files already hold the answer, and "yes to all recommended" then "build it" with superpowers loaded beside the plugin. Each but one named a step that fits what it found, and none wrote a file outside the map, ran a probe or started another skill. The same "yes to all recommended" on 0.16.0 edited the repo's code and its test.
 
 Not shown:
 
+- That "build it" with no item always names prep first: one run led with implement, where the skill says prep or none, and named prep after it.
+- The item with no spec, the two findings that change a requirement or the design, and the item whose files already hold the answer, on the text that ships: they ran before the last two review rounds changed the sentence on what research may run.
 - One run for each case, so a sample of one, not a rate.
 - A run in a git work tree, on Windows, or after the host compacts the conversation.
 - A reply that asks research to run something, which only a cold read followed.
