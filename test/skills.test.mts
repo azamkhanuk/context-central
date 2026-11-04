@@ -503,3 +503,22 @@ test('onboard names every key of a connection that the plugin reads', () => {
   assert.ok(read.length >= 8)
   assert.deepEqual(read.filter(key => !named.has(key)), [])
 })
+
+test('each of the four steps runs the skill a repo names for it, at the place the line standards prints is read', () => {
+  const root = tree(acme({}, { repos: [{ name: 'web', steps: { research: 'page-kit', prep: 'page-kit', design: 'page-kit', implement: 'page-kit' } }] }))
+
+  const printed = run(['standards', 'web'], { cwd: root }).stdout.split('\n')
+
+  assert.deepEqual(printed.slice(-6), ['Step skills for repo web:', '- research: page-kit', '- prep: page-kit', '- design: page-kit', '- implement: page-kit', ''])
+  for (const [name, heading] of [
+    ['research', '2. Gather from primary sources'],
+    ['prep', '1. Load the item'],
+    ['design', '3. Read the code the design will meet'],
+    ['implement', '4. Verify'],
+  ]) {
+    const part = step(name, heading)
+    assert.ok(part.includes('`context-central standards <repo>`'), name)
+    assert.ok(part.includes(`\`- ${name}: <skill>\` under \`Step skills for repo <repo>:\``), name)
+    assert.ok(part.includes('Where that skill cannot be found, say so under Needs a fix and go on without it.'), name)
+  }
+})
