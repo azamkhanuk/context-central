@@ -1,14 +1,15 @@
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { repoFolder, requireEstate, standardsFiles } from '../estate.mts'
+import { STEPS, repoFolder, requireEstate, standardsFiles } from '../estate.mts'
 import type { Io } from '../cli.mts'
-import type { Estate, Repo, StandardsFile } from '../estate.mts'
+import type { Estate, Repo, StandardsFile, Step } from '../estate.mts'
 
 interface Recorded {
   repo: string
   root: string
   standards: StandardsFile[]
   checks: string[]
+  steps: [Step, string][]
 }
 
 export const summary = "Print each repo's standards files and recorded checks: standards [<repo>] [--json]"
@@ -33,16 +34,25 @@ function chosen({ config }: Estate, name: string | undefined) {
 }
 
 function describe(estate: Estate, repo: Repo): Recorded {
-  return { repo: repo.name, root: repoFolder(estate, repo), standards: standardsFiles(estate, repo), checks: repo.checks ?? [] }
+  return { repo: repo.name, root: repoFolder(estate, repo), standards: standardsFiles(estate, repo), checks: repo.checks ?? [], steps: stepsOf(repo) }
 }
 
-function asData({ standards, ...rest }: Recorded) {
-  return { ...rest, standards: standards.map(({ path, state, note }) => ({ path, exists: state === 'file', note })) }
+function stepsOf({ steps = {} }: Repo): [Step, string][] {
+  return STEPS.flatMap(step => (steps[step] === undefined ? [] : [[step, steps[step]]]))
 }
 
-function render({ repo, root, standards, checks }: Recorded) {
+function asData({ standards, steps, ...rest }: Recorded) {
+  return {
+    ...rest,
+    standards: standards.map(({ path, state, note }) => ({ path, exists: state === 'file', note })),
+    ...(steps.length > 0 ? { steps: Object.fromEntries(steps) } : {}),
+  }
+}
+
+function render({ repo, root, standards, checks, steps }: Recorded) {
   return [
     ...(standards.length > 0 ? [`Standards for repo ${repo}:`, ...standards.map(file => `- ${file.path}${file.note ? NOTE_MARK : MARKS[file.state]}`)] : [`No standards recorded for repo ${repo}.`]),
     ...(checks.length > 0 ? [`Checks for repo ${repo}, run from ${root}:`, ...checks.map(check => `- ${check}`)] : [`No checks recorded for repo ${repo}.`]),
+    ...(steps.length > 0 ? [`Step skills for repo ${repo}:`, ...steps.map(([step, skill]) => `- ${step}: ${skill}`)] : []),
   ].join('\n')
 }

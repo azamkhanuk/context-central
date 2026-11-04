@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { list, patterns, strings, text } from './checks.mts'
+import { isObject, list, patterns, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -35,6 +35,12 @@ const DEFAULT_BUDGETS = {
 
 export type Layout = 'root' | 'inner'
 
+export const STEPS = ['research', 'prep', 'design', 'implement'] as const
+
+export type Step = (typeof STEPS)[number]
+
+const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/
+
 export type Budgets = typeof DEFAULT_BUDGETS
 
 export interface Repo {
@@ -43,6 +49,7 @@ export interface Repo {
   role?: unknown
   standards?: string[]
   checks?: string[]
+  steps?: Partial<Record<Step, string>>
 }
 
 export interface Tracker {
@@ -78,7 +85,7 @@ export interface Settings {
   glossary?: string
 }
 
-type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown }
+type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown; steps?: unknown }
 
 interface WrittenSettings {
   contextCentral: number
@@ -309,7 +316,23 @@ function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
     ...entry,
     standards: entry.standards === undefined ? undefined : pathsInEstate(entry.standards, 'standards', inRepo),
     checks: entry.checks === undefined ? undefined : singleLines(entry.checks, 'checks', inRepo),
+    steps: entry.steps === undefined ? undefined : stepSkills(entry.steps, inRepo),
   }
+}
+
+function stepSkills(value: unknown, fail: Fail): Partial<Record<Step, string>> {
+  if (!isObject(value)) fail('"steps" must be an object naming a skill for research, prep, design or implement')
+  const named: Partial<Record<Step, string>> = {}
+  for (const [key, skill] of Object.entries(value)) {
+    if (!isStep(key)) fail(`"steps" names "${key}"; a step there is research, prep, design or implement`)
+    if (typeof skill !== 'string' || !SKILL_NAME.test(skill)) fail(`"steps.${key}" must name one skill, as "name" or "plugin:name"`)
+    named[key] = skill
+  }
+  return named
+}
+
+function isStep(key: string): key is Step {
+  return (STEPS as readonly string[]).includes(key)
 }
 
 function singleLines(value: unknown, name: string, fail: Fail) {
