@@ -26,7 +26,7 @@ Run `context-central config --get repos`, then `context-central standards <repo>
 
 Delegate bulk reading to the `context-central:reader` agent. Give it each repo's folder, which is the `root` that `context-central standards <repo> --json` gives: the work tree, where the session is in a git work tree of that repo. For a repo the map does not register it is the folder settled in step 2. Give it the anchors of the code map, which are counted from the repo's root, and the question each one answers. With no code map, its first question is where the modules the spec names live. Read for what is already there to build on: the modules the change meets, their interfaces, how a neighbouring feature of the same shape was built, where its tests sit, and, for each interface whose failures rest on a dependency, that dependency's source at the version the repo pins, or a run of it.
 
-Then, for each repo whose `context-central standards <repo>` printed `- design: <skill>` under `Step skills for repo <repo>:` in step 2, invoke that skill with `design` and the item as its arguments, and write what it returns into the parts of step 4. Where that skill cannot be found, say so under Needs a fix and go on without it.
+Then, for each repo whose `context-central standards <repo>` printed `- design: <skill>` under `Step skills for repo <repo>:` in step 2, invoke that skill with `design` and the item as its arguments, and write what it returns into the parts of step 4. Where that skill cannot be found or cannot be invoked, say so under Needs a fix and go on without it.
 
 ## 4. Write the design
 
