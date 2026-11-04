@@ -131,7 +131,8 @@ It needs the spec, and it reads the design when there is one, the code map the s
 | `implement.tests` | on | Each slice starts with a failing test at one of the spec's test seams, and its tests cover the failing inputs the design lists for what it builds |
 | `implement.review` | on | The build is reviewed, in rounds |
 | `implement.reviewRounds` | 3 | The most review rounds a build may have before it stops and asks |
-| `implement.deferTo` | none | A skill of your own that builds, verifies, reviews and reports in place of the plugin's steps. The checkpoint still runs, and the build still ends on one closing answer |
+| `implement.deferTo` | none | A skill of your own that builds, verifies, reviews and reports in place of the plugin's steps. The checkpoint still runs, and the build still ends on one closing answer. A repo's step skill for implement then runs only where that skill runs it, since it is handed what `standards` prints |
+| a repo's `steps` | none | A skill of the estate's own that research, prep, design or implement runs for work touching that repo, on top of its own steps; implement runs its one after verifying and before the review rounds, and a commit it makes is part of the build ([standards](standards.md)) |
 | `writeRules` | none | What may be pushed, opened or posted without asking. Anything they do not cover waits for your yes |
 | a repo's `baseBranch` | its recent history | The branch the work branches from, and the range the reviewer reads |
 | a repo's `keyPlacement` | its recent history | Where the ticket key goes: the branch name, the commit subject, the pull request title |
