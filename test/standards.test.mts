@@ -349,3 +349,11 @@ test('step skills that are malformed are a config error that names the repo', ()
     assert.ok(result.stderr.endsWith(`estate.json: repo "api": ${message}\n`), result.stderr)
   }
 })
+
+test('an empty set of steps is read back as naming none', () => {
+  const root = withApi(FILES, { ...API, steps: {} })
+
+  const repos = JSON.parse(run(['config', '--get', 'repos'], { cwd: root }).stdout) as unknown
+
+  assert.deepEqual(repos, [{ path: 'web', ...WEB }, { path: 'api', ...API }])
+})

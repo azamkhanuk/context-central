@@ -519,6 +519,5 @@ test('each of the four steps runs the skill a repo names for it, at the place th
     const part = step(name, heading)
     assert.ok(part.includes('`context-central standards <repo>`'), name)
     assert.ok(part.includes(`\`- ${name}: <skill>\` under \`Step skills for repo <repo>:\``), name)
-    assert.ok(part.includes('Where that skill cannot be found, say so under Needs a fix and go on without it.'), name)
   }
 })

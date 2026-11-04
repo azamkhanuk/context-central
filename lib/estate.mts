@@ -316,7 +316,7 @@ function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
     ...entry,
     standards: entry.standards === undefined ? undefined : pathsInEstate(entry.standards, 'standards', inRepo),
     checks: entry.checks === undefined ? undefined : singleLines(entry.checks, 'checks', inRepo),
-    steps: entry.steps === undefined ? undefined : stepSkills(entry.steps, inRepo),
+    steps: entry.steps === undefined ? undefined : namedSteps(stepSkills(entry.steps, inRepo)),
   }
 }
 
@@ -329,6 +329,10 @@ function stepSkills(value: unknown, fail: Fail): Partial<Record<Step, string>> {
     named[key] = skill
   }
   return named
+}
+
+function namedSteps(steps: Partial<Record<Step, string>>) {
+  return Object.keys(steps).length > 0 ? steps : undefined
 }
 
 function isStep(key: string): key is Step {
