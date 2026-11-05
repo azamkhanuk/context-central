@@ -4,7 +4,7 @@ How a repo's code is written is the estate's to say. The plugin carries no rules
 
 ![Standards and checks: the standards skill gathers from the repo, drafts four parts, asks once and writes on a yes, and then design, implement, the reviewer and checkpoint each work from what was recorded](standards.png)
 
-A repo's standards note is the note named after it, `standards/api.md` for the repo `api`. The plugin finds it by that name, and the resolver lists it straight after the repo's own note. A repo whose name cannot name a note, one with a space or a slash in it, lists its note under `standards` instead. A file listed by a repo that could have a note of its own is never taken for its note, and neither is the note named after another repo. A repo's entry in `estate.json` may also carry two lists, both optional:
+A repo's standards note is the note named after it, `standards/api.md` for the repo `api`. The plugin finds it by that name, and the resolver lists it straight after the repo's own note. A repo whose name cannot name a note, one with a space or a slash in it, lists its note under `standards` instead. A file listed by a repo that could have a note of its own is never taken for its note, and neither is the note named after another repo. A repo's entry in `estate.json` may also carry two lists and a set of step skills, all optional:
 
 ```json
 { "name": "api", "path": "api", "standards": ["api/CONTRIBUTING.md"], "checks": ["./check.sh tests", "./check.sh style"] }
@@ -12,6 +12,11 @@ A repo's standards note is the note named after it, `standards/api.md` for the r
 
 - `standards`: the repo's own instruction files first, then other files the repo keeps for people, each listed here and never copied into the note. Each is a path inside the estate, counted from its root. The instruction files are the ones the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a repo below once a file there is read or edited. The host does not read a repo's `AGENTS.md` while a `CLAUDE.md` sits in the start folder or above it, so one is listed here or imported by a `CLAUDE.md` beside it. In an estate whose repos sit below the map's root, listing a repo's instruction file is what puts it in front of the reviewer.
 - `checks`: commands, run from the repo's folder. In a git work tree of the repo that folder is the work tree. The code passes when every one exits 0. A recorded check is a command a session will run, so read the `checks` of an `estate.json` you did not write before you let one.
+- `steps`: a skill of the estate's own for any of research, prep, design and implement, which that step runs for work touching the repo, on top of its own steps: research and prep before they write, design before it writes the design, and implement after verifying and before its review rounds. Each is one skill's name, as `name` or `plugin:name`, and a step not named runs as it always has. `standards` prints them after the checks, and a skill that cannot be found or invoked is said and passed over. The step starts the skill itself, so a skill named here must be one the model may invoke, with no `disable-model-invocation`. Under `implement.deferTo` the deferred skill is handed them with the rest of what `standards` prints, and implement's own sentence does not run.
+
+```json
+{ "name": "web", "path": "web", "steps": { "research": "page-kit", "prep": "page-kit", "design": "page-kit", "implement": "page-kit" } }
+```
 
 A standards note has four parts, every rule in it names its source, the file that shows it or who said it and when, and the note names the commit its lines were read at. An example is a pointer to real code, never a pasted snippet. For the invented estate:
 

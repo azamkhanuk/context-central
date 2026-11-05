@@ -289,3 +289,71 @@ test('the command is listed in the help with what it prints', () => {
 
   assert.match(result.stdout, /^ {2}standards {2}Print each repo's standards files and recorded checks: standards \[<repo>\] \[--json\]$/m)
 })
+
+test('a repo\'s step skills are printed after its checks, in the order of the steps', () => {
+  const root = withApi(FILES, { ...API, steps: { implement: 'page-kit', research: 'acme:page-kit', design: 'page-kit' } })
+
+  const lines = standards(root, 'api').stdout.split('\n')
+
+  assert.deepEqual(lines.slice(-6), ['- ./check.sh style', 'Step skills for repo api:', '- research: acme:page-kit', '- design: page-kit', '- implement: page-kit', ''])
+})
+
+test('a repo naming no step skill prints nothing of them, and an empty set of steps names none', () => {
+  const root = withApi({}, { ...API, standards: [], checks: [], steps: {} })
+
+  assert.equal(standards(root, 'web').stdout, NOTHING_FOR_WEB)
+  assert.equal(standards(root, 'api').stdout, 'No standards recorded for repo api.\nNo checks recorded for repo api.\n')
+  assert.deepEqual(JSON.parse(standards(root, 'api', '--json').stdout) as unknown, [{ repo: 'api', root: join(root, 'api'), standards: [], checks: [] }])
+})
+
+test('the step skills are given as data only for a repo that names any', () => {
+  const root = withApi(FILES, { ...API, steps: { prep: 'page-kit', implement: 'page-kit' } })
+
+  const data = JSON.parse(standards(root, '--json').stdout) as { repo: string; steps?: unknown }[]
+
+  assert.deepEqual(
+    data.map(entry => [entry.repo, entry.steps]),
+    [
+      ['web', undefined],
+      ['api', { prep: 'page-kit', implement: 'page-kit' }],
+    ],
+  )
+  assert.equal(Object.hasOwn(data[0], 'steps'), false)
+})
+
+test('a repo\'s step skills are settings like any other', () => {
+  const steps = { research: 'page-kit', prep: 'page-kit', design: 'page-kit', implement: 'page-kit' }
+  const root = withApi(FILES, { ...API, steps })
+
+  const repos = JSON.parse(run(['config', '--get', 'repos'], { cwd: root }).stdout) as unknown
+
+  assert.deepEqual(repos, [{ path: 'web', ...WEB }, { path: 'api', ...API, steps }])
+})
+
+test('step skills that are malformed are a config error that names the repo', () => {
+  for (const [steps, message] of [
+    [['page-kit'], '"steps" must be an object naming a skill for research, prep, design or implement'],
+    ['page-kit', '"steps" must be an object naming a skill for research, prep, design or implement'],
+    [null, '"steps" must be an object naming a skill for research, prep, design or implement'],
+    [{ deploy: 'page-kit' }, '"steps" names "deploy"; a step there is research, prep, design or implement'],
+    [{ implement: '' }, '"steps.implement" must name one skill, as "name" or "plugin:name"'],
+    [{ implement: ['page-kit'] }, '"steps.implement" must name one skill, as "name" or "plugin:name"'],
+    [{ prep: 'page kit' }, '"steps.prep" must name one skill, as "name" or "plugin:name"'],
+    [{ design: 'page-kit\nrm -rf' }, '"steps.design" must name one skill, as "name" or "plugin:name"'],
+    [{ research: 'a:b:c' }, '"steps.research" must name one skill, as "name" or "plugin:name"'],
+    [{ research: '../page-kit' }, '"steps.research" must name one skill, as "name" or "plugin:name"'],
+  ] as [Json, string][]) {
+    const result = refusal({ steps })
+
+    assert.equal(result.code, 1, message)
+    assert.ok(result.stderr.endsWith(`estate.json: repo "api": ${message}\n`), result.stderr)
+  }
+})
+
+test('an empty set of steps is read back as naming none', () => {
+  const root = withApi(FILES, { ...API, steps: {} })
+
+  const repos = JSON.parse(run(['config', '--get', 'repos'], { cwd: root }).stdout) as unknown
+
+  assert.deepEqual(repos, [{ path: 'web', ...WEB }, { path: 'api', ...API }])
+})

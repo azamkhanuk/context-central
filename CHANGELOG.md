@@ -2,6 +2,22 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.18.0 - 2026-11-04
+
+A repo can name a skill of the estate's own for each of research, prep, design and implement, and the step runs it for work touching that repo.
+
+- **Step skills.** A repo's entry in `estate.json` may carry `steps`, naming one skill for any of `research`, `prep`, `design` and `implement`, as `name` or `plugin:name`. A malformed entry is refused with the repo's name: one that is not an object, a key outside the four, or a value that is not one skill's name.
+- **`standards` prints them** after the checks, as `Step skills for repo <repo>:` and one line per step, in the order of the steps, and as `steps` in `--json` for a repo that names any.
+- **Each step runs its skill** on top of its own steps: research and prep before they write, design before it writes the design, and implement after verifying and before its review rounds, where a commit it makes is part of the build and the recorded checks run again after it. A skill that cannot be found or cannot be invoked, such as one with `disable-model-invocation`, is said under Needs a fix and passed over. Prep also reads the step skills of the repos the item's research notes say the work touches, since on a first prep there is no code map yet. Research's map-only rule makes room for the one skill a repo names for research. An empty `steps` names none, in every output.
+- **`implement.deferTo` keeps its meaning.** The deferred skill is handed what `standards` prints, step skills included, and implement's own sentence does not run under it.
+- **The docs say the same:** the term in `CONTEXT.md`, the field in the standards doc, the settings table in the walkthrough and the command's line.
+
+For a map that already exists: nothing changes until a repo names `steps`. A repo that names none prints exactly what 0.17.0 printed, as text and as data.
+
+Not shown:
+
+- A run of each step against a repo that names a skill: the tests hold the command's output and the sentence each skill carries, and what a session does with the sentence is shown only by a run.
+
 ## 0.17.0 - 2026-10-26
 
 Research finds out and writes no code, and its answer ends by naming the step that comes next.

@@ -27,7 +27,7 @@ _Avoid_: iteration, loop, pass
 **Closing answer**: What a skill says to the person when its run ends: one line that gives the outcome, then the groups that have a point, then one line saying where the detail is and, where there is one, the next step. A run that stops before its closing step gives none, and a list of questions put to the person is not one.
 _Avoid_:
 
-**Map-only rule**: What research keeps to from its start until the person types another skill: it reads, runs only what reads the estate as it is, and writes nothing but files of the map. It makes no fix, test, probe, stand-in or throwaway estate, and starts no other skill; what only new code could show is left under Not known, naming the step that can show it.
+**Map-only rule**: What research keeps to from its start until the person types another skill: it reads, runs only what reads the estate as it is, and writes nothing but files of the map. It makes no fix, test, probe, stand-in or throwaway estate, and starts no other skill but the step skill a repo names for research; what only new code could show is left under Not known, naming the step that can show it.
 _Avoid_: read-only mode, plan mode, no-code mode
 
 **Ruling**: The person's answer to a recommended answer or a choice, such as a yes to every recommendation. It is written where the choice was written and is no longer listed as waiting. After research it settles the step research names, and is never leave to build.
@@ -56,6 +56,9 @@ _Avoid_: memory files, context files, agent instructions
 
 **Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, which in a work tree of the repo is the work tree, and work is verified only when every one exits 0.
 _Avoid_: quality gate, pipeline, score
+
+**Step skill**: A skill of the estate's own that a repo names on its entry for one of research, prep, design and implement, under `steps`. The step runs it for work touching that repo, on top of its own steps: research and prep before they write, design before it writes the design, and implement after verifying and before its review rounds. `standards` prints a repo's step skills after its checks. A repo that names none behaves as before, and under `implement.deferTo` the deferred skill is handed them with the rest.
+_Avoid_: hook, kit, plug-in skill
 
 **Work item**: One piece of work in flight or done, kept as a folder under `work/` and named by a ticket key or a plain name. A `README.md` or an `index.md` directly under `work/` is not one, and neither is anything there the settings list under `notNodes`.
 _Avoid_: ticket, task, issue, story
