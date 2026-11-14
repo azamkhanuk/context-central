@@ -134,7 +134,7 @@ test('a hub that is not there is marked', () => {
   assert.equal(index(root).stdout.split('\n')[1], `Hub: ${join(root, 'MAP.md')} (missing)`)
 })
 
-test('the index as JSON lists the same items with both paths', () => {
+test('the index as JSON lists the same items with both paths and their words on proof', () => {
   const root = tree(acme())
 
   assert.deepEqual(JSON.parse(index(root, '--json').stdout) as unknown, {
@@ -143,7 +143,7 @@ test('the index as JSON lists the same items with both paths', () => {
     hub: join(root, 'CLAUDE.md'),
     repo: null,
     connections: [{ name: 'jira', holds: 'tickets' }],
-    items: [{ id: 'PROJ-12', title: 'Rate limit the gateway', entry: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md') }],
+    items: [{ id: 'PROJ-12', title: 'Rate limit the gateway', entry: 'work/PROJ-12/STATE.md', path: join(root, 'work/PROJ-12/STATE.md'), proof: null }],
   })
 })
 

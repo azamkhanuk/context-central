@@ -3,15 +3,15 @@ import { dirname, join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { requireEstate } from '../estate.mts'
 import { locked, standsAt, writeWhole } from '../lock.mts'
-import { cmdLauncherTemplate, launcherAttributesTemplate, launcherTemplate } from '../templates.mts'
+import { CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE, LAUNCHER_FILE, cmdLauncherTemplate, launcherAttributesTemplate, launcherTemplate } from '../templates.mts'
 import type { Io } from '../cli.mts'
 
 export const summary = 'Print a launcher for running the CLI from a terminal; --write saves it in the map, with one for cmd'
 
 const SAVED = [
-  { rel: 'bin/context-central', content: launcherTemplate, mode: 0o755, launcher: true },
-  { rel: 'bin/context-central.cmd', content: cmdLauncherTemplate, mode: 0o644, launcher: true },
-  { rel: 'bin/.gitattributes', content: launcherAttributesTemplate, mode: 0o644, launcher: false },
+  { rel: LAUNCHER_FILE, content: launcherTemplate, mode: 0o755, launcher: true },
+  { rel: CMD_LAUNCHER_FILE, content: cmdLauncherTemplate, mode: 0o644, launcher: true },
+  { rel: LAUNCHER_ATTRIBUTES_FILE, content: launcherAttributesTemplate, mode: 0o644, launcher: false },
 ]
 const DIFFERS = ' (differs from the one this release writes: delete it and run this again to renew it)'
 

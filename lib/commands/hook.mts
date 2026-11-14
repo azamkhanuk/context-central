@@ -33,6 +33,7 @@ const CARRIES_STATE: (string | undefined)[] = ['compact', 'resume']
 const CONTEXT_CHARS = 9500
 const CUT = '\n[cut here; the file holds the rest]'
 const HOST_TEXT = ['<task-notification>', '<agent-message']
+const PROOF_MS = 2000
 
 export async function run(args: string[], io: Io) {
   try {
@@ -78,7 +79,7 @@ function real(path: string) {
 function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: string): HookAnswer {
   if (input.source === 'clear') resetSession(env, input.session_id)
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
-  const index = buildIndex(estate, { absolute: true, startDir })
+  const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
   return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: truncate(text, CONTEXT_CHARS, CUT) }, ...resumeNotice(estate, input) }
 }

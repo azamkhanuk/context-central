@@ -4,6 +4,8 @@ import { listed } from './connections.mts'
 import { draftsDir, waitingIn } from './drafts.mts'
 import { repoAt, standardsFiles } from './estate.mts'
 import { fileAt, hubPath, inFlight, listWorkItems } from './nodes.mts'
+import { rowWords, unproven } from './proof.mts'
+import type { Env } from './cli.mts'
 import type { Connection } from './connections.mts'
 import type { Estate } from './estate.mts'
 
@@ -20,19 +22,19 @@ export interface IndexRepo {
   standardsPath: string | null
 }
 
-export function indexData(estate: Estate, startDir?: string) {
+export function indexData(estate: Estate, env: Env, { startDir = undefined, until = undefined }: { startDir?: string; until?: number } = {}) {
   const items = listWorkItems(estate)
     .filter(inFlight)
-    .map(item => ({ id: item.id, title: item.title, entry: item.entry?.rel ?? null, path: item.entry?.path ?? null }))
+    .map(item => ({ id: item.id, title: item.title, entry: item.entry?.rel ?? null, path: item.entry?.path ?? null, proof: rowWords(unproven(estate, item, env, until)) }))
   const connections = listed(estate.config.connections).map(({ name, entry }) => ({ name, holds: entry.holds }))
   return { title: estate.config.title, mapDir: estate.mapDir, hub: hubPath(estate), repo: repoAround(estate, startDir), connections, items }
 }
 
-export function buildIndex(estate: Estate, { absolute = false, startDir = undefined }: { absolute?: boolean; startDir?: string } = {}) {
-  const { title, mapDir, hub, repo, items } = indexData(estate, startDir)
+export function buildIndex(estate: Estate, env: Env, { absolute = false, startDir = undefined, until = undefined }: { absolute?: boolean; startDir?: string; until?: number } = {}) {
+  const { title, mapDir, hub, repo, items } = indexData(estate, env, { startDir, until })
   const head = [`Context map "${title}": ${mapDir}`, `Hub: ${hub}${existsSync(hub) ? '' : ' (missing)'}`, ...(repo ? [repoLine(repo, absolute)] : []), ...workTreeLines(estate), ...connectionsLine(listed(estate.config.connections))]
   if (items.length === 0) return [...head, 'No work in flight.'].join('\n')
-  const rows = items.map(item => `- ${item.id} | ${item.title} | ${(absolute ? item.path : item.entry) ?? 'no entry file'}`)
+  const rows = items.map(item => `- ${item.id} | ${item.title} | ${(absolute ? item.path : item.entry) ?? 'no entry file'}${item.proof ? ` | proof: ${item.proof}` : ''}`)
   const withRows = (shown: number) => [...head, `Work in flight (${rows.length}):`, ...rows.slice(0, shown), ...restRow(rows.length - shown), LAST_LINE].join('\n')
   let shown = rows.length
   while (shown > 0 && withRows(shown).length > estate.config.budgets.indexChars) shown -= 1

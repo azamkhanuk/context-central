@@ -7,6 +7,7 @@ import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { locked, readWhole, writeWhole } from '../lock.mts'
 import { EVIDENCE_DIR, findWorkItem, inFlight, leftOut, listWorkItems, makeFolder, underNotNodes } from '../nodes.mts'
+import { saidOf, unproven } from '../proof.mts'
 import { pointedTo } from '../resolve.mts'
 import { stateTemplate } from '../templates.mts'
 import { formatBytes, localDate, plural, setFrontmatter } from '../text.mts'
@@ -35,6 +36,7 @@ interface Listed {
 export const summary = 'Work items: new <item>, list, done <item>, reopen <item>, adopt <item> or --all'
 
 const ITEM_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const DONE = 'done'
 const FOLDERS = ['notes', 'sources', EVIDENCE_DIR]
 const TICKET = /^[^\s"\p{Cc}-][^\s"\p{Cc}]*$/u
 const ACTIONS: Record<string, Action> = {
@@ -60,7 +62,7 @@ export function run(args: string[], io: Io) {
   if (action === 'new') return create(estate, id, values, io)
   if (action === 'list') return list(estate, values, io)
   if (action === 'adopt') return adopt(estate, id, values.all, io)
-  return setStatus(estate, id, action === 'done' ? 'done' : 'active', io)
+  return setStatus(estate, id, action === 'done' ? DONE : 'active', io)
 }
 
 function create(estate: Estate, id: string, { title, ticket }: { title?: string; ticket?: string }, io: Io) {
@@ -189,4 +191,6 @@ function setStatus(estate: Estate, id: string, status: string, io: Io) {
     writeWhole(path, setFrontmatter(text, 'status', status))
   })
   io.out(`${item.id}: ${status}`)
+  const lacks = status === DONE ? unproven(estate, item, io.env) : []
+  if (lacks.length > 0) io.out(`proof: ${saidOf(item, lacks)}`)
 }

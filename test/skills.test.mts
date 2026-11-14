@@ -8,7 +8,7 @@ import type { Json } from './helpers.mts'
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take', 'proof']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -39,6 +39,7 @@ const FLAGS: Record<string, string[]> = {
   standards: ['json'],
   draft: [],
   take: ['over'],
+  proof: ['check', 'exit'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
@@ -333,6 +334,14 @@ test("the draft that onboard shows is one the plugin reads, with every connectio
 
   assert.equal(listed.stderr, '')
   assert.equal(listed.stdout, 'tracker | tickets | by a session, through the server the name of the server\ncode | pull-requests | by hand | as the pinned account\nnotes | meetings | by hand: how a person gets at them\n')
+})
+
+test("the draft that onboard shows carries a repo's remote, which the plugin reads back and doctor puts in the line that clones the repo", () => {
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
+  const root = tree(makeTree({ 'estate.json': draft.config, 'CLAUDE.md': '# Acme\n' }))
+
+  assert.deepEqual((JSON.parse(run(['config', '--get', 'repos'], { cwd: root }).stdout) as { remote: string }[]).map(repo => repo.remote), ['https://git.example.com/acme/web.git'])
+  assert.match(run(['doctor'], { cwd: root, env: { PATH: tree(makeTree({})) } }).stdout, new RegExp(`^FIX {2}repos: no folder at web; from ${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} run git clone https://git\\.example\\.com/acme/web\\.git web, or take the entry out of estate\\.json$`, 'm'))
 })
 
 test('a reference in a command that a skill or an agent gives is in quotes, since one may start with a sign the shell reads as a comment', () => {

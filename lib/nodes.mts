@@ -77,6 +77,7 @@ export interface PassedOver {
 }
 
 export const EVIDENCE_DIR = 'evidence'
+export const PROOF_FILE = 'proof.jsonl'
 
 const NOT_ITEMS = ['readme.md', 'index.md']
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
@@ -151,6 +152,16 @@ export function listNodes(estate: Estate) {
   return listFiles(estate).filter(file => !file.deep)
 }
 
+export function savedSourceNames(estate: Estate) {
+  const { nodeDirs, deepDirs } = estate.config
+  return nodeDirs
+    .map(dir => dir.replace(/\/+$/, ''))
+    .filter(dir => isFolder(estate, dir))
+    .flatMap(dir => walk(estate, dir, anyName))
+    .filter(rel => !leftOut(estate.config, rel) && rel.split('/').slice(0, -1).some(part => deepDirs.includes(part)))
+    .map(rel => posix.basename(rel))
+}
+
 export function readNode(estate: Estate, node: NodeRef): NodeText {
   const text = readFileSync(node.path, 'utf8')
   const { data, body } = parseFrontmatter(text)
@@ -211,7 +222,7 @@ export function strayFiles(estate: Estate): StrayFile[] {
     .filter(dirRel => !leftOut(estate.config, dirRel) && isFolder(estate, dirRel))
     .flatMap(dirRel =>
       walk(estate, dirRel, name => !isMarkdown(name))
-        .filter(rel => !isEvidence(estate.config, rel))
+        .filter(rel => !isEvidence(estate.config, rel) && rel !== `${dirRel}/${PROOF_FILE}`)
         .map(rel => ({ rel, dirRel })),
     )
 }

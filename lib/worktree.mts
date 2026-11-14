@@ -87,8 +87,8 @@ function asGitTakesIt(dir: string, path: string) {
   return relative(dir, path).split(sep).join('/')
 }
 
-function asked(dir: string, args: string[], env: Env) {
-  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_ANSWER_BYTES })
+export function asked(dir: string, args: string[], env: Env, timeoutMs = GIT_TIMEOUT_MS, input?: string) {
+  return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: GIT_ANSWER_BYTES, input })
 }
 
 function checkoutAbove(start: string) {

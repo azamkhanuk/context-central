@@ -23,7 +23,7 @@ function realGit() {
 }
 
 const NOT_CHECKED = 'git is not on the PATH, so this was not checked'
-const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees'].map(row => `note ${row}: ${NOT_CHECKED}`)
+const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof'].map(row => `note ${row}: ${NOT_CHECKED}`)
 
 const GIT_IGNORING_WEB_ONLY = 'case "$*" in *rev-parse*) echo true ;; *"check-ignore -q web") exit 0 ;; *) exit 1 ;; esac'
 const GIT_IGNORING_BOTH = 'case "$*" in *rev-parse*) echo true ;; *) exit 0 ;; esac'
@@ -72,7 +72,7 @@ const hooksLine = (result: Result) => result.stdout.split('\n').find(line => lin
 const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
-test('with no git on the PATH the four rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
+test('with no git on the PATH the five rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
   const root = tree(acme({}, BY_A_SERVER))
 
   const result = doctor(root)
@@ -95,7 +95,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root, realGit())
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   proof', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -615,7 +615,7 @@ test('a hub path that is a folder is a fix, not a crash', () => {
   assert.equal(result.stderr, '')
 })
 
-test('json lists every check with its fix and its note, and with no git on the PATH the four rows that ask git carry that as their note', () => {
+test('json lists every check with its fix and its note, and with no git on the PATH the five rows that ask git carry that as their note', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox(), '--json')
@@ -631,6 +631,7 @@ test('json lists every check with its fix and its note, and with no git on the P
     { check: 'notes', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'evidence', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'worktrees', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'proof', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'copies', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
@@ -924,4 +925,81 @@ test('from inside a work tree that was moved by hand, doctor names it where draf
   writeIn(moved, 'concepts/limits.md', '# Limits\n')
 
   assert.equal(worktreesLine(made, moved), `FIX  worktrees: 1 draft waits in ${moved}; run context-central take there`)
+})
+
+test('doctor counts the items in flight whose proof is not whole in a note that names lint, and the note leaves its exit code at 0', () => {
+  const made = solo({ '.context-central/work/PROJ-13/STATE.md': '---\nstatus: active\n---\n# PROJ-13\n' })
+  tree(made.base)
+  const env = { ...realGit(), ...made.env }
+  const proved = (item: string) => run(['proof', item, '--check', './check.sh', '--exit', '0'], { cwd: made.main, env })
+  const row = () => doctor(made.main, env).stdout.split('\n').find(line => line.includes(' proof'))
+  proved('PROJ-12')
+  proved('PROJ-13')
+
+  const whole = row()
+  writeFileSync(join(made.main, 'src/app.js'), 'export const limited = true\n')
+  spawnSync('git', ['-C', made.main, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.invalid', 'commit', '-q', '-am', 'second'], { env: { ...process.env, ...made.env } })
+  const two = doctor(made.main, env)
+  proved('PROJ-12')
+
+  assert.equal(whole, 'ok   proof')
+  assert.match(two.stdout, /^note proof: 2 items in flight lack proof; context-central lint names them$/m)
+  assert.equal(two.code, 0)
+  assert.equal(row(), 'note proof: 1 item in flight lacks proof; context-central lint names it')
+})
+
+const missing = (repos: Json[], estate = tree(acme({}, { repos: [...ACME_CONFIG.repos, ...repos] }))) => ({ estate, line: doctor(estate).stdout.split('\n').find(line => line.includes(' repos')) })
+
+test('a repo with no folder whose entry carries a plain remote gets the line that clones it there, to be run from the estate root', () => {
+  const overHttps = missing([{ name: 'mobile', remote: 'https://git.example.com/acme/mobile.git' }])
+  const overSsh = missing([{ name: 'batch', path: 'services/batch', remote: 'git@git.example.com:acme/batch.git' }])
+
+  assert.equal(overHttps.line, `FIX  repos: no folder at mobile; from ${overHttps.estate} run git clone https://git.example.com/acme/mobile.git mobile, or take the entry out of estate.json`)
+  assert.equal(overSsh.line, `FIX  repos: no folder at services/batch; from ${overSsh.estate} run git clone git@git.example.com:acme/batch.git services/batch, or take the entry out of estate.json`)
+  assert.equal(doctor(overHttps.estate).code, 1)
+})
+
+test('each further repo with a plain remote is one more clone in the line, and one with no remote is named after it', () => {
+  const { estate, line } = missing([
+    { name: 'mobile', remote: 'ssh://git@git.example.com:2222/acme/mobile.git' },
+    { name: 'batch', path: 'services/batch' },
+    { name: 'docs', remote: 'git://git.example.com/acme/docs.git' },
+  ])
+
+  assert.equal(line, `FIX  repos: no folder at mobile, services/batch, docs; from ${estate} run git clone ssh://git@git.example.com:2222/acme/mobile.git mobile, then git clone git://git.example.com/acme/docs.git docs; clone services/batch there, or take the entry out of estate.json`)
+})
+
+test('a remote that is not one plain address is named as unusable and never printed', () => {
+  const NOT_PLAIN = [
+    'https://someone:hunter2@git.example.com/acme/mobile.git',
+    'https://git.example.com/acme/mobile.git; rm -rf ~',
+    'https://git.example.com/acme/my mobile.git',
+    "https://git.example.com/acme/mobile'.git",
+    'https://git.example.com/acme/$(whoami).git',
+    '--upload-pack=touch /tmp/x',
+    '-oProxyCommand=x@git.example.com:acme/mobile.git',
+    '../mobile.git',
+    'file:///srv/git/mobile.git',
+    '',
+  ]
+
+  for (const remote of NOT_PLAIN) {
+    const { line } = missing([{ name: 'mobile', remote }])
+
+    assert.equal(line, 'FIX  repos: no folder at mobile; the remote recorded for mobile is not one plain address; clone there, or take the entry out of estate.json', remote)
+  }
+  assert.equal(missing([{ name: 'mobile', remote: ['https://git.example.com/acme/mobile.git'] }]).line, 'FIX  repos: no folder at mobile; the remote recorded for mobile is not one plain address; clone there, or take the entry out of estate.json')
+})
+
+test('a plain remote is not put in a command where the path of its repo is not plain, and the folder is to be cloned by hand', () => {
+  const { line } = missing([{ name: 'mobile', path: 'apps/my mobile', remote: 'https://git.example.com/acme/mobile.git' }])
+
+  assert.equal(line, 'FIX  repos: no folder at apps/my mobile; clone there, or take the entry out of estate.json')
+})
+
+test('a repo whose folder is there is not told to clone, whatever its remote', () => {
+  const estate = tree(acme({}, { repos: [{ name: 'web', remote: 'https://someone:hunter2@git.example.com/acme/web.git' }, { name: 'api', remote: 'https://git.example.com/acme/api.git' }] }))
+
+  assert.match(doctor(estate).stdout, /^ok {3}repos$/m)
+  assert.deepEqual((JSON.parse(run(['config', '--get', 'repos'], { cwd: estate }).stdout) as { remote: string }[]).map(repo => repo.remote), ['https://someone:hunter2@git.example.com/acme/web.git', 'https://git.example.com/acme/api.git'])
 })

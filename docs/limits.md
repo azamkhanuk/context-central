@@ -19,9 +19,12 @@
 - It does not check where the plugin is enabled. `doctor` cannot tell you that a session started inside a repo is not given the plugin, or that a folder has not been trusted.
 - It does not renew a launcher you saved. `wrapper --write` says when one differs, and the renewing is yours.
 - It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows.
-- Its eval suite is a measure taken by hand and gates nothing. It is three cases on one model and one invented estate, run three times an arm, with no case for a checkpoint: a run's sandboxed shell would not start the plugin's own command. [The eval suite](evals.md) lists what it cannot show.
+- Its eval suite is a measure taken by hand and gates nothing. It is four cases on one model and one invented estate, run three times an arm, with no case for a checkpoint: a run's sandboxed shell would not start the plugin's own command. [The eval suite](evals.md) lists what it cannot show.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
-- It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
+- It does not judge whether a note is true. `lint` and `graph` check size and links, and `lint` that a claim marked `verified` names a source: a path with a line number, a web address, a link to a file or the name of a saved source, on the claim's line or on a line nested under it. It does not read the source, and a line that only talks about the mark is counted as a claim.
+- It never runs a recorded check, and it does not know that one was run. The proof record holds what a session said a check exited with, beside the commit git gave for it. [Proof of a build](standards.md#proof-of-a-build) says what that can and cannot show.
+- It holds nothing back for proof that is not whole. `lint`, `doctor`, the live index and `work done` say so, and a merge is still yours.
+- It clones no repo. `doctor` prints the command for a repo whose folder is missing, where its entry carries a plain remote.
 - On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:
   - Nothing has shown that Claude Code fires the hooks there, or that a skill reaches `context-central` from the Bash tool.
   - Nothing has shown what `fetch` does with an answer from a preset's tool there, or what `doctor` and `detect` make of its accounts.

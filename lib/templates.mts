@@ -246,3 +246,7 @@ function partLines(nodeDirs: string[], workDir: string, glossary: string, inMap:
   const parts = nodeDirs.map(dir => (dir === workDir ? `- \`${inMap(dir)}/<item>/STATE.md\`: where a piece of work stands and what is next. Files that are not text sit in \`evidence/\` beside it.` : `- \`${inMap(dir)}/\`: ${PARTS[dir] ?? 'notes.'}`))
   return [...parts, `- \`${glossary}\`: the estate's terms.`]
 }
+
+export const LAUNCHER_FILE = 'bin/context-central'
+export const CMD_LAUNCHER_FILE = 'bin/context-central.cmd'
+export const LAUNCHER_ATTRIBUTES_FILE = 'bin/.gitattributes'

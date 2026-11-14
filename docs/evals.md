@@ -1,6 +1,6 @@
 # The eval suite
 
-Three cases for Claude Code's own `claude plugin eval`, kept in `evals/`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
+Four cases for Claude Code's own `claude plugin eval`, kept in `evals/` as two case groups: three in `reading` and one in `proof`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
 
 The suite is a measure taken by hand. It is not one of the checks, nothing waits on a score, and every run is paid for on the account of whoever starts it.
 
@@ -13,17 +13,20 @@ Each case is tied to one line of the [README](../README.md).
 | `where-an-item-stands` | "A new session picks up where the last one stopped." | "Where does export-retry stand, and what is next?" | The reply gives a fact of where the work stands and a fact of what is next, each held by the item's state file and by no other file of the estate |
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
 | `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer, and no note of the map was read or searched for its text. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
+| `ready-to-merge` | "A build leaves proof." | "Is refund-window ready to merge?" | The reply says that the item's proof, the last recorded run of its check, is older than the head of its branch. No file of the estate says so: the state file says the item is built and verified |
 
 There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
 - In the first trial the machine's `PATH` held an installed copy of the plugin, under the home folder. The session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`: a run's sandboxed shell cannot read the home folder.
 - In the second, with that copy off the `PATH`, each was answered `command not found`: the `bin` folder of the plugin under test was not on the `PATH` of the run's shell. The session then wrote the state file itself, with the tools it was granted, and the case's graders passed, since they read that file alone. So the case as built would also have scored a checkpoint the plugin's command took no part in.
 
-Not tried: a run started with the checkout's own `bin` folder first on the `PATH`.
+- In a third, made on 2026-11-14 with the checkout's own `bin` folder first on the `PATH` and the installed copy off it, the shell found the command and Node did not start: `node: OpenSSL configuration error`, `Operation not permitted`, on `/opt/homebrew/etc/openssl@4/openssl.cnf`. A run's settings deny its shell `/opt/homebrew/etc`, among the places where a credential may be kept, and the Node of that machine, from Homebrew, reads its OpenSSL configuration there as it starts. `git` did not start in that shell either: on macOS `/usr/bin/git` writes a cache in the temporary folder, which the shell is denied. So the `PATH` was the whole of the second trial's fault and not the whole of the matter, and no case here rests on the plugin's command in a run's shell.
 
 ## The estate of a case
 
 Every case starts from the same invented estate, acme. The case's scaffold, a shell script, makes it in the run's empty workspace before the session starts, by sourcing `evals/acme.sh`. It is the same in both arms: 45 files, with four repos, seven work items of which six are in flight, concept and decision notes, two months of log and two saved tickets.
+
+`ready-to-merge` adds to acme, in its own scaffold: one recorded check for the repo `api`, `./check.sh`; a git repository in `api/`, with a branch `main` and a branch `work/refund-window` two commits on from it; and an eighth work item, `refund-window`, whose state file says it is built and verified and whose proof record, `proof.jsonl`, holds one run of that check at the first of those two commits. The second is a fix made after that run, so the proof is older than the head of the branch. It is the one scaffold that starts a program, `git`, and it gives every commit a fixed author and date, so that the two commits have the same ids wherever the estate is made.
 
 It is made large enough that finding the right file is work for a session with no pointers. Several work items share the words of a case's prompt, a finished item still carries an old "next", and the log holds older lines about the same work.
 
@@ -43,8 +46,11 @@ A pattern is a blunt measure of a reply. Where a fact has no one word of its own
 | `next` of `where-an-item-stands` | The `export-stalled` channel; an alert beside api or an export that has failed every try; an alert or a notice beside the team; or production beside a word for switching on |
 | `reason` of `ticket-leads-to-notes` | The payment provider, or its settlement files, beside rounding, half, matching, agreeing or being consistent |
 | `answer` of `nothing-to-say` | 366 |
+| `proof-is-older` of `ready-to-merge` | The proof, the check or its last run said to be older than the head, stale, out of date or behind the branch; the head or the last commit said to be unchecked or to have no run; a commit said to have come after the run; the branch said to have moved since, or, beside a word for the proof, to have moved, to be now at a commit, or to have a newer or a later commit; or a reply that opens by holding the merge back and names both commits, the one the run was made at and the one at the head |
 
 `stands` rests on "production" being in no file of acme but the state file, so that a reply which names it has read that file. A test holds the word to that one file.
+
+`proof-is-older` rests on no file of the estate saying that the proof is older than the head: the proof record holds the commit of the run, and the repository in `api/` holds the head. A session has the fact from the words on the item's row of the live index, or from reading both and comparing them. The two commits have fixed ids, which the pattern holds, so a reply that names both has read both. The pattern does not pass every sentence that holds the fact's words. These five replies fail, and a test holds each: "the proof is not stale", "is the proof older than the head?", "the proof may be older than the head", "I could not tell whether the proof is older than the head" and "two commits ahead of main". They are five replies and not five kinds: a denial, a question, a doubt or talk of `main` in other words can pass, and the kinds below give replies that do.
 
 The tests hold replies each pattern must pass and replies it must fail. Four kinds of reply are scored wrongly all the same, and no pattern mends it:
 
@@ -52,6 +58,28 @@ The tests hold replies each pattern must pass and replies it must fail. Four kin
 - For `next` and `reason`, a right reply that has the two things in two sentences scores as wrong: "First the alert. It goes in api."
 - A reply that names both without having found them scores as right, whether it guesses or says that it does not know: "if it is about your payment provider, a rounding rule may be involved", or "I could not find whether it is live in production".
 - A reply that says where the item stands and nothing of what is next can pass `next`, where it words the state file's first sentence with an alert: "switched off in production until the team can be alerted".
+
+`proof-is-older` has kinds of its own. These are the ones found so far, by readers who tried replies against it, and a test holds each reply given here. No kind is closed: each reader who looked for one more reply of a kind found one.
+
+- A right reply that names neither commit and uses none of the pattern's words scores as wrong: "the proof was recorded at the earlier of the branch's two commits".
+- A right reply that names both commits, uses none of those words and does not open by holding the merge back scores as wrong: "Mostly, with one gap. The proof record names 15d9165; the branch ref is e60a545."
+- A right reply that has a word of doubt close before the fact, with no comma between, scores as wrong: "I could see the proof is older than the head". With a comma, as in "I may be wrong, but the proof is older than the head", it passes.
+- A right reply whose sentence ends at a line break with no full stop, and whose next line asks something, scores as wrong, since the pattern reads the two lines as one sentence that asks: "The proof is older than the head", and on the next line "Want me to run ./check.sh again?".
+- A reply that sets the state file against the branch with no word of the proof scores as wrong, though it has seen that the branch moved: "The state file is from 2026-01-14 and the branch has a commit dated the day after."
+- A reply that only wonders scores as right where its word of doubt is further before the fact: "it may well be that the proof is older than the head".
+- A reply that doubts in words the pattern does not hold scores as right: "Yes. I am not sure the proof is older than the head.", "Yes. I doubt the proof is stale.", or "I cannot say the proof is older than the head".
+- A reply that denies scores as right where its "no" or "not" is further before the fact, or where the fact is in other words: "Yes. There is no sign that the proof is stale.", or "Yes. The proof does not lag the head."
+- A reply that asks scores as right where a comma, or a word such as "because", stands between the fact and the question mark: "Is the proof older than the head, or is it current?", or "Is the proof older than the head because of the last commit?"
+- A wrong reply that sets the branch against `main` in other words scores as right: "Yes. The check passes and the branch is two commits ahead of the main branch.", or "Yes. The check passed, and main is two commits behind."
+- A wrong reply that names the check and, in the same sentence, says where the branch now is or speaks of a newer or a later commit scores as right, since the pattern takes those words beside a word for the proof as the fact: "Yes. ./check.sh passes and the branch is now at e60a545.", or "Yes: ./check.sh passes, and the newer commit only adds the thirtieth-day test."
+- A wrong reply that has a word for the proof beside "does not include" scores as right: "Yes. proof.jsonl shows ./check.sh exited 0, and the record does not include any failing run."
+- A wrong reply that has "verified" or "passed" shortly before another or an earlier commit scores as right: "Yes. The state file says it is built and verified, with another commit adding the thirtieth-day test."
+- A wrong reply that says the check passed before a change scores as right: "Yes. The tests passed before the change and after it."
+- A reply that states the fact and still calls the item ready scores as right, since the pass is on the fact and not on the verdict: "Yes, it is ready: the proof is older than the head, which is fine."
+
+Three readers who were told nothing of the pattern wrote replies to try it, before any figure was taken. The first two led to its rewriting. The third wrote 140 replies before opening the pattern as it ships: none of 40 right replies that had the row's words failed, 1 of 40 right replies worked out from the files failed, and none of 60 wrong replies passed. Those replies were a reader's and not a session's, so the counts say how the pattern does on wordings it was not made on, and not how often a session uses them.
+
+After the figures were taken, a reader who had read the pattern wrote replies aimed at it: 24 of 47 wrong replies passed and 13 of 71 right ones failed. Those replies were written to break the pattern and are not a session's replies, so beside the blind read's counts they say how far the pattern can be pushed, and not how often a session's reply is scored wrongly. The kinds above come from them and from a later reader's replies of the same sort. The pattern is left as it was when the figures were taken. A result document holds no reply to score again, so a new pattern would need both runs made again.
 
 `nothing-to-say` also fails where a note of the map was read. That is a `Read` of a file of the map, or a `Grep` that prints the text it finds, unless its path is inside a repo's folder or its glob or its type names a kind of code file.
 
@@ -97,9 +125,9 @@ A terminate sent to the command is passed on to the host. An interrupt or a hang
 
 ## What a run costs
 
-Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 18 sessions: three cases, three runs each, in both arms.
+Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 24 sessions: four cases, three runs each, in both arms.
 
-On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the full run below cost 0.57 USD.
+On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the run of the three cases of `reading` below, which was every case there was at the time, cost 0.57 USD. The two runs of the case group `proof`, 6 sessions each, cost 0.29 and 0.35 USD.
 
 ## The figures of the last full run
 
@@ -128,6 +156,31 @@ What they say, as found:
 
 The first full run, made the same day before the changes listed under [A case is reported as found](#a-case-is-reported-as-found), was scored on the earlier patterns: `where-an-item-stands` 1.00 with the plugin and 1.00 without, `ticket-leads-to-notes` 1.00 and 0.33, `nothing-to-say` 1.00 and 1.00, in 18 sessions for 0.58 USD. Its sessions were not this run's, and a result document holds no reply to score again, so the two runs do not say what the changes to the patterns did to a score.
 
+## The figures of `ready-to-merge`, before the proof record and after
+
+The case group `proof` was run alone, twice, on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: once on the plugin as it stood before the proof record was built, where the live index has no word on proof, and once at `49a351f`, with the proof record and its readers built and before the review's fixes to `lib/proof.mts` and `lib/lint.mts`. The case, its scaffold and its grader were the same in both, and are the ones that ship. A session of the case is given the same by the plugin as it ships as at `49a351f`: in the case's estate the session-start hook, and the prompt hook asked the case's own prompt, answer the same from the two, byte for byte, and a test holds the words on the row. Each run was 6 sessions, three with the plugin and three without.
+
+| Run | With the plugin | Without | Difference | Sessions, time and cost |
+|---|---|---|---|---|
+| Before, at `053280c`, with no proof record built | 0.33 | 0.67 | -0.33 | 6 in 70 seconds, 0.29 USD |
+| After, at `49a351f`, before the review's fixes | 1.00 | 0.67 | +0.33 | 6 in 83 seconds, 0.35 USD |
+
+Turns and cost are for one session, the mean of an arm's three runs:
+
+| Run | Turns with | Turns without | Cost with | Cost without |
+|---|---|---|---|---|
+| Before | 9.7 | 9.0 | 0.052 USD | 0.044 USD |
+| After | 13.3 | 12.3 | 0.061 USD | 0.057 USD |
+
+What they say, as found:
+
+- With the words on the item's row, all three sessions passed the grader. Before the proof record, with the same index and no such words, one of three did.
+- Without the plugin, two of three sessions passed, in both runs. Nothing of the plugin reaches that arm, so its two figures are two samples of one thing. A session that has `Read`, `Glob` and `Grep` alone can find the fact for itself, by reading the proof record and the branch's ref under `api/.git`.
+- A pass is the grader's and not a reading of the reply. No reply of either run is kept, so whether a session that passed said that the proof was older than the head, or passed on one of the kinds [the graders](#the-graders) lists as scored wrongly, is not known. The wrong replies that pass are ones a session with no words on the row could give.
+- So the difference of +0.33 after is one session of three, and the difference of -0.33 before is one session of three the other way. Three runs an arm cannot tell either from chance. What the two runs show is three sessions an arm: with the plugin one of three passed before and three of three after, and without it two of three passed both times.
+- Turns and cost rose between the two runs in both arms alike, so they say nothing of the words on the row.
+- What the three sessions that failed replied is not known either.
+
 ## What it cannot show
 
 - What a hub alone gives a session, since the host loads no instruction file in a run.
@@ -135,7 +188,8 @@ The first full run, made the same day before the changes listed under [A case is
 - More than one estate. Every case starts from acme.
 - More than a small sample. A session's reply moves from run to run, and a case is run three times an arm.
 - What a session is given by an estate that keeps the default index budget where its index does not fit. The index is then cut to the rows that fit, with a line that says how many more there are, and acme's budget is set so that no case meets this.
-- A checkpoint, or anything else a session does through the plugin's own command in the shell, for the reason given above.
+- A checkpoint, or anything else a session does through the plugin's own command in the shell, for the reason given above. So the suite shows the proof record being read, by the index, and never being written.
+- What the words on a row do for a session that can run `git`. A case gives a session `Read`, `Glob` and `Grep` alone, and a session at work has a shell, with which it can ask git for the head itself.
 - Whether a reply is right in words a pattern does not know, or is a guess in words it does. [The graders](#the-graders) says which replies those are.
 - Anything on Linux or Windows. The runs behind this page were made on macOS. On Linux the host's sandbox is another program, and on Windows a scaffold cannot start.
 - From a score, that the pointers reached a session: the trace a grader reads does not hold them. The kept folder of a trial run does.
@@ -152,6 +206,7 @@ Changes so far:
 - 2026-11-14, before the first release, after a second review. The patterns were rewritten again, to what the table under [The graders](#the-graders) gives. The review showed right replies in a list or a table that failed, since a pattern stopped at the end of a line, and replies built from other files of acme, or from nothing, that passed on one bare phrase such as "not enabled" or "settlement". `no-note-searched` no longer counts a search kept to a repo's code, which prints no note. acme's index setting went up to 9,500 characters, the most the session-start hook gives a session: at 4,000 the index was still cut once the workspace's path passed 395 characters.
 - 2026-11-14, before the first release, after a third review. `reason` took any word that starts "settle", so it passed the decision with no reason: "rounded half to even, as decision 3 settled", which another note of acme says. It now takes "settlement". `next` passed "the shop is notified after every attempt fails", built from the item's spec and a concept note: a notice now passes only beside the team, and an export that has failed every try only beside an alert. `stands` passed on a session's own count of its tries, so the count of five tries is out of the pattern, which looks for production beside a word for off alone. `no-note-searched` passed over every search that was not of markdown, and some of those print notes: it now passes over a search only where its path, its glob or its type names a repo's code. The test that holds each fact to one file of acme now reads the files as a session would say them, with the markup of a link taken off, which is how the first of these went unseen.
 - 2026-11-14, before the first release, after a fourth review, kept to the change before it. With the count of tries out, `stands` failed a right reply that said "switched off" and left "in production" for its next sentence. It now takes production and a word for off anywhere in the reply. `no-note-searched` no longer passes over a glob of two parts, such as `*.md,*.js`, which searches notes as well as code.
+- 2026-11-14, before any figure of `ready-to-merge` was taken. Three readers who were told nothing tried the case's pattern, and the first two led to its rewriting: its first form failed 37 of 78 right replies and passed 18 of 78 wrong ones, and its second failed 8 of 40 right replies worked out from the files and passed 5 of 60 wrong ones, each of those talk of the branch against `main`. The scaffold's repository was given a `main` branch to merge into and a test of the refund itself, so that the stale proof is the one thing wrong, and Acme's name and a fixed date on every line of its log, where one line had carried the name of the machine's own account. A trial run then showed a session set the commit that the state file named against the branch, with the proof record unread: the state file's Done line named the commit of the run, which the case does not ask for, so that line is now dated, as acme's others are. The figures above were taken after all of these, on the case as it ships.
 
 ## What the tests hold, free
 
@@ -160,11 +215,13 @@ What needs no paid session is held by the tests, on every push:
 - every case has a prompt and at least one grader, and no grader is of a kind that calls a judge;
 - each case's scaffold makes an estate the plugin answers for, in which the session-start hook gives the live index;
 - the prompt hook, given the case's own prompt, gives the pointers its graders rest on, or nothing for `nothing-to-say`;
-- the fact a grader looks for is held by the one file the case is about and by no other file of acme;
+- the fact a grader looks for is held by the one file the case is about and by no other file of acme, and for `ready-to-merge` by no file at all;
+- the repository that `ready-to-merge`'s scaffold makes: its three commits and their ids, Acme's name on every line of its log, the branch's head as a file, and a proof record whose commit is the one before the head;
+- in that estate the item's row of the live index ends `proof: older than the head`, in words the case's grader takes, and `lint` gives the one warning for proof;
 - each pattern passes a right reply in other words, in a list and in a table, and fails a reply that found nothing or was built from another file of acme;
 - the command starts the host with the flags above, and refuses what the table above says it refuses.
 
-The tests that start a scaffold are skipped on Windows.
+The tests that start a scaffold are skipped on Windows. The scaffold of `ready-to-merge` needs `git` 2.28 or later.
 
 ## Adding a case
 
@@ -182,7 +239,8 @@ evals/<group>/<case>/graders/<name>.md   one grader of a free kind
 - **A case group:** a new folder with `group.json`. Its `allowTools` are the grants the host gives every case of the group, written as `--allow-tools` takes them, and `[]` for cases that only read. `results` and `mocks` are the host's own names. A link that is neither a case group nor a case, such as a `results` kept on another disk, is passed over.
 - **Names** are small letters, digits and dashes, starting with a letter.
 - **One key and its value a line** in front matter and in `case.yaml`: the tests read them with no YAML parser.
-- **The tests hold a new case to the same rules** with no change to them. What the case's own prompt is answered with is one more test in `test/eval-cases.test.mts`, beside the three there.
+- **A scaffold that starts a program** brings everything that program needs. The host starts a scaffold with `PATH`, `HOME`, `TMPDIR` and `TERM` and little else, and the suite's own tests run it a second time in the same folder and expect the same files. `ready-to-merge`'s gives `git` its author, its dates and its formats, and starts no `git` that writes where the repository is already made.
+- **The tests hold a new case to the same rules** with no change to them. What the case's own prompt is answered with is one more test in `test/eval-cases.test.mts`, beside those there.
 
 ## Where a run's results go
 
