@@ -1,5 +1,5 @@
 import { arch, platform } from 'node:os'
-import { join, relative, sep } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import { isObject } from './checks.mts'
 import { PluginError } from './errors.mts'
 import { repoFolder } from './estate.mts'
@@ -113,7 +113,7 @@ function lacksOf(estate: Estate, repo: Repo, folder: string, runs: Run[], built:
   const checks = [...new Set(repo.checks ?? [])]
   if (runs.length === 0) return builtIn(estate, folder, built, ask) ? [{ repo: repo.name, check: checks[0], lack: 'no run', exit: null, branch: null, more: checks.length - 1 }] : []
   const { branch } = runs[runs.length - 1]
-  const head = branch === null ? null : ask(folder, ['rev-parse', '--verify', '--quiet', `${HEADS}${branch}`])?.stdout.trim()
+  const head = branch === null ? null : ask(folder, ['show-ref', '--verify', '--hash', `${HEADS}${branch}`])?.stdout.trim()
   if (!head) return []
   const same = new Map<string, boolean>([[head, true]])
   const sameCode = (commit: string) => same.get(commit) ?? (same.set(commit, ask(folder, ['diff', '--quiet', commit, head, '--', '.', ...mapsOwnFiles(estate, folder)])?.status === SAME), same.get(commit)!)
@@ -134,7 +134,15 @@ function builtIn(estate: Estate, folder: string, commits: string[], ask: Ask) {
   if (commits.length === 0) return false
   const held = [...(ask(folder, ['cat-file', '--batch-check'], commits.map(commit => `${commit}^{commit}\n`).join(''))?.stdout ?? '').matchAll(A_COMMIT)].map(([, id]) => id)
   if (held.length === 0) return false
-  return (ask(folder, ['rev-list', '--no-walk', ...held, '--', '.', ...mapsOwnFiles(estate, folder)])?.stdout ?? '').trim() !== ''
+  const edge = edgeOfAShallowClone(folder, ask)
+  const compared = held.filter(id => !edge.includes(id))
+  if (compared.length === 0) return false
+  return (ask(folder, ['rev-list', '--no-walk', '--first-parent', ...compared, '--', '.', ...mapsOwnFiles(estate, folder)])?.stdout ?? '').trim() !== ''
+}
+
+function edgeOfAShallowClone(folder: string, ask: Ask) {
+  const listedIn = ask(folder, ['rev-parse', '--git-path', 'shallow'])?.stdout.trim()
+  return listedIn ? linesOf(resolve(folder, listedIn)) : []
 }
 
 function asking(env: Env, until: number): Ask {

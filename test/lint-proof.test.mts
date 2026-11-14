@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import { NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, disposable, git, makeTree, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout, Json, TreeFiles } from './helpers.mts'
@@ -365,3 +366,42 @@ test('a Built at line is read with a whole commit id of sixty-four digits, in a 
   assert.equal(headOf(one).length, 64)
   assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: no run of "./check.sh" is recorded\n')
 })
+
+test('a Built at line that names a merge is read against the first parent of the merge, so a merge that brought the work in builds the repo', () => {
+  const one = made(solo())
+  git(one, one.main, 'checkout', '-q', '-b', 'work/limit')
+  committed(one, { 'src/app.js': 'export const limited = true\n' })
+  git(one, one.main, 'checkout', '-q', 'main')
+  git(one, one.main, 'merge', '-q', '--no-ff', 'work/limit', '-m', 'merge')
+
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${headOf(one)}: the limiter\n`)
+
+  assert.equal(git(one, one.main, 'rev-list', '--parents', '-n', '1', 'HEAD').stdout.trim().split(' ').length, 3)
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: no run of "./check.sh" is recorded\n')
+})
+
+test('a built commit at the edge of a shallow clone is passed over, since its parent is not there to compare with', () => {
+  const settings: Json = { contextCentral: 1, name: 'mono', repos: [{ name: 'api', path: 'packages/api', checks: ['./check.sh'] }, { name: 'web', path: 'packages/web', checks: ['./check.sh'] }] }
+  const origin = made(solo({ '.context-central/estate.json': settings, 'packages/api/app.js': 'export {}\n', 'packages/web/app.js': 'export {}\n' }))
+  const inApi = committed(origin, { 'packages/api/app.js': 'export const limited = true\n' })
+  const shallow: Checkout = { ...origin, main: join(origin.base, 'clone') }
+  git(origin, origin.base, 'clone', '-q', '--depth', '1', pathToFileURL(origin.main).href, shallow.main)
+  cpSync(join(origin.main, '.context-central'), join(shallow.main, '.context-central'), { recursive: true })
+  put(shallow.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${inApi}: the limiter\n`)
+
+  proved(shallow, 0, './check.sh', join(shallow.main, 'packages/api'))
+
+  assert.equal(git(shallow, shallow.main, 'rev-parse', '--is-shallow-repository').stdout.trim(), 'true')
+  assert.deepEqual(lint(shallow, shallow.main), OK)
+})
+
+test('a line whose branch names no branch and reads as a commit all the same, as git describe prints one, is on a branch that is gone', () => {
+  const one = made(solo(TWO_CHECKS))
+  const first = headOf(one)
+  committed(one, { 'src/app.js': 'export const limited = true\n' })
+
+  recorded(one, [{ commit: first, branch: `x-1-g${first.slice(0, 7)}` }])
+
+  assert.deepEqual(lint(one, one.main), OK)
+})
+

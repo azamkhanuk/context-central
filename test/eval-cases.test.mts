@@ -694,9 +694,16 @@ test('ready-to-merge: each reply the page on the suite gives as scored wrongly b
     'Yes. ./check.sh passes and the branch is now at e60a545.',
     'Yes: ./check.sh passes, and the newer commit only adds the thirtieth-day test.',
     'Yes, it is ready: the proof is older than the head, which is fine.',
+    'Yes. I am not sure the proof is older than the head.',
+    'Yes. I doubt the proof is stale.',
+    'Yes. There is no sign that the proof is stale.',
+    'Is the proof older than the head, or is it current?',
+    'Yes. proof.jsonl shows ./check.sh exited 0, and the record does not include any failing run.',
+    'Yes. The state file says it is built and verified, with another commit adding the thirtieth-day test.',
+    'Yes. The tests passed before the change and after it.',
   ]
   const passesRightly = ['I may be wrong, but the proof is older than the head']
-  const failsRightly = ['the proof is not stale', 'two commits ahead of main']
+  const failsRightly = ['the proof is not stale', 'is the proof older than the head?', 'the proof may be older than the head', 'I could not tell whether the proof is older than the head', 'two commits ahead of main']
   const overALineBreak = ['The proof is older than the head', 'Want me to run ./check.sh again?']
 
   assert.deepEqual([...failsThoughRight, ...passesThoughWrong, ...passesRightly, ...failsRightly, ...overALineBreak].filter(reply => !page.includes(`"${reply}"`)), [])

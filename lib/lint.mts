@@ -21,12 +21,14 @@ export interface Finding {
   message: string
 }
 
+type Fence = { run: string, quoted: boolean }
+
 const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/
 const DATED_ALLOWED = 3
 const VERIFIED = '`verified`'
 const INFERRED = '`inferred`'
 const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
-const QUOTE_MARKS = /^(?:[ \t]*> ?)+/
+const QUOTE_MARKS = /^([ \t]*)(?:> ?)+/
 const TAB_IS = '    '
 const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
@@ -100,7 +102,7 @@ function markFindings(estate: Estate) {
   const saved = savedSourceNames(estate)
   const hub = hubPath(estate)
   return listNodes(estate).filter(node => node.path !== hub).flatMap(node => {
-    const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split(/\r?\n/).map(line => line.replace(QUOTE_MARKS, '')), saved)
+    const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split(/\r?\n/), saved)
     if (unsourced.length === 0) return []
     const [first] = unsourced
     const said = unsourced.length === 1 ? `names no source (at line ${first})` : `name no source (first at line ${first})`
@@ -108,22 +110,23 @@ function markFindings(estate: Estate) {
   })
 }
 
-function claimsWithNoSource(lines: string[], saved: string[]) {
+function claimsWithNoSource(asWritten: string[], saved: string[]) {
+  const lines = asWritten.map(line => line.replace(QUOTE_MARKS, '$1'))
   const namesASource = (line: string) => NAMES_A_SOURCE.some(kind => kind.test(line)) || saved.some(name => line.includes(name))
-  let fence: string | null = null
+  let fence: Fence | null = null
   return lines.flatMap((line, at) => {
     const inFence = fence !== null
-    fence = fenceAfter(line, fence)
+    fence = fenceAfter(line, QUOTE_MARKS.test(asWritten[at]), fence)
     const claim = !inFence && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
     return claim && !namesASource(line) && !linesUnder(lines, at).some(namesASource) ? [at + 1] : []
   })
 }
 
-function fenceAfter(line: string, open: string | null) {
+function fenceAfter(line: string, quoted: boolean, open: Fence | null): Fence | null {
   const [, run, rest] = FENCE.exec(line) ?? []
   if (!run) return open
-  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : run
-  return run[0] === open[0] && run.length >= open.length && rest.trim() === '' ? null : open
+  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : { run, quoted }
+  return quoted === open.quoted && run[0] === open.run[0] && run.length >= open.run.length && rest.trim() === '' ? null : open
 }
 
 function linesUnder(lines: string[], at: number) {

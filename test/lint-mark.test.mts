@@ -149,3 +149,22 @@ test('in a block quote a source on a line that is not nested under the claim doe
 
   assert.equal(lint(root).stdout, 'WARN mark: concepts/limits.md has 2 claims marked verified that name no source (first at line 3)\n')
 })
+
+test('a block quote nested under a claim that is not itself quoted counts for it, by a source it holds or one nested after it', () => {
+  const quote = '  > "Sixty calls a minute for each shop" (https://example.com/limits)\n'
+  const under = withNote(`# Limits\n\n- Each shop gets 60 calls a minute. \`verified\`\n${quote}`)
+  const afterABlankLine = withNote(`# Limits\n\n- Each shop gets 60 calls a minute. \`verified\`\n\n${quote}`)
+  const underAStep = withNote('# Limits\n\n1. A step.\n   - Each shop gets 60 calls a minute. `verified`\n     > [!NOTE]\n     > Read in `api/src/limit.js:1`.\n')
+  const beforeTheSource = withNote('# Limits\n\n- Each shop gets 60 calls a minute. `verified`\n  > "Sixty calls a minute for each shop"\n  - `api/src/limit.js:1`\n')
+
+  assert.deepEqual(lint(under), OK)
+  assert.deepEqual(lint(afterABlankLine), OK)
+  assert.deepEqual(lint(underAStep), OK)
+  assert.deepEqual(lint(beforeTheSource), OK)
+})
+
+test('a fence closes only on a line as quoted as the one that opened it, so a quoted fence inside a fenced block does not end the block', () => {
+  const root = withNote('# Limits\n\n```md\n> ```\n- Each shop gets 60 calls a minute. `verified`\n```\n\n- The limit is per shop. `verified`\n')
+
+  assert.equal(lint(root).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 8)\n')
+})
