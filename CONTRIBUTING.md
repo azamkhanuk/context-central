@@ -14,6 +14,8 @@ claude plugin validate .    # must pass
 
 One test file alone is `node --test test/<name>.test.mts`. A pull request is run on Linux, macOS and Windows, and the job named `gate` says whether every one of them passed.
 
+The eval suite is apart from these checks. `npm run evals` starts paid sessions on your own Claude account, so it is run by hand, never by the checks, and no pull request waits on a score. What the tests hold of it is free: the files of each case, and that its scaffold makes an estate the hooks answer for. [The eval suite](docs/evals.md) says how to run it and how to add a case.
+
 ## The conventions
 
 [.claude/CLAUDE.md](.claude/CLAUDE.md) holds them: how the code is written, how a command is laid out, how the tests are written and how text is worded. It is short, and a change is read against it. [CONTEXT.md](CONTEXT.md) defines the plugin's terms, which the code, the docs and the skills use as written.
