@@ -12,7 +12,7 @@ Each case is tied to one line of the [README](../README.md).
 |---|---|---|---|
 | `where-an-item-stands` | "A new session picks up where the last one stopped." | "Where does export-retry stand, and what is next?" | The reply gives a fact of where the work stands and a fact of what is next, each held by the item's state file and by no other file of the estate |
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
-| `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer and no note of the map was read. The difference expected is none: the plugin should cost a session nothing where it has nothing to add |
+| `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer and no note of the map was read. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
 
 There is no case for a checkpoint. One was built, and its first trial run showed that a run's sandboxed shell would not start the plugin's own command: the session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
@@ -68,7 +68,32 @@ The command prints each line it starts before the host runs, and the results fol
 
 Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 18 sessions: three cases, three runs each, in both arms.
 
-A trial run of `where-an-item-stands` on 2026-11-14, with Claude Code 2.1.325, was one session of three turns and cost 0.03 USD by the host's estimate.
+On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the full run below cost 0.58 USD.
+
+## The figures of the last full run
+
+Run on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: 18 sessions in 84 seconds, for 0.58 USD by the host's estimate. The plugin's hooks, commands and skills were those of release 0.18.0, which 0.18.1 does not change.
+
+| Case | With the plugin | Without | Difference |
+|---|---|---|---|
+| `where-an-item-stands` | 1.00 | 1.00 | 0.00 |
+| `ticket-leads-to-notes` | 1.00 | 0.33 | +0.67 |
+| `nothing-to-say` | 1.00 | 1.00 | 0.00 |
+
+Turns and cost are for one session, the mean of an arm's three runs, from the host's result document:
+
+| Case | Turns with | Turns without | Cost with | Cost without |
+|---|---|---|---|---|
+| `where-an-item-stands` | 3.0 | 6.3 | 0.035 USD | 0.037 USD |
+| `ticket-leads-to-notes` | 5.3 | 3.7 | 0.043 USD | 0.033 USD |
+| `nothing-to-say` | 1.0 | 1.0 | 0.025 USD | 0.021 USD |
+
+What they say, as found:
+
+- `where-an-item-stands` shows no difference in the score. A session on this model finds the state file with no pointers, in about twice the turns.
+- `ticket-leads-to-notes` shows the one difference. With the plugin every session gave the reason. Without it one session in three did, and the two that did not ended after two and three turns. What those two replied is not known: the host's result document holds no reply, and a full run keeps no temporary folder.
+- `nothing-to-say` shows no difference in the score, as expected, and no note of the map was read in either arm. The session with the plugin cost 0.004 USD more, which is the price of what the plugin puts into every session.
+- Three runs an arm is a small sample. A difference of 0.67 is two sessions of three.
 
 ## What it cannot show
 
@@ -118,4 +143,4 @@ evals/<group>/<case>/graders/<name>.md   one grader of a free kind
 
 ## Where a run's results go
 
-The host writes a result document and a report for each case group under `evals/results/`, which is kept out of git: a result document holds every prompt, every reply and the paths of the machine that ran it.
+The host writes a result document and a report for each case group under `evals/results/`, which is kept out of git: a result document holds every prompt and the paths of the machine that ran it. With graders of the free kinds it holds each grader's verdict and no reply.
