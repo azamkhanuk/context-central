@@ -17,7 +17,7 @@ put estate.json <<'EOF'
   "connections": {
     "tracker": { "holds": "tickets", "references": ["PROJ-\\d+"] }
   },
-  "budgets": { "indexChars": 4000 }
+  "budgets": { "indexChars": 9500 }
 }
 EOF
 

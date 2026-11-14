@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
 import { NEEDS_STAND_IN, REPO, disposable, makeTree, spawned, standIns } from './helpers.mts'
@@ -9,6 +9,7 @@ import type { Json, Result, TreeFiles } from './helpers.mts'
 const SCRIPT = join(REPO, 'scripts', 'run-evals.mts')
 const STAMP = '2026-01-15T12-00-00-000Z'
 const NOTHING_STARTED = 0
+const NOT_AS_ROOT = process.getuid?.() === 0 ? { skip: 'root writes to a folder whatever its mode' } : NEEDS_STAND_IN
 
 const tree = disposable()
 
@@ -17,11 +18,12 @@ here="\${0%/*}"
 refuse() { echo "stand-in claude: $1" >&2; exit 64; }
 [ "$1" = plugin ] && [ "$2" = eval ] || refuse "only plugin eval is taken"
 shift 2
+[ -f "$here/carries-on" ] && heard=: || heard="exit 99"
+[ -f "$here/dies" ] || for signal in TERM INT HUP; do trap "echo $signal > '$here/signalled'; $heard" $signal; done
 start=$(( $(cat "$here/starts" 2>/dev/null || echo 0) + 1 ))
 echo "$start" > "$here/starts"
 printf '%s\\n' "$@" > "$here/args-$start"
 [ -f "$here/dies" ] && kill -"$(cat "$here/dies")" $$
-for signal in TERM INT HUP; do trap "echo $signal > '$here/signalled'; exit 99" $signal; done
 waited=0
 while [ -f "$here/hold" ] && [ ! -f "$here/go" ] && [ $waited -lt 200 ]; do sleep 0.1; waited=$((waited + 1)); done
 case "$1" in --*|'') refuse "the target comes first" ;; esac
@@ -57,9 +59,9 @@ const TWO_GROUPS: TreeFiles = {
 
 type Host = { dir: string, starts: () => number, args: (start: number) => string[], signalled: () => string | null, release: () => void }
 
-function host({ code = 0, cost = '0.25', costs = {}, held = false, dies = '' }: { code?: number, cost?: string, costs?: Record<number, string>, held?: boolean, dies?: string } = {}): Host {
+function host({ code = 0, cost = '0.25', costs = {}, held = false, dies = '', carriesOn = false }: { code?: number, cost?: string, costs?: Record<number, string>, held?: boolean, dies?: string, carriesOn?: boolean } = {}): Host {
   const figures = Object.fromEntries(Object.entries(costs).map(([start, figure]) => [`cost-${start}`, figure]))
-  const dir = tree(standIns({ claude: THE_HOST, code: `${code}\n`, cost, ...figures, ...(held ? { hold: '' } : {}), ...(dies ? { dies } : {}) }))
+  const dir = tree(standIns({ claude: THE_HOST, code: `${code}\n`, cost, ...figures, ...(held ? { hold: '' } : {}), ...(dies ? { dies } : {}), ...(carriesOn ? { 'carries-on': '' } : {}) }))
   return {
     dir,
     starts: () => (existsSync(join(dir, 'starts')) ? Number(readFileSync(join(dir, 'starts'), 'utf8')) : NOTHING_STARTED),
@@ -234,6 +236,37 @@ test('a terminate sent to the command is passed on to the host, and the command 
   assert.deepEqual({ code: result.code, stderr: result.stderr, starts: stand.starts() }, { code: 99, stderr: 'run-evals: SIGTERM: passed on to the host\nrun-evals: the host ended reading with 99; not started: writing\n', starts: 1 })
 })
 
+test('after a terminate is passed on no later case group is started, even where the host ends its own with 0', NEEDS_STAND_IN, async () => {
+  const stand = host({ held: true, carriesOn: true })
+  const run = inFlight(plugin(), stand)
+  await until(() => stand.starts() === 1)
+
+  run.child.kill('SIGTERM')
+  await until(() => run.said.stderr.includes('SIGTERM'))
+  stand.release()
+  const result = await run.ended
+
+  assert.equal(stand.signalled(), 'TERM')
+  assert.deepEqual({ code: result.code, stderr: result.stderr, starts: stand.starts() }, { code: 143, stderr: 'run-evals: SIGTERM: passed on to the host\nrun-evals: stopped by SIGTERM; not started: writing\n', starts: 1 })
+})
+
+for (const [signal, heard] of [['SIGTERM', 'passed on to the host'], ['SIGINT', 'the host is left to end writing, and no later case group is started']] as const) {
+  test(`${signal} during the last case group changes nothing where the host ends it with 0, since every case group asked for ran to its end`, NEEDS_STAND_IN, async () => {
+    const stand = host({ held: true, carriesOn: true })
+    const root = plugin()
+    const run = inFlight(root, stand, '--group', 'writing')
+    await until(() => stand.starts() === 1)
+
+    run.child.kill(signal)
+    await until(() => run.said.stderr.includes(signal))
+    stand.release()
+    const result = await run.ended
+
+    assert.deepEqual({ code: result.code, stderr: result.stderr }, { code: 0, stderr: `run-evals: ${signal}: ${heard}\n` })
+    assert.ok(result.stdout.endsWith(`run-evals: results in ${join(root, 'evals', 'results', STAMP)}\n`), result.stdout)
+  })
+}
+
 for (const [signal, code] of [['SIGINT', 130], ['SIGHUP', 129]] as const) {
   test(`${signal} sent to the command alone is not passed on, since a terminal gives it to the host too, and once the host ends no later case group is started`, NEEDS_STAND_IN, async () => {
     const stand = host({ held: true })
@@ -326,6 +359,10 @@ test('a flag the command does not know is refused, and nothing is started', NEED
   refused("Unknown option '--publish-report'", TWO_GROUPS, '--publish-report')
 })
 
+test('a flag the command does not know is named whole, a dot in it included', NEEDS_STAND_IN, () => {
+  refused("Unknown option '--publish. now'", TWO_GROUPS, '--publish. now')
+})
+
 test('a word that is no flag is refused, and nothing is started', NEEDS_STAND_IN, () => {
   refused("Unexpected argument 'reading'", TWO_GROUPS, 'reading')
 })
@@ -347,8 +384,8 @@ test('a case that is not there is refused, with the ones that are', NEEDS_STAND_
   refused('no case "missing" under evals/; there are: first, second, third', TWO_GROUPS, '--case', 'missing')
 })
 
-for (const figure of ['0', '-1', 'ten', '', 'Infinity', '1e999', '1e-7', '0.0000001', '0x10', ' 5', '5.']) {
-  test(`a ceiling of "${figure}" is refused, since it is not a plain figure above 0`, NEEDS_STAND_IN, () => {
+for (const figure of ['0', '-1', 'ten', '', 'Infinity', '1e999', '1e-7', '0.0000001', '0x10', ' 5', '5.', '1000000000', '1000000000000000000000']) {
+  test(`a ceiling of "${figure}" is refused, since it is not a plain figure above 0 that the host is handed as it is written`, NEEDS_STAND_IN, () => {
     refused(`--max-cost-usd takes a figure in USD above 0, as 10 or 2.5, not "${figure}"`, TWO_GROUPS, `--max-cost-usd=${figure}`)
   })
 }
@@ -380,17 +417,30 @@ test('a clock that is not a time is refused', NEEDS_STAND_IN, () => {
   assert.deepEqual({ ...result, starts: stand.starts() }, { code: 2, stdout: '', stderr: 'run-evals: CONTEXT_CENTRAL_NOW is "yesterday", which is not a time\n', starts: NOTHING_STARTED })
 })
 
-for (const link of ['linked', 'reading/linked']) {
-  test(`a link at evals/${link} is refused, since a case group or a case behind one would be passed over without a word`, NEEDS_STAND_IN, () => {
+for (const [link, to] of [['linked', 'writing'], ['reading/linked', 'writing/third']]) {
+  test(`a case group or a case that is a link, at evals/${link}, is refused, since it would be passed over without a word`, NEEDS_STAND_IN, () => {
     const stand = host()
     const root = plugin()
-    symlinkSync(join(root, 'evals', 'writing'), join(root, 'evals', link))
+    symlinkSync(join(root, 'evals', to), join(root, 'evals', link))
 
     const result = evals(root, stand)
 
     assert.deepEqual({ ...result, starts: stand.starts() }, { code: 2, stdout: '', stderr: `run-evals: evals/${link} is a link: a case group and a case are folders of their own\n`, starts: NOTHING_STARTED })
   })
 }
+
+test("a link that is neither a case group nor a case is passed over, as the host's own results folder may be one", NEEDS_STAND_IN, () => {
+  const stand = host()
+  const root = plugin()
+  const elsewhere = tree(makeTree({ 'shared/notes.md': 'shared by the cases\n' }))
+  symlinkSync(elsewhere, join(root, 'evals', 'results'))
+  symlinkSync(join(elsewhere, 'shared'), join(root, 'evals', 'reading', 'shared'))
+
+  const result = evals(root, stand, '--group', 'reading')
+
+  assert.deepEqual({ code: result.code, stderr: result.stderr, starts: stand.starts() }, { code: 0, stderr: '', starts: 1 })
+  assert.ok(existsSync(join(elsewhere, STAMP, 'reading', 'aggregate-result.json')))
+})
 
 test('a folder that is not the root of a plugin is refused', NEEDS_STAND_IN, () => {
   refused('no .claude-plugin/plugin.json here: run it from the root of the plugin', Object.fromEntries(Object.entries(TWO_GROUPS).filter(([path]) => !path.startsWith('.claude-plugin'))))
@@ -436,6 +486,47 @@ test('a results folder that is there already is refused, so no run writes over a
   const result = evals(root, stand)
 
   assert.deepEqual({ ...result, starts: stand.starts() }, { code: 2, stdout: '', stderr: `run-evals: ${join(root, 'evals', 'results', STAMP)} is there already\n`, starts: NOTHING_STARTED })
+})
+
+test('an evals/results that is a file is refused in one line, and nothing is started', NEEDS_STAND_IN, () => {
+  const stand = host()
+  const root = plugin({ ...TWO_GROUPS, 'evals/results': 'not a folder\n' })
+
+  const result = evals(root, stand)
+
+  assert.deepEqual({ ...result, starts: stand.starts() }, { code: 2, stdout: '', stderr: `run-evals: ${join(root, 'evals', 'results')} cannot be made a folder (EEXIST)\n`, starts: NOTHING_STARTED })
+})
+
+test('a results folder that may not be written in is refused in one line, and nothing is started', NOT_AS_ROOT, () => {
+  const stand = host()
+  const root = plugin()
+  const folder = join(root, 'evals', 'results')
+  mkdirSync(folder)
+  chmodSync(folder, 0o555)
+
+  const result = evals(root, stand)
+  chmodSync(folder, 0o755)
+
+  assert.deepEqual({ ...result, starts: stand.starts() }, { code: 2, stdout: '', stderr: `run-evals: ${join(folder, STAMP)} cannot be made (EACCES)\n`, starts: NOTHING_STARTED })
+})
+
+test('a results folder the host wrote nothing in is removed and not named', NEEDS_STAND_IN, () => {
+  const stand = host({ dies: 'TERM' })
+  const root = plugin()
+
+  const result = evals(root, stand, '--group', 'reading')
+
+  assert.deepEqual(result, { code: 143, stdout: startedLine(root, 'reading', '--tag reading'), stderr: 'run-evals: the host ended reading with 143\n' })
+  assert.equal(existsSync(join(root, 'evals', 'results', STAMP)), false)
+})
+
+test('a claude on the PATH that may not be started is said in one line, and the command ends with 2', NEEDS_STAND_IN, () => {
+  const root = plugin()
+
+  const result = started(root, tree(makeTree({ claude: THE_HOST })), ['--group', 'reading'])
+
+  assert.deepEqual(result, { code: 2, stdout: startedLine(root, 'reading', '--tag reading'), stderr: 'run-evals: claude cannot be started (EACCES)\n' })
+  assert.equal(existsSync(join(root, 'evals', 'results', STAMP)), false)
 })
 
 test('with no claude on the PATH the command says so and ends with 2', NEEDS_STAND_IN, () => {

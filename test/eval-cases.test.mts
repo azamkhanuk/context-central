@@ -20,6 +20,7 @@ const A_SCAFFOLD = notOnWindows('a scaffold is a shell script, which Windows can
 const A_FOLDER_NOBODY_WRITES = process.getuid?.() === 0 ? { skip: 'root writes to a folder whatever its mode' } : A_SCAFFOLD
 const CONNECTIONS_LINE = 'Connections: tracker holds tickets. context-central connections says how this machine reaches each.'
 const STATE_FILE_WHY = 'state file: where the work stands and what is next'
+const A_FOLDER_NAME_AT_MOST = 200
 
 const tree = disposable()
 
@@ -71,6 +72,7 @@ const context = (result: Result) => (JSON.parse(result.stdout) as HookOutput).ho
 const fire = (event: string, input: object) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } })
 const indexOf = (root: string) => context(fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' }))
 const asked = (root: string, prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt })
+const lengthened = (path: string, to: number): string => (path.length >= to ? path : lengthened(join(path, 'a'.repeat(Math.min(A_FOLDER_NAME_AT_MOST, Math.max(1, to - path.length - 1)))), to))
 const row = (root: string, item: string, title: string) => `- ${item} | ${title} | ${join(root, 'work', item, 'STATE.md')}`
 
 test('the eval folder holds at least one case group, and each holds at least one case', () => {
@@ -101,10 +103,10 @@ test("a case carries its group's name as its one tag, so a run of the group pass
   assert.deepEqual(failing(CASES, one => listed(promptFields(one).tags).join() === one.group, caseLabel), [])
 })
 
-test('no case group and no case is a link, since neither the tests nor the one command follow one', () => {
+test("no case group and no case is a link, since neither the tests nor the one command follow one, and a link under one of the host's own names is none of them", () => {
   const links = (dir: string) => readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isSymbolicLink()).map(entry => entry.name)
 
-  assert.deepEqual([...links(EVALS), ...GROUPS.flatMap(group => links(join(EVALS, group)).map(name => `${group}/${name}`))], [])
+  assert.deepEqual([...links(EVALS).filter(name => !THE_HOSTS_OWN.includes(name)), ...GROUPS.flatMap(group => links(join(EVALS, group)).map(name => `${group}/${name}`))], [])
 })
 
 test('a case lists read-only tools alone, since a grant comes from its group', () => {
@@ -218,8 +220,8 @@ test('acme is several repos and seven work items, six of them in flight, on one 
   assert.deepEqual(folders(join(root, 'work')), ['PROJ-40', 'export-audit', 'export-csv', 'export-retry', 'invoice-pdf', 'invoice-rounding', 'rate-limit-gateway'])
 })
 
-test('the index of acme is whole in a workspace at the end of a long path, and the map has no fault there', A_SCAFFOLD, () => {
-  const root = join(tree(makeTree({})), 'a'.repeat(120), 'b'.repeat(120))
+test('the index of acme is whole in a workspace whose path is 600 characters long, wherever the temporary folder is, and the map has no fault there', A_SCAFFOLD, () => {
+  const root = lengthened(tree(makeTree({})), 600)
   mkdirSync(root, { recursive: true })
 
   assert.deepEqual(scaffolded(named('where-an-item-stands'), root).result, { code: 0, stdout: '', stderr: '' })
@@ -262,23 +264,56 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'It isn\u2019t live in production yet.',
     'A failed export is retried up to 5x. Not live in production.',
     'Merged in worker and currently disabled in production.',
+    'The retry loop is merged; it remains inactive in production pending an alert.',
+    'Merged in worker: a five-attempt retry with a longer wait each time.',
+    'Built and merged (up to **five** tries).',
+    'In production it is still off.',
+    'It is built and merged; production has it switched off.',
+    'Merged, but not running in production yet.',
+    "Done and merged, but it's off in prod until alerting exists.",
+    'The retry is merged in worker and is off\nin production until the team is alerted.',
+    '- **Status:** built and merged in worker\n- **Production:** off, until the team is told when an export has failed every try',
+    '| Built | Yes, merged in worker on 2026-01-12 |\n| Production | Off |',
   ]), [])
   assert.deepEqual(passedBy(one, 'stands', [
     'I could not find a work item named export-retry. I looked at five folders.',
+    'I searched 5 times and found the log only.',
     'The code gives `tries` no value, so the retry may be disabled.',
+    'runExport takes `tries` from its caller and nothing passes it, so the retry is not enabled.',
     'The retry loop is merged in worker.',
     'The plan was three tries with a fixed wait of ten seconds.',
+    'Next is a retry of three tries, ten seconds apart. It is not enabled yet.',
+    'I could not find export-retry in this workspace, so I cannot say whether it has been turned off.',
+    "I couldn't find it. It isn't live as far as I can tell.",
+    'I do not have enough information: shell access is disabled in this session, so I could not search.',
   ]), [])
   assert.deepEqual(failedBy(one, 'next', [
     'Next: add an alert in api for an export that has failed every try, on the export-stalled channel, then switch the retry on.',
     'Next is to notify the team when an export fails every try, then switch the retry on in production.',
     'Add alerting in api for exports that fail all five tries.',
     'Then turn the retry on in production.',
+    'Next: add an alert in api for exports that exhaust every retry, then enable it in production.',
+    'After that, turn the retries on in production.',
+    'Then the retry gets switched on in production.',
+    'Add an alert in `api`.',
+    'Then flip it on in production.',
+    'Next: tell the team when an export has run out of tries, then activate the retry in production.',
+    'What is next: switch the retry on in production, once the team gets told about exports that fail every try.',
+    '1. Add an alert in api\n   for an export that has failed every try\n2. Go live in production',
+    '| Next | Alert in api (`export-stalled`), then switch on in production |',
   ]), [])
   assert.deepEqual(passedBy(one, 'next', [
     'I could not find a state file. A sensible next step would be adding monitoring and alerts.',
     'Next is a retry of three tries, ten seconds apart, as a piece of work of its own.',
     'You could turn on verbose logging to find out.',
+    'The spec leaves out telling anyone that an export has failed for good, so the next step is probably an alert when an export has failed for good.',
+    'Today the shop is notified when an export fails and has to ask again. I found nothing about what is next.',
+    'A job can fail after the route has answered, so the shop has to be notified another way when a job fails.',
+    'I could not find a state file for export-retry. If the retry is off, the next step would be to switch it on.',
+    'I found no notes. Nothing alerts anyone when an export fails, as far as I can see.',
+    'With export-retry one request can mean several runs once you turn the retry on.',
+    'I searched api for an alert and found none.',
+    'I found no alerts. In api there is only the limiter.',
   ]), [])
 })
 
@@ -317,11 +352,21 @@ test('ticket-leads-to-notes: its grader passes the reason in other words, and fa
     'We round each invoice line half to even, because the settlement files of the payment provider round that way.',
     "Half to even, so that our totals match what the payment processor's files say, line for line.",
     'The payment provider rounds half to even, and each penny apart had to be matched by hand.',
+    'Round half to even: the provider that settles payments rounds that way.',
+    'Because the provider that pays us out rounds half to even, and our half-up totals were a penny apart.',
+    'Half to even, since that is how the PSP rounds; mismatches had to be reconciled by hand.',
+    'Because the payment-provider files round half to even.',
+    'The payments provider rounds half to even.',
+    '- **Decision:** round each invoice line half to even\n- **Why:** the payment provider\n  rounds half to even, so totals were a penny apart',
+    "| Why | The payment provider's files use half to even; our totals were a penny out |",
   ]), [])
   assert.deepEqual(passedBy(one, 'reason', [
     'I could not find PROJ-27. It may live in your tracker or with your payment provider.',
+    'I found no decision for PROJ-27. Was it about a settlement?',
     'We decided to round each invoice line half to even.',
     'Because some totals were a penny away from what the customer paid.',
+    "Each invoice line is rounded half to even. Finance matched last month's invoices against what was paid and found some a penny apart.",
+    "billing/src/round.js rounds half to even (banker's rounding), which avoids a bias upwards.",
   ]), [])
 })
 
@@ -334,7 +379,7 @@ test('nothing-to-say: the prompt names nothing of acme, and the prompt hook prin
   assert.deepEqual(asked(root, promptOf(one)), { code: 0, stdout: '', stderr: '' })
 })
 
-test('nothing-to-say: it passes on the answer and on no note of the map being read or searched, in both arms', A_SCAFFOLD, () => {
+test('nothing-to-say: it passes on the answer and on no note of the map being read or searched for its text, in both arms', A_SCAFFOLD, () => {
   const one = named('nothing-to-say')
   const root = estateOf(one)
   const fieldsOf = (name: string) => graders(one).find(grader => grader.name === name)?.fields ?? {}
@@ -342,11 +387,38 @@ test('nothing-to-say: it passes on the answer and on no note of the map being re
   const readOf = (folder: string, file: string) => JSON.stringify({ file_path: folder ? `${folder}/${file}` : file })
   const ofTheMap = (file: string) => /^(repos|concepts|edges|decisions|log|work)\//.test(file) || ['CLAUDE.md', 'glossary.md', 'estate.json'].includes(file)
   const miscounted = (folder: string) => filesOf(root).filter(file => counts.test(readOf(folder, file)) !== ofTheMap(file))
+  const searches = new RegExp(unquoted(fieldsOf('no-note-searched').input_match))
+  const counted = (inputs: object[]) => inputs.filter(input => searches.test(JSON.stringify({ pattern: 'leap', ...input })))
+  const PRINTS_NOTES = [
+    { output_mode: 'content' },
+    { output_mode: 'content', path: '/tmp/e-x/home/cwd' },
+    { path: '/tmp/e-x/home/cwd/work', output_mode: 'content' },
+    { path: '/srv/api/tmp/e-x/home/cwd', output_mode: 'content' },
+    { path: '/tmp/e-x/home/cwd/repos/api.md', output_mode: 'content' },
+    { path: 'decisions', output_mode: 'content' },
+    { glob: '**/*.md', output_mode: 'content' },
+    { glob: '*.{js,md}', output_mode: 'content' },
+    { glob: '*.json', output_mode: 'content' },
+    { type: 'md', output_mode: 'content' },
+  ]
+  const PRINTS_NO_NOTE = [
+    { path: '/tmp/e-x/home/cwd/api/src', output_mode: 'content' },
+    { path: 'web', output_mode: 'content' },
+    { path: './worker/src/export.js', output_mode: 'content' },
+    { glob: '*.js', output_mode: 'content' },
+    { glob: 'api/**', output_mode: 'content' },
+    { type: 'js', output_mode: 'content' },
+    { path: '/tmp/e-x/home/cwd/work' },
+    { path: '/tmp/e-x/home/cwd/work', output_mode: 'count' },
+    { pattern: '"output_mode": "content"', path: '/tmp/e-x/home/cwd/work' },
+  ]
 
   assert.deepEqual(graders(one).map(grader => grader.name), ['answer', 'no-note-read', 'no-note-searched', 'plugin-spoke'])
   assert.deepEqual(fieldsOf('answer'), { type: 'regex', pattern: "'\\b366\\b'" })
   assert.deepEqual({ ...fieldsOf('no-note-read'), input_match: '' }, { type: 'tool_used', tool: 'Read', input_match: '', min: '0', max: '0' })
-  assert.deepEqual(fieldsOf('no-note-searched'), { type: 'tool_used', tool: 'Grep', input_match: `'"output_mode"\\s*:\\s*"content"'`, min: '0', max: '0' })
+  assert.deepEqual({ ...fieldsOf('no-note-searched'), input_match: '' }, { type: 'tool_used', tool: 'Grep', input_match: '', min: '0', max: '0' })
+  assert.deepEqual(counted(PRINTS_NOTES), PRINTS_NOTES)
+  assert.deepEqual(counted(PRINTS_NO_NOTE), [])
   assert.equal(filesOf(root).filter(ofTheMap).length, 33)
   for (const folder of [root, '/home/me/work/tmp/e-x/home/cwd', '/srv/log/repos/api/tmp/cwd', '']) assert.deepEqual(miscounted(folder), [], folder)
 })

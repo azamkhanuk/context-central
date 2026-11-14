@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, statSync, writeSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, writeSync } from 'node:fs'
 import { constants } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -10,7 +10,9 @@ const CEILING_USD = '10'
 const ALWAYS = ['--no-publish', '--scaffold', '--model', 'claude-sonnet-5-5', '--threshold', '0']
 const TRIAL = ['--runs', '1', '--ablation', 'none', '--keep-temp']
 const NAME = /^[a-z][a-z0-9-]*$/
-const FIGURE = /^\d+(?:\.\d+)?$/
+const FIGURE = /^\d{1,9}(?:\.\d+)?$/
+const FIRST_SENTENCE = /^(?:[^'.]|'[^']*')*/
+const GROUP_FILES = ['group.json']
 const CASE_FILES = ['prompt.md', 'case.yaml']
 const PLAIN_WORD = /^[\w@%+=:,./-]+$/
 const STDOUT = 1
@@ -31,11 +33,8 @@ async function main(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   if (!existsSync(join(cwd, '.claude-plugin', 'plugin.json'))) throw new Refusal('no .claude-plugin/plugin.json here: run it from the root of the plugin')
   const starts = startsAsked(caseGroups(join(cwd, 'evals')), flags)
   const results = claimed(join(cwd, 'evals', 'results', stamp(env)))
-  const code = await started(starts, ceiling, results, flags, env, cwd).catch(error => {
-    removeIfEmpty(results)
-    throw error
-  })
-  say(`run-evals: results in ${results}`)
+  const code = await started(starts, ceiling, results, flags, env, cwd).finally(() => removeIfEmpty(results))
+  if (existsSync(results)) say(`run-evals: results in ${results}`)
   return code
 }
 
@@ -77,7 +76,7 @@ function parsed(args: string[]) {
   } catch (error) {
     const { code, message } = error as NodeJS.ErrnoException
     if (!String(code).startsWith('ERR_PARSE_ARGS_')) throw error
-    throw new Refusal(message.split(/\.(?:\s|$)/)[0])
+    throw new Refusal(FIRST_SENTENCE.exec(message)?.[0] ?? message)
   }
 }
 
@@ -99,12 +98,17 @@ function stamp(env: NodeJS.ProcessEnv) {
 
 // Making the folder is what claims it: two runs at one moment cannot both make it.
 function claimed(results: string) {
+  const all = join(results, '..')
   try {
-    mkdirSync(join(results, '..'), { recursive: true })
+    mkdirSync(all, { recursive: true })
+  } catch (error) {
+    throw new Refusal(`${all} cannot be made a folder (${(error as NodeJS.ErrnoException).code})`)
+  }
+  try {
     mkdirSync(results)
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    throw new Refusal(`${results} is there already`)
+    const { code } = error as NodeJS.ErrnoException
+    throw new Refusal(code === 'EEXIST' ? `${results} is there already` : `${results} cannot be made (${code})`)
   }
   return results
 }
@@ -118,9 +122,7 @@ function removeIfEmpty(folder: string) {
 }
 
 function caseGroups(dir: string): Group[] {
-  const groups = folders(dir, 'evals')
-    .filter(name => existsSync(join(dir, name, 'group.json')))
-    .map(name => ({ name, allowTools: grantsIn(dir, name), cases: folders(join(dir, name), `evals/${name}`).filter(found => CASE_FILES.some(file => existsSync(join(dir, name, found, file)))) }))
+  const groups = foldersHolding(GROUP_FILES, dir, 'evals').map(name => ({ name, allowTools: grantsIn(dir, name), cases: foldersHolding(CASE_FILES, join(dir, name), `evals/${name}`) }))
   if (groups.length === 0) throw new Refusal('no case group under evals/: a case group is a folder there that holds group.json')
   const cases = groups.flatMap(group => group.cases.map(name => ({ name, at: `${group.name}/${name}` })))
   const misnamed = [...groups.map(group => group.name), ...cases.map(one => one.at)].find(at => !at.split('/').every(name => NAME.test(name)))
@@ -130,11 +132,11 @@ function caseGroups(dir: string): Group[] {
   return groups
 }
 
-function folders(dir: string, shown: string) {
-  const entries = entriesOf(dir)
-  const link = entries.find(entry => entry.isSymbolicLink() && statSync(join(dir, entry.name), { throwIfNoEntry: false })?.isDirectory())
+function foldersHolding(files: string[], dir: string, shown: string) {
+  const found = entriesOf(dir).filter(entry => files.some(file => existsSync(join(dir, entry.name, file))))
+  const link = found.find(entry => entry.isSymbolicLink())
   if (link) throw new Refusal(`${shown}/${link.name} is a link: a case group and a case are folders of their own`)
-  return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+  return found.map(entry => entry.name).sort()
 }
 
 function entriesOf(dir: string) {
@@ -173,6 +175,7 @@ function host(args: string[], group: string, env: NodeJS.ProcessEnv, cwd: string
     const child = spawn('claude', ['plugin', 'eval', ...args], { cwd, env, stdio: 'inherit' })
     let stoppedBy: NodeJS.Signals | null = null
     const passOn = (signal: NodeJS.Signals) => {
+      stoppedBy = signal
       console.error(`run-evals: ${signal}: passed on to the host`)
       child.kill(signal)
     }
@@ -187,7 +190,8 @@ function host(args: string[], group: string, env: NodeJS.ProcessEnv, cwd: string
     heard('on')
     child.on('error', error => {
       heard('off')
-      reject((error as NodeJS.ErrnoException).code === 'ENOENT' ? new Refusal('no claude on the PATH') : error)
+      const { code } = error as NodeJS.ErrnoException
+      reject(child.pid === undefined ? new Refusal(code === 'ENOENT' ? 'no claude on the PATH' : `claude cannot be started (${code})`) : error)
     })
     child.on('close', (status, signal) => {
       heard('off')
