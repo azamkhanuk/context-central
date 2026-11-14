@@ -1,6 +1,6 @@
 # The eval suite
 
-Three cases for Claude Code's own `claude plugin eval`, kept in `evals/`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
+Four cases for Claude Code's own `claude plugin eval`, kept in `evals/` as two case groups: three in `reading` and one in `proof`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
 
 The suite is a measure taken by hand. It is not one of the checks, nothing waits on a score, and every run is paid for on the account of whoever starts it.
 
@@ -13,17 +13,20 @@ Each case is tied to one line of the [README](../README.md).
 | `where-an-item-stands` | "A new session picks up where the last one stopped." | "Where does export-retry stand, and what is next?" | The reply gives a fact of where the work stands and a fact of what is next, each held by the item's state file and by no other file of the estate |
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
 | `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer, and no note of the map was read or searched for its text. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
+| `ready-to-merge` | None yet: it measures the proof record, which is not built | "Is refund-window ready to merge?" | The reply says that the item's proof, the last recorded run of its check, is older than the head of its branch. No file of the estate says so: the state file says the item is built and verified |
 
 There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
 - In the first trial the machine's `PATH` held an installed copy of the plugin, under the home folder. The session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`: a run's sandboxed shell cannot read the home folder.
 - In the second, with that copy off the `PATH`, each was answered `command not found`: the `bin` folder of the plugin under test was not on the `PATH` of the run's shell. The session then wrote the state file itself, with the tools it was granted, and the case's graders passed, since they read that file alone. So the case as built would also have scored a checkpoint the plugin's command took no part in.
 
-Not tried: a run started with the checkout's own `bin` folder first on the `PATH`.
+- In a third, made on 2026-11-14 with the checkout's own `bin` folder first on the `PATH` and the installed copy off it, the shell found the command and Node did not start: `node: OpenSSL configuration error`, `Operation not permitted`, on `/opt/homebrew/etc/openssl@4/openssl.cnf`. A run's settings deny its shell `/opt/homebrew/etc`, among the places where a credential may be kept, and the Node of that machine, from Homebrew, reads its OpenSSL configuration there as it starts. `git` did not start in that shell either: on macOS `/usr/bin/git` writes a cache in the temporary folder, which the shell is denied. So the `PATH` was the whole of the second trial's fault and not the whole of the matter, and no case here rests on the plugin's command in a run's shell.
 
 ## The estate of a case
 
 Every case starts from the same invented estate, acme. The case's scaffold, a shell script, makes it in the run's empty workspace before the session starts, by sourcing `evals/acme.sh`. It is the same in both arms: 45 files, with four repos, seven work items of which six are in flight, concept and decision notes, two months of log and two saved tickets.
+
+`ready-to-merge` adds to acme, in its own scaffold: one recorded check for the repo `api`, `./check.sh`; a git repository in `api/`, with a branch `main` and a branch `work/refund-window` two commits on from it; and an eighth work item, `refund-window`, whose state file says it is built and verified and whose proof record, `proof.jsonl`, holds one run of that check at the first of those two commits. The second is a fix made after that run, so the proof is older than the head of the branch. It is the one scaffold that starts a program, `git`, and it gives every commit a fixed author and date, so that the two commits have the same ids wherever the estate is made.
 
 It is made large enough that finding the right file is work for a session with no pointers. Several work items share the words of a case's prompt, a finished item still carries an old "next", and the log holds older lines about the same work.
 
@@ -97,9 +100,9 @@ A terminate sent to the command is passed on to the host. An interrupt or a hang
 
 ## What a run costs
 
-Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 18 sessions: three cases, three runs each, in both arms.
+Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 24 sessions: four cases, three runs each, in both arms.
 
-On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the full run below cost 0.57 USD.
+On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the run of the three cases of `reading` below, which was every case there was that day, cost 0.57 USD.
 
 ## The figures of the last full run
 
@@ -182,7 +185,7 @@ evals/<group>/<case>/graders/<name>.md   one grader of a free kind
 - **A case group:** a new folder with `group.json`. Its `allowTools` are the grants the host gives every case of the group, written as `--allow-tools` takes them, and `[]` for cases that only read. `results` and `mocks` are the host's own names. A link that is neither a case group nor a case, such as a `results` kept on another disk, is passed over.
 - **Names** are small letters, digits and dashes, starting with a letter.
 - **One key and its value a line** in front matter and in `case.yaml`: the tests read them with no YAML parser.
-- **The tests hold a new case to the same rules** with no change to them. What the case's own prompt is answered with is one more test in `test/eval-cases.test.mts`, beside the three there.
+- **The tests hold a new case to the same rules** with no change to them. What the case's own prompt is answered with is one more test in `test/eval-cases.test.mts`, beside those there.
 
 ## Where a run's results go
 
