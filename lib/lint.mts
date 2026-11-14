@@ -4,6 +4,7 @@ import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
 import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, strayFiles } from './nodes.mts'
+import { saidOf, unproven } from './proof.mts'
 import { formatBytes } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
@@ -11,7 +12,7 @@ import type { Node, StrayFile, WorkItem } from './nodes.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read'
+export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read' | 'proof'
 
 export interface Finding {
   level: Level
@@ -34,6 +35,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
+    ...proofFindings(estate, itemsInFlight, env),
     ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo)),
     ...indexFindings(estate, itemsInFlight.length),
     ...passedOver(estate).map(({ rel, why }) => finding('ERROR', 'read', rel, `${rel} ${why}, so the listings pass over it`)),
@@ -95,6 +97,13 @@ function evidenceSizeFindings(estate: Estate, item: WorkItem) {
 
 function strayFinding({ rel, dirRel }: StrayFile) {
   return finding('WARN', 'evidence', rel, `${rel} is not Markdown and is outside ${dirRel}/${EVIDENCE_DIR}/`)
+}
+
+function proofFindings(estate: Estate, itemsInFlight: WorkItem[], env: Env) {
+  return itemsInFlight.flatMap(item => {
+    const lacks = unproven(estate, item, env)
+    return lacks.length > 0 ? [finding('WARN', 'proof', item.entry?.rel ?? null, saidOf(item, lacks))] : []
+  })
 }
 
 function standardsFindings(estate: Estate, repo: Repo) {
