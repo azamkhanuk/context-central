@@ -231,3 +231,31 @@ test('where-an-item-stands: each scored grader looks for a fact that the state f
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Where it stands\n\n.*switched off in production.*\n\n## Done\n/)
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Next\n\n.*`export-stalled`.*\n\n## Blocked\n/)
 })
+
+test('ticket-leads-to-notes: the prompt names a ticket no folder is named after, and the prompt hook answers with the notes behind its work item', A_SCAFFOLD, () => {
+  const one = named('ticket-leads-to-notes')
+  const root = estateOf(one)
+  const listedIn = (answer: string) => answer.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2, line.indexOf(' (')))
+
+  assert.equal(promptOf(one), 'What did we decide for PROJ-27, and why?')
+  assert.equal(existsSync(join(root, 'work', 'PROJ-27')), false)
+  assert.ok(indexOf(root).split('\n').includes(row(root, 'invoice-rounding', 'Round invoice lines the same way everywhere')))
+  const answer = context(asked(root, promptOf(one)))
+  assert.equal(answer.split('\n')[0], 'Context for work item invoice-rounding:')
+  assert.deepEqual(listedIn(answer), [
+    join(root, 'work', 'invoice-rounding', 'STATE.md'),
+    join(root, 'work', 'invoice-rounding', 'SPEC.md'),
+    join(root, 'concepts', 'rounding.md'),
+    join(root, 'decisions', '0003-round-half-even.md'),
+    join(root, 'repos', 'billing.md'),
+  ])
+})
+
+test('ticket-leads-to-notes: the scored grader looks for the reason, which the decision note holds and no other file of acme does', A_SCAFFOLD, () => {
+  const one = named('ticket-leads-to-notes')
+  const root = estateOf(one)
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['plugin-spoke', 'reason'])
+  assert.deepEqual(holding(root, patternOf(one, 'reason')), ['decisions/0003-round-half-even.md'])
+  assert.match(read(root, 'decisions/0003-round-half-even.md'), /## Context\n\n.*The settlement files of the payment provider round half to even.*\n\n## Decision\n/)
+})
