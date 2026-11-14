@@ -24,6 +24,7 @@ There are two layouts:
     notes/             research and working notes
     sources/           full text of tickets, PRs, threads: the deep tier
     evidence/          files that are not text: screenshots, recordings, exports
+    proof.jsonl        the proof record: one line for each run of a recorded check, written by the plugin
   bin/context-central   optional launcher for use outside a session, with context-central.cmd beside it
   web/ api/ ...        the checkouts, registered in estate.json
 ```
@@ -58,7 +59,7 @@ What loads, and when, is decided by tier. The budgets are settings under `budget
 | Tier | Holds | How it reaches the session | Budget (default) |
 |---|---|---|---|
 | Always loaded | the hub | Claude Code loads it at launch | `hubLines`: 200 lines, imports included |
-| Always loaded | the live index: one line per work item in flight | the session-start hook | `indexChars`: 2,000 characters |
+| Always loaded | the live index: one line per work item in flight, with a few words on proof where it is not whole | the session-start hook | `indexChars`: 2,000 characters |
 | Read when named | a work item's state file | resolver pointer; delivered again after compaction | `stateChars`: 10,000 characters |
 | Read when named | nodes and work notes | resolver pointers, at most `resolveMax` (6) after the entry file | `nodeBytes`: 20,000 bytes, a soft cap |
 | Deep | everything under `sources/`, and files named `*-full-text.md` | by path only, counted but never listed one by one | none |
@@ -82,5 +83,5 @@ Evidence is any file under a work item's `evidence/` folder. The folder is for w
 - Text a session can read stays in the deep tier.
 - `evidence.commit` in `estate.json` records whether evidence is committed. It is read as false when absent.
 - `graph` reports an evidence file no note names.
-- `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`.
+- `lint` warns on a file in a work item that is neither Markdown nor under `evidence/`. The item's proof record, `proof.jsonl` in its folder, is the one such file it passes over, and `graph` has no line for it.
 - `doctor` says when git and the setting disagree.

@@ -54,7 +54,7 @@ _Avoid_: style guide, coding guidelines, rulebook, skill
 **Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. A repo's are listed under `standards` on its entry, never copied into its standards note.
 _Avoid_: memory files, context files, agent instructions
 
-**Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, which in a work tree of the repo is the work tree, and work is verified only when every one exits 0.
+**Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, which in a work tree of the repo is the work tree, and work is verified only when every one exits 0 at the head of its branch, with nothing uncommitted. The session runs them and the plugin never does: it records what each exited with in the item's proof record.
 _Avoid_: quality gate, pipeline, score
 
 **Step skill**: A skill of the estate's own that a repo names on its entry for one of research, prep, design and implement, under `steps`. The step runs it for work touching that repo, on top of its own steps: research and prep before they write, design before it writes the design, and implement after verifying and before its review rounds. `standards` prints a repo's step skills after its checks. A repo that names none behaves as before, and under `implement.deferTo` the deferred skill is handed them with the rest.
@@ -164,3 +164,12 @@ _Avoid_: complete run, real run
 
 **Trial run**: A paid run of one case in one arm, once, made before a full run to show what only the host can.
 _Avoid_: smoke run, dry run
+
+**Proof record**: A work item's record of the recorded checks run for it, `proof.jsonl` in its folder: for each run the repo, the check as it is recorded, what it exited with, the commit and the branch, whether anything was uncommitted, the date and the system. One command, `context-central proof`, writes it, taking the exit code on the session's word and reading the rest itself, and `lint`, `doctor`, the live index and `work done` read it.
+_Avoid_: test report, score, status badge
+
+**Proof**: What an item's proof record shows of a commit. It is whole for a repo when every check that repo records exited 0, with nothing uncommitted, on the same code as the head of the branch it ran on; otherwise a check has no run, a run was made on uncommitted changes, a run is older than the head, or a check is red at the head. The readers say which and stop nothing.
+_Avoid_: score, gate, verified status
+
+**Try**: One run of a slice's checks, made once the slice's code is written, in which one comes back red. A slice has three, and after the third the build makes no further fix and stops as it does after the last review round. A run that only shows a new test failing is not one.
+_Avoid_: attempt, retry, loop
