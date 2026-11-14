@@ -126,8 +126,8 @@ function holdsOneOf(folder: string, commits: string[], ask: Ask) {
 
 function asking(env: Env, until: number): Ask {
   return (folder, args, input) => {
-    const left = Math.min(GIT_MS, until - performance.now())
-    if (left <= 0 || gaveNoAnswer.has(folder)) return null
+    const left = Math.floor(Math.min(GIT_MS, until - performance.now()))
+    if (left < 1 || gaveNoAnswer.has(folder)) return null
     const { status, stdout } = asked(folder, args, env, left, input)
     if (status === null) gaveNoAnswer.add(folder)
     return status === null ? null : { status, stdout: stdout ?? '' }

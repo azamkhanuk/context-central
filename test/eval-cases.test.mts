@@ -458,7 +458,7 @@ test('nothing-to-say: it passes on the answer and on no note of the map being re
   for (const folder of [root, '/home/me/work/tmp/e-x/home/cwd', '/srv/log/repos/api/tmp/cwd', '']) assert.deepEqual(miscounted(folder), [], folder)
 })
 
-test('ready-to-merge: the prompt names the item, the index has it, and the prompt hook answers with its state file', A_SCAFFOLD, () => {
+test('ready-to-merge: the prompt names the item, its row of the index says the proof is older than the head in words the grader takes, and the prompt hook answers with its state file', A_SCAFFOLD, () => {
   const one = named('ready-to-merge')
   const root = estateOf(one)
 
@@ -466,7 +466,9 @@ test('ready-to-merge: the prompt names the item, the index has it, and the promp
   assert.deepEqual(promptFields(one), { tags: '[proof]', max_turns: '20', allowed_tools: '[Read, Glob, Grep]' })
   assert.deepEqual(JSON.parse(read(EVALS, 'proof', 'group.json')), { allowTools: [] })
   assert.match(indexOf(root), /\nWork in flight \(7\):\n/)
-  assert.ok(indexOf(root).split('\n').includes(row(root, 'refund-window', 'Refund an order inside thirty days')))
+  assert.ok(indexOf(root).split('\n').includes(`${row(root, 'refund-window', 'Refund an order inside thirty days')} | proof: older than the head`))
+  assert.deepEqual(failedBy(one, 'proof-is-older', [`${row('/tmp/e-x/home/cwd', 'refund-window', 'Refund an order inside thirty days')} | proof: older than the head`]), [])
+  assert.deepEqual(passedBy(one, 'proof-is-older', [row('/tmp/e-x/home/cwd', 'refund-window', 'Refund an order inside thirty days')]), [])
   const [first, second] = context(asked(root, promptOf(one))).split('\n')
   assert.equal(first, 'Context for work item refund-window:')
   assert.ok(second.startsWith(`- ${join(root, 'work', 'refund-window', 'STATE.md')} (`) && second.endsWith(`) ${STATE_FILE_WHY}`), second)
