@@ -14,7 +14,12 @@ Each case is tied to one line of the [README](../README.md).
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
 | `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer, and no note of the map was read or searched for its text. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
 
-There is no case for a checkpoint. One was built, and its first trial run showed that a run's sandboxed shell would not start the plugin's own command: the session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
+There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
+
+- In the first trial the machine's `PATH` held an installed copy of the plugin, under the home folder. The session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`: a run's sandboxed shell cannot read the home folder.
+- In the second, with that copy off the `PATH`, each was answered `command not found`: the `bin` folder of the plugin under test was not on the `PATH` of the run's shell. The session then wrote the state file itself, with the tools it was granted, and the case's graders passed, since they read that file alone. So the case as built would also have scored a checkpoint the plugin's command took no part in.
+
+Not tried: a run started with the checkout's own `bin` folder first on the `PATH`.
 
 ## The estate of a case
 
