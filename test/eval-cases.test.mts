@@ -249,6 +249,7 @@ test('where-an-item-stands: each scored grader looks for a fact that the state f
 
   assert.deepEqual(graders(one).map(grader => grader.name), ['next', 'plugin-spoke', 'stands'])
   assert.deepEqual(holding(root, patternOf(one, 'stands')), ['work/export-retry/STATE.md'])
+  assert.deepEqual(holding(root, /\bprod(?:uction)?\b/i), ['work/export-retry/STATE.md'])
   assert.deepEqual(holding(root, patternOf(one, 'next')), ['work/export-retry/STATE.md'])
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Where it stands\n\n.*switched off in production.*\n\n## Done\n/)
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Next\n\n.*`export-stalled`.*\n\n## Blocked\n/)
@@ -271,6 +272,9 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'Merged, but not running in production yet.',
     'Built and merged, and waiting to be switched on in production.',
     'It has yet to go live in production.',
+    '**export-retry** is built and merged in worker but currently switched off. A failed export is retried up to five times, with a longer wait each time. **Next:** add an alert in api, then switch the retry on in production.',
+    '- **Where it stands:** built and merged in worker, switched off for now\n- **Next:** add an alert in api, then switch the retry on in production',
+    'Status: merged in worker, not enabled yet. Next steps: (1) add an alert in api (2) enable the retry in production.',
     "Done and merged, but it's off in prod until alerting exists.",
     'The retry is merged in worker and is off\nin production until the team is alerted.',
     '- **Status:** built and merged in worker\n- **Production:** off, until the team is told when an export has failed every try',
@@ -281,6 +285,7 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'I searched 5 times and found the log only.',
     'I tried 5 times to find export-retry and found the log only.',
     'After five attempts at searching I found no note.',
+    'Next: add an alert in api on the export-stalled channel, then switch the retry on in production.',
     'The code gives `tries` no value, so the retry may be disabled.',
     'runExport takes `tries` from its caller and nothing passes it, so the retry is not enabled.',
     'The retry loop is merged in worker.',
@@ -421,6 +426,9 @@ test('nothing-to-say: it passes on the answer and on no note of the map being re
     { path: '/tmp/e-x/home/cwd/web/../work', output_mode: 'content' },
     { path: 'web/..', output_mode: 'content' },
     { glob: 'api/../work/**', output_mode: 'content' },
+    { glob: '*.md,*.js', output_mode: 'content' },
+    { glob: '*.md *.js', output_mode: 'content' },
+    { glob: 'api/**,work/**', output_mode: 'content' },
   ]
   const PRINTS_NO_NOTE = [
     { path: '/tmp/e-x/home/cwd/api/src', output_mode: 'content' },

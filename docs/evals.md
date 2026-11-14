@@ -33,20 +33,23 @@ The arms differ in one thing, whether the plugin is loaded. With it the session 
 
 Every grader is of the host's free kinds: a pattern in the reply or in the session's trace, or a tool that was or was not used. None calls a judge model, so the same reply scores the same each time and a run pays for its sessions alone.
 
-A pattern is a blunt measure of a reply. Where a fact has no one word of its own, a scored pattern looks for it as two things said in one sentence, in either order and across the lines of a list or a table:
+A pattern is a blunt measure of a reply. Where a fact has no one word of its own, a scored pattern looks for it as two things, in either order and across the lines of a list or a table. For `next` and `reason` the two have to be said in one sentence. For `stands` they may be anywhere in the reply:
 
 | Grader | It passes on |
 |---|---|
-| `stands` of `where-an-item-stands` | Production beside a word for off, such as "off", "disabled", "inactive", "not live" or "waiting to be switched on" |
+| `stands` of `where-an-item-stands` | Production, and a word for off, such as "off", "disabled", "inactive", "not live" or "waiting to be switched on" |
 | `next` of `where-an-item-stands` | The `export-stalled` channel; an alert beside api or an export that has failed every try; an alert or a notice beside the team; or production beside a word for switching on |
 | `reason` of `ticket-leads-to-notes` | The payment provider, or its settlement files, beside rounding, half, matching, agreeing or being consistent |
 | `answer` of `nothing-to-say` | 366 |
 
-The tests hold replies each pattern must pass and replies it must fail. Three kinds of reply are scored wrongly all the same, and no pattern mends it:
+`stands` rests on "production" being in no file of acme but the state file, so that a reply which names it has read that file. A test holds the word to that one file.
 
-- A right reply that names neither of a pattern's two things scores as wrong: "it has not gone live", with no word of production, or the count of tries with no word of whether the retry is on.
-- A right reply that has the two things in two sentences scores as wrong: "First the alert. It goes in api."
+The tests hold replies each pattern must pass and replies it must fail. Four kinds of reply are scored wrongly all the same, and no pattern mends it:
+
+- A right reply that does not name both of a pattern's two things scores as wrong: "it has not gone live" or "held back from production", the first with no word of production and the second with no word for off, or the count of tries with no word of whether the retry is on.
+- For `next` and `reason`, a right reply that has the two things in two sentences scores as wrong: "First the alert. It goes in api."
 - A reply that names both without having found them scores as right, whether it guesses or says that it does not know: "if it is about your payment provider, a rounding rule may be involved", or "I could not find whether it is live in production".
+- A reply that says where the item stands and nothing of what is next can pass `next`, where it words the state file's first sentence with an alert: "switched off in production until the team can be alerted".
 
 `nothing-to-say` also fails where a note of the map was read. That is a `Read` of a file of the map, or a `Grep` that prints the text it finds, unless its path is inside a repo's folder or its glob or its type names a kind of code file.
 
@@ -143,6 +146,7 @@ Changes so far:
 - 2026-11-14, before the first release. A review of the cases, made after the first full run, tried replies against each pattern and found right replies in other words that failed and replies that had found nothing that passed. The patterns of `where-an-item-stands` and `ticket-leads-to-notes` were rewritten to take the fact in more wordings and to ask for more than one bare word. In `nothing-to-say` a read by a relative path now counts, a file of a repo no longer counts when the workspace sits under a folder named like one of the map's, and a search that prints the text of notes counts as reading them. In acme, the worker's code no longer says how many tries production uses, which gave away a fact meant to be the state file's alone, and the estate's own setting keeps its index whole at the end of a long path.
 - 2026-11-14, before the first release, after a second review. The patterns were rewritten again, to what the table under [The graders](#the-graders) gives. The review showed right replies in a list or a table that failed, since a pattern stopped at the end of a line, and replies built from other files of acme, or from nothing, that passed on one bare phrase such as "not enabled" or "settlement". `no-note-searched` no longer counts a search kept to a repo's code, which prints no note. acme's index setting went up to 9,500 characters, the most the session-start hook gives a session: at 4,000 the index was still cut once the workspace's path passed 395 characters.
 - 2026-11-14, before the first release, after a third review. `reason` took any word that starts "settle", so it passed the decision with no reason: "rounded half to even, as decision 3 settled", which another note of acme says. It now takes "settlement". `next` passed "the shop is notified after every attempt fails", built from the item's spec and a concept note: a notice now passes only beside the team, and an export that has failed every try only beside an alert. `stands` passed on a session's own count of its tries, so the count of five tries is out of the pattern, which looks for production beside a word for off alone. `no-note-searched` passed over every search that was not of markdown, and some of those print notes: it now passes over a search only where its path, its glob or its type names a repo's code. The test that holds each fact to one file of acme now reads the files as a session would say them, with the markup of a link taken off, which is how the first of these went unseen.
+- 2026-11-14, before the first release, after a fourth review, kept to the change before it. With the count of tries out, `stands` failed a right reply that said "switched off" and left "in production" for its next sentence. It now takes production and a word for off anywhere in the reply. `no-note-searched` no longer passes over a glob of two parts, such as `*.md,*.js`, which searches notes as well as code.
 
 ## What the tests hold, free
 
