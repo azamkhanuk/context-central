@@ -1,13 +1,15 @@
 set -eu
 . "$(dirname "$0")/../../acme.sh"
 
-in_api() {
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_DEFAULT_HASH=sha1 GIT_DEFAULT_REF_FORMAT=files git -C api "$@"
+as_acme() {
+  when=$1
+  shift
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_DEFAULT_HASH=sha1 GIT_DEFAULT_REF_FORMAT=files GIT_AUTHOR_NAME=Acme GIT_AUTHOR_EMAIL=acme@example.invalid GIT_AUTHOR_DATE="$when" GIT_COMMITTER_NAME=Acme GIT_COMMITTER_EMAIL=acme@example.invalid GIT_COMMITTER_DATE="$when" git -C api "$@"
 }
 
-commit_as_acme() {
-  in_api add -A
-  GIT_AUTHOR_NAME=Acme GIT_AUTHOR_EMAIL=acme@example.invalid GIT_AUTHOR_DATE="$1" GIT_COMMITTER_NAME=Acme GIT_COMMITTER_EMAIL=acme@example.invalid GIT_COMMITTER_DATE="$1" in_api commit -q -m "$2"
+commit_all() {
+  as_acme "$1" add -A
+  as_acme "$1" commit -q -m "$2"
 }
 
 put estate.json <<'EOF'
@@ -36,9 +38,9 @@ chmod +x api/check.sh
 
 # A second run finds the repository made and starts no git that writes, so it leaves every file as it was.
 if [ ! -e api/.git ]; then
-  in_api init -q --template= -b main
-  commit_as_acme 2026-01-12T09:00:00Z 'The limiter, its test and the check'
-  in_api checkout -q -b work/refund-window
+  as_acme 2026-01-12T09:00:00Z init -q --template= -b main
+  commit_all 2026-01-12T09:00:00Z 'The limiter, its test and the check'
+  as_acme 2026-01-14T09:00:00Z checkout -q -b work/refund-window
   put api/src/refund.js <<'EOF'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -52,14 +54,13 @@ import { test } from 'node:test'
 import { refundable } from '../src/refund.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const refundableAfter = days => refundable({ paidAt: 0 }, days * DAY_MS)
 
-test('an order paid ten days ago can be refunded, and one paid forty days ago cannot', () => {
-  const now = 100 * DAY_MS
-
-  assert.deepEqual([refundable({ paidAt: now - 10 * DAY_MS }, now), refundable({ paidAt: now - 40 * DAY_MS }, now)], [true, false])
+test('an order can be refunded ten days on, and not forty days on', () => {
+  assert.deepEqual([refundableAfter(10), refundableAfter(40)], [true, false])
 })
 EOF
-  commit_as_acme 2026-01-14T10:00:00Z 'Refund an order inside thirty days'
+  commit_all 2026-01-14T10:00:00Z 'Refund an order inside thirty days'
   put api/src/refund.js <<'EOF'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -67,11 +68,27 @@ export function refundable(order, now = Date.now()) {
   return now - order.paidAt <= 30 * DAY_MS
 }
 EOF
-  commit_as_acme 2026-01-15T09:00:00Z 'Count the thirtieth day inside the refund window'
+  put api/test/refund.test.js <<'EOF'
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { refundable } from '../src/refund.js'
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const refundableAfter = days => refundable({ paidAt: 0 }, days * DAY_MS)
+
+test('an order can be refunded ten days on, and not forty days on', () => {
+  assert.deepEqual([refundableAfter(10), refundableAfter(40)], [true, false])
+})
+
+test('the thirtieth day is inside the refund window', () => {
+  assert.equal(refundableAfter(30), true)
+})
+EOF
+  commit_all 2026-01-15T09:00:00Z 'Count the thirtieth day inside the refund window'
 fi
 
-test "$(in_api rev-list --count HEAD)" = 3
-proven=$(in_api rev-parse HEAD~1)
+test "$(as_acme 2026-01-15T09:00:00Z rev-list --count HEAD)" = 3
+proven=$(as_acme 2026-01-15T09:00:00Z rev-parse HEAD~1)
 
 put work/refund-window/STATE.md <<EOF
 ---

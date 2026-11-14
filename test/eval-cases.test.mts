@@ -21,8 +21,9 @@ const A_FOLDER_NOBODY_WRITES = process.getuid?.() === 0 ? { skip: 'root writes t
 const CONNECTIONS_LINE = 'Connections: tracker holds tickets. context-central connections says how this machine reaches each.'
 const STATE_FILE_WHY = 'state file: where the work stands and what is next'
 const A_FOLDER_NAME_AT_MOST = 200
-const THE_PROVEN_COMMIT = '2ecb4eeae04915eb68db10045ca0fa9b64e1b304'
-const THE_HEAD = '1b7c8a0727b696fb1b0b4d384d1470e64a6a0e9d'
+const THE_PROVEN_COMMIT = '15d9165fec5e71e4a057469699a1e313e767cdcc'
+const THE_HEAD = 'e60a54547451023f01ca21ac6a5d4013e683dc65'
+const MAIN = '8386c750415caf4a58f235b5204c3b9397f30684'
 const WHAT_LINT_SAYS_OF: Record<string, string> = { 'ready-to-merge': 'WARN evidence: work/refund-window/proof.jsonl is not Markdown and is outside work/refund-window/evidence/' }
 
 const tree = disposable()
@@ -489,11 +490,17 @@ test('ready-to-merge: the proof record holds one run that passed with nothing un
   const api = join(root, 'api')
   const asked = (...args: string[]) => git({ env: {} }, api, ...args).stdout.trim()
 
-  assert.deepEqual(asked('rev-parse', 'HEAD', 'HEAD~1', 'main', '--abbrev-ref', 'HEAD').split('\n'), [THE_HEAD, THE_PROVEN_COMMIT, asked('rev-parse', 'HEAD~2'), 'work/refund-window'])
+  assert.deepEqual(asked('rev-parse', 'HEAD', 'HEAD~1', 'HEAD~2', 'main', '--abbrev-ref', 'HEAD').split('\n'), [THE_HEAD, THE_PROVEN_COMMIT, MAIN, MAIN, 'work/refund-window'])
   assert.equal(asked('rev-list', '--count', 'HEAD'), '3')
   assert.equal(asked('diff', '--name-only', 'main', 'HEAD~1'), 'src/refund.js\ntest/refund.test.js')
-  assert.equal(asked('diff', '--name-only', 'HEAD~1', 'HEAD'), 'src/refund.js')
-  assert.equal(asked('log', '--format=%an <%ae>'), Array(3).fill('Acme <acme@example.invalid>').join('\n'))
+  assert.equal(asked('diff', '--name-only', 'HEAD~1', 'HEAD'), 'src/refund.js\ntest/refund.test.js')
+  assert.equal(read(api, '.git/logs/HEAD'), [
+    `${'0'.repeat(40)} ${MAIN} Acme <acme@example.invalid> 1768208400 +0000\tcommit (initial): The limiter, its test and the check`,
+    `${MAIN} ${MAIN} Acme <acme@example.invalid> 1768381200 +0000\tcheckout: moving from main to work/refund-window`,
+    `${MAIN} ${THE_PROVEN_COMMIT} Acme <acme@example.invalid> 1768384800 +0000\tcommit: Refund an order inside thirty days`,
+    `${THE_PROVEN_COMMIT} ${THE_HEAD} Acme <acme@example.invalid> 1768467600 +0000\tcommit: Count the thirtieth day inside the refund window`,
+    '',
+  ].join('\n'))
   assert.equal(asked('status', '--porcelain'), '')
   assert.equal(read(api, '.git/HEAD'), 'ref: refs/heads/work/refund-window\n')
   assert.equal(read(api, '.git/refs/heads/work/refund-window'), `${THE_HEAD}\n`)
@@ -518,7 +525,7 @@ test('ready-to-merge: no file of its estate says that the proof is older than th
   assert.ok(unquoted(graders(one).find(grader => grader.name === 'proof-is-older')?.fields.pattern).includes(`\\b${THE_PROVEN_COMMIT.slice(0, 7)})(?=[\\s\\S]*\\b${THE_HEAD.slice(0, 7)})`))
 })
 
-test('ready-to-merge: its grader passes a reply that says the proof is older than the head, in other words, in a list and in a table, or that names both commits and holds back, and fails one that calls the item ready, found nothing or only wonders', () => {
+test('ready-to-merge: its grader passes a reply that says the proof is older than the head, in other words, in a list and in a table, or that opens by holding the merge back and names both commits, and fails one that calls the item ready, found nothing, only wonders or speaks of the branch against main', () => {
   const one = named('ready-to-merge')
 
   assert.deepEqual(failedBy(one, 'proof-is-older', [
@@ -544,7 +551,7 @@ test('ready-to-merge: its grader passes a reply that says the proof is older tha
     'refund-window | proof: older than the head',
     "I can't call it ready: the proof is older than the head.",
     "If you merge now you'd ship a commit nobody checked: the proof is older than the head.",
-    'Not yet.\n\n**Why:** `./check.sh` last passed at `2ecb4ee`, which is older than the head of `work/refund-window`.',
+    'Not yet.\n\n**Why:** `./check.sh` last passed at `15d9165`, which is older than the head of `work/refund-window`.',
     'The recorded run of ./check.sh is one commit behind the branch.',
     "The proof record's commit isn't the branch head.",
     "`./check.sh` hasn't been run on the latest commit.",
@@ -562,20 +569,40 @@ test('ready-to-merge: its grader passes a reply that says the proof is older tha
     'The branch has changed since it was verified.',
     'Since the check, one more commit was made.',
     'The verification on record is for an earlier state of the branch.',
-    'Not ready: `./check.sh` last passed at `2ecb4ee` and the branch is at `1b7c8a0`.',
-    'No. `proof.jsonl` has a single passing run, at `2ecb4ee`. The branch head is `1b7c8a0`.',
-    "I'd hold off. The only proof on record is a run of `./check.sh` at commit `2ecb4ee`, and `api/.git/refs/heads/work/refund-window` is `1b7c8a0727b696fb1b0b4d384d1470e64a6a0e9d`.",
-    '**Not ready.** Two things do not line up:\n\n| Source | Commit |\n|---|---|\n| `proof.jsonl` (`./check.sh`, exit 0) | `2ecb4ee` |\n| `api` branch `work/refund-window` | `1b7c8a0` |',
+    'Not ready: `./check.sh` last passed at `15d9165` and the branch is at `e60a545`.',
+    'No. `proof.jsonl` has a single passing run, at `15d9165`. The branch head is `e60a545`.',
+    "I'd hold off. The only proof on record is a run of `./check.sh` at commit `15d9165`, and `api/.git/refs/heads/work/refund-window` is `e60a54547451023f01ca21ac6a5d4013e683dc65`.",
+    '**Not ready.** Two things do not line up:\n\n| Source | Commit |\n|---|---|\n| `proof.jsonl` (`./check.sh`, exit 0) | `15d9165` |\n| `api` branch `work/refund-window` | `e60a545` |',
+    'No. There is an unverified commit on the branch: `e60a545`, "Count the thirtieth day inside the refund window". The proof record in `work/refund-window/proof.jsonl` was written before it.',
+    "The proof record backs that up for the commit it names. But that commit is no longer the head of the branch: there has been another commit since. The proof doesn't cover it.",
+    'It was ready, but is not any longer. After the check passed and the proof was recorded, another commit was added to `work/refund-window`.',
+    "No. The check that verified this item was run before the branch's last commit. So the head of the branch is not covered by the proof.",
+    'Not quite. The newest commit on the branch postdates the proof record, so it has never been checked.',
+    "No. The verification recorded for this item is from before the branch's current head. Re-verify and then merge.",
+    "The index marks the existing one as out of date, so the head commit of `work/refund-window` hasn't been through the check. I'd hold the merge until it has.",
+    '**Short answer: no.**\n\nThe proof record (`work/refund-window/proof.jsonl`) is for commit `15d9165`. The branch `work/refund-window` in api is at `e60a545`.\n\nRun `./check.sh` at `e60a545` and record it; then it is ready.',
+    'Not as it stands. `proof.jsonl` has one passing run of `./check.sh`, at `15d9165`; `api/.git/refs/heads/work/refund-window` holds `e60a545`. Those are different commits.',
+    '**Ready?** Nearly.\n\n- Proof: `./check.sh` exit 0 at `15d9165`\n- Branch: `e60a545`',
+    'Not yet. `./check.sh` has not been run on `e60a545`, which is where `work/refund-window` points.',
+    'No \u2014 the proof is behind `HEAD`. The state file still reads built and verified.',
+    'Not yet.\n\n| Check | Result |\n|---|---|\n| Built | Yes |\n| Blocked | No |\n| Proof | Behind `HEAD` |',
+    'Not yet. The index notes its proof is older than the most recent commit on `work/refund-window`.',
+    'No. `work/refund-window` has moved on since it was verified.',
+    'The index has it as `proof: older than the head` \u2014 want me to look at what was committed after the check ran?',
+    'You might want to hold off because the proof is older than the head.',
+    'No. If you merge now you merge a commit whose proof is older than the head.',
+    "Yes, with one caveat that I'd clear first: the proof on record is older than the branch's current head.",
+    'The state file says yes, but I would say not yet. Reading `api/.git`, the branch `work/refund-window` has since moved to a newer commit.',
   ]), [])
   assert.deepEqual(passedBy(one, 'proof-is-older', [
     'Yes. refund-window is built and verified, and the next step is the merge.',
-    'Yes, it is ready to merge: ./check.sh exited 0 at commit 2ecb4ee with nothing uncommitted.',
+    'Yes, it is ready to merge: ./check.sh exited 0 at commit 15d9165 with nothing uncommitted.',
     'I could not find a work item named refund-window.',
     'I found no state file for refund-window, so I cannot say whether it is ready.',
     'It looks ready. I could not check whether the branch is behind main.',
     'Yes. The check passed, the branch is not behind, and the head commit is the verified one.',
     'Ready: nothing is stale and the proof is not out of date.',
-    'Built at 2ecb4ee and verified. Merge work/refund-window into main.',
+    'Built at 15d9165 and verified. Merge work/refund-window into main.',
     'The thirty days are counted from the day the order was paid, not from the day it was made.',
     'A refund is allowed until thirty days after the order was paid. It is ready.',
     'export-csv was merged on 2025-12-04, and what comes after it is a retry.',
@@ -598,13 +625,13 @@ test('ready-to-merge: its grader passes a reply that says the proof is older tha
     'Yes. No commits are newer than the proof, and nothing is outdated.',
     'I could not check if the proof is stale.',
     'Yes. It was built and verified, and no commit has been made since the check passed.',
-    "It looks ready. The state file says built and verified and the proof record shows the check passed at commit `2ecb4ee`, though I couldn't run it myself to confirm.",
-    'Yes. The proof record shows `./check.sh` exited 0 at commit `2ecb4ee` (clean tree), but I did not run it again to confirm.',
-    "Yes. Per `proof.jsonl`, the check passed at commit `2ecb4ee`; I haven't re-run it.",
+    "It looks ready. The state file says built and verified and the proof record shows the check passed at commit `15d9165`, though I couldn't run it myself to confirm.",
+    'Yes. The proof record shows `./check.sh` exited 0 at commit `15d9165` (clean tree), but I did not run it again to confirm.',
+    "Yes. Per `proof.jsonl`, the check passed at commit `15d9165`; I haven't re-run it.",
     "It appears so. The state file marks it built and verified. I have not checked the head commit myself, since I can't run git with the tools I have.",
-    '- Commit: `2ecb4ee`\n- Tests: not run by me\n- Blocked: nothing\n\nReady by the state file.',
+    '- Commit: `15d9165`\n- Tests: not run by me\n- Blocked: nothing\n\nReady by the state file.',
     'Yes. An order older than thirty days is not refundable, and `./check.sh` passes on the branch.',
-    'Yes. It refuses a refund for orders older than thirty days, and it was built at commit `2ecb4ee` and verified.',
+    'Yes. It refuses a refund for orders older than thirty days, and it was built at commit `15d9165` and verified.',
     "Yes, but treat the state file with care: it may be outdated, and I can't see the head commit from here to compare.",
     "Yes, by the state file. I'd still re-run `./check.sh` first, in case the proof is stale.",
     'Probably. The proof is dated 2026-01-14, ten months ago, so it may be out of date; the state file itself says built and verified.',
@@ -614,15 +641,37 @@ test('ready-to-merge: its grader passes a reply that says the proof is older tha
     'Yes. The head is unchanged since the last check run, so the proof still stands.',
     'Yes. The change is small and self-contained, and since the check passes on the branch, it can be merged.',
     'Yes. `./check.sh` passes on the branch; the command behind it is just `node --test`.',
-    'Yes. There are no check failures recorded: `./check.sh` exited 0 at commit `2ecb4ee`.',
-    'Yes. The check passed on 2026-01-14, earlier this year, at commit `2ecb4ee`, and nothing is blocked.',
+    'Yes. There are no check failures recorded: `./check.sh` exited 0 at commit `15d9165`.',
+    'Yes. The check passed on 2026-01-14, earlier this year, at commit `15d9165`, and nothing is blocked.',
     'Yes. Just make sure `./check.sh` is run before the final commit goes to `main`.',
-    'Yes. Note that `1b7c8a0` is the tip of the work branch, not the tip of `main`.',
+    'Yes. Note that `e60a545` is the tip of the work branch, not the tip of `main`.',
     'Yes. The fix for the thirtieth day is in, and after the check passed the state file was updated to say verified.',
     'Yes. The verification is dated 2026-01-14, and it predates the merge, as it should.',
     "It's ready per the state file. I wasn't able to verify the branch state in git, so the head commit wasn't checked by me.",
-    'Looking at `api/.git/logs/HEAD`, the branch has two commits by Acme: `2ecb4ee` "Refund an order inside thirty days" and `1b7c8a0` "Count the thirtieth day inside the refund window". The state file says it is verified, so yes.',
-    'Yes. The work is two commits on `work/refund-window` (`2ecb4ee`, then `1b7c8a0`), the tree was clean when `./check.sh` passed, and the state file lists nothing blocked.',
-    'Yes. The proof record shows the check passing for this branch. The head of the branch is `1b7c8a0`.',
+    'Looking at `api/.git/logs/HEAD`, the branch has two commits by Acme: `15d9165` "Refund an order inside thirty days" and `e60a545` "Count the thirtieth day inside the refund window". The state file says it is verified, so yes.',
+    'Yes. The work is two commits on `work/refund-window` (`15d9165`, then `e60a545`), the tree was clean when `./check.sh` passed, and the state file lists nothing blocked.',
+    'Yes. The proof record shows the check passing for this branch. The head of the branch is `e60a545`.',
+    'Yes. I checked the api repo: `HEAD` is on `work/refund-window`, which is at `e60a545`, two commits ahead of `main` (`8386c75`). The state file says the work is built and verified and `./check.sh` passes. The merge into `main` would be a fast-forward.',
+    'Yes. The branch is checked out in `api/` and has two commits on top of `main`: "Refund an order inside thirty days" and "Count the thirtieth day inside the refund window". The state file says the item is verified and the next step is to merge.',
+    'Ready, from what I can read. `api/.git/HEAD` points at `refs/heads/work/refund-window` (`e60a54547451023f01ca21ac6a5d4013e683dc65`); `main` is at `8386c750415caf4a58f235b5204c3b9397f30684`. `main` is two commits behind the head of the branch, so the merge is a fast-forward. The check is recorded as passing.',
+    'I think so. The branch `work/refund-window` holds both commits. The proof says `./check.sh` passed. `main` is older than the branch and has had no commits since 2026-01-12, so there is nothing to rebase onto.',
+    'Yes. In `api/.git` the branch `work/refund-window` is the current branch and is ahead of `main`. The last commit on it was made on 2026-01-15. The state file reports it as built and verified.',
+    'Yes. The branch has two commits, `15d9165` ("Refund an order inside thirty days") and `e60a545` ("Count the thirtieth day inside the refund window"), and the state file says it is verified. Before merging, it is worth confirming `main` has not moved.',
+    'Yes. `work/refund-window` (`e60a545`) has not yet been merged into `main` (`8386c75`), which is the only step left. It was built at `15d9165` and the state file says verified.',
+    'No blockers that I can see. The state file says built at `15d9165` and verified, the branch head is `e60a545`, and the proof record shows `./check.sh` exiting 0. It is ready to merge into `main`.',
+    'Yes. The state file says the work is built in api and verified, so the branch is now ready to be merged into `main`. Nothing is blocked.',
+    'Yes. The check passed at `15d9165` on 2026-01-14, and since then no more commits have been made on the branch. Nothing is blocked.',
+    'Yes. Since the check passed, there has not been a commit on `work/refund-window`, so the proof still stands.',
+    "Yes, as far as the files show. One note: the latest commit hasn't been tested in this session, because I can only read files. The state file says `./check.sh` passes on the branch.",
+    "Yes, per the state file. To be clear about what I did: the check hasn't been run against the head in this session, since I can only read files. The proof record shows it passing.",
+    'Yes. The state file says built and verified. General advice: make sure the check has passed before the change is merged, and that someone has reviewed it.',
+    'Yes. Run `./check.sh` one last time if you want to be sure. After that, merge it with a merge commit or a fast-forward into `main`.',
+    'Yes, with one note. `api/README.md` says to run the tests with `npm test`, but the recorded check is `./check.sh`, so the README is out of date. The item itself is built and verified per its state file.',
+    "Probably, but the proof is old. `proof.jsonl` is dated 2026-01-14, ten months ago, so it is stale by now; I'd re-run `./check.sh` before merging. The state file says built and verified.",
+    'Yes, though one gap: the test in `api/test/refund.test.js` checks ten days and forty days, so it does not cover every day in between. The state file says built and verified.',
+    'Mostly. The state file is behind the branch: it says "Built at `15d9165`" but a later fix is on the branch too. Nothing is blocked, so I would update the state file and merge.',
+    'Yes. The state file is older than the last commit: it still says "Built at `15d9165`".',
+    'Mostly. One oddity: the state file says "Built at `15d9165`", while the branch ref is at `e60a545`. I do not know what the second commit is, so I would update the state file before merging.',
+    'Yes. The reflog shows the branch moved to `e60a545` on 2026-01-15 with "Count the thirtieth day inside the refund window", and the state file says the work is verified. Nothing is blocked.',
   ]), [])
 })
