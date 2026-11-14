@@ -23,7 +23,7 @@ function realGit() {
 }
 
 const NOT_CHECKED = 'git is not on the PATH, so this was not checked'
-const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees'].map(row => `note ${row}: ${NOT_CHECKED}`)
+const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof'].map(row => `note ${row}: ${NOT_CHECKED}`)
 
 const GIT_IGNORING_WEB_ONLY = 'case "$*" in *rev-parse*) echo true ;; *"check-ignore -q web") exit 0 ;; *) exit 1 ;; esac'
 const GIT_IGNORING_BOTH = 'case "$*" in *rev-parse*) echo true ;; *) exit 0 ;; esac'
@@ -72,7 +72,7 @@ const hooksLine = (result: Result) => result.stdout.split('\n').find(line => lin
 const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
-test('with no git on the PATH the four rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
+test('with no git on the PATH the five rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
   const root = tree(acme({}, BY_A_SERVER))
 
   const result = doctor(root)
@@ -95,7 +95,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root, realGit())
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   proof', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -615,7 +615,7 @@ test('a hub path that is a folder is a fix, not a crash', () => {
   assert.equal(result.stderr, '')
 })
 
-test('json lists every check with its fix and its note, and with no git on the PATH the four rows that ask git carry that as their note', () => {
+test('json lists every check with its fix and its note, and with no git on the PATH the five rows that ask git carry that as their note', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox(), '--json')
@@ -631,6 +631,7 @@ test('json lists every check with its fix and its note, and with no git on the P
     { check: 'notes', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'evidence', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'worktrees', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'proof', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'copies', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
@@ -924,4 +925,25 @@ test('from inside a work tree that was moved by hand, doctor names it where draf
   writeIn(moved, 'concepts/limits.md', '# Limits\n')
 
   assert.equal(worktreesLine(made, moved), `FIX  worktrees: 1 draft waits in ${moved}; run context-central take there`)
+})
+
+test('doctor counts the items in flight whose proof is not whole in a note that names lint, and the note leaves its exit code at 0', () => {
+  const made = solo({ '.context-central/work/PROJ-13/STATE.md': '---\nstatus: active\n---\n# PROJ-13\n' })
+  tree(made.base)
+  const env = { ...realGit(), ...made.env }
+  const proved = (item: string) => run(['proof', item, '--check', './check.sh', '--exit', '0'], { cwd: made.main, env })
+  const row = () => doctor(made.main, env).stdout.split('\n').find(line => line.includes(' proof'))
+  proved('PROJ-12')
+  proved('PROJ-13')
+
+  const whole = row()
+  writeFileSync(join(made.main, 'src/app.js'), 'export const limited = true\n')
+  spawnSync('git', ['-C', made.main, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.invalid', 'commit', '-q', '-am', 'second'], { env: { ...process.env, ...made.env } })
+  const two = doctor(made.main, env)
+  proved('PROJ-12')
+
+  assert.equal(whole, 'ok   proof')
+  assert.match(two.stdout, /^note proof: 2 items in flight lack proof; context-central lint names them$/m)
+  assert.equal(two.code, 0)
+  assert.equal(row(), 'note proof: 1 item in flight lacks proof; context-central lint names it')
 })

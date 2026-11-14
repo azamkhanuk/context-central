@@ -10,8 +10,9 @@ import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
 import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, onPath } from '../machine.mts'
-import { folderAt, hubPath, listWorkItems } from '../nodes.mts'
+import { folderAt, hubPath, inFlight, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
+import { unproven } from '../proof.mts'
 import { PLUGIN, PLUGIN_ID, evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
 import { gitIgnores, linkedWorkTree, mainCheckoutOf, workTreesOf } from '../worktree.mts'
@@ -38,7 +39,7 @@ interface Install {
 
 type Finding = string | Note | null | undefined
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, hooks, copies, connections'
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, proof, hooks, copies, connections'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
@@ -46,8 +47,8 @@ const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
 const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
-const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, hooks, copies, connections }
-const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees']
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, proof, hooks, copies, connections }
+const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof']
 const NO_GIT = { note: 'git is not on the PATH, so this was not checked' }
 
 export function run(args: string[], io: Io) {
@@ -181,6 +182,12 @@ function draftsWaiting(estate: Estate, tree: WorkTree, env: Env) {
     if (!(error instanceof PluginError)) throw error
     return 0
   }
+}
+
+function proof(estate: Estate, io: Io): Finding {
+  const lacking = listWorkItems(estate).filter(item => inFlight(item) && unproven(estate, item, io.env).length > 0).length
+  if (lacking === 0) return null
+  return { note: lacking === 1 ? '1 item in flight lacks proof; context-central lint names it' : `${lacking} items in flight lack proof; context-central lint names them` }
 }
 
 function named(files: string[]) {
