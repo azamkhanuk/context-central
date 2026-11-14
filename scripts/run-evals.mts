@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmdirSync, statSync, writeSync } from 'node:fs'
+import { constants } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { clock } from '../lib/text.mts'
@@ -9,73 +10,117 @@ const CEILING_USD = '10'
 const ALWAYS = ['--no-publish', '--scaffold', '--model', 'claude-sonnet-5-5', '--threshold', '0']
 const TRIAL = ['--runs', '1', '--ablation', 'none', '--keep-temp']
 const NAME = /^[a-z][a-z0-9-]*$/
+const FIGURE = /^\d+(?:\.\d+)?$/
 const CASE_FILES = ['prompt.md', 'case.yaml']
 const PLAIN_WORD = /^[\w@%+=:,./-]+$/
 const STDOUT = 1
+// A terminal gives an interrupt or a hang-up to the host itself, so passing those on would tell it twice.
+const PASSED_ON: NodeJS.Signals[] = ['SIGTERM']
+const LEFT_TO_THE_TERMINAL: NodeJS.Signals[] = ['SIGINT', 'SIGHUP']
 
 class Refusal extends Error {}
 
 type Group = { name: string, allowTools: string[], cases: string[] }
 type Start = { group: Group, pick: string[] }
 type Flags = ReturnType<typeof flagsIn>
+type Ended = { code: number, stoppedBy: NodeJS.Signals | null }
 
-function main(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
+async function main(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   const flags = flagsIn(args)
-  const ceiling = ceilingOf(flags['max-cost-usd'] ?? CEILING_USD)
+  const ceiling = ceilingOf(flags.ceiling ?? CEILING_USD)
   if (!existsSync(join(cwd, '.claude-plugin', 'plugin.json'))) throw new Refusal('no .claude-plugin/plugin.json here: run it from the root of the plugin')
   const starts = startsAsked(caseGroups(join(cwd, 'evals')), flags)
-  const results = join(cwd, 'evals', 'results', clock(env).toISOString().replace(/[:.]/g, '-'))
-  if (existsSync(results)) throw new Refusal(`${results} is there already`)
-  const code = started(starts, ceiling, results, flags, env, cwd)
-  if (existsSync(results)) say(`run-evals: results in ${results}`)
+  const results = claimed(join(cwd, 'evals', 'results', stamp(env)))
+  const code = await started(starts, ceiling, results, flags, env, cwd).catch(error => {
+    removeIfEmpty(results)
+    throw error
+  })
+  say(`run-evals: results in ${results}`)
   return code
 }
 
-function started(starts: Start[], ceiling: number, results: string, flags: Flags, env: NodeJS.ProcessEnv, cwd: string) {
+async function started(starts: Start[], ceiling: number, results: string, flags: Flags, env: NodeJS.ProcessEnv, cwd: string) {
   let left = ceiling
   for (const [at, { group, pick }] of starts.entries()) {
     const later = starts.slice(at + 1).map(start => start.group.name)
     if (left <= 0) return stopped(2, `nothing is left of the ceiling of ${ceiling} USD`, [group.name, ...later])
     const out = join(results, group.name)
     const grants = group.allowTools.length > 0 ? ['--allow-tools', ...group.allowTools] : []
-    const code = host(['.', ...ALWAYS, '--max-cost-usd', String(left), '--output-dir', out, ...(flags['trust-plugin'] ? ['--trust-plugin'] : []), ...(flags.trial ? TRIAL : []), ...pick, ...grants], env, cwd)
+    const { code, stoppedBy } = await host(['.', ...ALWAYS, '--max-cost-usd', String(left), '--output-dir', out, ...(flags.trust ? ['--trust-plugin'] : []), ...(flags.trial ? TRIAL : []), ...pick, ...grants], group.name, env, cwd)
     if (code !== 0) return stopped(code, `the host ended ${group.name} with ${code}`, later)
     if (later.length === 0) break
+    if (stoppedBy) return stopped(exitCodeOf(stoppedBy), `stopped by ${stoppedBy}`, later)
     const document = join(out, 'aggregate-result.json')
     const cost = costIn(document)
     if (cost === null) return stopped(1, `${document} gives no costUsd, so what is left of the ceiling is not known`, later)
-    left = Number((left - cost).toFixed(6))
+    left = sixPlaces(left - cost)
   }
   return 0
 }
 
 function flagsIn(args: string[]) {
   const { values } = parsed(args)
-  if (values.group !== undefined && values.case !== undefined) throw new Refusal('give --group or --case, not both')
-  if (values.trial && values.case === undefined) throw new Refusal('--trial goes with --case')
-  return values
+  const once = (name: 'group' | 'case' | 'max-cost-usd') => {
+    const given = values[name] ?? []
+    if (given.length > 1) throw new Refusal(`--${name} is given more than once`)
+    return given[0]
+  }
+  const flags = { group: once('group'), case: once('case'), ceiling: once('max-cost-usd'), trial: values.trial ?? false, trust: values['trust-plugin'] ?? false }
+  if (flags.group !== undefined && flags.case !== undefined) throw new Refusal('give --group or --case, not both')
+  if (flags.trial && flags.case === undefined) throw new Refusal('--trial goes with --case')
+  return flags
 }
 
 function parsed(args: string[]) {
   try {
-    return parseArgs({ args, options: { group: { type: 'string' }, case: { type: 'string' }, trial: { type: 'boolean' }, 'max-cost-usd': { type: 'string' }, 'trust-plugin': { type: 'boolean' } } })
+    return parseArgs({ args, options: { group: { type: 'string', multiple: true }, case: { type: 'string', multiple: true }, trial: { type: 'boolean' }, 'max-cost-usd': { type: 'string', multiple: true }, 'trust-plugin': { type: 'boolean' } } })
   } catch (error) {
     const { code, message } = error as NodeJS.ErrnoException
     if (!String(code).startsWith('ERR_PARSE_ARGS_')) throw error
-    throw new Refusal(message.split('. ')[0])
+    throw new Refusal(message.split(/\.(?:\s|$)/)[0])
   }
 }
 
 function ceilingOf(figure: string) {
-  const usd = Number(figure)
-  if (figure.trim() === '' || !Number.isFinite(usd) || usd <= 0) throw new Refusal(`--max-cost-usd takes a number of USD above 0, not "${figure}"`)
+  const usd = FIGURE.test(figure) ? sixPlaces(Number(figure)) : 0
+  if (!Number.isFinite(usd) || usd <= 0) throw new Refusal(`--max-cost-usd takes a figure in USD above 0, as 10 or 2.5, not "${figure}"`)
   return usd
 }
 
+function sixPlaces(usd: number) {
+  return Number(usd.toFixed(6))
+}
+
+function stamp(env: NodeJS.ProcessEnv) {
+  const now = clock(env)
+  if (Number.isNaN(now.getTime())) throw new Refusal(`CONTEXT_CENTRAL_NOW is "${env.CONTEXT_CENTRAL_NOW}", which is not a time`)
+  return now.toISOString().replace(/[:.]/g, '-')
+}
+
+// Making the folder is what claims it: two runs at one moment cannot both make it.
+function claimed(results: string) {
+  try {
+    mkdirSync(join(results, '..'), { recursive: true })
+    mkdirSync(results)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    throw new Refusal(`${results} is there already`)
+  }
+  return results
+}
+
+function removeIfEmpty(folder: string) {
+  try {
+    rmdirSync(folder)
+  } catch {
+    return
+  }
+}
+
 function caseGroups(dir: string): Group[] {
-  const groups = folders(dir)
+  const groups = folders(dir, 'evals')
     .filter(name => existsSync(join(dir, name, 'group.json')))
-    .map(name => ({ name, allowTools: grantsIn(dir, name), cases: folders(join(dir, name)).filter(found => CASE_FILES.some(file => existsSync(join(dir, name, found, file)))) }))
+    .map(name => ({ name, allowTools: grantsIn(dir, name), cases: folders(join(dir, name), `evals/${name}`).filter(found => CASE_FILES.some(file => existsSync(join(dir, name, found, file)))) }))
   if (groups.length === 0) throw new Refusal('no case group under evals/: a case group is a folder there that holds group.json')
   const cases = groups.flatMap(group => group.cases.map(name => ({ name, at: `${group.name}/${name}` })))
   const misnamed = [...groups.map(group => group.name), ...cases.map(one => one.at)].find(at => !at.split('/').every(name => NAME.test(name)))
@@ -85,11 +130,18 @@ function caseGroups(dir: string): Group[] {
   return groups
 }
 
-function folders(dir: string) {
+function folders(dir: string, shown: string) {
+  const entries = entriesOf(dir)
+  const link = entries.find(entry => entry.isSymbolicLink() && statSync(join(dir, entry.name), { throwIfNoEntry: false })?.isDirectory())
+  if (link) throw new Refusal(`${shown}/${link.name} is a link: a case group and a case are folders of their own`)
+  return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+}
+
+function entriesOf(dir: string) {
   try {
-    return readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+    return readdirSync(dir, { withFileTypes: true })
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    if (['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) return []
     throw error
   }
 }
@@ -115,12 +167,37 @@ function startsAsked(groups: Group[], flags: Flags): Start[] {
   return groups.map(group => ({ group, pick: ['--tag', group.name] }))
 }
 
-function host(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
+function host(args: string[], group: string, env: NodeJS.ProcessEnv, cwd: string) {
   say(`run-evals: claude plugin eval ${args.map(quoted).join(' ')}`)
-  const { error, status } = spawnSync('claude', ['plugin', 'eval', ...args], { cwd, env, stdio: 'inherit' })
-  if ((error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') throw new Refusal('no claude on the PATH')
-  if (error) throw error
-  return status ?? 1
+  return new Promise<Ended>((resolve, reject) => {
+    const child = spawn('claude', ['plugin', 'eval', ...args], { cwd, env, stdio: 'inherit' })
+    let stoppedBy: NodeJS.Signals | null = null
+    const passOn = (signal: NodeJS.Signals) => {
+      console.error(`run-evals: ${signal}: passed on to the host`)
+      child.kill(signal)
+    }
+    const leave = (signal: NodeJS.Signals) => {
+      stoppedBy = signal
+      console.error(`run-evals: ${signal}: the host is left to end ${group}, and no later case group is started`)
+    }
+    const heard = (hear: 'on' | 'off') => {
+      for (const signal of PASSED_ON) process[hear](signal, passOn)
+      for (const signal of LEFT_TO_THE_TERMINAL) process[hear](signal, leave)
+    }
+    heard('on')
+    child.on('error', error => {
+      heard('off')
+      reject((error as NodeJS.ErrnoException).code === 'ENOENT' ? new Refusal('no claude on the PATH') : error)
+    })
+    child.on('close', (status, signal) => {
+      heard('off')
+      resolve({ code: status ?? (signal ? exitCodeOf(signal) : 1), stoppedBy })
+    })
+  })
+}
+
+function exitCodeOf(signal: NodeJS.Signals) {
+  return 128 + constants.signals[signal]
 }
 
 function costIn(document: string) {
@@ -151,7 +228,7 @@ function say(line: string) {
 }
 
 try {
-  process.exitCode = main(process.argv.slice(2), process.env, process.cwd())
+  process.exitCode = await main(process.argv.slice(2), process.env, process.cwd())
 } catch (error) {
   if (!(error instanceof Refusal)) throw error
   console.error(`run-evals: ${error.message}`)

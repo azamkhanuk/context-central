@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: '(?:switched|turned) off|disabled|not (?:yet )?(?:switched on|turned on|enabled)|\bfive\b|\b5 (?:times|tries|attempts|retries)'
+pattern: '\b(?:five|5)[ -]?(?:times|tries|attempts|retries|x\b)|(?:switched|turned) off|\boff\b[^.\n]{0,40}\bproduction|(?:\bnot|n.t) (?:yet |been |yet been )?(?:switched on|turned on|enabled|live)\b|\bdisabled\b[^.\n]{0,40}\bproduction|\bproduction\b[^.\n]{0,40}\bdisabled'
 flags: i
 ---

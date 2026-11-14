@@ -16,7 +16,8 @@ put estate.json <<'EOF'
   ],
   "connections": {
     "tracker": { "holds": "tickets", "references": ["PROJ-\\d+"] }
-  }
+  },
+  "budgets": { "indexChars": 4000 }
 }
 EOF
 
@@ -643,7 +644,7 @@ EOF
 put worker/src/export.js <<'EOF'
 import { retry } from './retry.js'
 
-export function runExport(job, { build, store, tries = 1 }) {
+export function runExport(job, { build, store, tries }) {
   return retry(() => store(build(job)), tries)
 }
 EOF

@@ -12,7 +12,7 @@ Each case is tied to one line of the [README](../README.md).
 |---|---|---|---|
 | `where-an-item-stands` | "A new session picks up where the last one stopped." | "Where does export-retry stand, and what is next?" | The reply gives a fact of where the work stands and a fact of what is next, each held by the item's state file and by no other file of the estate |
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
-| `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer and no note of the map was read. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
+| `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer, and no note of the map was read or searched for its text. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
 
 There is no case for a checkpoint. One was built, and its first trial run showed that a run's sandboxed shell would not start the plugin's own command: the session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
@@ -26,7 +26,7 @@ The arms differ in one thing, whether the plugin is loaded. With it the session 
 
 ## The graders
 
-Every grader is of the host's free kinds: a pattern in the reply, or a tool that was or was not used. None calls a judge model, so the same reply scores the same each time and a run pays for its sessions alone.
+Every grader is of the host's free kinds: a pattern in the reply, or a tool that was or was not used. None calls a judge model, so the same reply scores the same each time and a run pays for its sessions alone. A pattern is a blunt measure of a reply: it is written to pass the fact in the words a session is likely to use and to fail a reply that found nothing, and the tests hold examples of both.
 
 Each case also carries `plugin-spoke`, a pattern over the session's trace for the first line of the live index. It is marked for the arm with the plugin alone, so the host leaves it out of the score when both arms run. It shows that the hooks reached the session. The trace holds what the session-start hook added and not what the prompt hook added, so it can show the index and never the pointers.
 
@@ -54,13 +54,17 @@ The command is the repository's own, `scripts/run-evals.mts`, and not a command 
 
 `--trial` goes with `--case` and adds `--runs 1 --ablation none --keep-temp`: one session, with the plugin, whose temporary folder is kept to be looked at. `--trust-plugin` is passed on only when you give it. At a terminal the host asks whether the folder is trusted, and it refuses a run that cannot ask, such as one a session starts.
 
-The command prints each line it starts before the host runs, and the results folder at the end.
+The command prints each line it starts before the host runs, and the results folder at the end. It claims that folder by making it, so two runs started at one moment cannot share one.
+
+A terminate sent to the command is passed on to the host. An interrupt or a hang-up is not: a terminal gives those to the host as well, so the command waits for the host to end and starts no later case group.
 
 | It exits with | When |
 |---|---|
 | 0 | Every case group it was asked for ran to its end, whatever the scores |
 | the host's own code | The host ended a case group non-zero: 1 for a case that did not load or a run that could not start or finish, 2 for a ceiling reached or a credential refused, 130 or 143 for a run that was stopped. No later case group is started, and a line names them |
-| 2 | It started nothing: a flag it does not know, `--group` with `--case`, `--trial` without `--case`, a case group or a case that is not there, a ceiling that is not a number above 0, a folder that is not the root of a plugin or holds no case group, a `group.json` that is not a list of grants, a case group or a case not named in small letters, digits and dashes, two cases of one name, a results folder that is there already, or no `claude` on the `PATH` |
+| the host's own code | The host was ended by a signal: 128 and the signal's number, as a shell gives it, such as 143 for a terminate |
+| 130 or 129 | An interrupt or a hang-up reached the command and the host then ended its case group with 0. No later case group is started |
+| 2 | It started nothing: a flag it does not know or is given twice, `--group` with `--case`, `--trial` without `--case`, a case group or a case that is not there, a ceiling that is not a plain figure above 0, a folder that is not the root of a plugin or holds no case group, a `group.json` that is not a list of grants, a case group or a case that is a link or is not named in small letters, digits and dashes, two cases of one name, a results folder that is there already, or no `claude` on the `PATH` |
 | 2 | Nothing is left of the ceiling before a case group starts |
 | 1 | A case group is still to start and the last result document gives no cost |
 
@@ -72,7 +76,7 @@ On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` w
 
 ## The figures of the last full run
 
-Run on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: 18 sessions in 84 seconds, for 0.58 USD by the host's estimate. The plugin's hooks, commands and skills were those of release 0.18.0, which 0.18.1 does not change.
+Run on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: 18 sessions in 84 seconds, for 0.58 USD by the host's estimate. The plugin's hooks, commands and skills were those of release 0.18.0, which 0.18.1 does not change. The run was made before the changes of 2026-11-14 listed under [A case is reported as found](#a-case-is-reported-as-found), so its scores are those of the earlier patterns.
 
 | Case | With the plugin | Without | Difference |
 |---|---|---|---|
@@ -111,6 +115,10 @@ The host's own page says to treat scores as advisory for a plugin whose hooks yo
 
 A case that shows no difference, or a difference against the plugin, is reported as it came out. A case is changed only where it measures the wrong thing, such as a grader that fails a right answer, and the change is written down on this page with its reason. A case is never changed to move a figure.
 
+Changes so far:
+
+- 2026-11-14, before the first release. A review of the cases, made after the first full run, tried replies against each pattern and found right replies in other words that failed and replies that had found nothing that passed. The patterns of `where-an-item-stands` and `ticket-leads-to-notes` were rewritten to take the fact in more wordings and to ask for more than one bare word. In `nothing-to-say` a read by a relative path now counts, a file of a repo no longer counts when the workspace sits under a folder named like one of the map's, and a search that prints the text of notes counts as reading them. In acme, the worker's code no longer says how many tries production uses, which gave away a fact meant to be the state file's alone, and the estate's own setting keeps its index whole at the end of a long path.
+
 ## What the tests hold, free
 
 What needs no paid session is held by the tests, on every push:
@@ -119,6 +127,7 @@ What needs no paid session is held by the tests, on every push:
 - each case's scaffold makes an estate the plugin answers for, in which the session-start hook gives the live index;
 - the prompt hook, given the case's own prompt, gives the pointers its graders rest on, or nothing for `nothing-to-say`;
 - the fact a grader looks for is held by the one file the case is about and by no other file of acme;
+- each pattern passes a right reply in other words and fails a reply that found nothing or guessed;
 - the command starts the host with the flags above, and refuses what the table above says it refuses.
 
 The tests that start a scaffold are skipped on Windows.
@@ -135,7 +144,7 @@ evals/<group>/<case>/scaffold.sh         sources ../../acme.sh, then writes the 
 evals/<group>/<case>/graders/<name>.md   one grader of a free kind
 ```
 
-- **A case:** copy an existing one. `name` in `case.yaml` is the folder's name, and no other case has it. `tags` in `prompt.md` holds the name of its case group: the host passes over a case that lacks it, without a word, when the group is run. `allowed_tools` lists read-only tools alone, since a grant comes from the group. Nothing outside the folder changes.
+- **A case:** copy an existing one. `name` in `case.yaml` is the folder's name, and no other case has it. `tags` in `prompt.md` is the name of its case group and nothing else: the host passes over a case that lacks it, without a word, when the group is run, and runs a case again under every other tag it carries. `allowed_tools` lists read-only tools alone, since a grant comes from the group. Nothing outside the folder changes.
 - **A case group:** a new folder with `group.json`. Its `allowTools` are the grants the host gives every case of the group, written as `--allow-tools` takes them, and `[]` for cases that only read. `results` and `mocks` are the host's own names.
 - **Names** are small letters, digits and dashes, starting with a letter.
 - **One key and its value a line** in front matter and in `case.yaml`: the tests read them with no YAML parser.

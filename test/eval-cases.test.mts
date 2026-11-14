@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmodSync, cpSync, existsSync, readdirSync, readFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { INDEX_CLOSING_LINE, REPO, disposable, hook, makeTree, notOnWindows, run, spawned } from './helpers.mts'
@@ -17,6 +17,7 @@ const ONE_KEY_A_LINE = /^ *[a-z_]+:(?: \S.*)?$/
 const FREE_KINDS = ['regex', 'tool_used', 'tool_order', 'file_exists']
 const READ_ONLY_TOOLS = ['Read', 'Glob', 'Grep', 'NotebookRead', 'Skill', 'AskUserQuestion', 'Agent', 'TodoWrite', 'TaskCreate', 'TaskGet', 'TaskList', 'TaskUpdate', 'TaskStop']
 const A_SCAFFOLD = notOnWindows('a scaffold is a shell script, which Windows cannot start')
+const A_FOLDER_NOBODY_WRITES = process.getuid?.() === 0 ? { skip: 'root writes to a folder whatever its mode' } : A_SCAFFOLD
 const CONNECTIONS_LINE = 'Connections: tracker holds tickets. context-central connections says how this machine reaches each.'
 const STATE_FILE_WHY = 'state file: where the work stands and what is next'
 
@@ -96,8 +97,14 @@ test('a case group names its grants in group.json as a list of strings, and hold
   }
 })
 
-test("a case carries its group's name as a tag, so a run of the group passes none over", () => {
-  assert.deepEqual(failing(CASES, one => listed(promptFields(one).tags).includes(one.group), caseLabel), [])
+test("a case carries its group's name as its one tag, so a run of the group passes none over and no other group runs it again", () => {
+  assert.deepEqual(failing(CASES, one => listed(promptFields(one).tags).join() === one.group, caseLabel), [])
+})
+
+test('no case group and no case is a link, since neither the tests nor the one command follow one', () => {
+  const links = (dir: string) => readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isSymbolicLink()).map(entry => entry.name)
+
+  assert.deepEqual([...links(EVALS), ...GROUPS.flatMap(group => links(join(EVALS, group)).map(name => `${group}/${name}`))], [])
 })
 
 test('a case lists read-only tools alone, since a grant comes from its group', () => {
@@ -167,7 +174,7 @@ test('a scaffold run a second time in the same folder writes the same files', A_
   }
 })
 
-test('a scaffold run in a folder it cannot write ends non-zero, so the host scores the run nothing', A_SCAFFOLD, () => {
+test('a scaffold run in a folder it cannot write ends non-zero, so the host scores the run nothing', A_FOLDER_NOBODY_WRITES, () => {
   for (const one of CASES) {
     const root = tree(makeTree({}))
     chmodSync(root, 0o555)
@@ -211,6 +218,18 @@ test('acme is several repos and seven work items, six of them in flight, on one 
   assert.deepEqual(folders(join(root, 'work')), ['PROJ-40', 'export-audit', 'export-csv', 'export-retry', 'invoice-pdf', 'invoice-rounding', 'rate-limit-gateway'])
 })
 
+test('the index of acme is whole in a workspace at the end of a long path, and the map has no fault there', A_SCAFFOLD, () => {
+  const root = join(tree(makeTree({})), 'a'.repeat(120), 'b'.repeat(120))
+  mkdirSync(root, { recursive: true })
+
+  assert.deepEqual(scaffolded(named('where-an-item-stands'), root).result, { code: 0, stdout: '', stderr: '' })
+  assert.ok(indexOf(root).split('\n').includes(row(root, 'rate-limit-gateway', 'Rate limit the gateway')))
+  assert.deepEqual(run(['lint', '--strict'], { cwd: root }), { code: 0, stdout: 'ok\n', stderr: '' })
+})
+
+const failedBy = (one: Case, grader: string, replies: string[]) => replies.filter(reply => !patternOf(one, grader).test(reply))
+const passedBy = (one: Case, grader: string, replies: string[]) => replies.filter(reply => patternOf(one, grader).test(reply))
+
 test('where-an-item-stands: the prompt names the item, and the prompt hook answers with its state file', A_SCAFFOLD, () => {
   const one = named('where-an-item-stands')
   const root = estateOf(one)
@@ -230,6 +249,37 @@ test('where-an-item-stands: each scored grader looks for a fact that the state f
   assert.deepEqual(holding(root, patternOf(one, 'next')), ['work/export-retry/STATE.md'])
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Where it stands\n\n.*switched off in production.*\n\n## Done\n/)
   assert.match(read(root, 'work/export-retry/STATE.md'), /## Next\n\n.*`export-stalled`.*\n\n## Blocked\n/)
+})
+
+test('where-an-item-stands: its graders pass a right reply in other words, and fail one that found nothing, guessed or read the log alone', () => {
+  const one = named('where-an-item-stands')
+
+  assert.deepEqual(failedBy(one, 'stands', [
+    'The retry is built and merged in worker: a failed export is tried again up to five times. It is switched off in production.',
+    'It is merged, and it is off in production until the team is told.',
+    'It has not been switched on in production yet.',
+    "It is built, but it hasn't been enabled in production.",
+    'It isn\u2019t live in production yet.',
+    'A failed export is retried up to 5x. Not live in production.',
+    'Merged in worker and currently disabled in production.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'stands', [
+    'I could not find a work item named export-retry. I looked at five folders.',
+    'The code gives `tries` no value, so the retry may be disabled.',
+    'The retry loop is merged in worker.',
+    'The plan was three tries with a fixed wait of ten seconds.',
+  ]), [])
+  assert.deepEqual(failedBy(one, 'next', [
+    'Next: add an alert in api for an export that has failed every try, on the export-stalled channel, then switch the retry on.',
+    'Next is to notify the team when an export fails every try, then switch the retry on in production.',
+    'Add alerting in api for exports that fail all five tries.',
+    'Then turn the retry on in production.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'next', [
+    'I could not find a state file. A sensible next step would be adding monitoring and alerts.',
+    'Next is a retry of three tries, ten seconds apart, as a piece of work of its own.',
+    'You could turn on verbose logging to find out.',
+  ]), [])
 })
 
 test('ticket-leads-to-notes: the prompt names a ticket no folder is named after, and the prompt hook answers with the notes behind its work item', A_SCAFFOLD, () => {
@@ -260,6 +310,21 @@ test('ticket-leads-to-notes: the scored grader looks for the reason, which the d
   assert.match(read(root, 'decisions/0003-round-half-even.md'), /## Context\n\n.*The settlement files of the payment provider round half to even.*\n\n## Decision\n/)
 })
 
+test('ticket-leads-to-notes: its grader passes the reason in other words, and fails a reply that found nothing or gave the decision with no reason', () => {
+  const one = named('ticket-leads-to-notes')
+
+  assert.deepEqual(failedBy(one, 'reason', [
+    'We round each invoice line half to even, because the settlement files of the payment provider round that way.',
+    "Half to even, so that our totals match what the payment processor's files say, line for line.",
+    'The payment provider rounds half to even, and each penny apart had to be matched by hand.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'reason', [
+    'I could not find PROJ-27. It may live in your tracker or with your payment provider.',
+    'We decided to round each invoice line half to even.',
+    'Because some totals were a penny away from what the customer paid.',
+  ]), [])
+})
+
 test('nothing-to-say: the prompt names nothing of acme, and the prompt hook prints nothing', A_SCAFFOLD, () => {
   const one = named('nothing-to-say')
   const root = estateOf(one)
@@ -269,17 +334,19 @@ test('nothing-to-say: the prompt names nothing of acme, and the prompt hook prin
   assert.deepEqual(asked(root, promptOf(one)), { code: 0, stdout: '', stderr: '' })
 })
 
-test('nothing-to-say: it passes on the answer and on no note of the map being read, in both arms', A_SCAFFOLD, () => {
+test('nothing-to-say: it passes on the answer and on no note of the map being read or searched, in both arms', A_SCAFFOLD, () => {
   const one = named('nothing-to-say')
   const root = estateOf(one)
-  const noNoteRead = graders(one).find(grader => grader.name === 'no-note-read')?.fields ?? {}
-  const counts = new RegExp(unquoted(noNoteRead.input_match))
-  const readOf = (file: string) => JSON.stringify({ file_path: join(root, file) })
+  const fieldsOf = (name: string) => graders(one).find(grader => grader.name === name)?.fields ?? {}
+  const counts = new RegExp(unquoted(fieldsOf('no-note-read').input_match))
+  const readOf = (folder: string, file: string) => JSON.stringify({ file_path: folder ? `${folder}/${file}` : file })
   const ofTheMap = (file: string) => /^(repos|concepts|edges|decisions|log|work)\//.test(file) || ['CLAUDE.md', 'glossary.md', 'estate.json'].includes(file)
+  const miscounted = (folder: string) => filesOf(root).filter(file => counts.test(readOf(folder, file)) !== ofTheMap(file))
 
-  assert.deepEqual(graders(one).map(grader => grader.name), ['answer', 'no-note-read', 'plugin-spoke'])
-  assert.deepEqual(graders(one)[0].fields, { type: 'regex', pattern: "'\\b366\\b'" })
-  assert.deepEqual({ ...noNoteRead, input_match: '' }, { type: 'tool_used', tool: 'Read', input_match: '', min: '0', max: '0' })
-  assert.deepEqual(filesOf(root).filter(file => counts.test(readOf(file)) !== ofTheMap(file)), [])
+  assert.deepEqual(graders(one).map(grader => grader.name), ['answer', 'no-note-read', 'no-note-searched', 'plugin-spoke'])
+  assert.deepEqual(fieldsOf('answer'), { type: 'regex', pattern: "'\\b366\\b'" })
+  assert.deepEqual({ ...fieldsOf('no-note-read'), input_match: '' }, { type: 'tool_used', tool: 'Read', input_match: '', min: '0', max: '0' })
+  assert.deepEqual(fieldsOf('no-note-searched'), { type: 'tool_used', tool: 'Grep', input_match: `'"output_mode"\\s*:\\s*"content"'`, min: '0', max: '0' })
   assert.equal(filesOf(root).filter(ofTheMap).length, 33)
+  for (const folder of [root, '/home/me/work/tmp/e-x/home/cwd', '/srv/log/repos/api/tmp/cwd', '']) assert.deepEqual(miscounted(folder), [], folder)
 })
