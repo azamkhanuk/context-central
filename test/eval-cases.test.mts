@@ -67,7 +67,8 @@ function estateOf(one: Case) {
 }
 
 const filesOf = (root: string) => readdirSync(root, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name).slice(root.length + 1).split('\\').join('/')).sort()
-const holding = (root: string, pattern: RegExp) => filesOf(root).filter(file => pattern.test(read(root, file)))
+const asSaid = (text: string) => text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[`*]/g, '')
+const holding = (root: string, pattern: RegExp) => filesOf(root).filter(file => pattern.test(asSaid(read(root, file))))
 const context = (result: Result) => (JSON.parse(result.stdout) as HookOutput).hookSpecificOutput.additionalContext
 const fire = (event: string, input: object) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } })
 const indexOf = (root: string) => context(fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' }))
@@ -103,10 +104,10 @@ test("a case carries its group's name as its one tag, so a run of the group pass
   assert.deepEqual(failing(CASES, one => listed(promptFields(one).tags).join() === one.group, caseLabel), [])
 })
 
-test("no case group and no case is a link, since neither the tests nor the one command follow one, and a link under one of the host's own names is none of them", () => {
-  const links = (dir: string) => readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isSymbolicLink()).map(entry => entry.name)
+test('no case group and no case is a link, since neither the tests nor the one command follow one', () => {
+  const linksHolding = (files: string[], dir: string) => readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isSymbolicLink() && files.some(file => existsSync(join(dir, entry.name, file)))).map(entry => entry.name)
 
-  assert.deepEqual([...links(EVALS).filter(name => !THE_HOSTS_OWN.includes(name)), ...GROUPS.flatMap(group => links(join(EVALS, group)).map(name => `${group}/${name}`))], [])
+  assert.deepEqual([...linksHolding(['group.json'], EVALS), ...GROUPS.flatMap(group => linksHolding(['prompt.md', 'case.yaml'], join(EVALS, group)).map(name => `${group}/${name}`))], [])
 })
 
 test('a case lists read-only tools alone, since a grant comes from its group', () => {
@@ -265,11 +266,11 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'A failed export is retried up to 5x. Not live in production.',
     'Merged in worker and currently disabled in production.',
     'The retry loop is merged; it remains inactive in production pending an alert.',
-    'Merged in worker: a five-attempt retry with a longer wait each time.',
-    'Built and merged (up to **five** tries).',
     'In production it is still off.',
     'It is built and merged; production has it switched off.',
     'Merged, but not running in production yet.',
+    'Built and merged, and waiting to be switched on in production.',
+    'It has yet to go live in production.',
     "Done and merged, but it's off in prod until alerting exists.",
     'The retry is merged in worker and is off\nin production until the team is alerted.',
     '- **Status:** built and merged in worker\n- **Production:** off, until the team is told when an export has failed every try',
@@ -278,6 +279,8 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
   assert.deepEqual(passedBy(one, 'stands', [
     'I could not find a work item named export-retry. I looked at five folders.',
     'I searched 5 times and found the log only.',
+    'I tried 5 times to find export-retry and found the log only.',
+    'After five attempts at searching I found no note.',
     'The code gives `tries` no value, so the retry may be disabled.',
     'runExport takes `tries` from its caller and nothing passes it, so the retry is not enabled.',
     'The retry loop is merged in worker.',
@@ -297,6 +300,7 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'Then the retry gets switched on in production.',
     'Add an alert in `api`.',
     'Then flip it on in production.',
+    'Next: an alert for exhausted retries.',
     'Next: tell the team when an export has run out of tries, then activate the retry in production.',
     'What is next: switch the retry on in production, once the team gets told about exports that fail every try.',
     '1. Add an alert in api\n   for an export that has failed every try\n2. Go live in production',
@@ -314,6 +318,8 @@ test('where-an-item-stands: its graders pass a right reply in other words, and f
     'With export-retry one request can mean several runs once you turn the retry on.',
     'I searched api for an alert and found none.',
     'I found no alerts. In api there is only the limiter.',
+    'After all the tries are used the export is marked failed and the shop is notified to ask again.',
+    'The shop is notified after every attempt fails.',
   ]), [])
 })
 
@@ -353,10 +359,14 @@ test('ticket-leads-to-notes: its grader passes the reason in other words, and fa
     "Half to even, so that our totals match what the payment processor's files say, line for line.",
     'The payment provider rounds half to even, and each penny apart had to be matched by hand.',
     'Round half to even: the provider that settles payments rounds that way.',
+    'Because the settlement files round half to even, and each penny apart had to be matched by hand.',
     'Because the provider that pays us out rounds half to even, and our half-up totals were a penny apart.',
     'Half to even, since that is how the PSP rounds; mismatches had to be reconciled by hand.',
     'Because the payment-provider files round half to even.',
     'The payments provider rounds half to even.',
+    "**Why:** to be consistent with the payment provider's settlement files.",
+    'To align with the payment provider.',
+    'Our totals and what the payment provider paid were a penny apart.',
     '- **Decision:** round each invoice line half to even\n- **Why:** the payment provider\n  rounds half to even, so totals were a penny apart',
     "| Why | The payment provider's files use half to even; our totals were a penny out |",
   ]), [])
@@ -364,6 +374,9 @@ test('ticket-leads-to-notes: its grader passes the reason in other words, and fa
     'I could not find PROJ-27. It may live in your tracker or with your payment provider.',
     'I found no decision for PROJ-27. Was it about a settlement?',
     'We decided to round each invoice line half to even.',
+    'Each invoice line is rounded half to even, as decision 3 settled.',
+    'The team settled on rounding each invoice line half to even.',
+    'We settled it on 2026-01-09: round half to even, in billing.',
     'Because some totals were a penny away from what the customer paid.',
     "Each invoice line is rounded half to even. Finance matched last month's invoices against what was paid and found some a penny apart.",
     "billing/src/round.js rounds half to even (banker's rounding), which avoids a bias upwards.",
@@ -399,13 +412,22 @@ test('nothing-to-say: it passes on the answer and on no note of the map being re
     { glob: '**/*.md', output_mode: 'content' },
     { glob: '*.{js,md}', output_mode: 'content' },
     { glob: '*.json', output_mode: 'content' },
+    { glob: '*.*', output_mode: 'content' },
+    { glob: 'STATE.*', output_mode: 'content' },
+    { glob: '!*.js', output_mode: 'content' },
+    { glob: '*.MD', output_mode: 'content' },
     { type: 'md', output_mode: 'content' },
+    { type: 'all', output_mode: 'content' },
+    { path: '/tmp/e-x/home/cwd/web/../work', output_mode: 'content' },
+    { path: 'web/..', output_mode: 'content' },
+    { glob: 'api/../work/**', output_mode: 'content' },
   ]
   const PRINTS_NO_NOTE = [
     { path: '/tmp/e-x/home/cwd/api/src', output_mode: 'content' },
     { path: 'web', output_mode: 'content' },
     { path: './worker/src/export.js', output_mode: 'content' },
     { glob: '*.js', output_mode: 'content' },
+    { glob: '**/*.mts', output_mode: 'content' },
     { glob: 'api/**', output_mode: 'content' },
     { type: 'js', output_mode: 'content' },
     { path: '/tmp/e-x/home/cwd/work' },
