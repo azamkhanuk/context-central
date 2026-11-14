@@ -47,6 +47,7 @@ export interface Repo {
   name: string
   path: string
   role?: unknown
+  remote?: unknown
   standards?: string[]
   checks?: string[]
   steps?: Partial<Record<Step, string>>

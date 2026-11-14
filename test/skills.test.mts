@@ -336,6 +336,14 @@ test("the draft that onboard shows is one the plugin reads, with every connectio
   assert.equal(listed.stdout, 'tracker | tickets | by a session, through the server the name of the server\ncode | pull-requests | by hand | as the pinned account\nnotes | meetings | by hand: how a person gets at them\n')
 })
 
+test("the draft that onboard shows carries a repo's remote, which the plugin reads back and doctor puts in the line that clones the repo", () => {
+  const draft = JSON.parse((/```json\n([\s\S]*?)```/.exec(skillText('onboard')) ?? [])[1]) as Draft
+  const root = tree(makeTree({ 'estate.json': draft.config, 'CLAUDE.md': '# Acme\n' }))
+
+  assert.deepEqual((JSON.parse(run(['config', '--get', 'repos'], { cwd: root }).stdout) as { remote: string }[]).map(repo => repo.remote), ['https://git.example.com/acme/web.git'])
+  assert.match(run(['doctor'], { cwd: root, env: { PATH: tree(makeTree({})) } }).stdout, new RegExp(`^FIX {2}repos: no folder at web; from ${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} run git clone https://git\\.example\\.com/acme/web\\.git web, or take the entry out of estate\\.json$`, 'm'))
+})
+
 test('a reference in a command that a skill or an agent gives is in quotes, since one may start with a sign the shell reads as a comment', () => {
   for (const [file, text] of everyFile()) assert.doesNotMatch(text, /(--ticket|--pr|fetch (ticket|pr|issue)) <reference>/, file)
 })

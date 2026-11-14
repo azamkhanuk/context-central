@@ -50,6 +50,8 @@ const CATCH_ALL = ['/*', '*', '/**', '**']
 const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, proof, hooks, copies, connections }
 const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof']
 const NO_GIT = { note: 'git is not on the PATH, so this was not checked' }
+const PLAIN_REMOTES = [/^(?:https?|ssh|git):\/\/(?:(?!-)[\w.~%+-]+@)?[A-Za-z0-9][A-Za-z0-9.-]*(?::\d+)?\/[\w.~/%+-]+$/, /^(?:(?!-)[\w.~%+-]+@)?[A-Za-z0-9][A-Za-z0-9.-]*:(?!\/\/)[\w.~/%+-]+$/]
+const PLAIN_PATH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
 
 export function run(args: string[], io: Io) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' } } })
@@ -108,8 +110,20 @@ function links(estate: Estate) {
 }
 
 function repos(estate: Estate) {
-  const missing = estate.config.repos.filter(repo => !repoExists(estate, repo)).map(repo => repo.path)
-  return missing.length === 0 ? null : `no folder at ${missing.join(', ')}; clone there, or take the entry out of estate.json`
+  const missing = estate.config.repos.filter(repo => !repoExists(estate, repo))
+  if (missing.length === 0) return null
+  const cloned = missing.filter(repo => plainRemote(repo.remote) && PLAIN_PATH.test(repo.path))
+  const byHand = missing.filter(repo => !cloned.includes(repo))
+  const said = [
+    ...(cloned.length > 0 ? [`from ${estate.estateRoot} run ${cloned.map(repo => `git clone ${plainRemote(repo.remote)} ${repo.path}`).join(', then ')}`] : []),
+    ...missing.filter(repo => repo.remote !== undefined && !plainRemote(repo.remote)).map(repo => `the remote recorded for ${repo.name} is not one plain address`),
+    ...(byHand.length > 0 ? [cloned.length > 0 ? `clone ${byHand.map(repo => repo.path).join(', ')} there` : 'clone there'] : []),
+  ]
+  return `no folder at ${missing.map(repo => repo.path).join(', ')}; ${said.join('; ')}, or take the entry out of estate.json`
+}
+
+function plainRemote(remote: unknown) {
+  return typeof remote === 'string' && PLAIN_REMOTES.some(form => form.test(remote)) ? remote : null
 }
 
 function git(estate: Estate, io: Io) {

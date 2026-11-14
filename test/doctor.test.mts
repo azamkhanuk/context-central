@@ -947,3 +947,59 @@ test('doctor counts the items in flight whose proof is not whole in a note that 
   assert.equal(two.code, 0)
   assert.equal(row(), 'note proof: 1 item in flight lacks proof; context-central lint names it')
 })
+
+const missing = (repos: Json[], estate = tree(acme({}, { repos: [...ACME_CONFIG.repos, ...repos] }))) => ({ estate, line: doctor(estate).stdout.split('\n').find(line => line.includes(' repos')) })
+
+test('a repo with no folder whose entry carries a plain remote gets the line that clones it there, to be run from the estate root', () => {
+  const overHttps = missing([{ name: 'mobile', remote: 'https://git.example.com/acme/mobile.git' }])
+  const overSsh = missing([{ name: 'batch', path: 'services/batch', remote: 'git@git.example.com:acme/batch.git' }])
+
+  assert.equal(overHttps.line, `FIX  repos: no folder at mobile; from ${overHttps.estate} run git clone https://git.example.com/acme/mobile.git mobile, or take the entry out of estate.json`)
+  assert.equal(overSsh.line, `FIX  repos: no folder at services/batch; from ${overSsh.estate} run git clone git@git.example.com:acme/batch.git services/batch, or take the entry out of estate.json`)
+  assert.equal(doctor(overHttps.estate).code, 1)
+})
+
+test('each further repo with a plain remote is one more clone in the line, and one with no remote is named after it', () => {
+  const { estate, line } = missing([
+    { name: 'mobile', remote: 'ssh://git@git.example.com:2222/acme/mobile.git' },
+    { name: 'batch', path: 'services/batch' },
+    { name: 'docs', remote: 'git://git.example.com/acme/docs.git' },
+  ])
+
+  assert.equal(line, `FIX  repos: no folder at mobile, services/batch, docs; from ${estate} run git clone ssh://git@git.example.com:2222/acme/mobile.git mobile, then git clone git://git.example.com/acme/docs.git docs; clone services/batch there, or take the entry out of estate.json`)
+})
+
+test('a remote that is not one plain address is named as unusable and never printed', () => {
+  const NOT_PLAIN = [
+    'https://someone:hunter2@git.example.com/acme/mobile.git',
+    'https://git.example.com/acme/mobile.git; rm -rf ~',
+    'https://git.example.com/acme/my mobile.git',
+    "https://git.example.com/acme/mobile'.git",
+    'https://git.example.com/acme/$(whoami).git',
+    '--upload-pack=touch /tmp/x',
+    '-oProxyCommand=x@git.example.com:acme/mobile.git',
+    '../mobile.git',
+    'file:///srv/git/mobile.git',
+    '',
+  ]
+
+  for (const remote of NOT_PLAIN) {
+    const { line } = missing([{ name: 'mobile', remote }])
+
+    assert.equal(line, 'FIX  repos: no folder at mobile; the remote recorded for mobile is not one plain address; clone there, or take the entry out of estate.json', remote)
+  }
+  assert.equal(missing([{ name: 'mobile', remote: ['https://git.example.com/acme/mobile.git'] }]).line, 'FIX  repos: no folder at mobile; the remote recorded for mobile is not one plain address; clone there, or take the entry out of estate.json')
+})
+
+test('a plain remote is not put in a command where the path of its repo is not plain, and the folder is to be cloned by hand', () => {
+  const { line } = missing([{ name: 'mobile', path: 'apps/my mobile', remote: 'https://git.example.com/acme/mobile.git' }])
+
+  assert.equal(line, 'FIX  repos: no folder at apps/my mobile; clone there, or take the entry out of estate.json')
+})
+
+test('a repo whose folder is there is not told to clone, whatever its remote', () => {
+  const estate = tree(acme({}, { repos: [{ name: 'web', remote: 'https://someone:hunter2@git.example.com/acme/web.git' }, { name: 'api', remote: 'https://git.example.com/acme/api.git' }] }))
+
+  assert.match(doctor(estate).stdout, /^ok {3}repos$/m)
+  assert.deepEqual((JSON.parse(run(['config', '--get', 'repos'], { cwd: estate }).stdout) as { remote: string }[]).map(repo => repo.remote), ['https://someone:hunter2@git.example.com/acme/web.git', 'https://git.example.com/acme/api.git'])
+})
