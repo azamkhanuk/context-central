@@ -1,10 +1,9 @@
 import { readFileSync, statSync } from 'node:fs'
-import { posix } from 'node:path'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
-import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listFiles, listNodes, listWorkItems, passedOver, strayFiles } from './nodes.mts'
+import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, savedSourceNames, strayFiles } from './nodes.mts'
 import { saidOf, unproven } from './proof.mts'
 import { formatBytes, plural } from './text.mts'
 import type { Env } from './cli.mts'
@@ -26,7 +25,7 @@ const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uar
 const DATED_ALLOWED = 3
 const VERIFIED = '`verified`'
 const INFERRED = '`inferred`'
-const FENCE = /^ *(```|~~~)/
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/
 const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
 export function lintEstate(estate: Estate, env: Env): Finding[] {
@@ -96,8 +95,9 @@ function nodeFindings(estate: Estate, node: Node) {
 }
 
 function markFindings(estate: Estate) {
-  const saved = listFiles(estate).filter(file => file.rel.split('/').slice(0, -1).some(part => estate.config.deepDirs.includes(part))).map(file => posix.basename(file.rel))
-  return listNodes(estate).flatMap(node => {
+  const saved = savedSourceNames(estate)
+  const hub = hubPath(estate)
+  return listNodes(estate).filter(node => node.path !== hub).flatMap(node => {
     const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split('\n'), saved)
     if (unsourced.length === 0) return []
     const [first] = unsourced
@@ -108,12 +108,20 @@ function markFindings(estate: Estate) {
 
 function claimsWithNoSource(lines: string[], saved: string[]) {
   const namesASource = (line: string) => NAMES_A_SOURCE.some(kind => kind.test(line)) || saved.some(name => line.includes(name))
-  let fenced = false
+  let fence: string | null = null
   return lines.flatMap((line, at) => {
-    if (FENCE.test(line)) fenced = !fenced
-    const claim = !fenced && line.includes(VERIFIED) && !line.includes(INFERRED)
+    const inFence = fence !== null
+    fence = fenceAfter(line, fence)
+    const claim = !inFence && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
     return claim && ![line, ...linesUnder(lines, at)].some(namesASource) ? [at + 1] : []
   })
+}
+
+function fenceAfter(line: string, open: string | null) {
+  const [, run, rest] = FENCE.exec(line) ?? []
+  if (!run) return open
+  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : run
+  return run[0] === open[0] && run.length >= open.length && rest.trim() === '' ? null : open
 }
 
 function linesUnder(lines: string[], at: number) {

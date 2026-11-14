@@ -105,3 +105,17 @@ test('at session start a git that gives no answer is waited for two seconds and 
   assert.equal(result.stderr, '')
   assert.equal(rowOf(context(result)), `- PROJ-12 | Rate limit the gateway | ${join(one.main, STATE)}`)
 })
+
+test('at session start a row has no words on proof where git answers for the head and then gives no answer for the comparison', NEEDS_STAND_IN, () => {
+  const one = made(solo())
+  proved(one)
+  changed(one)
+  const real = process.env.PATH ?? ''
+  const hangsOnDiff: Env = { ...one.env, PATH: tree(standIns({ git: `#!/bin/sh\ncase "$1" in diff) exec /bin/sleep 9 ;; esac\nPATH='${real}' exec git "$@"\n` })) }
+  const started = performance.now()
+
+  const result = atStart(one, hangsOnDiff)
+
+  assert.ok(performance.now() - started < A_HANG_IS_WAITED_FOR_MS)
+  assert.equal(rowOf(context(result)), `- PROJ-12 | Rate limit the gateway | ${join(one.main, STATE)}`)
+})

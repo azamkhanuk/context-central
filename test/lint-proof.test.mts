@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, disposable, git, makeTree, run, solo, standIns, workTree } from './helpers.mts'
@@ -231,4 +231,89 @@ test('an item that touches two repos earns one line that names each repo where i
 
   assert.equal(whole, 'WARN proof: PROJ-12 in api: "./check.sh" exited 2 at the head of main\n')
   assert.equal(run(['lint'], { cwd: base, env }).stdout, 'WARN proof: PROJ-12 in web: "npm test" last ran on code older than the head of main; in api: "./check.sh" exited 2 at the head of main\n')
+})
+
+test('a line whose commit is not a whole commit id, or whose branch holds a control character, is no run: it never reaches git and no reader stops on it', () => {
+  const one = made(solo({ 'kept.txt': 'kept\n' }))
+  const kept = join(one.main, 'kept.txt')
+  recorded(one, [{ branch: 'ma\u0000in' }, { branch: 'ma\nin' }, { branch: '' }, { commit: 'main' }, { commit: headOf(one).slice(0, 7) }, { commit: `${headOf(one).slice(0, 20)}\u0000${headOf(one).slice(20)}` }, { commit: `--output=${kept}` }])
+  committed(one, { 'src/app.js': 'export const limited = true\n' })
+
+  assert.deepEqual(lint(one, one.main), OK)
+  assert.equal(readFileSync(kept, 'utf8'), 'kept\n')
+  assert.deepEqual(run(['work', 'done', 'PROJ-12'], { cwd: one.main, env: one.env }), { code: 0, stdout: 'PROJ-12: done\n', stderr: '' })
+})
+
+test('a run at a commit git no longer holds is on older code', () => {
+  const one = made(solo())
+  recorded(one, [{ commit: 'abcdef0123456789abcdef0123456789abcdef01' }])
+
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: "./check.sh" last ran on code older than the head of main\n')
+})
+
+test('an empty record holds no run', () => {
+  const built = made(solo())
+  const notBuilt = made(solo())
+  put(built.main, RECORD, '')
+  put(notBuilt.main, RECORD, '\n\n')
+  put(built.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n- Built at ${headOf(built)}: the limiter\n`)
+
+  assert.equal(warned(built), 'WARN proof: PROJ-12 in solo: no run of "./check.sh" is recorded\n')
+  assert.deepEqual(lint(notBuilt, notBuilt.main), OK)
+})
+
+test('a check that a repo lists twice is one check', () => {
+  const one = made(solo({ '.context-central/estate.json': { ...SOLO_CONFIG, repos: [{ name: 'solo', path: '.', checks: ['./check.sh', './check.sh'] }] } }))
+
+  proved(one, 2)
+
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: "./check.sh" exited 2 at the head of main\n')
+})
+
+test('the branch of a run is found where a tag carries the same name, so its proof still ages', () => {
+  const one = made(solo())
+  git(one, one.main, 'tag', 'main')
+  proved(one)
+
+  committed(one, { 'src/app.js': 'export const limited = true\n' })
+
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: "./check.sh" last ran on code older than the head of main\n')
+})
+
+test('a repo whose folder is missing is passed over, and the other repos of the item are still judged', () => {
+  const settings: Json = { contextCentral: 1, name: 'pair', repos: [{ name: 'web', checks: ['npm test'] }, { name: 'api', checks: ['./check.sh'] }] }
+  const base = tree(makeTree({ 'estate.json': settings, 'CLAUDE.md': '# Pair\n', 'work/PROJ-12/STATE.md': '---\nstatus: active\n---\n# PROJ-12\n', gitconfig: '' }))
+  const env = { GIT_CONFIG_GLOBAL: join(base, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+  for (const repo of ['web', 'api']) {
+    put(base, `${repo}/src/app.js`, 'export {}\n')
+    git({ env }, join(base, repo), 'init', '-q', '-b', 'main')
+    git({ env }, join(base, repo), 'add', '-A')
+    git({ env }, join(base, repo), 'commit', '-q', '-m', 'first')
+  }
+  run(['proof', 'PROJ-12', '--check', 'npm test', '--exit', '1'], { cwd: join(base, 'web'), env })
+  run(['proof', 'PROJ-12', '--check', './check.sh', '--exit', '1'], { cwd: join(base, 'api'), env })
+
+  rmSync(join(base, 'api'), { recursive: true })
+
+  assert.equal(run(['lint'], { cwd: base, env }).stdout, 'WARN proof: PROJ-12 in web: "npm test" exited 1 at the head of main\n')
+})
+
+test('the largest record, ten thousand runs, is read whole and judged by its last run at the head', () => {
+  const one = made(solo())
+  const older = { repo: 'solo', check: './check.sh', exit: 1, commit: headOf(one), branch: 'main', dirty: false, date: '2026-01-15', system: 'linux x64' }
+  put(one.main, RECORD, `${Array(9999).fill(JSON.stringify(older)).join('\n')}\n${JSON.stringify({ ...older, exit: 0 })}\n`)
+
+  assert.deepEqual(lint(one, one.main), OK)
+})
+
+test('a check is compared with the head at twenty commits of its record at most, the newest first, and a run older than those is on older code', NEEDS_STAND_IN, () => {
+  const one = made(solo())
+  const real = process.env.PATH ?? ''
+  const counting = tree(standIns({ git: `#!/bin/sh\necho "$*" >> "$0.log"\nPATH='${real}' exec git "$@"\n` }))
+  recorded(one, Array.from({ length: 30 }, (_, at) => ({ commit: String(at).padStart(40, 'a') })))
+
+  const result = lint({ env: { ...one.env, PATH: counting } }, one.main)
+
+  assert.equal(result.stdout, 'WARN proof: PROJ-12 in solo: "./check.sh" last ran on code older than the head of main\n')
+  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8').split('\n').filter(line => line.startsWith('diff ')).length, 20)
 })

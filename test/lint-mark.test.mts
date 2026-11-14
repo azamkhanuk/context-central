@@ -93,3 +93,29 @@ test('a state file and a note of a work item are read, and a file of the deep ti
     'WARN mark: work/PROJ-12/STATE.md has 1 claim marked verified that names no source (at line 8)\nWARN mark: work/PROJ-12/notes/2026-01-10-research-rate-limits.md has 1 claim marked verified that names no source (at line 3)\n',
   )
 })
+
+test('a saved source that is not Markdown is a source by its name', () => {
+  const root = tree(acme({
+    'docs/sources/pricing-page.html': '<html></html>\n',
+    'work/PROJ-12/sources/vendor-report.pdf': 'a report\n',
+    'concepts/limits.md': '# Limits\n\n- The vendor allows 60 calls a minute. `verified` in vendor-report.pdf\n- The plans are on one page. `verified`, pricing-page.html\n',
+  }))
+
+  assert.doesNotMatch(lint(root).stdout, /^WARN mark:/m)
+})
+
+test('the hub is not read where it sits in a node folder', () => {
+  const root = tree(acme({ 'docs/HUB.md': '# Acme estate\n\n- Each shop gets 60 calls a minute. `verified`\n' }, { hub: 'docs/HUB.md' }))
+
+  assert.doesNotMatch(lint(root).stdout, /^WARN mark:/m)
+})
+
+test('a fence closes only on a line of its own kind that is as long, and a line that opens with a code span is no fence', () => {
+  const nested = withNote('# Limits\n\n````md\n```\n- Each shop gets 60 calls a minute. `verified`\n```\n````\n')
+  const mixed = withNote('# Limits\n\n~~~\n```\n- Each shop gets 60 calls a minute. `verified`\n~~~\n')
+  const span = withNote('# Limits\n\n```npm test``` runs the checks.\n\n- Each shop gets 60 calls a minute. `verified`\n')
+
+  assert.deepEqual(lint(nested), OK)
+  assert.deepEqual(lint(mixed), OK)
+  assert.equal(lint(span).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 5)\n')
+})

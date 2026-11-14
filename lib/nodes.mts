@@ -152,6 +152,16 @@ export function listNodes(estate: Estate) {
   return listFiles(estate).filter(file => !file.deep)
 }
 
+export function savedSourceNames(estate: Estate) {
+  const { nodeDirs, deepDirs } = estate.config
+  return nodeDirs
+    .map(dir => dir.replace(/\/+$/, ''))
+    .filter(dir => isFolder(estate, dir))
+    .flatMap(dir => walk(estate, dir, anyName))
+    .filter(rel => !leftOut(estate.config, rel) && rel.split('/').slice(0, -1).some(part => deepDirs.includes(part)))
+    .map(rel => posix.basename(rel))
+}
+
 export function readNode(estate: Estate, node: NodeRef): NodeText {
   const text = readFileSync(node.path, 'utf8')
   const { data, body } = parseFrontmatter(text)

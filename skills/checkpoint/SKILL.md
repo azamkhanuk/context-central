@@ -55,7 +55,7 @@ Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. A `WARN proof:` line is mended only by a run of the check it names: where this session ran that check, record what the run exited with, from the repo's folder, with `context-central proof <item> --check "<check>" --exit <code>`, which reads the commit itself, and run `context-central lint` again. Never record a run this session did not make. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
+Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. A `WARN proof:` line is mended only by a run of the check it names, made on the head as it now stands. Where this session ran that check after the last commit and the last change to the repo's files, record what that run exited with, from the repo's folder, with `context-central proof <item> --check "<check>" --exit <code>`, which reads the commit itself, and run `context-central lint` again. A run made before a later change or commit proves nothing of the head: never record it, and never record a run this session did not make. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 

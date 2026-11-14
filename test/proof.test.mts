@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { LOCK, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, acme, checkout, disposable, git, makeTree, run, solo, standIns, together, workTree } from './helpers.mts'
+import { LOCK, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_FILES, acme, checkout, disposable, git, makeTree, notOnWindows, run, solo, standIns, together, workTree } from './helpers.mts'
 import type { Checkout, Env, TreeFiles } from './helpers.mts'
 
 type Run = { repo: string, check: string, exit: number, commit: string, branch: string | null, dirty: boolean, date: string, system: string }
@@ -20,6 +20,8 @@ const ROOT_LAYOUT = {
   'src/app.js': 'export {}\n',
   'work/PROJ-12/STATE.md': '---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12: Rate limit the gateway\n',
 }
+
+const A_FOLDER_NOBODY_WRITES = process.getuid?.() === 0 ? { skip: 'root writes to a folder whatever its mode' } : notOnWindows('a folder is made read-only by its mode, which Windows does not hold a write to')
 
 const made = (one: Checkout) => (tree(one.base), one)
 
@@ -246,4 +248,38 @@ test('neither lint nor graph has a line for the proof record, and a file of its 
   assert.deepEqual(run(['lint'], { cwd: quiet.main, env: quiet.env }), { code: 0, stdout: 'ok\n', stderr: '' })
   assert.doesNotMatch(run(['graph', '--strict'], { cwd: quiet.main, env: quiet.env }).stdout, /proof\.jsonl/)
   assert.equal(run(['lint'], { cwd: one.main, env: one.env }).stdout, 'WARN evidence: work/PROJ-12/notes/proof.jsonl is not Markdown and is outside work/PROJ-12/evidence/\n')
+})
+
+test('the work folder and the saved launcher are the map too in the root layout, where the work folder is no node folder', () => {
+  const one = made(checkout({ ...ROOT_LAYOUT, 'estate.json': { contextCentral: 1, name: 'solo', workDir: 'items', nodeDirs: ['concepts'], repos: [{ name: 'solo', path: '.', checks: ['./check.sh'] }] }, 'items/PROJ-12/STATE.md': '---\nstatus: active\n---\n# PROJ-12\n' }))
+
+  proof(one, one.main, ...PASSED)
+  run(['wrapper', '--write'], { cwd: one.main, env: one.env })
+  proof(one, one.main, ...PASSED)
+
+  assert.match(git(one, one.main, 'status', '--porcelain').stdout, /^\?\? bin\/$/m)
+  assert.deepEqual(runsIn(one.main, 'items/PROJ-12/proof.jsonl').map(held => held.dirty), [false, false])
+})
+
+test('the branch is recorded by its own name where a tag carries the same name', () => {
+  const one = made(solo())
+  git(one, one.main, 'tag', 'main')
+
+  const result = proof(one, one.main, ...PASSED)
+
+  assert.equal(result.stdout, `recorded: solo "./check.sh" exit 0 at ${headOf(one).slice(0, 7)} on main\n`)
+  assert.deepEqual(runsIn(mapOf(one), RECORD), [aRun(headOf(one))])
+})
+
+test('a write the system refuses is one line and exit 1, and no part of a run is left behind', A_FOLDER_NOBODY_WRITES, () => {
+  const one = made(solo())
+  const folder = join(mapOf(one), 'work/PROJ-12')
+  chmodSync(folder, 0o555)
+
+  const result = proof(one, one.main, ...PASSED)
+  chmodSync(folder, 0o755)
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /^context-central proof: EACCES[^\n]*\. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace\.\n$/)
+  assert.equal(existsSync(join(mapOf(one), RECORD)), false)
 })

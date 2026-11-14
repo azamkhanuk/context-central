@@ -7,6 +7,7 @@ import { glossaryPath } from './glossary.mts'
 import { locked, readWhole, writeWhole } from './lock.mts'
 import { onPath } from './machine.mts'
 import { PROOF_FILE, folderAt, folderToSaveIn, hubPath, makeFolder } from './nodes.mts'
+import { CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE, LAUNCHER_FILE } from './templates.mts'
 import { localDate } from './text.mts'
 import { asked, holds, inTree } from './worktree.mts'
 import type { Env } from './cli.mts'
@@ -36,9 +37,12 @@ export interface Unproven {
 }
 
 type Answer = { status: number, stdout: string }
-type Ask = (folder: string, args: string[], input?: string) => Answer | null
+type Ask = ((folder: string, args: string[], input?: string) => Answer | null) & { unanswered: Set<string> }
 
-const DETACHED = 'HEAD'
+const HEADS = 'refs/heads/'
+const A_COMMIT_ID = /^[0-9a-f]{40,64}$/
+const CONTROL = /[\u0000-\u001f\u007f]/
+const COMPARED_AT_MOST = 20
 const DESIGN_FILE = 'DESIGN.md'
 const BUILT_AT = /\bBuilt at `?([0-9a-f]{7,40})\b/g
 const A_COMMIT = /^[0-9a-f]+ commit \d+$/m
@@ -78,7 +82,8 @@ export function unproven(estate: Estate, item: WorkItem, env: Env, until = Infin
   const runs = runsOf(estate, item)
   const built = builtCommits(estate, item)
   if (runs.length === 0 && built.length === 0) return []
-  const lacks = repos.flatMap(repo => lackIn(estate, repo, runs.filter(run => run.repo === repo.name), built, asking(env, until)))
+  const ask = asking(env, until)
+  const lacks = repos.flatMap(repo => lackIn(estate, repo, runs.filter(run => run.repo === repo.name), built, ask))
   if (performance.now() >= until) return []
   judged.set(key, lacks)
   return lacks
@@ -99,22 +104,28 @@ function andMore(more: number) {
 
 function lackIn(estate: Estate, repo: Repo, runs: Run[], built: string[], ask: Ask): Unproven[] {
   const folder = repoFolder(estate, repo)
-  const checks = repo.checks ?? []
-  if (!folderAt(folder) || gaveNoAnswer.has(folder)) return []
+  if (!folderAt(folder)) return []
+  const lacks = lacksOf(estate, repo, folder, runs, built, ask)
+  return ask.unanswered.has(folder) ? [] : lacks
+}
+
+function lacksOf(estate: Estate, repo: Repo, folder: string, runs: Run[], built: string[], ask: Ask): Unproven[] {
+  const checks = [...new Set(repo.checks ?? [])]
   if (runs.length === 0) return holdsOneOf(folder, built, ask) ? [{ repo: repo.name, check: checks[0], lack: 'no run', exit: null, branch: null, more: checks.length - 1 }] : []
   const { branch } = runs[runs.length - 1]
-  const head = branch === null ? null : ask(folder, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])?.stdout.trim()
+  const head = branch === null ? null : ask(folder, ['rev-parse', '--verify', '--quiet', `${HEADS}${branch}`])?.stdout.trim()
   if (!head) return []
   const same = new Map<string, boolean>([[head, true]])
   const sameCode = (commit: string) => same.get(commit) ?? (same.set(commit, ask(folder, ['diff', '--quiet', commit, head, '--', '.', ...mapsOwnFiles(estate, folder)])?.status === SAME), same.get(commit)!)
   const lacking = checks.flatMap(check => lackOf(check, runs.filter(run => run.check === check), sameCode))
-  if (lacking.length === 0 || gaveNoAnswer.has(folder)) return []
-  return [{ repo: repo.name, ...lacking[0], branch, more: lacking.length - 1 }]
+  return lacking.length === 0 ? [] : [{ repo: repo.name, ...lacking[0], branch, more: lacking.length - 1 }]
 }
 
 function lackOf(check: string, runs: Run[], sameCode: (commit: string) => boolean): Pick<Unproven, 'check' | 'lack' | 'exit'>[] {
   if (runs.length === 0) return [{ check, lack: 'no run', exit: null }]
-  const atHead = runs.findLast(run => !run.dirty && sameCode(run.commit))
+  const clean = runs.filter(run => !run.dirty)
+  const compared = [...new Set(clean.map(run => run.commit).reverse())].slice(0, COMPARED_AT_MOST)
+  const atHead = clean.findLast(run => compared.includes(run.commit) && sameCode(run.commit))
   if (atHead) return atHead.exit === 0 ? [] : [{ check, lack: 'red', exit: atHead.exit }]
   return [{ check, lack: runs[runs.length - 1].dirty ? 'uncommitted' : 'older', exit: null }]
 }
@@ -125,12 +136,23 @@ function holdsOneOf(folder: string, commits: string[], ask: Ask) {
 }
 
 function asking(env: Env, until: number): Ask {
-  return (folder, args, input) => {
+  const unanswered = new Set<string>()
+  const ask = (folder: string, args: string[], input?: string) => {
     const left = Math.floor(Math.min(GIT_MS, until - performance.now()))
-    if (left < 1 || gaveNoAnswer.has(folder)) return null
-    const { status, stdout } = asked(folder, args, env, left, input)
+    const answer = left < 1 || unanswered.has(folder) || gaveNoAnswer.has(folder) ? null : answerOf(folder, args, env, left, input)
+    if (!answer) unanswered.add(folder)
+    return answer
+  }
+  return Object.assign(ask, { unanswered })
+}
+
+function answerOf(folder: string, args: string[], env: Env, timeoutMs: number, input: string | undefined): Answer | null {
+  try {
+    const { status, stdout } = asked(folder, args, env, timeoutMs, input)
     if (status === null) gaveNoAnswer.add(folder)
     return status === null ? null : { status, stdout: stdout ?? '' }
+  } catch {
+    return null
   }
 }
 
@@ -165,18 +187,19 @@ function parsed(line: string): unknown {
 function isRun(held: unknown): held is Run {
   if (!isObject(held)) return false
   const { repo, check, exit, commit, branch, dirty, date, system } = held
-  return [repo, check, commit, date, system].every(field => typeof field === 'string') && typeof exit === 'number' && (branch === null || typeof branch === 'string') && typeof dirty === 'boolean'
+  const named = branch === null || (typeof branch === 'string' && branch !== '' && !CONTROL.test(branch))
+  return [repo, check, date, system].every(field => typeof field === 'string') && typeof commit === 'string' && A_COMMIT_ID.test(commit) && typeof exit === 'number' && named && typeof dirty === 'boolean'
 }
 
 function headOf(folder: string, env: Env) {
-  const { status, stdout } = asked(folder, ['rev-parse', 'HEAD', '--abbrev-ref', 'HEAD'], env)
-  const [commit, branch] = (stdout ?? '').split('\n')
-  return status === 0 && commit && branch ? { commit, branch: branch === DETACHED ? null : branch } : null
+  const { status, stdout } = asked(folder, ['rev-parse', 'HEAD', '--symbolic-full-name', 'HEAD'], env)
+  const [commit, ref] = (stdout ?? '').split('\n')
+  return status === 0 && commit && ref ? { commit, branch: ref.startsWith(HEADS) ? ref.slice(HEADS.length) : null } : null
 }
 
 function mapsOwnFiles(estate: Estate, folder: string) {
   const { layout, mapDir, configPath, config, workTree } = estate
-  const own = layout === 'inner' ? [mapDir] : [...config.nodeDirs.map(dir => join(mapDir, dir)), configPath, glossaryPath(estate)]
+  const own = layout === 'inner' ? [mapDir] : [...[...config.nodeDirs, config.workDir, LAUNCHER_FILE, CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE].map(rel => join(mapDir, rel)), configPath, glossaryPath(estate)]
   return [...own, hubPath(estate)]
     .map(path => (workTree ? inTree(workTree, path) : path))
     .filter(path => holds(folder, path) && relative(folder, path) !== '')
