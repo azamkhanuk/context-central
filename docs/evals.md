@@ -158,7 +158,7 @@ The first full run, made the same day before the changes listed under [A case is
 
 ## The figures of `ready-to-merge`, before the proof record and after
 
-The case group `proof` was run alone, twice, on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: once on the plugin as it stood before the proof record was built, where the live index has no word on proof, and once at `49a351f`, with the proof record and its readers built and before the review's fixes to `lib/proof.mts` and `lib/lint.mts`. The case, its scaffold and its grader were the same in both, and are the ones that ship. Each run was 6 sessions, three with the plugin and three without.
+The case group `proof` was run alone, twice, on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: once on the plugin as it stood before the proof record was built, where the live index has no word on proof, and once at `49a351f`, with the proof record and its readers built and before the review's fixes to `lib/proof.mts` and `lib/lint.mts`. The case, its scaffold and its grader were the same in both, and are the ones that ship. A session of the case is given the same by the plugin as it ships as at `49a351f`: in the case's estate the session-start hook, and the prompt hook asked the case's own prompt, answer the same from the two, byte for byte, and a test holds the words on the row. Each run was 6 sessions, three with the plugin and three without.
 
 | Run | With the plugin | Without | Difference | Sessions, time and cost |
 |---|---|---|---|---|
