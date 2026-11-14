@@ -259,3 +259,27 @@ test('ticket-leads-to-notes: the scored grader looks for the reason, which the d
   assert.deepEqual(holding(root, patternOf(one, 'reason')), ['decisions/0003-round-half-even.md'])
   assert.match(read(root, 'decisions/0003-round-half-even.md'), /## Context\n\n.*The settlement files of the payment provider round half to even.*\n\n## Decision\n/)
 })
+
+test('nothing-to-say: the prompt names nothing of acme, and the prompt hook prints nothing', A_SCAFFOLD, () => {
+  const one = named('nothing-to-say')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), 'How many days are there in a leap year?')
+  assert.match(indexOf(root), /\nWork in flight \(6\):\n/)
+  assert.deepEqual(asked(root, promptOf(one)), { code: 0, stdout: '', stderr: '' })
+})
+
+test('nothing-to-say: it passes on the answer and on no note of the map being read, in both arms', A_SCAFFOLD, () => {
+  const one = named('nothing-to-say')
+  const root = estateOf(one)
+  const noNoteRead = graders(one).find(grader => grader.name === 'no-note-read')?.fields ?? {}
+  const counts = new RegExp(unquoted(noNoteRead.input_match))
+  const readOf = (file: string) => JSON.stringify({ file_path: join(root, file) })
+  const ofTheMap = (file: string) => /^(repos|concepts|edges|decisions|log|work)\//.test(file) || ['CLAUDE.md', 'glossary.md', 'estate.json'].includes(file)
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['answer', 'no-note-read', 'plugin-spoke'])
+  assert.deepEqual(graders(one)[0].fields, { type: 'regex', pattern: "'\\b366\\b'" })
+  assert.deepEqual({ ...noNoteRead, input_match: '' }, { type: 'tool_used', tool: 'Read', input_match: '', min: '0', max: '0' })
+  assert.deepEqual(filesOf(root).filter(file => counts.test(readOf(file)) !== ofTheMap(file)), [])
+  assert.equal(filesOf(root).filter(ofTheMap).length, 33)
+})
