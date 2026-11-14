@@ -1,18 +1,19 @@
 import { readFileSync, statSync } from 'node:fs'
+import { posix } from 'node:path'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
-import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, strayFiles } from './nodes.mts'
+import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listFiles, listNodes, listWorkItems, passedOver, strayFiles } from './nodes.mts'
 import { saidOf, unproven } from './proof.mts'
-import { formatBytes } from './text.mts'
+import { formatBytes, plural } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
 import type { Node, StrayFile, WorkItem } from './nodes.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read' | 'proof'
+export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read' | 'proof' | 'mark'
 
 export interface Finding {
   level: Level
@@ -23,6 +24,10 @@ export interface Finding {
 
 const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/
 const DATED_ALLOWED = 3
+const VERIFIED = '`verified`'
+const INFERRED = '`inferred`'
+const FENCE = /^ *(```|~~~)/
+const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
 export function lintEstate(estate: Estate, env: Env): Finding[] {
   const items = listWorkItems(estate)
@@ -33,6 +38,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...items.flatMap(item => stateFindings(estate, item)),
     ...itemsInFlight.flatMap(item => entryFindings(estate, item)),
     ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
+    ...markFindings(estate),
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
     ...proofFindings(estate, itemsInFlight, env),
@@ -87,6 +93,37 @@ function nodeFindings(estate: Estate, node: Node) {
   const cap = estate.config.budgets.nodeBytes
   if (node.bytes <= cap) return []
   return [finding('WARN', 'node', node.rel, `${node.rel} is ${formatBytes(node.bytes)} (soft cap ${formatBytes(cap)})`)]
+}
+
+function markFindings(estate: Estate) {
+  const saved = listFiles(estate).filter(file => file.rel.split('/').slice(0, -1).some(part => estate.config.deepDirs.includes(part))).map(file => posix.basename(file.rel))
+  return listNodes(estate).flatMap(node => {
+    const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split('\n'), saved)
+    if (unsourced.length === 0) return []
+    const [first] = unsourced
+    const said = unsourced.length === 1 ? `names no source (at line ${first})` : `name no source (first at line ${first})`
+    return [finding('WARN', 'mark', node.rel, `${node.rel} has ${plural(unsourced.length, 'claim')} marked verified that ${said}`)]
+  })
+}
+
+function claimsWithNoSource(lines: string[], saved: string[]) {
+  const namesASource = (line: string) => NAMES_A_SOURCE.some(kind => kind.test(line)) || saved.some(name => line.includes(name))
+  let fenced = false
+  return lines.flatMap((line, at) => {
+    if (FENCE.test(line)) fenced = !fenced
+    const claim = !fenced && line.includes(VERIFIED) && !line.includes(INFERRED)
+    return claim && ![line, ...linesUnder(lines, at)].some(namesASource) ? [at + 1] : []
+  })
+}
+
+function linesUnder(lines: string[], at: number) {
+  const depth = indentOf(lines[at])
+  const next = lines.findIndex((line, index) => index > at && line.trim() !== '' && indentOf(line) <= depth)
+  return lines.slice(at + 1, next === -1 ? lines.length : next)
+}
+
+function indentOf(line: string) {
+  return line.length - line.trimStart().length
 }
 
 function evidenceSizeFindings(estate: Estate, item: WorkItem) {
