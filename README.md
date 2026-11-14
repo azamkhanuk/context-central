@@ -92,7 +92,7 @@ On Windows it has been tried only on GitHub's Windows machines, not in a live Cl
 
 A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
 
-![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits and evidence, and checkpoint rewrites the state file and adds to the log](docs/step-by-step.png)
+![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](docs/step-by-step.png)
 
 | Step | You type | It starts from |
 |---|---|---|

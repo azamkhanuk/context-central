@@ -4,7 +4,7 @@ A piece of work goes through five steps, and each step is a skill. Each step lea
 
 A fresh session is `/clear` in the terminal, or **+ New session** in the desktop app (Cmd+N on macOS, Ctrl+N on Windows). Either starts with nothing of the last session in its context, and the state file carries the item across. The skills say "in a fresh session" and leave the way to you.
 
-![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits and evidence, and checkpoint rewrites the state file and adds to the log](step-by-step.png)
+![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](step-by-step.png)
 
 | Step | You type | It starts from |
 |---|---|---|
@@ -120,7 +120,7 @@ You approve by starting the build: in a fresh session, `/context-central:impleme
 /context-central:implement <item>
 ```
 
-![The build in seven steps: read the state file, the spec and the design, read each repo's standards and recorded checks, build each slice from a failing test to a commit, verify that every recorded check exits 0, review in rounds, checkpoint, then close on one answer in four groups](implement.png)
+![The build in seven steps: read the state file, the spec and the design, read each repo's standards and recorded checks, build each slice from a failing test to a commit, verify at the head that every recorded check exits 0, with each run in the proof record, review in rounds, checkpoint, then close on one answer in four groups. A slice whose checks stay red after three tries stops the build](implement.png)
 
 It needs the spec, and it reads the design when there is one, the code map the state file lists, and the map's note of each repo the work touches, for its traps. A design names the commit it was written at, so where a file its anchors point at has changed since, implement says so before it builds.
 
