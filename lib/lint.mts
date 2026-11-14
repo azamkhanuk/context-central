@@ -21,14 +21,15 @@ export interface Finding {
   message: string
 }
 
-type Fence = { run: string, quoted: boolean }
+type Fence = { run: string, depth: number }
 
 const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/
 const DATED_ALLOWED = 3
 const VERIFIED = '`verified`'
 const INFERRED = '`inferred`'
 const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
-const QUOTE_MARKS = /^([ \t]*)(?:> ?)+/
+const INDENT_AND_QUOTE_MARKS = /^[ \t>]*/
+const QUOTE_MARK = /> ?/g
 const TAB_IS = '    '
 const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
@@ -111,22 +112,23 @@ function markFindings(estate: Estate) {
 }
 
 function claimsWithNoSource(asWritten: string[], saved: string[]) {
-  const lines = asWritten.map(line => line.replace(QUOTE_MARKS, '$1'))
+  const depths = asWritten.map(line => (INDENT_AND_QUOTE_MARKS.exec(line)?.[0].match(QUOTE_MARK) ?? []).length)
+  const lines = asWritten.map(line => line.replace(INDENT_AND_QUOTE_MARKS, lead => lead.replace(QUOTE_MARK, '')))
   const namesASource = (line: string) => NAMES_A_SOURCE.some(kind => kind.test(line)) || saved.some(name => line.includes(name))
   let fence: Fence | null = null
   return lines.flatMap((line, at) => {
-    const inFence = fence !== null
-    fence = fenceAfter(line, QUOTE_MARKS.test(asWritten[at]), fence)
-    const claim = !inFence && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
+    const open = fence !== null && depths[at] < fence.depth ? null : fence
+    fence = fenceAfter(line, depths[at], open)
+    const claim = open === null && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
     return claim && !namesASource(line) && !linesUnder(lines, at).some(namesASource) ? [at + 1] : []
   })
 }
 
-function fenceAfter(line: string, quoted: boolean, open: Fence | null): Fence | null {
+function fenceAfter(line: string, depth: number, open: Fence | null): Fence | null {
   const [, run, rest] = FENCE.exec(line) ?? []
   if (!run) return open
-  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : { run, quoted }
-  return quoted === open.quoted && run[0] === open.run[0] && run.length >= open.run.length && rest.trim() === '' ? null : open
+  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : { run, depth }
+  return depth === open.depth && run[0] === open.run[0] && run.length >= open.run.length && rest.trim() === '' ? null : open
 }
 
 function linesUnder(lines: string[], at: number) {

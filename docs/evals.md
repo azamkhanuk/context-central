@@ -50,7 +50,7 @@ A pattern is a blunt measure of a reply. Where a fact has no one word of its own
 
 `stands` rests on "production" being in no file of acme but the state file, so that a reply which names it has read that file. A test holds the word to that one file.
 
-`proof-is-older` rests on no file of the estate saying that the proof is older than the head: the proof record holds the commit of the run, and the repository in `api/` holds the head. A session has the fact from the words on the item's row of the live index, or from reading both and comparing them. The two commits have fixed ids, which the pattern holds, so a reply that names both has read both. The pattern does not pass every sentence that holds the fact's words. It fails a denial whose "not", "no" or "never" stands close before the fact ("the proof is not stale"), a question with nothing but words between the fact and the question mark ("is the proof older than the head?"), a sentence with a word of doubt close before the fact ("the proof may be older than the head"), and one that says it could not tell earlier in the same clause ("I could not tell whether the proof is older than the head"). How close is close differs from wording to wording, and the kinds below give a reply on each side of it. It does not pass "two commits ahead of main" either, where `main` follows at once.
+`proof-is-older` rests on no file of the estate saying that the proof is older than the head: the proof record holds the commit of the run, and the repository in `api/` holds the head. A session has the fact from the words on the item's row of the live index, or from reading both and comparing them. The two commits have fixed ids, which the pattern holds, so a reply that names both has read both. The pattern does not pass every sentence that holds the fact's words. These five replies fail, and a test holds each: "the proof is not stale", "is the proof older than the head?", "the proof may be older than the head", "I could not tell whether the proof is older than the head" and "two commits ahead of main". They are five replies and not five kinds: a denial, a question, a doubt or talk of `main` in other words can pass, and the kinds below give replies that do.
 
 The tests hold replies each pattern must pass and replies it must fail. Four kinds of reply are scored wrongly all the same, and no pattern mends it:
 
@@ -59,7 +59,7 @@ The tests hold replies each pattern must pass and replies it must fail. Four kin
 - A reply that names both without having found them scores as right, whether it guesses or says that it does not know: "if it is about your payment provider, a rounding rule may be involved", or "I could not find whether it is live in production".
 - A reply that says where the item stands and nothing of what is next can pass `next`, where it words the state file's first sentence with an alert: "switched off in production until the team can be alerted".
 
-`proof-is-older` has kinds of its own. These are the ones found so far, by readers who tried replies against it, and a test holds each reply given here:
+`proof-is-older` has kinds of its own. These are the ones found so far, by readers who tried replies against it, and a test holds each reply given here. No kind is closed: each reader who looked for one more reply of a kind found one.
 
 - A right reply that names neither commit and uses none of the pattern's words scores as wrong: "the proof was recorded at the earlier of the branch's two commits".
 - A right reply that names both commits, uses none of those words and does not open by holding the merge back scores as wrong: "Mostly, with one gap. The proof record names 15d9165; the branch ref is e60a545."
@@ -67,9 +67,9 @@ The tests hold replies each pattern must pass and replies it must fail. Four kin
 - A right reply whose sentence ends at a line break with no full stop, and whose next line asks something, scores as wrong, since the pattern reads the two lines as one sentence that asks: "The proof is older than the head", and on the next line "Want me to run ./check.sh again?".
 - A reply that sets the state file against the branch with no word of the proof scores as wrong, though it has seen that the branch moved: "The state file is from 2026-01-14 and the branch has a commit dated the day after."
 - A reply that only wonders scores as right where its word of doubt is further before the fact: "it may well be that the proof is older than the head".
-- A reply that doubts in words the pattern does not hold scores as right: "Yes. I am not sure the proof is older than the head.", or "Yes. I doubt the proof is stale."
-- A reply that denies scores as right where its "no" or "not" is further before the fact: "Yes. There is no sign that the proof is stale."
-- A reply that asks scores as right where a comma stands between the fact and the question mark: "Is the proof older than the head, or is it current?"
+- A reply that doubts in words the pattern does not hold scores as right: "Yes. I am not sure the proof is older than the head.", "Yes. I doubt the proof is stale.", or "I cannot say the proof is older than the head".
+- A reply that denies scores as right where its "no" or "not" is further before the fact, or where the fact is in other words: "Yes. There is no sign that the proof is stale.", or "Yes. The proof does not lag the head."
+- A reply that asks scores as right where a comma, or a word such as "because", stands between the fact and the question mark: "Is the proof older than the head, or is it current?", or "Is the proof older than the head because of the last commit?"
 - A wrong reply that sets the branch against `main` in other words scores as right: "Yes. The check passes and the branch is two commits ahead of the main branch.", or "Yes. The check passed, and main is two commits behind."
 - A wrong reply that names the check and, in the same sentence, says where the branch now is or speaks of a newer or a later commit scores as right, since the pattern takes those words beside a word for the proof as the fact: "Yes. ./check.sh passes and the branch is now at e60a545.", or "Yes: ./check.sh passes, and the newer commit only adds the thirtieth-day test."
 - A wrong reply that has a word for the proof beside "does not include" scores as right: "Yes. proof.jsonl shows ./check.sh exited 0, and the record does not include any failing run."
@@ -162,7 +162,7 @@ The case group `proof` was run alone, twice, on 2026-11-14 on macOS, with Claude
 
 | Run | With the plugin | Without | Difference | Sessions, time and cost |
 |---|---|---|---|---|
-| Before, at the commit that added the case | 0.33 | 0.67 | -0.33 | 6 in 70 seconds, 0.29 USD |
+| Before, at `053280c`, with no proof record built | 0.33 | 0.67 | -0.33 | 6 in 70 seconds, 0.29 USD |
 | After, at `49a351f`, before the review's fixes | 1.00 | 0.67 | +0.33 | 6 in 83 seconds, 0.35 USD |
 
 Turns and cost are for one session, the mean of an arm's three runs:

@@ -701,6 +701,9 @@ test('ready-to-merge: each reply the page on the suite gives as scored wrongly b
     'Yes. proof.jsonl shows ./check.sh exited 0, and the record does not include any failing run.',
     'Yes. The state file says it is built and verified, with another commit adding the thirtieth-day test.',
     'Yes. The tests passed before the change and after it.',
+    'I cannot say the proof is older than the head',
+    'Yes. The proof does not lag the head.',
+    'Is the proof older than the head because of the last commit?',
   ]
   const passesRightly = ['I may be wrong, but the proof is older than the head']
   const failsRightly = ['the proof is not stale', 'is the proof older than the head?', 'the proof may be older than the head', 'I could not tell whether the proof is older than the head', 'two commits ahead of main']

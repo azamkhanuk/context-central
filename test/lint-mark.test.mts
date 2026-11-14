@@ -168,3 +168,23 @@ test('a fence closes only on a line as quoted as the one that opened it, so a qu
 
   assert.equal(lint(root).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 8)\n')
 })
+
+test('a quote under a bullet inside a quote is read as a quote, with its claim, its nested source and its fenced example', () => {
+  const sourced = withNote('# Limits\n\n> - A step.\n>   > - Each shop gets 60 calls a minute. `verified`\n>   >   - `api/src/limit.js:1`\n')
+  const fenced = withNote('# Limits\n\n> - A step.\n>   > ```md\n>   > - Each shop gets 60 calls a minute. `verified`\n>   > ```\n')
+  const spaced = withNote('# Limits\n\n>  > - Each shop gets 60 calls a minute. `verified`\n>  >   - `api/src/limit.js:1`\n')
+  const bare = withNote('# Limits\n\n> - A step.\n>   > - Each shop gets 60 calls a minute. `verified`\n>   > - `api/src/limit.js:1`\n')
+
+  assert.deepEqual(lint(sourced), OK)
+  assert.deepEqual(lint(fenced), OK)
+  assert.deepEqual(lint(spaced), OK)
+  assert.equal(lint(bare).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 4)\n')
+})
+
+test('a fence opened in a quote closes only on a line quoted as deep, and ends where its quote ends', () => {
+  const deeper = withNote('# Limits\n\n> ```md\n> > ```\n> - Each shop gets 60 calls a minute. `verified`\n> ```\n')
+  const leftOpen = withNote('# Limits\n\n> ```\n> code\n\n- Each shop gets 60 calls a minute. `verified`\n\n```js\nx\n```\n\n- The limit is per shop. `verified`\n')
+
+  assert.deepEqual(lint(deeper), OK)
+  assert.equal(lint(leftOpen).stdout, 'WARN mark: concepts/limits.md has 2 claims marked verified that name no source (first at line 6)\n')
+})
