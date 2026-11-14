@@ -55,3 +55,18 @@ test('the commands doc has a row for every command, for help and for --version, 
 
   assert.deepEqual([...missing, ...alone], [])
 })
+
+const EVALS = join(REPO, 'evals')
+const THE_HOSTS_OWN = ['results', 'mocks']
+const foldersIn = (dir: string) => readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name).sort()
+const evalFlags = () => [...readFileSync(join(REPO, 'scripts', 'run-evals.mts'), 'utf8').matchAll(/'?([a-z][a-z-]*)'?: \{ type: '(?:string|boolean)'/g)].map(([, flag]) => `--${flag}`)
+const evalCases = () => foldersIn(EVALS).filter(group => !THE_HOSTS_OWN.includes(group)).flatMap(group => foldersIn(join(EVALS, group)).map(name => `\`${name}\``))
+
+test('the eval suite page names the one command, every flag it takes, what it always passes to the host and every case of the suite', () => {
+  const page = readFileSync(join(REPO, 'docs', 'evals.md'), 'utf8')
+  const named = ['npm run evals', ...evalFlags(), '--no-publish', '--scaffold', '--model claude-sonnet-5-5', '--threshold 0', ...evalCases()]
+
+  assert.deepEqual(evalFlags(), ['--group', '--case', '--trial', '--max-cost-usd', '--trust-plugin'])
+  assert.ok(evalCases().includes('`where-an-item-stands`'))
+  assert.deepEqual(named.filter(text => !page.includes(text)), [])
+})

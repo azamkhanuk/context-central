@@ -2,6 +2,26 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.18.1 - 2026-11-14
+
+The plugin carries an eval suite: three cases for Claude Code's `claude plugin eval`, each run with the plugin and without, and one command of the repository's own that runs them. Nothing changes in what the commands, the hooks, the skills or the agents do.
+
+- **Three cases in `evals/`,** each tied to a line of the README: where a work item stands, a ticket that leads to the notes behind its work item, and a prompt the plugin has nothing to say to. Every grader is of the host's free kinds, so none calls a judge model.
+- **One invented estate for every case.** A case's scaffold sources `evals/acme.sh`, which writes acme into the run's empty workspace: four repos, seven work items and the notes behind them, the same in both arms.
+- **`npm run evals`** starts the host's eval command once for each case group. It always keeps the report on the machine, runs the scaffolds, pins the model to `claude-sonnet-5-5` and sets a cost ceiling, 10 USD for the run as a whole unless another is given. `--group` and `--case` run one case group or one case, `--trial` runs one session of one case, and `--trust-plugin` is passed on only when given. It is the repository's own command and not one of the plugin's.
+- **The tests hold what needs no paid session:** the files of each case, that its scaffold makes an estate the hooks answer for, the pointers its graders rest on, how the command starts the host and what it refuses. The suite itself is run by hand and is not one of the checks.
+- **The figures of the last full run** are in `docs/evals.md`, with what the suite cannot show. Where a ticket leads to its notes the score was 1.00 with the plugin and 0.00 without. The other two cases showed no difference in the score. An earlier full run, made before a review rewrote the graders' patterns, scored that case 1.00 and 0.33 on the earlier patterns: the page keeps its figures in a line of their own and says what was changed and why.
+- **No case for a checkpoint.** One was built, and two trial runs showed that a run's shell does not start the plugin's own command: an installed copy on the machine's `PATH` was refused by the sandbox, and without it the command was not found. So it was dropped.
+- **The docs say the same:** the page of limits, the page on what the plugin runs, the contributing page, nine new terms in `CONTEXT.md`, and a row in the README's table of parts.
+
+For a map that already exists: nothing changes. The `evals/` folder ships with every install, and nothing in the plugin starts it.
+
+Not shown:
+
+- A run on Linux, on a second model or on a second estate.
+- What the three sessions that failed without the plugin replied: the host's result document holds no reply.
+- Whether a run's shell starts the plugin's command where the checkout's own `bin` folder is put on the `PATH` before the run.
+
 ## 0.18.0 - 2026-11-04
 
 A repo can name a skill of the estate's own for each of research, prep, design and implement, and the step runs it for work touching that repo.

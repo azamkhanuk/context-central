@@ -18,7 +18,8 @@
 - It does not write to a glossary inside a repo, and it does not turn an estate's own glossary into its entry format.
 - It does not check where the plugin is enabled. `doctor` cannot tell you that a session started inside a repo is not given the plugin, or that a folder has not been trusted.
 - It does not renew a launcher you saved. `wrapper --write` says when one differs, and the renewing is yours.
-- It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows and no evals.
+- It does not ingest meetings on its own: the fetcher reads one when asked. It ships no workflows.
+- Its eval suite is a measure taken by hand and gates nothing. It is three cases on one model and one invented estate, run three times an arm, with no case for a checkpoint: a run's sandboxed shell would not start the plugin's own command. [The eval suite](evals.md) lists what it cannot show.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true. `lint` and `graph` check size and links, nothing more.
 - On Windows it has not been tried in a live Claude Code session. These are untested on Windows, not known to fail:

@@ -25,6 +25,8 @@ The plugin is a command, `context-central`, which Node runs as it is. Nothing is
 
 **The launcher.** `wrapper --write` saves a small script in the map so that the command can be typed in a terminal. It finds the installed plugin through Claude Code's own install record and starts it with Node. [Working from a terminal](terminal.md) has the detail.
 
+**The eval folder.** `evals/` holds the plugin's eval suite, and it ships with every install, as `test/` and `scripts/` do. Nothing in the plugin starts any of it: no command, hook, skill or agent names it. Its scaffolds are shell scripts that run only when a person runs Claude Code's `claude plugin eval` on the plugin and gives it `--scaffold`. Each is started by `bash`, writes the files of an invented estate into that run's empty workspace with `mkdir`, `dirname` and `cat`, and starts nothing else. [The eval suite](evals.md) has the detail.
+
 ## What it writes outside the map
 
 The map is where the plugin writes: `.context-central/` inside a repository, or the folders of the root layout. These are the places beyond it.

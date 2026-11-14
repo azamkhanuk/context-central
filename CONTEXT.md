@@ -137,3 +137,30 @@ _Avoid_: work item
 
 **Preset**: What the plugin knows about one vendor's system: how its references look and which commands read from it. It is optional knowledge, kept in one folder with a file for each vendor, and a connection needs none.
 _Avoid_:
+
+**Eval suite**: The cases kept in the plugin's own `evals/` folder for the host's `claude plugin eval`, which runs each with the plugin and without and reports the difference. It is a measure taken by hand: it is not one of the checks, and nothing waits on its score.
+_Avoid_: benchmark, test suite, evals
+
+**Case**: One folder of the eval suite: a prompt a person might type, the scaffold that makes the estate it starts from, and the graders that say whether the session did right.
+_Avoid_: test, scenario, example
+
+**Arm**: One side of a case's runs: with the plugin loaded, or without it. Both arms start from the same files, so the plugin is the one thing they differ in.
+_Avoid_: variant, baseline, condition
+
+**Grader**: One pass or fail on what a run produced. The eval suite uses only the host's free kinds: a pattern in the reply, in the session's trace or in a file, or a tool that was used or was not. None calls a judge model.
+_Avoid_: assertion, judge, check
+
+**Difference**: A case's score with the plugin minus its score without. A difference of none is a finding, and it is reported as found.
+_Avoid_: uplift, gain, improvement
+
+**Scaffold**: A case's shell script, which makes the case's estate in the run's empty workspace before the session starts. The host runs it only when a run is given `--scaffold`.
+_Avoid_: setup script, fixture script, seed
+
+**Case group**: Cases of the eval suite kept in one folder because they need the same grants, and run alone. The cases that only read are one, and cases that need other grants are a case group of their own.
+_Avoid_: suite, tag, category
+
+**Full run**: Every case of the eval suite, three runs each, in both arms. Its cost ceiling, like that of any run, is 10 USD unless another figure is given, and it is the run whose figures go on the docs page.
+_Avoid_: complete run, real run
+
+**Trial run**: A paid run of one case in one arm, once, made before a full run to show what only the host can.
+_Avoid_: smoke run, dry run
