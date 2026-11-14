@@ -42,7 +42,7 @@ test('the words on a row say which of the four things is so, and an item with no
   const uncommitted = made(solo())
   const red = made(solo())
   const nothingBuilt = made(solo())
-  git(noRun, noRun.main, 'commit', '-q', '--allow-empty', '-m', 'second')
+  changed(noRun)
   writeFileSync(join(noRun.main, STATE), `---\nitem: PROJ-12\ntitle: Rate limit the gateway\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${git(noRun, noRun.main, 'rev-parse', 'HEAD').stdout.trim()}: the limiter\n`)
   writeFileSync(join(uncommitted.main, 'src/app.js'), 'export const limited = true\n')
   proved(uncommitted)

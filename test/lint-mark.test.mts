@@ -119,3 +119,33 @@ test('a fence closes only on a line of its own kind that is as long, and a line 
   assert.deepEqual(lint(mixed), OK)
   assert.equal(lint(span).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 5)\n')
 })
+
+test('a claim inside a fenced block is not a claim in a note whose lines end with a carriage return and a line feed', () => {
+  const root = withNote('# Limits\r\n\r\n```md\r\n- Each shop gets 60 calls a minute. `verified`\r\n```\r\n\r\n- The limit is per shop. `verified`\r\n')
+
+  assert.equal(lint(root).stdout, 'WARN mark: concepts/limits.md has 1 claim marked verified that names no source (at line 7)\n')
+})
+
+test('a fence is a fence however far it is indented, under a nested bullet, a numbered step or a block quote', () => {
+  const nested = withNote('# Limits\n\n- A step.\n  - A smaller step.\n\n    ```md\n    - Each shop gets 60 calls a minute. `verified`\n    ```\n')
+  const numbered = withNote('# Limits\n\n10. A step.\n\n\t```md\n\t- Each shop gets 60 calls a minute. `verified`\n\t```\n')
+  const quoted = withNote('# Limits\n\n> ```md\n> - Each shop gets 60 calls a minute. `verified`\n> ```\n')
+
+  assert.deepEqual(lint(nested), OK)
+  assert.deepEqual(lint(numbered), OK)
+  assert.deepEqual(lint(quoted), OK)
+})
+
+test('a source nested under a claim counts inside a block quote, and where the claim is indented with spaces and the source with a tab', () => {
+  const quoted = withNote('# Limits\n\n> - Each shop gets 60 calls a minute. `verified`\n>   - `api/src/limit.js:1`\n')
+  const mixed = withNote('# Limits\n\n  - Each shop gets 60 calls a minute. `verified`\n\t- `api/src/limit.js:1`\n')
+
+  assert.deepEqual(lint(quoted), OK)
+  assert.deepEqual(lint(mixed), OK)
+})
+
+test('in a block quote a source on a line that is not nested under the claim does not count for it', () => {
+  const root = withNote('# Limits\n\n> - Each shop gets 60 calls a minute. `verified`\n> - See `api/src/limit.js:1`.\n\n- The limit is per shop. `verified`\n> See https://example.com/token-bucket.\n')
+
+  assert.equal(lint(root).stdout, 'WARN mark: concepts/limits.md has 2 claims marked verified that name no source (first at line 3)\n')
+})

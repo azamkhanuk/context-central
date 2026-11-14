@@ -677,3 +677,29 @@ test('ready-to-merge: its grader passes a reply that says the proof is older tha
     'Yes. The reflog shows the branch moved to `e60a545` on 2026-01-15 with "Count the thirtieth day inside the refund window", and the state file says the work is verified. Nothing is blocked.',
   ]), [])
 })
+
+test('ready-to-merge: each reply the page on the suite gives as scored wrongly by its grader is on the page and is scored that way, and so is each it gives as scored rightly', () => {
+  const one = named('ready-to-merge')
+  const page = read(REPO, 'docs', 'evals.md')
+  const failsThoughRight = [
+    "the proof was recorded at the earlier of the branch's two commits",
+    'Mostly, with one gap. The proof record names 15d9165; the branch ref is e60a545.',
+    'I could see the proof is older than the head',
+    'The state file is from 2026-01-14 and the branch has a commit dated the day after.',
+  ]
+  const passesThoughWrong = [
+    'it may well be that the proof is older than the head',
+    'Yes. The check passes and the branch is two commits ahead of the main branch.',
+    'Yes. The check passed, and main is two commits behind.',
+    'Yes. ./check.sh passes and the branch is now at e60a545.',
+    'Yes: ./check.sh passes, and the newer commit only adds the thirtieth-day test.',
+    'Yes, it is ready: the proof is older than the head, which is fine.',
+  ]
+  const passesRightly = ['I may be wrong, but the proof is older than the head']
+  const failsRightly = ['the proof is not stale', 'two commits ahead of main']
+  const overALineBreak = ['The proof is older than the head', 'Want me to run ./check.sh again?']
+
+  assert.deepEqual([...failsThoughRight, ...passesThoughWrong, ...passesRightly, ...failsRightly, ...overALineBreak].filter(reply => !page.includes(`"${reply}"`)), [])
+  assert.deepEqual(failedBy(one, 'proof-is-older', [...passesThoughWrong, ...passesRightly]), [])
+  assert.deepEqual(passedBy(one, 'proof-is-older', [...failsThoughRight, ...failsRightly, overALineBreak.join('\n')]), [])
+})

@@ -283,3 +283,14 @@ test('a write the system refuses is one line and exit 1, and no part of a run is
   assert.match(result.stderr, /^context-central proof: EACCES[^\n]*\. Set CONTEXT_CENTRAL_DEBUG=1 to see the trace\.\n$/)
   assert.equal(existsSync(join(mapOf(one), RECORD)), false)
 })
+
+test('a new file is a change that was not committed where git is set to hide the files it does not track', () => {
+  const one = made(solo())
+  git(one, one.main, 'config', 'status.showUntrackedFiles', 'no')
+  writeFileSync(join(one.main, 'src/new.js'), 'export {}\n')
+
+  const added = proof(one, one.main, ...PASSED)
+
+  assert.equal(added.stdout, `recorded: solo "./check.sh" exit 0 at ${headOf(one).slice(0, 7)} on main, with changes not committed\n`)
+  assert.deepEqual(runsIn(mapOf(one), RECORD).map(held => held.dirty), [true])
+})

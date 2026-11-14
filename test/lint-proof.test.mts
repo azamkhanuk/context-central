@@ -317,3 +317,51 @@ test('a check is compared with the head at twenty commits of its record at most,
   assert.equal(result.stdout, 'WARN proof: PROJ-12 in solo: "./check.sh" last ran on code older than the head of main\n')
   assert.equal(readFileSync(join(counting, 'git.log'), 'utf8').split('\n').filter(line => line.startsWith('diff ')).length, 20)
 })
+
+test('an item built in one registered folder of a repository says nothing of another folder of it, until a built commit changes that folder', () => {
+  const settings: Json = { contextCentral: 1, name: 'mono', repos: [{ name: 'api', path: 'packages/api', checks: ['./check.sh'] }, { name: 'web', path: 'packages/web', checks: ['./check.sh'] }] }
+  const one = made(solo({ '.context-central/estate.json': settings, 'packages/api/app.js': 'export {}\n', 'packages/web/app.js': 'export {}\n' }))
+  const inApi = committed(one, { 'packages/api/app.js': 'export const limited = true\n' })
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${inApi.slice(0, 7)}: the limiter\n`)
+  proved(one, 0, './check.sh', join(one.main, 'packages/api'))
+
+  const apiAlone = lint(one, one.main)
+  const inWeb = committed(one, { 'packages/web/app.js': 'export const limited = true\n' })
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${inApi.slice(0, 7)}: the limiter\n- Built at ${inWeb.slice(0, 7)}: its page\n`)
+
+  assert.deepEqual(apiAlone, OK)
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in web: no run of "./check.sh" is recorded\n')
+})
+
+test('a built commit that changes only the map builds nothing in the repo, where the map is kept in git inside it', () => {
+  const one = made(solo(KEPT_IN_GIT))
+  const mapOnly = committed(one, { '.context-central/concepts/gateway.md': '# The gateway\n' })
+
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${mapOnly.slice(0, 7)}: a note\n`)
+
+  assert.deepEqual(lint(one, one.main), OK)
+})
+
+test('a line whose branch is not a name but a way to reach another commit is no run', () => {
+  const one = made(solo())
+  const first = headOf(one)
+  const second = committed(one, { 'src/app.js': 'export const limited = true\n' })
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${second}: the limiter\n`)
+
+  recorded(one, [{ commit: first, branch: 'main~1' }, { commit: first, branch: 'main^' }, { commit: first, branch: 'main^{/first}' }, { commit: first, branch: 'main@{0}' }, { commit: first, branch: 'main..main' }, { commit: first, branch: 'main:src' }, { commit: first, branch: 'ma in' }, { commit: first, branch: 'ma*n' }, { commit: first, branch: 'ma?n' }, { commit: first, branch: 'ma[i]n' }, { commit: first, branch: 'ma\\in' }])
+
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: no run of "./check.sh" is recorded\n')
+})
+
+test('a Built at line is read with a whole commit id of sixty-four digits, in a repository that names its commits so', () => {
+  const base = tree(makeTree({ gitconfig: '', 'solo/.gitignore': '.context-central/\n', 'solo/CLAUDE.md': '# Solo\n', 'solo/src/app.js': 'export {}\n', 'solo/.context-central/estate.json': SOLO_CONFIG, 'solo/.context-central/glossary.md': '# Glossary\n' }))
+  const one: Checkout = { base, main: join(base, 'solo'), env: { GIT_CONFIG_GLOBAL: join(base, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' } }
+  git(one, one.main, 'init', '-q', '-b', 'main', '--object-format=sha256')
+  git(one, one.main, 'add', '-A')
+  git(one, one.main, 'commit', '-q', '-m', 'first')
+
+  put(one.main, STATE, `---\nstatus: active\n---\n# PROJ-12\n\n## Done\n\n- Built at ${headOf(one)}: the limiter\n`)
+
+  assert.equal(headOf(one).length, 64)
+  assert.equal(warned(one), 'WARN proof: PROJ-12 in solo: no run of "./check.sh" is recorded\n')
+})

@@ -41,11 +41,11 @@ type Ask = ((folder: string, args: string[], input?: string) => Answer | null) &
 
 const HEADS = 'refs/heads/'
 const A_COMMIT_ID = /^[0-9a-f]{40,64}$/
-const CONTROL = /[\u0000-\u001f\u007f]/
+const NOT_IN_A_BRANCH_NAME = /[\u0000-\u0020\u007f~^:?*[\\]|\.\.|@\{/
 const COMPARED_AT_MOST = 20
 const DESIGN_FILE = 'DESIGN.md'
-const BUILT_AT = /\bBuilt at `?([0-9a-f]{7,40})\b/g
-const A_COMMIT = /^[0-9a-f]+ commit \d+$/m
+const BUILT_AT = /\bBuilt at `?([0-9a-f]{7,64})\b/g
+const A_COMMIT = /^([0-9a-f]+) commit \d+$/gm
 const GIT_MS = 5000
 const SAME = 0
 const WORDS: Record<Lack, (lack: Unproven) => string> = {
@@ -62,7 +62,7 @@ export function recordRun(estate: Estate, item: WorkItem, repo: Repo, check: str
   const dirRel = folderToSaveIn(estate, item)
   const folder = repoFolder(estate, repo)
   const head = headOf(folder, env)
-  const changed = head && asked(folder, ['status', '--porcelain', '--', '.', ...mapsOwnFiles(estate, folder)], env)
+  const changed = head && asked(folder, ['status', '--porcelain', '--untracked-files=normal', '--', '.', ...mapsOwnFiles(estate, folder)], env)
   if (!head || !changed || changed.status !== 0) throw new PluginError(`git gave no answer in ${folder}, so nothing was recorded`)
   const run: Run = { repo: repo.name, check, exit, ...head, dirty: changed.stdout !== '', date: localDate(env).day, system: `${platform()} ${arch()}` }
   locked(estate.mapDir, () => {
@@ -111,7 +111,7 @@ function lackIn(estate: Estate, repo: Repo, runs: Run[], built: string[], ask: A
 
 function lacksOf(estate: Estate, repo: Repo, folder: string, runs: Run[], built: string[], ask: Ask): Unproven[] {
   const checks = [...new Set(repo.checks ?? [])]
-  if (runs.length === 0) return holdsOneOf(folder, built, ask) ? [{ repo: repo.name, check: checks[0], lack: 'no run', exit: null, branch: null, more: checks.length - 1 }] : []
+  if (runs.length === 0) return builtIn(estate, folder, built, ask) ? [{ repo: repo.name, check: checks[0], lack: 'no run', exit: null, branch: null, more: checks.length - 1 }] : []
   const { branch } = runs[runs.length - 1]
   const head = branch === null ? null : ask(folder, ['rev-parse', '--verify', '--quiet', `${HEADS}${branch}`])?.stdout.trim()
   if (!head) return []
@@ -130,9 +130,11 @@ function lackOf(check: string, runs: Run[], sameCode: (commit: string) => boolea
   return [{ check, lack: runs[runs.length - 1].dirty ? 'uncommitted' : 'older', exit: null }]
 }
 
-function holdsOneOf(folder: string, commits: string[], ask: Ask) {
+function builtIn(estate: Estate, folder: string, commits: string[], ask: Ask) {
   if (commits.length === 0) return false
-  return A_COMMIT.test(ask(folder, ['cat-file', '--batch-check'], commits.map(commit => `${commit}^{commit}\n`).join(''))?.stdout ?? '')
+  const held = [...(ask(folder, ['cat-file', '--batch-check'], commits.map(commit => `${commit}^{commit}\n`).join(''))?.stdout ?? '').matchAll(A_COMMIT)].map(([, id]) => id)
+  if (held.length === 0) return false
+  return (ask(folder, ['rev-list', '--no-walk', ...held, '--', '.', ...mapsOwnFiles(estate, folder)])?.stdout ?? '').trim() !== ''
 }
 
 function asking(env: Env, until: number): Ask {
@@ -187,7 +189,7 @@ function parsed(line: string): unknown {
 function isRun(held: unknown): held is Run {
   if (!isObject(held)) return false
   const { repo, check, exit, commit, branch, dirty, date, system } = held
-  const named = branch === null || (typeof branch === 'string' && branch !== '' && !CONTROL.test(branch))
+  const named = branch === null || (typeof branch === 'string' && branch !== '' && !NOT_IN_A_BRANCH_NAME.test(branch))
   return [repo, check, date, system].every(field => typeof field === 'string') && typeof commit === 'string' && A_COMMIT_ID.test(commit) && typeof exit === 'number' && named && typeof dirty === 'boolean'
 }
 

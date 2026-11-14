@@ -46,11 +46,11 @@ A pattern is a blunt measure of a reply. Where a fact has no one word of its own
 | `next` of `where-an-item-stands` | The `export-stalled` channel; an alert beside api or an export that has failed every try; an alert or a notice beside the team; or production beside a word for switching on |
 | `reason` of `ticket-leads-to-notes` | The payment provider, or its settlement files, beside rounding, half, matching, agreeing or being consistent |
 | `answer` of `nothing-to-say` | 366 |
-| `proof-is-older` of `ready-to-merge` | The proof, the check or its last run said to be older than the head, stale, out of date or behind the branch; the head or the last commit said to be unchecked or to have no run; a commit said to have come after the run; or a reply that opens by holding the merge back and names both commits, the one the run was made at and the one at the head |
+| `proof-is-older` of `ready-to-merge` | The proof, the check or its last run said to be older than the head, stale, out of date or behind the branch; the head or the last commit said to be unchecked or to have no run; a commit said to have come after the run; the branch said to have moved since, or, beside a word for the proof, to have moved, to be now at a commit, or to have a newer or a later commit; or a reply that opens by holding the merge back and names both commits, the one the run was made at and the one at the head |
 
 `stands` rests on "production" being in no file of acme but the state file, so that a reply which names it has read that file. A test holds the word to that one file.
 
-`proof-is-older` rests on no file of the estate saying that the proof is older than the head: the proof record holds the commit of the run, and the repository in `api/` holds the head. A session has the fact from the words on the item's row of the live index, or from reading both and comparing them. The two commits have fixed ids, which the pattern holds, so a reply that names both has read both. The pattern does not pass a sentence that only wonders ("whether", "if", "may", "I could not tell"), denies ("not stale"), asks, or speaks of the branch against `main`.
+`proof-is-older` rests on no file of the estate saying that the proof is older than the head: the proof record holds the commit of the run, and the repository in `api/` holds the head. A session has the fact from the words on the item's row of the live index, or from reading both and comparing them. The two commits have fixed ids, which the pattern holds, so a reply that names both has read both. The pattern does not pass a sentence that denies ("the proof is not stale") or asks, one with a word of doubt ("whether", "if", "may") in the four words before the fact, or one that says it could not tell earlier in the same clause. It does not pass "two commits ahead of main" either, where `main` follows at once.
 
 The tests hold replies each pattern must pass and replies it must fail. Four kinds of reply are scored wrongly all the same, and no pattern mends it:
 
@@ -62,11 +62,18 @@ The tests hold replies each pattern must pass and replies it must fail. Four kin
 `proof-is-older` has kinds of its own:
 
 - A right reply that names neither commit and uses none of the pattern's words scores as wrong: "the proof was recorded at the earlier of the branch's two commits".
-- A right reply that puts a word of doubt within a few words before the fact, with no comma between, scores as wrong: "it may well be that the proof is older than the head". With a comma, as in "I may be wrong, but the proof is older than the head", it passes.
-- A reply that states the fact and still calls the item ready scores as right, since the pass is on the fact and not on the verdict.
-- A reply that sets the state file against the branch with no word of the proof scores as wrong, though it has seen that the branch moved.
+- A right reply that names both commits, uses none of those words and does not open by holding the merge back scores as wrong: "Mostly, with one gap. The proof record names 15d9165; the branch ref is e60a545."
+- A right reply that has a word of doubt in the four words before the fact, with no comma between, scores as wrong: "I could see the proof is older than the head". With a comma, as in "I may be wrong, but the proof is older than the head", it passes.
+- A right reply whose sentence ends at a line break with no full stop, and whose next line asks something, scores as wrong, since the pattern reads the two lines as one sentence that asks: "The proof is older than the head", and on the next line "Want me to run ./check.sh again?".
+- A reply that sets the state file against the branch with no word of the proof scores as wrong, though it has seen that the branch moved: "The state file is from 2026-01-14 and the branch has a commit dated the day after."
+- A reply that only wonders scores as right where its word of doubt is more than four words before the fact: "it may well be that the proof is older than the head".
+- A wrong reply that sets the branch against `main` in other words scores as right: "Yes. The check passes and the branch is two commits ahead of the main branch.", or "Yes. The check passed, and main is two commits behind."
+- A wrong reply that names the check and, in the same sentence, says where the branch now is or speaks of a newer or a later commit scores as right, since the pattern takes those words beside a word for the proof as the fact: "Yes. ./check.sh passes and the branch is now at e60a545.", or "Yes: ./check.sh passes, and the newer commit only adds the thirtieth-day test."
+- A reply that states the fact and still calls the item ready scores as right, since the pass is on the fact and not on the verdict: "Yes, it is ready: the proof is older than the head, which is fine."
 
 Three readers who were told nothing of the pattern wrote replies to try it, before any figure was taken. The first two led to its rewriting. The third wrote 140 replies before opening the pattern as it ships: none of 40 right replies that had the row's words failed, 1 of 40 right replies worked out from the files failed, and none of 60 wrong replies passed. Those replies were a reader's and not a session's, so the counts say how the pattern does on wordings it was not made on, and not how often a session uses them.
+
+After the figures were taken, a reviewer who had the pattern open wrote replies aimed at it: 13 of 71 right replies failed and 24 of 47 wrong ones passed, and the kinds above come from them. The pattern is left as it was when the figures were taken. A result document holds no reply to score again, so a new pattern would need both runs made again.
 
 `nothing-to-say` also fails where a note of the map was read. That is a `Read` of a file of the map, or a `Grep` that prints the text it finds, unless its path is inside a repo's folder or its glob or its type names a kind of code file.
 
@@ -161,11 +168,12 @@ Turns and cost are for one session, the mean of an arm's three runs:
 
 What they say, as found:
 
-- With the words on the item's row, all three sessions said that the proof was older than the head. Before the proof record, with the same index and no such words, one of three did.
-- Without the plugin, two of three sessions said it, in both runs. Nothing of the plugin reaches that arm, so its two figures are two samples of one thing: a session that has `Read`, `Glob` and `Grep` alone often finds the fact for itself, by reading the proof record and the branch's ref under `api/.git`.
+- With the words on the item's row, all three sessions passed the grader. Before the proof record, with the same index and no such words, one of three did.
+- Without the plugin, two of three sessions passed, in both runs. Nothing of the plugin reaches that arm, so its two figures are two samples of one thing. A session that has `Read`, `Glob` and `Grep` alone can find the fact for itself, by reading the proof record and the branch's ref under `api/.git`.
+- A pass is the grader's and not a reading of the reply. No reply of either run is kept, so whether a session that passed said that the proof was older than the head, or passed on one of the kinds [the graders](#the-graders) lists as scored wrongly, is not known. The wrong replies that pass are ones a session with no words on the row could give.
 - So the difference of +0.33 after is one session of three, and the difference of -0.33 before is one session of three the other way. Three runs an arm cannot tell either from chance. What the two runs do show is the arm with the plugin going from one of three to three of three, with nothing changed but the plugin.
 - Turns and cost rose between the two runs in both arms alike, so they say nothing of the words on the row.
-- What the three sessions that failed replied is not known: a result document holds no reply.
+- What the three sessions that failed replied is not known either.
 
 ## What it cannot show
 

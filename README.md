@@ -128,7 +128,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 - Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
-- It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, that a claim marked `verified` names a source, and that the proof of what was built is whole. They say what they find and hold nothing back.
+- It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source and that the proof of what was built is whole. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 

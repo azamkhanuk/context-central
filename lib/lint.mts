@@ -25,7 +25,9 @@ const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uar
 const DATED_ALLOWED = 3
 const VERIFIED = '`verified`'
 const INFERRED = '`inferred`'
-const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/
+const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
+const QUOTE_MARKS = /^(?:[ \t]*> ?)+/
+const TAB_IS = '    '
 const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
 export function lintEstate(estate: Estate, env: Env): Finding[] {
@@ -98,7 +100,7 @@ function markFindings(estate: Estate) {
   const saved = savedSourceNames(estate)
   const hub = hubPath(estate)
   return listNodes(estate).filter(node => node.path !== hub).flatMap(node => {
-    const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split('\n'), saved)
+    const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split(/\r?\n/).map(line => line.replace(QUOTE_MARKS, '')), saved)
     if (unsourced.length === 0) return []
     const [first] = unsourced
     const said = unsourced.length === 1 ? `names no source (at line ${first})` : `name no source (first at line ${first})`
@@ -113,7 +115,7 @@ function claimsWithNoSource(lines: string[], saved: string[]) {
     const inFence = fence !== null
     fence = fenceAfter(line, fence)
     const claim = !inFence && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
-    return claim && ![line, ...linesUnder(lines, at)].some(namesASource) ? [at + 1] : []
+    return claim && !namesASource(line) && !linesUnder(lines, at).some(namesASource) ? [at + 1] : []
   })
 }
 
@@ -126,12 +128,13 @@ function fenceAfter(line: string, open: string | null) {
 
 function linesUnder(lines: string[], at: number) {
   const depth = indentOf(lines[at])
-  const next = lines.findIndex((line, index) => index > at && line.trim() !== '' && indentOf(line) <= depth)
-  return lines.slice(at + 1, next === -1 ? lines.length : next)
+  let end = at + 1
+  while (end < lines.length && (lines[end].trim() === '' || indentOf(lines[end]) > depth)) end += 1
+  return lines.slice(at + 1, end)
 }
 
 function indentOf(line: string) {
-  return line.length - line.trimStart().length
+  return line.slice(0, line.length - line.trimStart().length).replaceAll('\t', TAB_IS).length
 }
 
 function evidenceSizeFindings(estate: Estate, item: WorkItem) {
