@@ -29,6 +29,8 @@ It is made large enough that finding the right file is work for a session with n
 
 The arms differ in one thing, whether the plugin is loaded. With it the session is given the live index at its start, and pointers when its prompt names something the map knows. Without it the same files are there and nothing says where to look. The host loads no instruction file in a run, so the hub is loaded in neither arm.
 
+acme sets its index budget, `budgets.indexChars`, to 9,500 characters, where an estate that sets nothing has 2,000. With six work items in flight acme's index is 837 characters and eight times the length of the workspace's path, so at 2,000 it is cut once that path passes 145 characters, and `context-central lint` then reports that the items in flight do not fit. A run's workspace on the machine behind this page was 30 characters long, so the index was whole in every run here at either figure, and the first full run was made before acme set a budget at all. The setting keeps the index whole where a run's temporary folder sits at the end of a longer path.
+
 ## The graders
 
 Every grader is of the host's free kinds: a pattern in the reply or in the session's trace, or a tool that was or was not used. None calls a judge model, so the same reply scores the same each time and a run pays for its sessions alone.
@@ -97,32 +99,34 @@ A terminate sent to the command is passed on to the host. An interrupt or a hang
 
 Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 18 sessions: three cases, three runs each, in both arms.
 
-On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the full run below cost 0.58 USD.
+On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the full run below cost 0.57 USD.
 
 ## The figures of the last full run
 
-Run on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`: 18 sessions in 84 seconds, for 0.58 USD by the host's estimate. The plugin's hooks, commands and skills were those of release 0.18.0, which 0.18.1 does not change. The run was made before the changes of 2026-11-14 listed under [A case is reported as found](#a-case-is-reported-as-found), so its scores are those of the earlier patterns.
+Run on 2026-11-14 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`, on the cases as they ship in 0.18.1: 18 sessions in 84 seconds, for 0.57 USD by the host's estimate. The plugin's hooks, commands and skills were those of release 0.18.0, which 0.18.1 does not change.
 
 | Case | With the plugin | Without | Difference |
 |---|---|---|---|
 | `where-an-item-stands` | 1.00 | 1.00 | 0.00 |
-| `ticket-leads-to-notes` | 1.00 | 0.33 | +0.67 |
+| `ticket-leads-to-notes` | 1.00 | 0.00 | +1.00 |
 | `nothing-to-say` | 1.00 | 1.00 | 0.00 |
 
 Turns and cost are for one session, the mean of an arm's three runs, from the host's result document:
 
 | Case | Turns with | Turns without | Cost with | Cost without |
 |---|---|---|---|---|
-| `where-an-item-stands` | 3.0 | 6.3 | 0.035 USD | 0.037 USD |
-| `ticket-leads-to-notes` | 5.3 | 3.7 | 0.043 USD | 0.033 USD |
-| `nothing-to-say` | 1.0 | 1.0 | 0.025 USD | 0.021 USD |
+| `where-an-item-stands` | 3.0 | 5.7 | 0.034 USD | 0.037 USD |
+| `ticket-leads-to-notes` | 5.3 | 3.0 | 0.043 USD | 0.031 USD |
+| `nothing-to-say` | 1.0 | 1.0 | 0.024 USD | 0.021 USD |
 
 What they say, as found:
 
-- `where-an-item-stands` shows no difference in the score. A session on this model finds the state file with no pointers, in about twice the turns.
-- `ticket-leads-to-notes` shows the one difference. With the plugin every session gave the reason. Without it one session in three did, and the two that did not ended after two and three turns. What those two replied is not known: the host's result document holds no reply, and a full run keeps no temporary folder.
-- `nothing-to-say` shows no difference in the score, as expected, and no note of the map was read in either arm. The session with the plugin cost 0.004 USD more, which is the price of what the plugin puts into every session.
-- Three runs an arm is a small sample. A difference of 0.67 is two sessions of three.
+- `where-an-item-stands` shows no difference in the score. A session on this model finds the state file with no pointers, in about twice the turns. In each of its six sessions both scored graders passed: none passed one and failed the other.
+- `ticket-leads-to-notes` shows the one difference. With the plugin every session gave the reason. Without it none did, and each ended after three turns. What those three replied is not known: the host's result document holds no reply, and a full run keeps no temporary folder.
+- `nothing-to-say` shows no difference in the score, as expected, and no note of the map was read or searched in either arm. The session with the plugin cost 0.003 USD more, which is the price of what the plugin puts into every session.
+- Three runs an arm is a small sample. A difference of 1.00 is three sessions of three.
+
+The first full run, made the same day before the changes listed under [A case is reported as found](#a-case-is-reported-as-found), was scored on the earlier patterns: `where-an-item-stands` 1.00 with the plugin and 1.00 without, `ticket-leads-to-notes` 1.00 and 0.33, `nothing-to-say` 1.00 and 1.00, in 18 sessions for 0.58 USD. Its sessions were not this run's, and a result document holds no reply to score again, so the two runs do not say what the changes to the patterns did to a score.
 
 ## What it cannot show
 
@@ -130,6 +134,7 @@ What they say, as found:
 - More than one model. Every run is on `claude-sonnet-5-5`.
 - More than one estate. Every case starts from acme.
 - More than a small sample. A session's reply moves from run to run, and a case is run three times an arm.
+- What a session is given by an estate that keeps the default index budget where its index does not fit. The index is then cut to the rows that fit, with a line that says how many more there are, and acme's budget is set so that no case meets this.
 - A checkpoint, or anything else a session does through the plugin's own command in the shell, for the reason given above.
 - Whether a reply is right in words a pattern does not know, or is a guess in words it does. [The graders](#the-graders) says which replies those are.
 - Anything on Linux or Windows. The runs behind this page were made on macOS. On Linux the host's sandbox is another program, and on Windows a scaffold cannot start.

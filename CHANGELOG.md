@@ -10,7 +10,7 @@ The plugin carries an eval suite: three cases for Claude Code's `claude plugin e
 - **One invented estate for every case.** A case's scaffold sources `evals/acme.sh`, which writes acme into the run's empty workspace: four repos, seven work items and the notes behind them, the same in both arms.
 - **`npm run evals`** starts the host's eval command once for each case group. It always keeps the report on the machine, runs the scaffolds, pins the model to `claude-sonnet-5-5` and sets a cost ceiling, 10 USD for the run as a whole unless another is given. `--group` and `--case` run one case group or one case, `--trial` runs one session of one case, and `--trust-plugin` is passed on only when given. It is the repository's own command and not one of the plugin's.
 - **The tests hold what needs no paid session:** the files of each case, that its scaffold makes an estate the hooks answer for, the pointers its graders rest on, how the command starts the host and what it refuses. The suite itself is run by hand and is not one of the checks.
-- **The figures of the first full run** are in `docs/evals.md`, with what the suite cannot show. Where a ticket leads to its notes the score was 1.00 with the plugin and 0.33 without. The other two cases showed no difference in the score. The run was made before the review rewrote the graders' patterns, so these are the scores of the earlier patterns, and the page says what was changed and why.
+- **The figures of the last full run** are in `docs/evals.md`, with what the suite cannot show. Where a ticket leads to its notes the score was 1.00 with the plugin and 0.00 without. The other two cases showed no difference in the score. An earlier full run, made before a review rewrote the graders' patterns, scored that case 1.00 and 0.33 on the earlier patterns: the page keeps its figures in a line of their own and says what was changed and why.
 - **No case for a checkpoint.** One was built, and two trial runs showed that a run's shell does not start the plugin's own command: an installed copy on the machine's `PATH` was refused by the sandbox, and without it the command was not found. So it was dropped.
 - **The docs say the same:** the page of limits, the page on what the plugin runs, the contributing page, nine new terms in `CONTEXT.md`, and a row in the README's table of parts.
 
@@ -18,9 +18,8 @@ For a map that already exists: nothing changes. The `evals/` folder ships with e
 
 Not shown:
 
-- A full run on the graders as they now stand.
 - A run on Linux, on a second model or on a second estate.
-- What the two sessions that failed without the plugin replied: the host's result document holds no reply.
+- What the three sessions that failed without the plugin replied: the host's result document holds no reply.
 - Whether a run's shell starts the plugin's command where the checkout's own `bin` folder is put on the `PATH` before the run.
 
 ## 0.18.0 - 2026-11-04
