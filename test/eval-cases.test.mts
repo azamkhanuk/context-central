@@ -482,6 +482,7 @@ test('ready-to-merge: its estate is acme with one check recorded for api, whose 
   assert.match(read(root, 'work/refund-window/STATE.md'), /\nstatus: active\n/)
   assert.match(read(root, 'work/refund-window/STATE.md'), /## Where it stands\n\nBuilt in api and verified: .*\n\n## Done\n/)
   assert.match(read(root, 'work/refund-window/STATE.md'), /## Next\n\nMerge `work\/refund-window` into `main`\.\n\n## Blocked\n/)
+  assert.doesNotMatch(read(root, 'work/refund-window/STATE.md'), /\b[0-9a-f]{7,40}\b/)
   assert.deepEqual(spawned('sh', ['check.sh'], { cwd: join(root, 'api') }).code, 0)
 })
 
@@ -505,7 +506,6 @@ test('ready-to-merge: the proof record holds one run that passed with nothing un
   assert.equal(read(api, '.git/HEAD'), 'ref: refs/heads/work/refund-window\n')
   assert.equal(read(api, '.git/refs/heads/work/refund-window'), `${THE_HEAD}\n`)
   assert.equal(read(root, 'work/refund-window/proof.jsonl'), `${JSON.stringify({ repo: 'api', check: './check.sh', exit: 0, commit: THE_PROVEN_COMMIT, branch: 'work/refund-window', dirty: false, date: '2026-01-14', system: 'darwin arm64' })}\n`)
-  assert.ok(read(root, 'work/refund-window/STATE.md').includes(`- Built at \`${THE_PROVEN_COMMIT.slice(0, 7)}\`: `))
 })
 
 test('ready-to-merge: a scaffold started where an earlier one stopped part-way ends non-zero, so the host scores the run nothing', A_SCAFFOLD, () => {

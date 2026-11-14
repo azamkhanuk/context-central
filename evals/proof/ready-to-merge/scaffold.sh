@@ -90,7 +90,7 @@ fi
 test "$(as_acme 2026-01-15T09:00:00Z rev-list --count HEAD)" = 3
 proven=$(as_acme 2026-01-15T09:00:00Z rev-parse HEAD~1)
 
-put work/refund-window/STATE.md <<EOF
+put work/refund-window/STATE.md <<'EOF'
 ---
 item: refund-window
 title: Refund an order inside thirty days
@@ -100,15 +100,15 @@ status: active
 
 ## Where it stands
 
-Built in api and verified: a shop can refund an order for thirty days from the day it was paid. The work is on the branch \`work/refund-window\` of api, where \`./check.sh\` passes.
+Built in api and verified: a shop can refund an order for thirty days from the day it was paid. The work is on the branch `work/refund-window` of api, where `./check.sh` passes.
 
 ## Done
 
-- Built at \`$(printf '%.7s' "$proven")\`: \`refundable\` in \`api/src/refund.js\`, with its test.
+- 2026-01-14: `refundable` in `api/src/refund.js`, with its test.
 
 ## Next
 
-Merge \`work/refund-window\` into \`main\`.
+Merge `work/refund-window` into `main`.
 
 ## Blocked
 
