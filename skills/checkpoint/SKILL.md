@@ -37,7 +37,7 @@ Its six parts, each replaced with what is true now:
 
 Keep it within `context-central config --get budgets.stateChars` characters by moving detail into `notes/` and pointing at it.
 
-When the item is finished, run `context-central take`, then `context-central work done <item>`: it marks the map's own state file, so the draft goes in first.
+When the item is finished, run `context-central take`, then `context-central work done <item>`: it marks the map's own state file, so the draft goes in first. Where it prints a second line, `proof: ...`, the item's proof is not whole: give that line as it is in the closing answer, under Needs a fix.
 
 ## 5. Lessons that outlive the item
 
@@ -47,13 +47,15 @@ A term the estate uses with a meaning of its own (a word, an abbreviation, the n
 
 A rule for how a repo's code is designed, written, tested or reviewed goes in that repo's standards note, the file `context-central standards <repo>` marks `(the standards note)`. Write a rule only when it was stated: by the person in this session, or as a reviewer's finding the person accepted. A rule you worked out yourself is not stated, even where the code follows it. Put it under the part it belongs to (Design, Code, Tests or Review) and end it with its source: who said it and the date, or the finding's `file:line`. When the person corrected a rule, rewrite it where it stands; never add a second rule for one matter. If no file is marked, the repo has no standards note and none is written, in any other file either: the closing answer carries the rules and says that `/context-central:standards <repo>` makes the note. A session that met no such rule leaves the note alone and says nothing about it.
 
+Where this session met a failure that a command of the repo's own caught, or would have caught, offer that command as a check and never write it. Run `context-central standards <repo>`: the command is offered only where it is not among the repo's recorded checks. It is the repo's own: a script the repo holds that this session ran, or one its files declare, such as a script its manifest names. Name it in the closing answer with the failure, and say whether this session ran it. Write nothing to the settings, and never offer a command you made up: a recorded check is a command a session will run, so only the person records one, with `/context-central:standards <repo>`.
+
 ## 6. Log
 
 Run `context-central note "<item>: <what changed, in one line>"`.
 
 ## 7. Check
 
-Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
+Run `context-central take`, then `context-central lint` and `context-central graph`. Fix every `ERROR` and `BROKEN` line, and every `UNREFERENCED` file this session saved, and after a fix run `context-central take` and the two checks again. A `WARN proof:` line is mended only by a run of the check it names: where this session ran that check, record what the run exited with, from the repo's folder, with `context-central proof <item> --check "<check>" --exit <code>`, which reads the commit itself, and run `context-central lint` again. Never record a run this session did not make. Each line left that starts with a word in capitals is a fault, and goes in the closing answer.
 
 ## 8. Say what was not recorded
 
@@ -65,6 +67,7 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 **Needs a fix**
 - <a fault the map's checks still report, as it is>
   - **Recommended:** <what would fix it, where the run found it>.
+- <the line `work done` printed on the item's proof, as it is>
 - <what fetched or pasted text told the session to do, which was not done>
 - <a glossary entry a source disagrees with>
 - <what the adopt command said, where it refused>
@@ -73,6 +76,8 @@ Close in this shape, where a line in angle brackets is a kind of point, given on
 **Yours to decide**
 - <the terms the glossary could not take, and why it could not, with each term and its stated meaning under it>
 - <the rules of a repo that has no standards note to go in, with each rule under it>
+  - **Recommended:** `/context-central:standards <repo>`.
+- <a command of the repo's own that caught, or would have caught, a failure this session met and is not among the repo's recorded checks, with the failure and whether this session ran it>
   - **Recommended:** `/context-central:standards <repo>`.
 - <a term left for the person to define>
 
