@@ -8,7 +8,7 @@ import type { Json } from './helpers.mts'
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take', 'proof']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -39,6 +39,7 @@ const FLAGS: Record<string, string[]> = {
   standards: ['json'],
   draft: [],
   take: ['over'],
+  proof: ['check', 'exit'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']

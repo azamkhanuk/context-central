@@ -77,6 +77,7 @@ export interface PassedOver {
 }
 
 export const EVIDENCE_DIR = 'evidence'
+export const PROOF_FILE = 'proof.jsonl'
 
 const NOT_ITEMS = ['readme.md', 'index.md']
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
@@ -211,7 +212,7 @@ export function strayFiles(estate: Estate): StrayFile[] {
     .filter(dirRel => !leftOut(estate.config, dirRel) && isFolder(estate, dirRel))
     .flatMap(dirRel =>
       walk(estate, dirRel, name => !isMarkdown(name))
-        .filter(rel => !isEvidence(estate.config, rel))
+        .filter(rel => !isEvidence(estate.config, rel) && rel !== `${dirRel}/${PROOF_FILE}`)
         .map(rel => ({ rel, dirRel })),
     )
 }

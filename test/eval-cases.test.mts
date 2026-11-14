@@ -24,7 +24,7 @@ const A_FOLDER_NAME_AT_MOST = 200
 const THE_PROVEN_COMMIT = '15d9165fec5e71e4a057469699a1e313e767cdcc'
 const THE_HEAD = 'e60a54547451023f01ca21ac6a5d4013e683dc65'
 const MAIN = '8386c750415caf4a58f235b5204c3b9397f30684'
-const WHAT_LINT_SAYS_OF: Record<string, string> = { 'ready-to-merge': 'WARN evidence: work/refund-window/proof.jsonl is not Markdown and is outside work/refund-window/evidence/' }
+const WHAT_LINT_SAYS_OF: Record<string, string> = {}
 
 const tree = disposable()
 
