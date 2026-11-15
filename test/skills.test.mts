@@ -531,6 +531,10 @@ test('checkpoint and standards log a change to the rules of a standards note as 
   assert.ok(step('standards', '5. Write').includes('`context-central note "standards <repo>: '))
 })
 
+test('standards logs the refresh of a note that was there as a line of its own, with the commit the note was read again at', () => {
+  assert.ok(step('standards', '5. Write').includes('`context-central note "standards <repo>: refreshed at <short commit>: '))
+})
+
 test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {
   const made = soloWorkTree()
 
