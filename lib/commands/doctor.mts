@@ -3,6 +3,7 @@ import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, sep } from 'node:path'
 import { parseArgs } from 'node:util'
+import { noteWarnings } from '../citations.mts'
 import { listed, notRunningAs, pinnedAccount, pinnedToken, reachOf, readAs, whyNotStarted } from '../connections.mts'
 import { draftsOf, waitingIn } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
@@ -39,7 +40,7 @@ interface Install {
 
 type Finding = string | Note | null | undefined
 
-export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, proof, hooks, copies, connections'
+export const summary = 'Check the set-up: node, config, hub, lint, links, repos, git, notes, evidence, worktrees, proof, standards, hooks, copies, connections'
 
 const MIN_NODE = [22, 18]
 const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
@@ -47,8 +48,8 @@ const HOME_SPELLINGS = ['$HOME', '${HOME}', '~']
 const oneSeparator = sep === '\\' ? (text: string) => text.replaceAll('\\', '/') : (text: string) => text
 const NONE_RECORDED = 'none is recorded; the plugin works without one, and one is recommended so that a session can read the ticket or the pull request behind the work'
 const CATCH_ALL = ['/*', '*', '/**', '**']
-const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, proof, hooks, copies, connections }
-const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof']
+const ESTATE_CHECKS = { hub, lint, links, repos, git, notes, evidence, worktrees, proof, standards, hooks, copies, connections }
+const ASK_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof', 'standards']
 const NO_GIT = { note: 'git is not on the PATH, so this was not checked' }
 const PLAIN_REMOTES = [/^(?:https?|ssh|git):\/\/(?:(?!-)[\w.~%+-]+@)?[A-Za-z0-9][A-Za-z0-9.-]*(?::\d+)?\/[\w.~/%+-]+$/, /^(?:(?!-)[\w.~%+-]+@)?[A-Za-z0-9][A-Za-z0-9.-]*:(?!\/\/)[\w.~/%+-]+$/]
 const PLAIN_PATH = /^[A-Za-z0-9._][A-Za-z0-9._/-]*$/
@@ -202,6 +203,15 @@ function proof(estate: Estate, io: Io): Finding {
   const lacking = listWorkItems(estate).filter(item => inFlight(item) && unproven(estate, item, io.env).length > 0).length
   if (lacking === 0) return null
   return { note: lacking === 1 ? '1 item in flight lacks proof; context-central lint names it' : `${lacking} items in flight lack proof; context-central lint names them` }
+}
+
+function standards(estate: Estate, io: Io): Finding {
+  const warned = new Set(estate.config.repos.flatMap(repo => {
+    const note = noteWarnings(estate, repo, io.env)
+    return note && note.said.length > 0 ? [note.rel] : []
+  })).size
+  if (warned === 0) return null
+  return { note: warned === 1 ? '1 standards note has a warning on its citations; context-central lint names it' : `${warned} standards notes have a warning on their citations; context-central lint names them` }
 }
 
 function named(files: string[]) {
