@@ -91,6 +91,10 @@ export function asked(dir: string, args: string[], env: Env, timeoutMs = GIT_TIM
   return spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', timeout: timeoutMs, maxBuffer: GIT_ANSWER_BYTES, input })
 }
 
+export function askedBytes(dir: string, args: string[], env: Env, input: string, timeoutMs = GIT_TIMEOUT_MS) {
+  return spawnSync('git', args, { cwd: dir, env, timeout: timeoutMs, maxBuffer: GIT_ANSWER_BYTES, input })
+}
+
 function checkoutAbove(start: string) {
   for (let dir = start; ; dir = dirname(dir)) {
     const entry = entryAt(join(dir, GIT))
