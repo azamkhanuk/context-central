@@ -32,7 +32,7 @@ Its six parts, each replaced with what is true now:
 
 - **Where it stands**: the present position in a few lines. Where a build wrote there the branch the work is on, with its repo and the branch it was made from, keep that line while git shows it is still so.
 - **Done**: what is finished, with the commit or PR that shows it. A PR is written as its link, so that the link finds the item later. Each line a build wrote there as `Built at <short commit>: <slice>` is kept as it is: a later build passes over those slices by them.
-- **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run. Where the item's review note holds lessons still headed `waiting` once step 5 is done, Next names each by its name, `L<n>`, and says that `/context-central:checkpoint` writes the ones the person says yes to.
+- **Next**: the next action, concrete enough to start cold, and each check beyond this machine the design lists that has not been run. Where the item's review note holds lessons still headed `waiting` once step 5 is done, Next ends with this line, with their names in it: `Lessons waiting for your ruling: L1 and L2. /context-central:checkpoint writes the ones you say yes to.`
 - **Blocked**: what is waiting, and on whom or what.
 - **Standing traps**: what would catch out someone new to this item, and each open trigger from the design's Choices.
 - **Where the detail lives**: paths to the spec, the design when there is one, the review note when there is one, the notes, the saved sources and the evidence note.
