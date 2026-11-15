@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { REPO, SOLO_STATE, acme, disposable, makeTree, run, solo, workTree } from './helpers.mts'
+import { REPO, SOLO_STATE, acme, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
@@ -503,6 +503,22 @@ test("implement and checkpoint name the one note an item's review is kept in, at
 
 test('checkpoint ends a rule learned from review with the line that shows it and the commit that line was read at', () => {
   assert.ok(lessons().includes('`<file:line>` at `<short commit>`'))
+})
+
+test('design and implement name the start of the line lint prints for a standards note whose citation has moved', () => {
+  const made = solo()
+  tree(made.base)
+  const read = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  mkdirSync(join(made.main, '.context-central', 'standards'))
+  writeFileSync(join(made.main, '.context-central', 'standards', 'solo.md'), `# solo\n\nRead at \`${read}\`.\n\n## Code\n\n- A module exports what it has, as \`src/app.js:1\`.\n`)
+  writeFileSync(join(made.main, 'src', 'app.js'), 'export const limited = true\n')
+  git(made, made.main, 'commit', '-q', '-am', 'second')
+
+  const printed = run(['lint'], { cwd: made.main, env: made.env }).stdout
+
+  assert.match(printed, /^WARN standards: .* \/context-central:standards solo refreshes the note\n$/)
+  assert.ok(step('design', '2. Load the standards').includes('`WARN standards:`'))
+  assert.ok(step('implement', "2. Read the estate's settings").includes('`WARN standards:`'))
 })
 
 test("checkpoint reads an item's pull request with fetch, which saves a copy in the item, or through the fetcher", () => {
