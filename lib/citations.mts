@@ -17,6 +17,11 @@ interface Rule {
   text: string
 }
 
+interface Named {
+  id: string
+  line: number
+}
+
 interface Citation {
   span: string
   paths: string[]
@@ -54,21 +59,23 @@ function warningsOf(estate: Estate, repo: Repo, env: Env): NoteWarnings | null {
   const note = standardsFiles(estate, repo).find(file => file.note && file.state === 'file')
   const folder = repoFolder(estate, repo)
   if (!note || !onPath('git', env) || !folderAt(folder)) return null
-  const citations = citationsIn(readFileSync(note.path, 'utf8'), repo)
-  const commits = [...new Set(citations.flatMap(({ commit }) => commit ?? []))]
+  const { readAt, named, citations } = read(readFileSync(note.path, 'utf8'), repo)
+  const commits = [...new Set(named.map(({ id }) => id))]
   const held = heldBy(folder, [...new Set([...commits.map(asACommit), ...citations.flatMap(namesOf)])], env)
   const behind = held && behindTheHead(folder, commits, held, env)
   if (!held || !behind) return null
+  const lost = named.filter(({ id }, index) => !held.has(asACommit(id)) && named.findIndex(other => other.id === id) === index)
   const moved = citations.filter(citation => citation.commit !== null && behind.has(citation.commit) && hasMoved(citation, citation.commit, held))
-  return { rel: note.rel, said: moved.length > 0 ? [movedWords(note.rel, repo, moved)] : [] }
+  return { rel: note.rel, said: [...commitWords(note.rel, repo, readAt, lost), ...movedWords(note.rel, repo, moved)] }
 }
 
-function citationsIn(text: string, repo: Repo) {
+function read(text: string, repo: Repo) {
   const lines = text.split(/\r?\n/)
   const firstPart = lines.findIndex(line => LEVEL_TWO.test(line))
   const opening = firstPart === -1 ? lines : lines.slice(0, firstPart)
-  const commit = opening.flatMap(line => spansOf(line).map(span => span.text)).find(span => A_COMMIT.test(span) && span !== repo.name) ?? null
-  return rulesIn(lines).flatMap(rule => citationsOf(rule, commit, repo))
+  const readAt = opening.flatMap((line, at) => spansOf(line).map(span => ({ id: span.text, line: at + 1 }))).find(({ id }) => A_COMMIT.test(id) && id !== repo.name) ?? null
+  const rules = rulesIn(lines).map(rule => citationsOf(rule, readAt?.id ?? null, repo))
+  return { readAt, named: [...(readAt ? [readAt] : []), ...rules.flatMap(({ own }) => own ?? [])], citations: rules.flatMap(rule => rule.citations) }
 }
 
 function rulesIn(lines: string[]) {
@@ -86,14 +93,17 @@ function rulesIn(lines: string[]) {
   return rules
 }
 
-function citationsOf({ at, text }: Rule, readAt: string | null, repo: Repo): Citation[] {
+function citationsOf({ at, text }: Rule, readAt: string | null, repo: Repo): { own: Named | null, citations: Citation[] } {
   const spans = spansOf(text)
-  const own = spans.filter((span, index) => index > 0 && A_COMMIT.test(span.text) && AT.test(text.slice(spans[index - 1].to, span.from)) && citedBy(spans[index - 1].text)?.first != null)
-  const commit = own.at(-1)?.text ?? readAt
-  return spans.filter(span => !own.includes(span)).flatMap(span => {
+  const lineOf = (from: number) => at + text.slice(0, from).split('\n').length
+  const commits = spans.filter((span, index) => index > 0 && A_COMMIT.test(span.text) && AT.test(text.slice(spans[index - 1].to, span.from)) && citedBy(spans[index - 1].text)?.first != null)
+  const last = commits.at(-1)
+  const commit = last?.text ?? readAt
+  const citations = spans.filter(span => !commits.includes(span)).flatMap(span => {
     const cited = citedBy(span.text)
-    return cited ? [{ ...cited, paths: countedFrom(cited.path, repo), span: span.text, line: at + text.slice(0, span.from).split('\n').length, commit }] : []
+    return cited ? [{ ...cited, paths: countedFrom(cited.path, repo), span: span.text, line: lineOf(span.from), commit }] : []
   })
+  return { own: last ? { id: last.text, line: lineOf(last.from) } : null, citations }
 }
 
 function citedBy(span: string) {
@@ -187,8 +197,17 @@ function hasMoved({ paths, first, last }: Citation, commit: string, held: Map<st
   return then.lines.slice(first - 1, last).some((line, index) => line.trim() !== now.lines[first - 1 + index]?.trim())
 }
 
+function commitWords(rel: string, repo: Repo, readAt: Named | null, lost: Named[]) {
+  if (!readAt) return [`${rel} names no commit on its opening lines for its citations to be read at; /context-central:standards ${repo.name} sets one`]
+  if (lost.length === 0) return []
+  const [{ id, line }] = lost
+  const which = lost.length === 1 ? `the commit \`${id}\` at line ${line}, which repo ${repo.name} does not hold, so the citations read at it were not compared` : `${lost.length} commits that repo ${repo.name} does not hold (first \`${id}\`, at line ${line}), so the citations read at them were not compared`
+  return [`${rel} names ${which}; /context-central:standards ${repo.name} refreshes the note`]
+}
+
 function movedWords(rel: string, repo: Repo, moved: Citation[]) {
+  if (moved.length === 0) return []
   const [{ span, line }] = moved
   const which = moved.length === 1 ? `1 citation that has moved since the commit it was read at (\`${span}\`, at line ${line})` : `${moved.length} citations that have moved since the commit they were read at (first \`${span}\`, at line ${line})`
-  return `${rel} has ${which}; /context-central:standards ${repo.name} refreshes the note`
+  return [`${rel} has ${which}; /context-central:standards ${repo.name} refreshes the note`]
 }
