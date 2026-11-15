@@ -141,13 +141,15 @@ test('a range written backwards is the same lines, and one that names a line the
   assert.equal(warned(pastTheEnd), `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/limit.js:900-3\`, at line 7); /context-central:standards solo refreshes the note\n`)
 })
 
-test('a cited file that is a link inside the repo is read through to the file it leads to, and a link that leads nowhere or out of the repo is passed over', LINKS, () => {
+test('a cited file that is a link inside the repo is read through to the file it leads to, and a link that leads nowhere, out of the repo or round in a ring, and a path through a file, are passed over', LINKS, () => {
   const one = made(solo(LIMIT))
   symlinkSync('limit.js', join(one.main, 'src/link.js'))
   symlinkSync('gone.js', join(one.main, 'src/dangling.js'))
   symlinkSync(join('..', '..', 'outside.js'), join(one.main, 'src/out.js'))
+  symlinkSync('loop-b', join(one.main, 'src/loop-a'))
+  symlinkSync('loop-a', join(one.main, 'src/loop-b'))
   committed(one, {})
-  noted(one, '## Code\n\n- A limit is never read from `src/dangling.js:1` or `src/out.js:1`, and is compared in one place, as `src/link.js:4`.\n- A limit is a constant, as `src/link.js:1`.\n')
+  noted(one, '## Code\n\n- A limit is never read from `src/dangling.js:1`, `src/out.js:1`, `src/loop-a:1` or `src/limit.js/inside:2`, and is compared in one place, as `src/link.js:4`.\n- A limit is a constant, as `src/link.js:1`.\n')
   const asRead = lint(one, one.main)
 
   committed(one, { 'src/limit.js': 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls >= LIMIT\n}\n' })
@@ -541,6 +543,19 @@ test('a git that cannot be started, and one whose answer is past the most the pl
   assert.deepEqual(lint({ env: { ...one.env, PATH: notStarted } }, one.main), OK)
   assert.deepEqual(lint({ env: { ...one.env, PATH: tooLong } }, one.main), OK)
   assert.equal(readFileSync(join(tooLong, 'git.log'), 'utf8'), 'asked\n')
+})
+
+test('a cited file is asked of the commit its short id names, so a tree that shares those digits does not hide it', NEEDS_STAND_IN, () => {
+  const one = made(solo(LIMIT))
+  const read = headOf(one).slice(0, 7)
+  noted(one, '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n', read)
+  const real = process.env.PATH ?? ''
+  const listening = tree(standIns({ git: `#!/bin/sh\nif [ "$1" = cat-file ]; then /usr/bin/tee "$0.asked" | PATH='${real}' git "$@"; else PATH='${real}' exec git "$@"; fi\n` }))
+
+  const result = lint({ env: { ...one.env, PATH: listening } }, one.main)
+
+  assert.deepEqual(result, OK)
+  assert.equal(readFileSync(join(listening, 'git.asked'), 'utf8'), `${read}^{commit}\n${read}^{commit}:./src/limit.js\nHEAD:./src/limit.js\n`)
 })
 
 test('the largest note, a thousand citations of a thousand files, starts git twice', NEEDS_STAND_IN, () => {

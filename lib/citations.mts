@@ -144,8 +144,9 @@ function asACommit(commit: string) {
   return `${commit}^{commit}`
 }
 
+// A short id that a tree shares names no file by itself, so a file is asked of the commit the id names.
 function at(commit: string, path: string) {
-  return `${commit}:./${path}`
+  return `${commit === HEAD ? HEAD : asACommit(commit)}:./${path}`
 }
 
 function heldBy(folder: string, names: string[], env: Env) {
