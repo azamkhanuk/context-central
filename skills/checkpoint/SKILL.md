@@ -55,7 +55,7 @@ Where this session met a failure in a repo's code, offer a check and never write
 
 ## 6. Log
 
-Run `context-central note "<item>: <what changed, in one line>"`.
+Run `context-central note "<item>: <what changed, in one line>"`. Then, for each rule this checkpoint added to a standards note, corrected there or removed from it, log one line more: `context-central note "standards <repo>: added under <part>: <the rule in short>. Source: <its source>"`, with `corrected` or `removed` in place of `added`. For a rule removed, the source is who ruled it out and the date. Write the source with its backticks taken off: inside double quotes a shell runs what backticks hold.
 
 ## 7. Check
 

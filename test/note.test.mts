@@ -47,6 +47,16 @@ test('a note for a day that is no longer last still lands under that day', () =>
   assert.equal(read(root, 'log/2026-01.md'), '# 2026-01\n\n## 2026-01-15\n\n- Earlier\n- Later\n\n## 2026-01-16\n\n- Written ahead\n')
 })
 
+test('a line that says a rule of a standards note changed is logged under its day as it was given', () => {
+  const root = tree(acme())
+  const line = 'standards api: added under Tests: a limit is tested at its edge. Source: review round 1 of the work item PROJ-12, 2026-01-15, api/limit.js:4 at 0123abc'
+
+  const result = note(root, [line])
+
+  assert.equal(result.stdout, 'log/2026-01.md\n')
+  assert.equal(read(root, 'log/2026-01.md'), `# 2026-01\n\n## 2026-01-15\n\n- ${line}\n`)
+})
+
 test('a new month starts a new file', () => {
   const root = tree(acme())
   note(root, ['Gateway limits agreed'])

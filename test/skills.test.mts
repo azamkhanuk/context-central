@@ -505,6 +505,11 @@ test('checkpoint ends a rule learned from review with the line that shows it and
   assert.ok(lessons().includes('`<file:line>` at `<short commit>`'))
 })
 
+test('checkpoint and standards log a change to the rules of a standards note as a line that opens with the repo', () => {
+  assert.ok(step('checkpoint', '6. Log').includes('`context-central note "standards <repo>: '))
+  assert.ok(step('standards', '5. Write').includes('`context-central note "standards <repo>: '))
+})
+
 test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {
   const made = soloWorkTree()
 
