@@ -23,7 +23,7 @@ function realGit() {
 }
 
 const NOT_CHECKED = 'git is not on the PATH, so this was not checked'
-const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof'].map(row => `note ${row}: ${NOT_CHECKED}`)
+const WITHOUT_GIT = ['git', 'notes', 'evidence', 'worktrees', 'proof', 'standards'].map(row => `note ${row}: ${NOT_CHECKED}`)
 
 const GIT_IGNORING_WEB_ONLY = 'case "$*" in *rev-parse*) echo true ;; *"check-ignore -q web") exit 0 ;; *) exit 1 ;; esac'
 const GIT_IGNORING_BOTH = 'case "$*" in *rev-parse*) echo true ;; *) exit 0 ;; esac'
@@ -72,7 +72,7 @@ const hooksLine = (result: Result) => result.stdout.split('\n').find(line => lin
 const olderHookIn = (file: string) => `FIX  hooks: an older hook (old-resolver.mjs) for this estate is still set in ${file}; remove it so prompts are not resolved twice`
 const OTHER_HOOK = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'node ~/tools/remind.mjs' }] }] } }
 
-test('with no git on the PATH the five rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
+test('with no git on the PATH the six rows that ask git each say as a note that they were not checked, and doctor exits 0', () => {
   const root = tree(acme({}, BY_A_SERVER))
 
   const result = doctor(root)
@@ -95,7 +95,7 @@ test('a healthy map passes every check', () => {
 
   const result = doctor(root, realGit())
 
-  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   proof', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
+  assert.equal(result.stdout, ['ok   node', 'ok   config', 'ok   hub', 'ok   lint', 'ok   links', 'ok   repos', 'ok   git', 'ok   notes', 'ok   evidence', 'ok   worktrees', 'ok   proof', 'ok   standards', 'ok   hooks', 'ok   copies', 'ok   connections', ''].join('\n'))
   assert.equal(result.code, 0)
 })
 
@@ -615,7 +615,7 @@ test('a hub path that is a folder is a fix, not a crash', () => {
   assert.equal(result.stderr, '')
 })
 
-test('json lists every check with its fix and its note, and with no git on the PATH the five rows that ask git carry that as their note', () => {
+test('json lists every check with its fix and its note, and with no git on the PATH the six rows that ask git carry that as their note', () => {
   const root = tree(acme({}, GITHUB))
 
   const result = doctor(root, sandbox(), '--json')
@@ -632,6 +632,7 @@ test('json lists every check with its fix and its note, and with no git on the P
     { check: 'evidence', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'worktrees', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'proof', ok: true, fix: null, note: NOT_CHECKED },
+    { check: 'standards', ok: true, fix: null, note: NOT_CHECKED },
     { check: 'hooks', ok: true, fix: null, note: null },
     { check: 'copies', ok: true, fix: null, note: null },
     { check: 'connections', ok: true, fix: null, note: 'github is not reached here: gh is not on PATH; install the GitHub CLI and sign in with "gh auth login"' },
@@ -946,6 +947,49 @@ test('doctor counts the items in flight whose proof is not whole in a note that 
   assert.match(two.stdout, /^note proof: 2 items in flight lack proof; context-central lint names them$/m)
   assert.equal(two.code, 0)
   assert.equal(row(), 'note proof: 1 item in flight lacks proof; context-central lint names it')
+})
+
+test('doctor counts the standards notes that have a warning on their citations in a note that names lint, and the note leaves its exit code at 0', () => {
+  const settings = { ...SOLO_CONFIG, repos: [{ name: 'solo', path: '.' }, { name: 'web', path: 'web' }, { name: 'docs', path: 'docs' }] }
+  const made = solo({ '.context-central/estate.json': settings, 'web/page.js': 'export {}\n', 'docs/guide.md': '# Guide\n' })
+  tree(made.base)
+  const env = { ...realGit(), ...made.env }
+  const head = spawnSync('git', ['-C', made.main, 'rev-parse', '--short', 'HEAD'], { env: { ...process.env, ...made.env }, encoding: 'utf8' }).stdout.trim()
+  const noted = (repo: string, opening: string, rule: string) => writeIn(made.main, `standards/${repo}.md`, `# ${repo}\n\n${opening}\n\n## Code\n\n- ${rule}\n`)
+  const row = () => doctor(made.main, env).stdout.split('\n').find(line => line.includes(' standards'))
+  noted('solo', `Read at \`${head}\`.`, 'A module exports what it has, as `src/app.js:1`.')
+  noted('web', `Read at \`${head}\`.`, 'A page is one module, as `web/page.js:1`.')
+  noted('docs', `Read at \`${head}\`.`, 'The guide has one heading, as `docs/guide.md:1`.')
+
+  const none = row()
+  writeFileSync(join(made.main, 'src/app.js'), 'export const limited = true\n')
+  spawnSync('git', ['-C', made.main, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.invalid', 'commit', '-q', '-am', 'second'], { env: { ...process.env, ...made.env } })
+  const one = row()
+  noted('web', 'Read at no commit.', 'A page is one module, as `web/page.js:1`.')
+  const two = doctor(made.main, env)
+
+  assert.equal(none, 'ok   standards')
+  assert.equal(one, 'note standards: 1 standards note has a warning on its citations; context-central lint names it')
+  assert.match(two.stdout, /^note standards: 2 standards notes have a warning on their citations; context-central lint names them$/m)
+  assert.match(two.stdout, /^ok {3}lint$/m)
+  assert.equal(two.code, 0)
+})
+
+test('a standards note with a warning of each kind is counted once, and doctor reads a note once for its lint row and its standards row', NEEDS_STAND_IN, () => {
+  const made = solo()
+  tree(made.base)
+  const real = process.env.PATH ?? ''
+  const { PATH: counting } = sandbox({ git: `echo "$*" >> "$0.log"\nPATH='${real}' exec git "$@"` })
+  const env = { ...realGit(), ...made.env, PATH: counting }
+  const head = spawnSync('git', ['-C', made.main, 'rev-parse', '--short', 'HEAD'], { env: { ...process.env, ...made.env }, encoding: 'utf8' }).stdout.trim()
+  writeIn(made.main, 'standards/solo.md', `# solo\n\nRead at \`${head}\`.\n\n## Code\n\n- A module exports what it has, as \`src/app.js:1\`.\n- A limit is met at its edge, as \`src/app.js:1\` at \`0123abc\`.\n`)
+  writeFileSync(join(made.main, 'src/app.js'), 'export const limited = true\n')
+  spawnSync('git', ['-C', made.main, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.invalid', 'commit', '-q', '-am', 'second'], { env: { ...process.env, ...made.env } })
+
+  const result = doctor(made.main, env)
+
+  assert.match(result.stdout, /^note standards: 1 standards note has a warning on its citations; context-central lint names it$/m)
+  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8').split('\n').filter(line => line === 'cat-file --batch --follow-symlinks').length, 1)
 })
 
 const missing = (repos: Json[], estate = tree(acme({}, { repos: [...ACME_CONFIG.repos, ...repos] }))) => ({ estate, line: doctor(estate).stdout.split('\n').find(line => line.includes(' repos')) })

@@ -21,7 +21,7 @@ There are two layouts:
     STATE.md           where the item stands and what is next
     SPEC.md            what is being built
     DESIGN.md          how it will be built, for work that needs it settled first, each slice marked built as it lands
-    notes/             research and working notes
+    notes/             research and working notes, and review.md: a build's review rounds and the lessons they taught
     sources/           full text of tickets, PRs, threads: the deep tier
     evidence/          files that are not text: screenshots, recordings, exports
     proof.jsonl        the proof record: one line for each run of a recorded check, written by the plugin

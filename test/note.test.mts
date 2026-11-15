@@ -47,6 +47,16 @@ test('a note for a day that is no longer last still lands under that day', () =>
   assert.equal(read(root, 'log/2026-01.md'), '# 2026-01\n\n## 2026-01-15\n\n- Earlier\n- Later\n\n## 2026-01-16\n\n- Written ahead\n')
 })
 
+test('a line that says a rule of a standards note changed is logged under its day as it was given', () => {
+  const root = tree(acme())
+  const line = 'standards api: added under Tests: a limit is tested at its edge. Source: review round 1 of the work item PROJ-12, 2026-01-15, api/limit.js:4 at 0123abc'
+
+  const result = note(root, [line])
+
+  assert.equal(result.stdout, 'log/2026-01.md\n')
+  assert.equal(read(root, 'log/2026-01.md'), `# 2026-01\n\n## 2026-01-15\n\n- ${line}\n`)
+})
+
 test('a new month starts a new file', () => {
   const root = tree(acme())
   note(root, ['Gateway limits agreed'])
@@ -114,7 +124,7 @@ test('a new standards note has a part for each phase and says where a rule comes
   assert.equal(result.stdout, 'standards/api.md\n')
   assert.equal(
     read(root, 'standards/api.md'),
-    '# api\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of `api` at `<commit>`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n',
+    '# api\n\nEach rule names its source: who said it and when, the file that shows it, or the review it was learned from, with its work item and the commit its line was read at. An example is a pointer to real code, as a path and a line. The lines are those of `api` at `<commit>`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n',
   )
 })
 

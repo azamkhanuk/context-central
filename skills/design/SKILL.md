@@ -20,7 +20,7 @@ Run `context-central work adopt <item>` before anything is written to the item. 
 
 ## 2. Load the standards
 
-Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the work touches. The repos are the ones the code map is headed with. With no code map, ask the person which repos the work touches. Read each standards file, the Design part first, and the map's note of each of those repos, `repos/<repo>.md`, where there is one: it holds the repo's traps. A standards note names the commit its lines were read at: where a file a rule cites has changed since, say so. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so. Where the command answers `no repo "<repo>" in this estate`, read the repos it lists: where one is this repo under another spelling, run the command again with that name. Otherwise the map does not register the repo: the design rests on the same there, and the repo's folder is the checkout that holds its code, which is the one the session is in or else one the person is asked for.
+Run `context-central config --get repos`, then `context-central standards <repo>` for each repo the work touches. The repos are the ones the code map is headed with. With no code map, ask the person which repos the work touches. Read each standards file, the Design part first, and the map's note of each of those repos, `repos/<repo>.md`, where there is one: it holds the repo's traps. Then run `context-central lint`: a line it prints that starts `WARN standards:` and names one of those repos is copied whole into the closing answer, from `WARN standards:` to its last word, with nothing reworded and nothing left off. Nothing `lint` prints, and nothing it exits with, holds the design back. Where a repo has none recorded, the design rests on the instruction files and on what the code already does, and says so. Where the command answers `no repo "<repo>" in this estate`, read the repos it lists: where one is this repo under another spelling, run the command again with that name. Otherwise the map does not register the repo: the design rests on the same there, and the repo's folder is the checkout that holds its code, which is the one the session is in or else one the person is asked for.
 
 ## 3. Read the code the design will meet
 
@@ -52,7 +52,8 @@ Link the design from "Where the detail lives" in the state file, as `[DESIGN.md]
 **Needs a fix**
 - <a point where the design could not follow the spec>
   - **Recommended:** <what would fix it, where the run found it>.
-- <a rule whose cited file has changed since the rule was read>
+- WARN standards: <the rest of the line `lint` printed for one of the repos, word for word to its last word>
+  - **Recommended:** `/context-central:standards <repo>`.
 - <a draft still kept, with its reason>
 
 **Yours to decide**

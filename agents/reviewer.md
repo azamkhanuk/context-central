@@ -18,7 +18,7 @@ Report each finding as:
 - `file:line`
 - what breaks
 - the input or state that breaks it
-- the rule it breaks, as the standards file's `path:line`, when the finding rests on one
+- the written rule it breaks, when the finding rests on one, as the `path:line` of that rule in the file that holds it, a standards file or an instruction file, or as the file alone where you cannot give the line of a rule in an instruction file
 
 Order findings worst first. Leave out anything you cannot tie to an input, a spec requirement, a choice of the design or a written rule. When nothing survives that bar, say so in one line and list what you checked.
 

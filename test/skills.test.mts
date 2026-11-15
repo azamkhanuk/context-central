@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { REPO, SOLO_STATE, acme, disposable, makeTree, run, solo, workTree } from './helpers.mts'
+import { REPO, SOLO_STATE, acme, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
@@ -489,6 +489,66 @@ test('implement names the line where prints in a work tree', () => {
 
   assert.equal(where[4], `work tree: ${made.inside}, of the checkout at ${made.main}`)
   assert.ok(skillText('implement').includes('`work tree:`'))
+})
+
+test("implement and checkpoint name the one note an item's review is kept in, at a place draft prints a path for", () => {
+  const made = soloWorkTree()
+
+  const drafted = run(['draft', 'work/PROJ-12/notes/review.md'], { cwd: made.inside, env: made.env })
+
+  assert.deepEqual(drafted, { code: 0, stdout: `${join(made.inside, '.context-central', 'work', 'PROJ-12', 'notes', 'review.md')}\n`, stderr: '' })
+  assert.ok(step('implement', '5. Review').includes('`work/<item>/notes/review.md`'))
+  assert.ok(lessons().includes('`work/<item>/notes/review.md`'))
+})
+
+test("checkpoint ends a rule learned from review in the form lint reads as the rule's own commit, a line and then the commit it was read at", () => {
+  const form = '`<file:line>` at `<short commit>`'
+  const made = solo()
+  tree(made.base)
+  const read = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  writeFileSync(join(made.main, 'src', 'app.js'), 'export const limited = true\n')
+  git(made, made.main, 'commit', '-q', '-am', 'second')
+  const built = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  const note = (source: string) => `# solo\n\nRead at \`${read}\`.\n\n## Code\n\n- A module says what it limits. Source: review round 1 of the work item \`PROJ-12\`, 2026-01-15, ${source}.\n`
+  mkdirSync(join(made.main, '.context-central', 'standards'))
+  const printedFor = (source: string) => {
+    writeFileSync(join(made.main, '.context-central', 'standards', 'solo.md'), note(source))
+    return run(['lint'], { cwd: made.main, env: made.env }).stdout
+  }
+
+  assert.match(printedFor('`src/app.js:1`'), /^WARN standards: .* has 1 citation that has moved /)
+  assert.equal(printedFor(form.replace('<file:line>', 'src/app.js:1').replace('<short commit>', built)), 'ok\n')
+  assert.ok(lessons().includes(form))
+})
+
+test('design and implement name the start of the line lint prints for a standards note whose citation has moved', () => {
+  const made = solo()
+  tree(made.base)
+  const read = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  mkdirSync(join(made.main, '.context-central', 'standards'))
+  writeFileSync(join(made.main, '.context-central', 'standards', 'solo.md'), `# solo\n\nRead at \`${read}\`.\n\n## Code\n\n- A module exports what it has, as \`src/app.js:1\`.\n`)
+  writeFileSync(join(made.main, 'src', 'app.js'), 'export const limited = true\n')
+  git(made, made.main, 'commit', '-q', '-am', 'second')
+
+  const printed = run(['lint'], { cwd: made.main, env: made.env }).stdout
+
+  assert.match(printed, /^WARN standards: .* \/context-central:standards solo refreshes the note\n$/)
+  assert.ok(step('design', '2. Load the standards').includes('`WARN standards:`'))
+  assert.ok(step('implement', "2. Read the estate's settings").includes('`WARN standards:`'))
+})
+
+test("checkpoint reads an item's pull request with fetch, which saves a copy in the item, or through the fetcher", () => {
+  assert.ok(step('checkpoint', '2. Establish the facts').includes('`context-central fetch pr "<reference>" --item <item>`'))
+  assert.ok(step('checkpoint', '2. Establish the facts').includes('`context-central:fetcher`'))
+})
+
+test('checkpoint and standards log a change to the rules of a standards note as a line that opens with the repo', () => {
+  assert.ok(step('checkpoint', '6. Log').includes('`context-central note "standards <repo>: '))
+  assert.ok(step('standards', '5. Write').includes('`context-central note "standards <repo>: '))
+})
+
+test('standards logs the refresh of a note that was there as a line of its own, with the commit the note was read again at', () => {
+  assert.ok(step('standards', '5. Write').includes('`context-central note "standards <repo>: refreshed at <short commit>: '))
 })
 
 test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {

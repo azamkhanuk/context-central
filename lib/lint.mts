@@ -1,4 +1,5 @@
 import { readFileSync, statSync } from 'node:fs'
+import { noteWarnings } from './citations.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
 import { buildIndex } from './index-text.mts'
@@ -46,7 +47,7 @@ export function lintEstate(estate: Estate, env: Env): Finding[] {
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
     ...proofFindings(estate, itemsInFlight, env),
-    ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo)),
+    ...estate.config.repos.flatMap(repo => standardsFindings(estate, repo, env)),
     ...indexFindings(estate, itemsInFlight.length, env),
     ...passedOver(estate).map(({ rel, why }) => finding('ERROR', 'read', rel, `${rel} ${why}, so the listings pass over it`)),
   ]
@@ -159,10 +160,12 @@ function proofFindings(estate: Estate, itemsInFlight: WorkItem[], env: Env) {
   })
 }
 
-function standardsFindings(estate: Estate, repo: Repo) {
-  return standardsFiles(estate, repo)
+function standardsFindings(estate: Estate, repo: Repo, env: Env) {
+  const listed = standardsFiles(estate, repo)
     .filter(file => file.state !== 'file')
     .map(file => finding('WARN', 'standards', file.rel, `repo ${repo.name} names ${file.rel}, which ${file.state === 'folder' ? 'is a folder, not a file' : 'does not exist'}`))
+  const note = noteWarnings(estate, repo, env)
+  return note ? [...listed, ...note.said.map(said => finding('WARN', 'standards', note.rel, said))] : listed
 }
 
 function indexFindings(estate: Estate, count: number, env: Env) {
