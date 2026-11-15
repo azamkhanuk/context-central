@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { NEEDS_STAND_IN, SOLO_CONFIG, disposable, git, makeTree, run, solo, standIns } from './helpers.mts'
+import { NEEDS_STAND_IN, SOLO_CONFIG, disposable, git, makeTree, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -207,6 +207,113 @@ test('a cited file that is not text is compared as its bytes read as text', () =
   assert.equal(warned(one), `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/shot.png:2\`, at line 7); /context-central:standards solo refreshes the note\n`)
 })
 
+const AT_ITS_EDGE = 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls >= LIMIT\n}\n'
+const PAST_ITS_EDGE = 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls - 1 >= LIMIT\n}\n'
+
+test("a rule that names its own commit after a citation has every citation of it read there, where the note's commit would call them moved", () => {
+  const learned = made(solo({ ...LIMIT, 'src/window.js': 'export const WINDOW = 1000\n' }))
+  const unsourced = made(solo({ ...LIMIT, 'src/window.js': 'export const WINDOW = 1000\n' }))
+  const rule = '- A limit is met at its edge, in the window of `src/window.js:1`.'
+  for (const one of [learned, unsourced]) {
+    const read = headOf(one).slice(0, 7)
+    const built = committed(one, { 'src/limit.js': AT_ITS_EDGE, 'src/window.js': 'export const WINDOW = 500\n' }).slice(0, 7)
+    noted(one, `## Code\n\n${rule}${one === learned ? ` Source: review rounds 1 and 2 of the work item \`PROJ-12\`, 2026-01-15, \`src/limit.js:4\` and \`src/window.js:1\` at \`${built}\`.` : ' As `src/limit.js:4`.'}\n`, read)
+  }
+
+  const asBuilt = lint(learned, learned.main)
+  committed(learned, { 'src/limit.js': PAST_ITS_EDGE })
+
+  assert.deepEqual(asBuilt, OK)
+  assert.equal(warned(unsourced), `WARN standards: ${NOTE} has 2 citations that have moved since the commit they were read at (first \`src/window.js:1\`, at line 7); /context-central:standards solo refreshes the note\n`)
+  assert.equal(warned(learned), ONE_MOVED)
+})
+
+test("a commit in a rule is the rule's own only straight after a citation with its line and the word at", () => {
+  const one = made(solo(LIMIT))
+  const read = headOf(one).slice(0, 7)
+  const built = committed(one, { 'src/limit.js': AT_ITS_EDGE }).slice(0, 7)
+
+  noted(one, `## Code\n\n- A limit is met at its edge, as \`src/limit.js:4\`, since \`${built}\` changed the module \`src/limit.js\` at \`${built}\`.\n`, read)
+
+  assert.equal(warned(one), ONE_MOVED)
+})
+
+test('a rule whose own commit is not yet in the history of the head earns no line, and is compared once the head holds it', () => {
+  const one = made(solo(LIMIT))
+  const read = headOf(one).slice(0, 7)
+  git(one, one.main, 'checkout', '-q', '-b', 'work/limit')
+  const built = committed(one, { 'src/limit.js': AT_ITS_EDGE }).slice(0, 7)
+  committed(one, { 'src/limit.js': PAST_ITS_EDGE })
+  git(one, one.main, 'checkout', '-q', 'main')
+  noted(one, `## Code\n\n- A limit is met at its edge. Source: review round 1 of the work item \`PROJ-12\`, 2026-01-15, \`src/limit.js:4\` at \`${built}\`.\n`, read)
+
+  const onTheBase = lint(one, one.main)
+  git(one, one.main, 'merge', '-q', 'work/limit')
+
+  assert.deepEqual(onTheBase, OK)
+  assert.equal(warned(one), ONE_MOVED)
+})
+
+test("a note whose commit is not yet in the history of the head earns no line, and its citations are compared once the head holds it", () => {
+  const one = made(solo(LIMIT))
+  git(one, one.main, 'checkout', '-q', '-b', 'work/limit')
+  const refreshed = committed(one, { 'src/limit.js': AT_ITS_EDGE }).slice(0, 7)
+  committed(one, { 'src/limit.js': PAST_ITS_EDGE })
+  git(one, one.main, 'checkout', '-q', 'main')
+  noted(one, '## Code\n\n- A limit is met at its edge, as `src/limit.js:4`.\n', refreshed)
+
+  const onTheBase = lint(one, one.main)
+  git(one, one.main, 'merge', '-q', 'work/limit')
+
+  assert.deepEqual(onTheBase, OK)
+  assert.equal(warned(one), ONE_MOVED)
+})
+
+test('a path is counted from the estate root where the repo held no such file under its own folder, in a repository of its own below the root', () => {
+  const settings = { contextCentral: 1, name: 'acme', repos: [{ name: 'api' }, { name: 'web' }] }
+  const base = tree(makeTree({ 'estate.json': settings, 'CLAUDE.md': '# Acme\n', gitconfig: '', 'api/src/limit.js': LIMIT['src/limit.js'], 'api/api/routes.js': 'export const routes = []\n' }))
+  const api: Checkout = { base, main: join(base, 'api'), env: { GIT_CONFIG_GLOBAL: join(base, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' } }
+  git(api, api.main, 'init', '-q', '-b', 'main')
+  committed(api, {})
+  put(base, 'standards/api.md', `# api\n\nThe lines are those of \`api\` at \`${headOf(api).slice(0, 7)}\`, on 2026-01-15.\n\n## Code\n\n- Routes are one list, as \`api/routes.js:1\`.\n- A limit is compared in one place, as \`api/src/limit.js:4\`, never as \`web/src/limit.js:4\` or \`api/\`.\n`)
+
+  committed(api, { 'src/limit.js': AT_ITS_EDGE, 'api/routes.js': 'export const routes = [limited]\n' })
+
+  assert.equal(run(['lint'], { cwd: base, env: api.env }).stdout, 'WARN standards: standards/api.md has 2 citations that have moved since the commit they were read at (first `api/routes.js:1`, at line 7); /context-central:standards api refreshes the note\n')
+})
+
+test('a registered folder inside a larger repository is asked from its own folder, with a path counted from it or from the estate root', () => {
+  const settings = { ...SOLO_CONFIG, repos: [{ name: 'api', path: 'packages/api/' }, { name: 'web', path: 'packages/web' }] }
+  const one = made(solo({ '.context-central/estate.json': settings, 'packages/api/src/limit.js': LIMIT['src/limit.js'], 'packages/web/src/limit.js': LIMIT['src/limit.js'] }))
+  for (const repo of ['api', 'web']) noted(one, `## Code\n\n- A limit is compared in one place, as \`src/limit.js:4\` and \`packages/${repo}/src/limit.js:4\`.\n`, headOf(one).slice(0, 7), `.context-central/standards/${repo}.md`)
+
+  committed(one, { 'packages/api/src/limit.js': AT_ITS_EDGE })
+
+  assert.equal(warned(one), 'WARN standards: .context-central/standards/api.md has 2 citations that have moved since the commit they were read at (first `src/limit.js:4`, at line 7); /context-central:standards api refreshes the note\n')
+})
+
+test('a note under another name is read for a repo whose name cannot name a note, and no other file the repo lists is', () => {
+  const rules = '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n'
+  const settings = { ...SOLO_CONFIG, repos: [{ name: 'solo tools', path: '.', standards: ['docs/rules.md', '.context-central/standards/tools.md'] }] }
+  const one = made(solo({ ...LIMIT, '.context-central/estate.json': settings, 'docs/rules.md': `# Rules\n\nRead at \`0123abc\`.\n\n${rules}` }))
+  noted(one, rules, headOf(one).slice(0, 7), '.context-central/standards/tools.md')
+
+  committed(one, { 'src/limit.js': AT_ITS_EDGE })
+
+  assert.equal(warned(one), 'WARN standards: .context-central/standards/tools.md has 1 citation that has moved since the commit it was read at (`src/limit.js:4`, at line 7); /context-central:standards solo tools refreshes the note\n')
+})
+
+test('in a git work tree a citation is compared with the head of the work tree, and in the main checkout with its own', () => {
+  const one = made(solo(LIMIT))
+  noted(one, '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n')
+  const linked = workTree(one, join(one.base, 'tree'))
+
+  committed(one, { 'src/limit.js': AT_ITS_EDGE }, linked)
+
+  assert.equal(warned(one, linked), ONE_MOVED)
+  assert.deepEqual(lint(one, one.main), OK)
+})
+
 test('with no git on the PATH nothing is said of a standards note', () => {
   const one = made(solo(LIMIT))
   noted(one, '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n')
@@ -256,16 +363,17 @@ test('a git that exits other than 0 says nothing of the note', NEEDS_STAND_IN, (
   assert.deepEqual(lint({ env: { ...one.env, PATH: standIn } }, one.main), OK)
 })
 
-test('the largest note, a thousand citations of a thousand files, starts git once', NEEDS_STAND_IN, () => {
+test('the largest note, a thousand citations of a thousand files, starts git twice', NEEDS_STAND_IN, () => {
   const files = Object.fromEntries(Array.from({ length: 1000 }, (_, at) => [`src/part-${at}.js`, `export const part = ${at}\n`]))
   const one = made(solo(files))
   const real = process.env.PATH ?? ''
   const counting = tree(standIns({ git: `#!/bin/sh\necho "$*" >> "$0.log"\nPATH='${real}' exec git "$@"\n` }))
+  const read = headOf(one)
   noted(one, `## Code\n\n${Object.keys(files).map(path => `- A part is one constant, as \`${path}:1\`.`).join('\n')}\n`)
   committed(one, { 'src/part-999.js': 'export const part = 0\n' })
 
   const result = lint({ env: { ...one.env, PATH: counting } }, one.main)
 
   assert.equal(result.stdout, `WARN node: standards/solo.md is 49 KB (soft cap 20 KB)\nWARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/part-999.js:1\`, at line 1006); /context-central:standards solo refreshes the note\n`)
-  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8'), 'cat-file --batch\n')
+  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8'), `cat-file --batch\nrev-list ${read} --not HEAD\n`)
 })

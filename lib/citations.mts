@@ -3,7 +3,7 @@ import { posix, win32 } from 'node:path'
 import { repoFolder, standardsFiles } from './estate.mts'
 import { onPath } from './machine.mts'
 import { folderAt } from './nodes.mts'
-import { askedBytes } from './worktree.mts'
+import { asked, askedBytes } from './worktree.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
 
@@ -19,14 +19,14 @@ interface Rule {
 
 interface Citation {
   span: string
-  path: string
+  paths: string[]
   first: number | null
   last: number | null
   line: number
   commit: string | null
 }
 
-type Held = { type: string, lines: string[] }
+type Held = { type: string, id: string, lines: string[] }
 
 const PARTS = ['Design', 'Code', 'Tests', 'Review']
 const LEVEL_TWO = /^##[ \t]+(.*?)[ \t]*$/
@@ -34,10 +34,11 @@ const STARTS_A_RULE = /^(?:[-*+]|\d+[.)])[ \t]/
 const NESTED_OR_BLANK = /^(?:[ \t]|$)/
 const SPAN = /(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)/g
 const A_COMMIT = /^[0-9a-f]{7,64}$/
+const AT = /^\s+at\s+$/
 const WITH_LINES = /^([^:]*):(\d+)(?:-(\d+))?$/
 const NOT_IN_A_PATH = /[\s:\p{Cc}]/u
 const LEADS_OUT = /^\.\.(?:[\\/]|$)/
-const AN_OBJECT = /^[0-9a-f]+ (\w+) (\d+)$/
+const AN_OBJECT = /^([0-9a-f]+) (\w+) (\d+)$/
 const A_FILE = 'blob'
 const HEAD = 'HEAD'
 const NEWLINE = 0x0a
@@ -54,9 +55,11 @@ function warningsOf(estate: Estate, repo: Repo, env: Env): NoteWarnings | null {
   const folder = repoFolder(estate, repo)
   if (!note || !onPath('git', env) || !folderAt(folder)) return null
   const citations = citationsIn(readFileSync(note.path, 'utf8'), repo)
-  const held = heldBy(folder, [...new Set(citations.flatMap(namesOf))], env)
-  if (!held) return null
-  const moved = citations.filter(citation => hasMoved(citation, held))
+  const commits = [...new Set(citations.flatMap(({ commit }) => commit ?? []))]
+  const held = heldBy(folder, [...new Set([...commits.map(asACommit), ...citations.flatMap(namesOf)])], env)
+  const behind = held && behindTheHead(folder, commits, held, env)
+  if (!held || !behind) return null
+  const moved = citations.filter(citation => citation.commit !== null && behind.has(citation.commit) && hasMoved(citation, citation.commit, held))
   return { rel: note.rel, said: moved.length > 0 ? [movedWords(note.rel, repo, moved)] : [] }
 }
 
@@ -64,8 +67,8 @@ function citationsIn(text: string, repo: Repo) {
   const lines = text.split(/\r?\n/)
   const firstPart = lines.findIndex(line => LEVEL_TWO.test(line))
   const opening = firstPart === -1 ? lines : lines.slice(0, firstPart)
-  const commit = opening.flatMap(spansOf).find(span => A_COMMIT.test(span) && span !== repo.name) ?? null
-  return rulesIn(lines).flatMap(rule => citationsOf(rule, commit))
+  const commit = opening.flatMap(line => spansOf(line).map(span => span.text)).find(span => A_COMMIT.test(span) && span !== repo.name) ?? null
+  return rulesIn(lines).flatMap(rule => citationsOf(rule, commit, repo))
 }
 
 function rulesIn(lines: string[]) {
@@ -83,10 +86,13 @@ function rulesIn(lines: string[]) {
   return rules
 }
 
-function citationsOf({ at, text }: Rule, commit: string | null): Citation[] {
-  return [...text.matchAll(SPAN)].flatMap(({ 2: span, index }) => {
-    const cited = citedBy(span)
-    return cited ? [{ ...cited, span, line: at + text.slice(0, index).split('\n').length, commit }] : []
+function citationsOf({ at, text }: Rule, readAt: string | null, repo: Repo): Citation[] {
+  const spans = spansOf(text)
+  const own = spans.filter((span, index) => index > 0 && A_COMMIT.test(span.text) && AT.test(text.slice(spans[index - 1].to, span.from)) && citedBy(spans[index - 1].text)?.first != null)
+  const commit = own.at(-1)?.text ?? readAt
+  return spans.filter(span => !own.includes(span)).flatMap(span => {
+    const cited = citedBy(span.text)
+    return cited ? [{ ...cited, paths: countedFrom(cited.path, repo), span: span.text, line: at + text.slice(0, span.from).split('\n').length, commit }] : []
   })
 }
 
@@ -99,12 +105,21 @@ function citedBy(span: string) {
   return { path: posix.normalize(written), first: from, last: last === undefined ? from : Number(last) }
 }
 
-function spansOf(line: string) {
-  return [...line.matchAll(SPAN)].map(found => found[2])
+function countedFrom(path: string, repo: Repo) {
+  const folder = posix.normalize(`${repo.path}/`)
+  return folder !== './' && path.startsWith(folder) && path.length > folder.length ? [path, path.slice(folder.length)] : [path]
 }
 
-function namesOf({ commit, path }: Citation) {
-  return commit === null ? [] : [at(commit, path), at(HEAD, path)]
+function spansOf(text: string) {
+  return [...text.matchAll(SPAN)].map(found => ({ text: found[2], from: found.index, to: found.index + found[0].length }))
+}
+
+function namesOf({ commit, paths }: Citation) {
+  return commit === null ? [] : paths.flatMap(path => [at(commit, path), at(HEAD, path)])
+}
+
+function asACommit(commit: string) {
+  return `${commit}^{commit}`
 }
 
 function at(commit: string, path: string) {
@@ -112,26 +127,45 @@ function at(commit: string, path: string) {
 }
 
 function heldBy(folder: string, names: string[], env: Env) {
-  const printed = answerOf(folder, names, env)
+  const printed = batchOf(folder, names, env)
   if (!printed) return null
   const held = new Map<string, Held>()
   let from = 0
   for (const name of names) {
     const end = printed.indexOf(NEWLINE, from)
     if (end === -1) return null
-    const [, type, size] = AN_OBJECT.exec(printed.toString('utf8', from, end)) ?? []
+    const [, id, type, size] = AN_OBJECT.exec(printed.toString('utf8', from, end)) ?? []
     from = end + 1
     if (type === undefined) continue
-    held.set(name, { type, lines: type === A_FILE ? linesOf(printed.toString('utf8', from, from + Number(size))) : [] })
+    held.set(name, { type, id, lines: type === A_FILE ? linesOf(printed.toString('utf8', from, from + Number(size))) : [] })
     from += Number(size) + 1
   }
   return held
 }
 
-function answerOf(folder: string, names: string[], env: Env) {
+function batchOf(folder: string, names: string[], env: Env) {
   try {
     const { status, stdout } = askedBytes(folder, ['cat-file', '--batch'], env, names.map(name => `${name}\n`).join(''))
     return status === 0 ? stdout : null
+  } catch {
+    return null
+  }
+}
+
+function behindTheHead(folder: string, commits: string[], held: Map<string, Held>, env: Env) {
+  const ids = new Map<string, string>()
+  for (const commit of commits) {
+    const id = held.get(asACommit(commit))?.id
+    if (id !== undefined) ids.set(commit, id)
+  }
+  const ahead = ids.size > 0 ? aheadOfTheHead(folder, [...new Set(ids.values())], env) : new Set<string>()
+  return ahead && new Set([...ids].filter(([, id]) => !ahead.has(id)).map(([commit]) => commit))
+}
+
+function aheadOfTheHead(folder: string, ids: string[], env: Env) {
+  try {
+    const { status, stdout } = asked(folder, ['rev-list', ...ids, '--not', HEAD], env)
+    return status === 0 ? new Set(stdout.split('\n')) : null
   } catch {
     return null
   }
@@ -142,9 +176,10 @@ function linesOf(text: string) {
   return lines.at(-1) === '' ? lines.slice(0, -1) : lines
 }
 
-function hasMoved({ commit, path, first, last }: Citation, held: Map<string, Held>) {
-  const then = commit === null ? undefined : held.get(at(commit, path))
-  if (then?.type !== A_FILE) return false
+function hasMoved({ paths, first, last }: Citation, commit: string, held: Map<string, Held>) {
+  const path = paths.find(counted => held.get(at(commit, counted))?.type === A_FILE)
+  const then = path === undefined ? undefined : held.get(at(commit, path))
+  if (path === undefined || !then) return false
   const now = held.get(at(HEAD, path))
   if (now?.type !== A_FILE) return true
   if (first === null || last === null) return false
