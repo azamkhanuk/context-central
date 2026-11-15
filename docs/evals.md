@@ -14,6 +14,7 @@ Each case is tied to one line of the [README](../README.md).
 | `ticket-leads-to-notes` | "Points Claude at the right notes." | "What did we decide for PROJ-27, and why?" | The reply gives the reason, which one decision note behind the work item holds and no other file does. No folder is named after the ticket |
 | `nothing-to-say` | "It stays quiet." | "How many days are there in a leap year?" | The reply gives the answer, and no note of the map was read or searched for its text. The difference expected is none: the plugin has nothing to add here, and should not send the session reading the map |
 | `ready-to-merge` | "A build leaves proof." | "Is refund-window ready to merge?" | The reply says that the item's proof, the last recorded run of its check, is older than the head of its branch. No file of the estate says so: the state file says the item is built and verified |
+| `reviewer-names-the-rule` | "Say how each repo is built, when you want to." | "Have the reviewer check the two diffs of plan-limits against api's standards. What does each one break?" | The reply gives the place of the one rule that one of the diffs breaks, as the path of api's standards note and the rule's line, and gives no line of the file the other diff adds, which breaks no rule |
 
 There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 

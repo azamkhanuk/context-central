@@ -713,3 +713,158 @@ test('ready-to-merge: each reply the page on the suite gives as scored wrongly b
   assert.deepEqual(failedBy(one, 'proof-is-older', [...passesThoughWrong, ...passesRightly]), [])
   assert.deepEqual(passedBy(one, 'proof-is-older', [...failsThoughRight, ...failsRightly, overALineBreak.join('\n')]), [])
 })
+
+const pointersIn = (answer: string) => answer.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2, line.indexOf(' (')))
+
+test('reviewer-names-the-rule: the prompt names the item and asks for the reviewer, which the case lets a session start with no grant, and the prompt hook answers with the notes behind the item, the standards note of api last', A_SCAFFOLD, () => {
+  const one = named('reviewer-names-the-rule')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), "Have the reviewer check the two diffs of plan-limits against api's standards. What does each one break?")
+  assert.deepEqual(promptFields(one), { tags: '[review]', max_turns: '20', allowed_tools: '[Read, Glob, Grep, Agent]' })
+  assert.deepEqual(JSON.parse(read(EVALS, 'review', 'group.json')), { allowTools: [] })
+  assert.match(indexOf(root), /\nWork in flight \(7\):\n/)
+  assert.ok(indexOf(root).split('\n').includes(row(root, 'plan-limits', 'Give each plan its own limit')))
+  const answer = context(asked(root, promptOf(one)))
+  assert.equal(answer.split('\n')[0], 'Context for work item plan-limits:')
+  assert.deepEqual(pointersIn(answer), [
+    join(root, 'work', 'plan-limits', 'STATE.md'),
+    join(root, 'work', 'plan-limits', 'SPEC.md'),
+    join(root, 'repos', 'api.md'),
+    join(root, 'standards', 'api.md'),
+  ])
+})
+
+const THE_BROKEN_RULE = '- A wait handed to a caller is in whole seconds, under a name that ends `Seconds`. Said by the owner, 2026-01-12.'
+const THE_BROKEN_RULES_LINE = 20
+const NAMES_A_SOURCE = /(?: Source: `api\/[^`]+:\d+`| Said by the owner, \d{4}-\d{2}-\d{2})\.$/
+
+test("reviewer-names-the-rule: its estate is acme with a standards note for api, laid out as a new note is with a commit and a date on its opening lines and linked from the repo's note, whose rules each name a source, and the one rule a diff breaks is on line 20 and in no other file", A_SCAFFOLD, () => {
+  const root = estateOf(named('reviewer-names-the-rule'))
+  const acme = estateOf(named('where-an-item-stands'))
+  const fresh = scaffolded(named('where-an-item-stands')).root
+  const note = read(root, 'standards/api.md').split('\n')
+  const rules = note.filter(line => line.startsWith('- '))
+  const parts = (written: string[]) => written.filter(line => line.startsWith('## '))
+
+  assert.equal(run(['note', '--new', 'standards/api'], { cwd: fresh }).code, 0)
+  const asNew = read(fresh, 'standards/api.md').replace('`<commit>`, on <date>', '`4f2e1c9`, on 2026-01-12').split('\n')
+  assert.deepEqual(note.slice(0, 5), asNew.slice(0, 5))
+  assert.match(note[2], / at `4f2e1c9`, on 2026-01-12\.$/)
+  assert.deepEqual(parts(note), ['## Design', '## Code', '## Tests', '## Review'])
+  assert.deepEqual(parts(note), parts(asNew))
+  assert.equal(rules.length, 5)
+  assert.deepEqual(rules.filter(rule => !NAMES_A_SOURCE.test(rule)), [])
+  assert.equal(note[THE_BROKEN_RULES_LINE - 1], THE_BROKEN_RULE)
+  assert.deepEqual(holding(root, /whole seconds/i), ['standards/api.md'])
+  assert.ok(read(root, 'repos/api.md').includes('[its standards](../standards/api.md)'))
+  assert.equal(read(root, 'estate.json'), read(acme, 'estate.json'))
+  assert.equal(existsSync(join(root, 'api', '.git')), false)
+})
+
+const addedBy = (diff: string) => diff.split('\n').filter(line => /^\+(?!\+\+ )/.test(line)).map(line => `${line.slice(1)}\n`).join('')
+const changedBy = (diff: string) => diff.split('\n').filter(line => line.startsWith('+++ ')).map(line => line.slice(4))
+
+test('reviewer-names-the-rule: its work item has a spec that gives each of two files of api a slice and the wait no unit, and a state file that names two diffs kept inside api, each adding one of those files as it stands there, with a wait in milliseconds in one alone', A_SCAFFOLD, () => {
+  const root = estateOf(named('reviewer-names-the-rule'))
+  const acme = filesOf(estateOf(named('where-an-item-stands')))
+  const spec = read(root, 'work/plan-limits/SPEC.md')
+  const ofApi = (files: string[]) => files.filter(file => file.startsWith('api/'))
+
+  assert.deepEqual(filesOf(root).filter(file => !acme.includes(file)), ['api/diffs/plans.diff', 'api/diffs/refusal.diff', 'api/src/plans.js', 'api/src/refusal.js', 'standards/api.md', 'work/plan-limits/SPEC.md', 'work/plan-limits/STATE.md'])
+  assert.match(read(root, 'work/plan-limits/STATE.md'), /\nstatus: active\n/)
+  assert.match(read(root, 'work/plan-limits/STATE.md'), /## Where it stands\n\n.*`api\/diffs\/plans\.diff` and `api\/diffs\/refusal\.diff`\.\n\n## Done\n/)
+  assert.match(spec, /\n1\. `api\/src\/plans\.js`: .*\n2\. `api\/src\/refusal\.js`: .*says how long to wait before the next call\.\n/)
+  assert.doesNotMatch(spec, /second|\bms\b/i)
+  assert.deepEqual(changedBy(read(root, 'api/diffs/plans.diff')), ['b/src/plans.js'])
+  assert.deepEqual(changedBy(read(root, 'api/diffs/refusal.diff')), ['b/src/refusal.js'])
+  assert.equal(addedBy(read(root, 'api/diffs/plans.diff')), read(root, 'api/src/plans.js'))
+  assert.equal(addedBy(read(root, 'api/diffs/refusal.diff')), read(root, 'api/src/refusal.js'))
+  assert.deepEqual(ofApi(holding(root, /Ms\b/)), ['api/diffs/refusal.diff', 'api/src/refusal.js'])
+  assert.deepEqual(ofApi(holding(root, /\bwait|seconds\b/i)), ['api/diffs/refusal.diff', 'api/src/refusal.js'])
+})
+
+test('reviewer-names-the-rule: rule-named looks for the standards note and the line the scaffold writes the broken rule on, a place that no file of the estate gives', A_SCAFFOLD, () => {
+  const one = named('reviewer-names-the-rule')
+
+  assert.deepEqual(graders(one).find(grader => grader.name === 'rule-named')?.fields, { type: 'regex', pattern: `'standards/api\\.md:${THE_BROKEN_RULES_LINE}(?!\\d)'` })
+  assert.deepEqual(holding(estateOf(one), patternOf(one, 'rule-named')), [])
+})
+
+test('reviewer-names-the-rule: rule-named passes a reply that gives the place of the broken rule in a sentence, a list and a table, and fails one that gives the rule in words, the note with no line, the line in words or another line', () => {
+  const one = named('reviewer-names-the-rule')
+
+  assert.deepEqual(failedBy(one, 'rule-named', [
+    'refusal.diff breaks one rule: `api/src/refusal.js:2` hands the caller a wait in milliseconds, against the rule at `standards/api.md:20`. plans.diff breaks nothing.',
+    '**refusal.diff**\n\n- `api/src/refusal.js:2`\n- What breaks: the wait is in milliseconds, as `retryAfterMs`\n- Input: any call over the limit\n- Rule: `standards/api.md:20`\n\n**plans.diff**\n\nNo findings.',
+    '| Diff | Finding | Rule |\n|---|---|---|\n| `refusal.diff` | `api/src/refusal.js:2`: `retryAfterMs` is not whole seconds | `standards/api.md:20` |\n| `plans.diff` | none | |',
+    'The reviewer found one thing. Rule broken: /tmp/e-x/home/cwd/standards/api.md:20, a wait is in whole seconds.',
+    'refusal.diff breaks [standards/api.md:20](standards/api.md#L20).',
+    'One finding, on refusal.diff, and it rests on standards/api.md:20',
+    'The body carries `retryAfterMs` (standards/api.md:20: "A wait handed to a caller is in whole seconds").',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'rule-named', [
+    "refusal.diff breaks the Review rule of api's standards: a wait handed to a caller is in whole seconds, under a name that ends `Seconds`.",
+    'refusal.diff breaks a rule in `standards/api.md`, under Review: `retryAfterMs` at `api/src/refusal.js:2`.',
+    'refusal.diff breaks the rule on line 20 of `standards/api.md`.',
+    'refusal.diff breaks `standards/api.md`, line 20.',
+    'refusal.diff breaks the rule at `standards/api.md:12`.',
+    'refusal.diff breaks the rule at `standards/api.md:2`.',
+    'refusal.diff breaks the rule at `standards/api.md:200`.',
+    'refusal.diff breaks the rule at `standards/api.md:18-20`.',
+    "`api/src/refusal.js:2` breaks api's standards, and `api/src/plans.js:20` does not exist.",
+    'It breaks the rule at `api.md:20`.',
+    'It breaks the rule at `repos/api.md:20`.',
+    'Neither diff breaks a rule of `standards/api.md`.',
+    'I could not find the diffs of plan-limits.',
+    '',
+  ]), [])
+})
+
+test('reviewer-names-the-rule: clean-diff-clean passes a reply whose findings are all on the diff that breaks the rule, or that found nothing, and fails one that gives a line of the file the other diff adds, as a finding or not', () => {
+  const one = named('reviewer-names-the-rule')
+
+  assert.deepEqual(failedBy(one, 'clean-diff-clean', [
+    '**refusal.diff** breaks one rule.\n\n- `api/src/refusal.js:2`: the wait is handed over in milliseconds, as `retryAfterMs`. Rule: `standards/api.md:20`.\n\n**plans.diff** breaks nothing.',
+    'plans.diff: no findings. `api/src/plans.js` meets the spec and every rule of `standards/api.md`.\nrefusal.diff: `api/src/refusal.js:1` and `api/src/refusal.js:2` name the wait in milliseconds.',
+    '| Diff | Finding | Rule |\n|---|---|---|\n| `refusal.diff` | `api/src/refusal.js:2`: `retryAfterMs` is not whole seconds | `standards/api.md:20` |\n| `plans.diff` | none | |',
+    'refusal.diff breaks `standards/api.md:20` at `src/refusal.js:2`. The other diff, of plans.js, is clean: the reviewer read its nine lines and `api/src/limit.js:1`.',
+    'I could not find the diffs of plan-limits.',
+    '',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'clean-diff-clean', [
+    'plans.diff: `api/src/plans.js:8` falls back to Starter for a plan that is not listed.\nrefusal.diff: `api/src/refusal.js:2`, against `standards/api.md:20`.',
+    '| Diff | Finding | Rule |\n|---|---|---|\n| `refusal.diff` | `api/src/refusal.js:2` | `standards/api.md:20` |\n| `plans.diff` | `src/plans.js:1`: the limits are written as numbers | none |',
+    'The reviewer has two findings, the second at /tmp/e-x/home/cwd/api/src/plans.js:3.',
+    'Both break a rule: api/src/refusal.js:2 and plans.js:8.',
+    'refusal.diff breaks `standards/api.md:20`.\n\nplans.diff adds `api/src/plans.js:1-9` and breaks nothing.',
+  ]), [])
+})
+
+test("reviewer-names-the-rule: of its four graders two are scored, both patterns over the reply, and reviewer-started counts a call to Agent whose input names the plugin's reviewer as the agent to start, in the arm with the plugin alone", () => {
+  const one = named('reviewer-names-the-rule')
+  const fieldsOf = (name: string) => graders(one).find(grader => grader.name === name)?.fields ?? {}
+  const starts = new RegExp(unquoted(fieldsOf('reviewer-started').input_match))
+  const written = (input: object) => [JSON.stringify(input), JSON.stringify(input, null, 2)]
+  const counted = (inputs: object[]) => inputs.filter(input => written(input).some(form => starts.test(form)))
+  const missed = (inputs: object[]) => inputs.filter(input => !written(input).every(form => starts.test(form)))
+  const STARTS_THE_REVIEWER = [
+    { description: 'Review two diffs', prompt: 'Repo: /tmp/e-x/home/cwd/api. The diffs are files: api/diffs/plans.diff and api/diffs/refusal.diff.', subagent_type: 'context-central:reviewer' },
+    { subagent_type: 'reviewer', description: 'Review plans.diff', prompt: 'Spec: /tmp/e-x/home/cwd/work/plan-limits/SPEC.md' },
+    { description: 'Review refusal.diff', subagent_type: 'context-central:reviewer', prompt: 'Standards: /tmp/e-x/home/cwd/standards/api.md', run_in_background: false },
+  ]
+  const STARTS_ANOTHER = [
+    { description: 'Review two diffs', prompt: 'Act as the reviewer of context-central and check both diffs.', subagent_type: 'general-purpose' },
+    { description: 'Have the reviewer check two diffs', prompt: 'You are context-central:reviewer. Check api/diffs/plans.diff.' },
+    { description: 'Read the diffs', prompt: 'Read both diffs for the reviewer.', subagent_type: 'context-central:reader' },
+    { description: 'Review', prompt: 'Check both diffs.', subagent_type: 'superpowers:code-reviewer' },
+    { description: 'Review', prompt: 'Check both diffs.', subagent_type: 'reviewer-two' },
+    { description: 'Find the agent', prompt: 'Which call has "subagent_type": "reviewer" in its input?', subagent_type: 'Explore' },
+  ]
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['clean-diff-clean', 'plugin-spoke', 'reviewer-started', 'rule-named'])
+  assert.deepEqual(fieldsOf('clean-diff-clean'), { type: 'regex', pattern: "'^(?![\\s\\S]*\\bplans\\.js:\\d)'" })
+  assert.deepEqual({ ...fieldsOf('reviewer-started'), input_match: '' }, { type: 'tool_used', tool: 'Agent', input_match: '', min: '1', arm: 'with-only' })
+  assert.deepEqual(missed(STARTS_THE_REVIEWER), [])
+  assert.deepEqual(counted(STARTS_ANOTHER), [])
+})
