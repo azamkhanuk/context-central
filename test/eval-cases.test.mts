@@ -868,3 +868,16 @@ test("reviewer-names-the-rule: of its four graders two are scored, both patterns
   assert.deepEqual(missed(STARTS_THE_REVIEWER), [])
   assert.deepEqual(counted(STARTS_ANOTHER), [])
 })
+
+test('reviewer-names-the-rule: each reply the page on the suite gives as scored wrongly by its graders is on the page and is scored that way', () => {
+  const one = named('reviewer-names-the-rule')
+  const page = read(REPO, 'docs', 'evals.md')
+  const placeInWords = ['refusal.diff breaks the rule on line 20 of `standards/api.md`']
+  const aLineThatWasChecked = ['plans.diff adds `api/src/plans.js:1-9` and breaks nothing']
+  const noLineOfTheFile = ['I could not find the diffs of plan-limits', 'plans.diff breaks a rule as well, in `api/src/plans.js`', 'plans.diff breaks a rule as well, at `api/diffs/plans.diff:14`']
+
+  assert.deepEqual([...placeInWords, ...aLineThatWasChecked, ...noLineOfTheFile].filter(reply => !page.includes(`"${reply}"`)), [])
+  assert.deepEqual(passedBy(one, 'rule-named', placeInWords), [])
+  assert.deepEqual(passedBy(one, 'clean-diff-clean', aLineThatWasChecked), [])
+  assert.deepEqual(failedBy(one, 'clean-diff-clean', noLineOfTheFile), [])
+})

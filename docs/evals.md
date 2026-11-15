@@ -1,6 +1,6 @@
 # The eval suite
 
-Four cases for Claude Code's own `claude plugin eval`, kept in `evals/` as two case groups: three in `reading` and one in `proof`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
+Five cases for Claude Code's own `claude plugin eval`, kept in `evals/` as three case groups: three in `reading`, one in `proof` and one in `review`. Each case is one prompt a person might type. The host runs it in a fresh session with the plugin loaded and again with no plugin, three times each, and reports the case's score in both and the difference.
 
 The suite is a measure taken by hand. It is not one of the checks, nothing waits on a score, and every run is paid for on the account of whoever starts it.
 
@@ -16,6 +16,8 @@ Each case is tied to one line of the [README](../README.md).
 | `ready-to-merge` | "A build leaves proof." | "Is refund-window ready to merge?" | The reply says that the item's proof, the last recorded run of its check, is older than the head of its branch. No file of the estate says so: the state file says the item is built and verified |
 | `reviewer-names-the-rule` | "Say how each repo is built, when you want to." | "Have the reviewer check the two diffs of plan-limits against api's standards. What does each one break?" | The reply gives the place of the one rule that one of the diffs breaks, as the path of api's standards note and the rule's line, and gives no line of the file the other diff adds, which breaks no rule |
 
+`reviewer-names-the-rule` asks for the plugin's reviewer by name, and it is the one case that lets a session start an agent. The arm without the plugin has no reviewer to start, and the one session of that arm whose folder was kept said so and checked the diffs itself. So the case measures what the reviewer adds to such an answer: a finding that rests on a written rule names the rule by its place, the `path:line` of the rule in the file that holds it.
+
 There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
 - In the first trial the machine's `PATH` held an installed copy of the plugin, under the home folder. The session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`: a run's sandboxed shell cannot read the home folder.
@@ -29,9 +31,11 @@ Every case starts from the same invented estate, acme. The case's scaffold, a sh
 
 `ready-to-merge` adds to acme, in its own scaffold: one recorded check for the repo `api`, `./check.sh`; a git repository in `api/`, with a branch `main` and a branch `work/refund-window` two commits on from it; and an eighth work item, `refund-window`, whose state file says it is built and verified and whose proof record, `proof.jsonl`, holds one run of that check at the first of those two commits. The second is a fix made after that run, so the proof is older than the head of the branch. It is the one scaffold that starts a program, `git`, and it gives every commit a fixed author and date, so that the two commits have the same ids wherever the estate is made.
 
+`reviewer-names-the-rule` adds to acme, in its own scaffold: a standards note for the repo `api`, `standards/api.md`, laid out as `context-central note --new standards/api` lays one out, with a commit and a date on its opening lines, its four parts and five rules that each name a source; the link to that note from `repos/api.md`; an eighth work item, `plan-limits`, whose spec has two slices; and for each slice the file it adds under `api/src/` and a diff of that file under `api/diffs/`, outside the map's folders. `refusal.diff` hands a caller its wait in milliseconds, under a name that ends `Ms`. That breaks one rule of the note, on its line 20, under Review: a wait handed to a caller is in whole seconds, under a name that ends `Seconds`. The spec gives the wait no unit, so nothing but the note says the diff is wrong. `plans.diff` breaks no rule. The scaffold starts no program, so `api` has no repository and `lint` says nothing of the note. The diffs are files because a run's shell starts no `git`: the reviewer is given them to read, where a build gives it a range.
+
 It is made large enough that finding the right file is work for a session with no pointers. Several work items share the words of a case's prompt, a finished item still carries an old "next", and the log holds older lines about the same work.
 
-The arms differ in one thing, whether the plugin is loaded. With it the session is given the live index at its start, and pointers when its prompt names something the map knows. Without it the same files are there and nothing says where to look. The host loads no instruction file in a run, so the hub is loaded in neither arm.
+The arms differ in one thing, whether the plugin is loaded. With it the session is given the live index at its start, and pointers when its prompt names something the map knows. Without it the same files are there and nothing says where to look. The plugin's agents come with it as well, and `reviewer-names-the-rule` asks for one of them. The host loads no instruction file in a run, so the hub is loaded in neither arm.
 
 acme sets its index budget, `budgets.indexChars`, to 9,500 characters, where an estate that sets nothing has 2,000. With six work items in flight acme's index is 837 characters and eight times the length of the workspace's path, so at 2,000 it is cut once that path passes 145 characters, and `context-central lint` then reports that the items in flight do not fit. A run's workspace on the machine behind this page was 30 characters long, so the index was whole in every run here at either figure, and the first full run was made before acme set a budget at all. The setting keeps the index whole where a run's temporary folder sits at the end of a longer path.
 
@@ -48,6 +52,8 @@ A pattern is a blunt measure of a reply. Where a fact has no one word of its own
 | `reason` of `ticket-leads-to-notes` | The payment provider, or its settlement files, beside rounding, half, matching, agreeing or being consistent |
 | `answer` of `nothing-to-say` | 366 |
 | `proof-is-older` of `ready-to-merge` | The proof, the check or its last run said to be older than the head, stale, out of date or behind the branch; the head or the last commit said to be unchecked or to have no run; a commit said to have come after the run; the branch said to have moved since, or, beside a word for the proof, to have moved, to be now at a commit, or to have a newer or a later commit; or a reply that opens by holding the merge back and names both commits, the one the run was made at and the one at the head |
+| `rule-named` of `reviewer-names-the-rule` | `standards/api.md:20`, the path of the note and the line of the rule the diff breaks, wherever it stands in the reply |
+| `clean-diff-clean` of `reviewer-names-the-rule` | A reply that nowhere gives a line of `plans.js`, the file the other diff adds, as `plans.js:` and a number |
 
 `stands` rests on "production" being in no file of acme but the state file, so that a reply which names it has read that file. A test holds the word to that one file.
 
@@ -82,9 +88,18 @@ Three readers who were told nothing of the pattern wrote replies to try it, befo
 
 After the figures were taken, a reader who had read the pattern wrote replies aimed at it: 24 of 47 wrong replies passed and 13 of 71 right ones failed. Those replies were written to break the pattern and are not a session's replies, so beside the blind read's counts they say how far the pattern can be pushed, and not how often a session's reply is scored wrongly. The kinds above come from them and from a later reader's replies of the same sort. The pattern is left as it was when the figures were taken. A result document holds no reply to score again, so a new pattern would need both runs made again.
 
+The two scored graders of `reviewer-names-the-rule` look for a place and not for a fact in words. `rule-named` rests on what the reviewer is told, that a finding which rests on a written rule names it as the `path:line` of that rule, and on no file of the estate giving that place: a reply that has `standards/api.md:20` has it from the note, counted to the rule. A test holds the line to the one the scaffold writes the rule on. `clean-diff-clean` is a look-ahead from the start of the reply, which fails wherever `plans.js:` is followed by a digit. The reviewer reports a finding as `file:line`, so a reply with no line of that file gives no finding of that shape on the diff that breaks nothing. Four kinds of reply are scored wrongly, and a test holds each reply given here:
+
+- A right reply that gives the rule in words, the note with no line, or the line in words scores as wrong on `rule-named`: "refusal.diff breaks the rule on line 20 of `standards/api.md`". That is the measure and not a fault in it: the case asks whether the rule is named by its place, as the reviewer is told to name it.
+- A right reply that gives a line of `plans.js` where it says what was checked scores as wrong on `clean-diff-clean`: "plans.diff adds `api/src/plans.js:1-9` and breaks nothing". In the trial run the reviewer's own report named two such lines among what it had checked, and the session's reply left them out.
+- A reply that found nothing passes `clean-diff-clean`, since it gives no line of any file: "I could not find the diffs of plan-limits". So a session that says nothing of either diff scores 0.50 and not 0.00.
+- A wrong reply that gives a finding on the clean diff with no line, or at a line of the diff file, passes `clean-diff-clean`: "plans.diff breaks a rule as well, in `api/src/plans.js`", or "plans.diff breaks a rule as well, at `api/diffs/plans.diff:14`".
+
 `nothing-to-say` also fails where a note of the map was read. That is a `Read` of a file of the map, or a `Grep` that prints the text it finds, unless its path is inside a repo's folder or its glob or its type names a kind of code file.
 
 Each case also carries `plugin-spoke`, a pattern over the session's trace for the first line of the live index. It is marked for the arm with the plugin alone, so the host leaves it out of the score when both arms run. It shows that the hooks reached the session. The trace holds what the session-start hook added and not what the prompt hook added, so it can show the index and never the pointers.
+
+`reviewer-names-the-rule` carries a second grader marked for that arm alone, `reviewer-started`. It passes when the session called the `Agent` tool with the plugin's reviewer, `context-central:reviewer` or `reviewer`, as the agent to start, so it shows that the reply came by way of the reviewer.
 
 ## Running it
 
@@ -126,9 +141,9 @@ A terminate sent to the command is passed on to the host. An interrupt or a hang
 
 ## What a run costs
 
-Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 24 sessions: four cases, three runs each, in both arms.
+Every session of a run is paid for by the account that starts it, and the host prints a list-price estimate of it. A full run is 30 sessions: five cases, three runs each, in both arms.
 
-On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the run of the three cases of `reading` below, which was every case there was at the time, cost 0.57 USD. The two runs of the case group `proof`, 6 sessions each, cost 0.29 and 0.35 USD.
+On 2026-11-14, with Claude Code 2.1.325, a trial run of `where-an-item-stands` was one session of three turns and cost 0.03 USD by the host's estimate, and the run of the three cases of `reading` below, which was every case there was at the time, cost 0.57 USD. The two runs of the case group `proof`, 6 sessions each, cost 0.29 and 0.35 USD. On 2026-11-15, with the same Claude Code, a trial run of `reviewer-names-the-rule` was one session that started the reviewer and cost 0.11 USD, and the run of the case group `review`, 6 sessions, cost 0.48 USD.
 
 ## The figures of the last full run
 
@@ -182,6 +197,38 @@ What they say, as found:
 - Turns and cost rose between the two runs in both arms alike, so they say nothing of the words on the row.
 - What the three sessions that failed replied is not known either.
 
+## The figures of `reviewer-names-the-rule`
+
+The case group `review` was run alone on 2026-11-15 on macOS, with Claude Code 2.1.325 and `claude-sonnet-5-5`, on the case as it ships and the plugin at `7faa80e`, the commit that added the case, where the reviewer is told to name the written rule a finding rests on by its place: 6 sessions in 149 seconds, for 0.48 USD by the host's estimate.
+
+| Case | With the plugin | Without | Difference |
+|---|---|---|---|
+| `reviewer-names-the-rule` | 1.00 | 0.50 | +0.50 |
+
+Each scored grader, as the sessions that passed it:
+
+| Grader | With the plugin | Without |
+|---|---|---|
+| `rule-named` | 3 of 3 | 0 of 3 |
+| `clean-diff-clean` | 3 of 3 | 3 of 3 |
+
+Turns and cost are for one session, the mean of an arm's three runs:
+
+| Case | Turns with | Turns without | Cost with | Cost without |
+|---|---|---|---|---|
+| `reviewer-names-the-rule` | 1.0 | 12.7 | 0.098 USD | 0.062 USD |
+
+What they say, as found:
+
+- With the plugin every session started the reviewer, once, and every reply gave the place of the rule. Without it no reply did.
+- Both arms passed `clean-diff-clean` in every session, so the whole difference is `rule-named`: +0.50 is one grader of two, in three sessions of three.
+- The arm without the plugin has no reviewer to start. What its three sessions replied is not known, since a full run keeps no folder. One more session of each arm was then run with its folder kept, for 0.13 USD, and each scored as the three of its arm had. Without the plugin the session said that there was no reviewer agent, read the note and both diffs itself, and replied that `refusal.diff` breaks the Review rule on whole seconds and that `plans.diff` breaks nothing: the right finding, with the rule in words and no line.
+- So what the case shows of the plugin is the place of the rule in the reply, and not the finding. In that kept session a session on this model found the broken rule with no reviewer: the estate is small, the prompt names api's standards, and the note is one search away.
+- The trial run, one session with the plugin for 0.11 USD, showed what the case rests on. The session started `context-central:reviewer` with the `Agent` tool, and the host counted the call. The reviewer was given the two diffs by their paths in place of a range, with the spec and the note, read both as files, started no `git`, and did not stop for want of a range. Its report gave the rule as `standards/api.md:20`, and the session's reply kept it.
+- The turns of the two arms are not to be compared. With the plugin the session starts the reviewer in the background, ends its turn, and writes its reply in one more turn when the reviewer reports. The host's figure is that last turn alone: in the trial's kept folder the session took six turns before it, and the reviewer's own turns are counted in neither.
+- A session with the plugin cost 0.037 USD more, the mean of three against the mean of three.
+- Three runs an arm is a small sample.
+
 ## What it cannot show
 
 - What a hub alone gives a session, since the host loads no instruction file in a run.
@@ -190,7 +237,10 @@ What they say, as found:
 - More than a small sample. A session's reply moves from run to run, and a case is run three times an arm.
 - What a session is given by an estate that keeps the default index budget where its index does not fit. The index is then cut to the rows that fit, with a line that says how many more there are, and acme's budget is set so that no case meets this.
 - A checkpoint, or anything else a session does through the plugin's own command in the shell, for the reason given above. So the suite shows the proof record being read, by the index, and never being written.
-- What the words on a row do for a session that can run `git`. A case gives a session `Read`, `Glob` and `Grep` alone, and a session at work has a shell, with which it can ask git for the head itself.
+- What the words on a row do for a session that can run `git`. `ready-to-merge` gives a session `Read`, `Glob` and `Grep` alone, and a session at work has a shell, with which it can ask git for the head itself.
+- What the reviewer does with a range. A run's shell starts no `git`, so `reviewer-names-the-rule` gives the reviewer two diffs as files, where a build gives it a range to read with `git diff`.
+- That the reviewer finds what a session alone would miss. In `reviewer-names-the-rule` the prompt names the standards and the note is five rules long, and the one session without the plugin whose reply was kept found the broken rule itself.
+- That a finding is right. `rule-named` passes on the place of a rule and `clean-diff-clean` on a reply with no line of one file, and neither reads what the reply says there.
 - Whether a reply is right in words a pattern does not know, or is a guess in words it does. [The graders](#the-graders) says which replies those are.
 - Anything on Linux or Windows. The runs behind this page were made on macOS. On Linux the host's sandbox is another program, and on Windows a scaffold cannot start.
 - From a score, that the pointers reached a session: the trace a grader reads does not hold them. The kept folder of a trial run does.
@@ -216,10 +266,12 @@ What needs no paid session is held by the tests, on every push:
 - every case has a prompt and at least one grader, and no grader is of a kind that calls a judge;
 - each case's scaffold makes an estate the plugin answers for, in which the session-start hook gives the live index;
 - the prompt hook, given the case's own prompt, gives the pointers its graders rest on, or nothing for `nothing-to-say`;
-- the fact a grader looks for is held by the one file the case is about and by no other file of acme, and for `ready-to-merge` by no file at all;
+- the fact a grader looks for is held by the one file the case is about and by no other file of acme, and for `ready-to-merge` and `reviewer-names-the-rule` by no file at all;
 - the repository that `ready-to-merge`'s scaffold makes: its three commits and their ids, Acme's name on every line of its log, the branch's head as a file, and a proof record whose commit is the one before the head;
 - in that estate the item's row of the live index ends `proof: older than the head`, in words the case's grader takes, and `lint` gives the one warning for proof;
 - each pattern passes a right reply in other words, in a list and in a table, and fails a reply that found nothing or was built from another file of acme;
+- the estate that `reviewer-names-the-rule`'s scaffold makes: a standards note whose opening lines are those of a new note with a commit and a date, whose rules each name a source, with the rule a diff breaks on line 20 and its words in no other file, a spec that gives the wait no unit, and two diffs that each add one file of `api` as it stands there;
+- `rule-named` looks for that line, passes the place in a sentence, a list and a table, and fails the rule in words, the note with no line and another line; `clean-diff-clean` fails a reply with a line of the file the clean diff adds; and `reviewer-started` counts a call that names the plugin's reviewer as the agent to start, and no other;
 - the command starts the host with the flags above, and refuses what the table above says it refuses.
 
 The tests that start a scaffold are skipped on Windows. The scaffold of `ready-to-merge` needs `git` 2.28 or later.

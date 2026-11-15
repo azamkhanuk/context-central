@@ -121,7 +121,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | [Commands, skills and agents](docs/commands.md) | Every command of `context-central` with its flags, what `doctor` checks, the seven skills and the three agents |
 | [Working from a terminal](docs/terminal.md) | The launcher that runs the CLI outside a session, and what the checks have shown on Windows |
 | [What it does not do](docs/limits.md) | Every limit, with what is untested on Windows |
-| [The eval suite](docs/evals.md) | What its four cases measure with the plugin and without, how to run it, what a run costs, and what it cannot show |
+| [The eval suite](docs/evals.md) | What its five cases measure with the plugin and without, how to run it, what a run costs, and what it cannot show |
 
 [CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page. [CONTRIBUTING.md](CONTRIBUTING.md) says how to send a change, and [SECURITY.md](SECURITY.md) how to report a security fault in private.
 
