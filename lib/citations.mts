@@ -3,6 +3,7 @@ import { posix, win32 } from 'node:path'
 import { repoFolder, standardsFiles } from './estate.mts'
 import { onPath } from './machine.mts'
 import { folderAt } from './nodes.mts'
+import { plural } from './text.mts'
 import { asked, askedBytes } from './worktree.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
@@ -44,6 +45,7 @@ const WITH_LINES = /^([^:]*):(\d+)(?:-(\d+))?$/
 const NOT_IN_A_PATH = /[\s:\p{Cc}]/u
 const LEADS_OUT = /^\.\.(?:[\\/]|$)/
 const AN_OBJECT = /^([0-9a-f]+) (\w+) (\d+)$/
+const A_LINK_THAT_LEADS_NOWHERE = /^(?:symlink|dangling|loop|notdir) (\d+)$/
 const A_FILE = 'blob'
 const HEAD = 'HEAD'
 const NEWLINE = 0x0a
@@ -58,15 +60,25 @@ export function noteWarnings(estate: Estate, repo: Repo, env: Env): NoteWarnings
 function warningsOf(estate: Estate, repo: Repo, env: Env): NoteWarnings | null {
   const note = standardsFiles(estate, repo).find(file => file.note && file.state === 'file')
   const folder = repoFolder(estate, repo)
-  if (!note || !onPath('git', env) || !folderAt(folder)) return null
-  const { readAt, named, citations } = read(readFileSync(note.path, 'utf8'), repo)
+  const text = note && onPath('git', env) && folderAt(folder) ? textOf(note.path) : null
+  if (!note || text === null) return null
+  const { readAt, named, citations } = read(text, repo)
   const commits = [...new Set(named.map(({ id }) => id))]
   const held = heldBy(folder, [...new Set([...commits.map(asACommit), ...citations.flatMap(namesOf)])], env)
-  const behind = held && behindTheHead(folder, commits, held, env)
-  if (!held || !behind) return null
-  const lost = named.filter(({ id }, index) => !held.has(asACommit(id)) && named.findIndex(other => other.id === id) === index)
+  const ids = held && idsOf(commits, held)
+  const behind = ids && behindTheHead(folder, ids, env)
+  if (!held || !ids || !behind) return null
+  const lost = named.filter(({ id }, index) => !ids.has(id) && named.findIndex(other => other.id === id) === index)
   const moved = citations.filter(citation => citation.commit !== null && behind.has(citation.commit) && hasMoved(citation, citation.commit, held))
   return { rel: note.rel, said: [...commitWords(note.rel, repo, readAt, lost), ...movedWords(note.rel, repo, moved)] }
+}
+
+function textOf(path: string) {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return null
+  }
 }
 
 function read(text: string, repo: Repo) {
@@ -107,12 +119,12 @@ function citationsOf({ at, text }: Rule, readAt: string | null, repo: Repo): { o
 }
 
 function citedBy(span: string) {
-  const [, before, first, last] = WITH_LINES.exec(span) ?? []
+  const [, before, one, other] = WITH_LINES.exec(span) ?? []
   const written = before ?? span
   if (written === '' || NOT_IN_A_PATH.test(written) || posix.isAbsolute(written) || win32.isAbsolute(written)) return null
   if (LEADS_OUT.test(posix.normalize(written)) || LEADS_OUT.test(win32.normalize(written))) return null
-  const from = first === undefined ? null : Number(first)
-  return { path: posix.normalize(written), first: from, last: last === undefined ? from : Number(last) }
+  const lines = [one, other ?? one].flatMap(line => (line === undefined ? [] : [Number(line)]))
+  return { path: posix.normalize(written), first: lines.length > 0 ? Math.min(...lines) : null, last: lines.length > 0 ? Math.max(...lines) : null }
 }
 
 function countedFrom(path: string, repo: Repo) {
@@ -144,8 +156,11 @@ function heldBy(folder: string, names: string[], env: Env) {
   for (const name of names) {
     const end = printed.indexOf(NEWLINE, from)
     if (end === -1) return null
-    const [, id, type, size] = AN_OBJECT.exec(printed.toString('utf8', from, end)) ?? []
+    const answer = printed.toString('utf8', from, end)
+    const [, id, type, size] = AN_OBJECT.exec(answer) ?? []
+    const [, target] = A_LINK_THAT_LEADS_NOWHERE.exec(answer) ?? []
     from = end + 1
+    if (target !== undefined) from += Number(target) + 1
     if (type === undefined) continue
     held.set(name, { type, id, lines: type === A_FILE ? linesOf(printed.toString('utf8', from, from + Number(size))) : [] })
     from += Number(size) + 1
@@ -155,27 +170,32 @@ function heldBy(folder: string, names: string[], env: Env) {
 
 function batchOf(folder: string, names: string[], env: Env) {
   try {
-    const { status, stdout } = askedBytes(folder, ['cat-file', '--batch'], env, names.map(name => `${name}\n`).join(''))
-    return status === 0 ? stdout : null
+    const { status, stdout, error } = askedBytes(folder, ['cat-file', '--batch', '--follow-symlinks'], env, names.map(name => `${name}\n`).join(''))
+    return status === 0 && !error ? stdout : null
   } catch {
     return null
   }
 }
 
-function behindTheHead(folder: string, commits: string[], held: Map<string, Held>, env: Env) {
+// A branch or a tag named in hexadecimal answers before a commit of that id, so a commit counts as held only under an id that starts as it is written.
+function idsOf(commits: string[], held: Map<string, Held>) {
   const ids = new Map<string, string>()
   for (const commit of commits) {
     const id = held.get(asACommit(commit))?.id
-    if (id !== undefined) ids.set(commit, id)
+    if (id?.startsWith(commit)) ids.set(commit, id)
   }
+  return ids
+}
+
+function behindTheHead(folder: string, ids: Map<string, string>, env: Env) {
   const ahead = ids.size > 0 ? aheadOfTheHead(folder, [...new Set(ids.values())], env) : new Set<string>()
   return ahead && new Set([...ids].filter(([, id]) => !ahead.has(id)).map(([commit]) => commit))
 }
 
 function aheadOfTheHead(folder: string, ids: string[], env: Env) {
   try {
-    const { status, stdout } = asked(folder, ['rev-list', ...ids, '--not', HEAD], env)
-    return status === 0 ? new Set(stdout.split('\n')) : null
+    const { status, stdout, error } = asked(folder, ['rev-list', ...ids, '--not', HEAD], env)
+    return status === 0 && !error ? new Set(stdout.split('\n')) : null
   } catch {
     return null
   }
@@ -201,13 +221,13 @@ function commitWords(rel: string, repo: Repo, readAt: Named | null, lost: Named[
   if (!readAt) return [`${rel} names no commit on its opening lines for its citations to be read at; /context-central:standards ${repo.name} sets one`]
   if (lost.length === 0) return []
   const [{ id, line }] = lost
-  const which = lost.length === 1 ? `the commit \`${id}\` at line ${line}, which repo ${repo.name} does not hold, so the citations read at it were not compared` : `${lost.length} commits that repo ${repo.name} does not hold (first \`${id}\`, at line ${line}), so the citations read at them were not compared`
+  const which = lost.length === 1 ? `the commit \`${id}\` at line ${line}, which repo ${repo.name} does not hold, so the citations read at it were not compared` : `${plural(lost.length, 'commit')} that repo ${repo.name} does not hold (first \`${id}\`, at line ${line}), so the citations read at them were not compared`
   return [`${rel} names ${which}; /context-central:standards ${repo.name} refreshes the note`]
 }
 
 function movedWords(rel: string, repo: Repo, moved: Citation[]) {
   if (moved.length === 0) return []
   const [{ span, line }] = moved
-  const which = moved.length === 1 ? `1 citation that has moved since the commit it was read at (\`${span}\`, at line ${line})` : `${moved.length} citations that have moved since the commit they were read at (first \`${span}\`, at line ${line})`
-  return [`${rel} has ${which}; /context-central:standards ${repo.name} refreshes the note`]
+  const which = moved.length === 1 ? `has moved since the commit it was read at (\`${span}\`, at line ${line})` : `have moved since the commit they were read at (first \`${span}\`, at line ${line})`
+  return [`${rel} has ${plural(moved.length, 'citation')} that ${which}; /context-central:standards ${repo.name} refreshes the note`]
 }

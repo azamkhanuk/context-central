@@ -989,7 +989,7 @@ test('a standards note with a warning of each kind is counted once, and doctor r
   const result = doctor(made.main, env)
 
   assert.match(result.stdout, /^note standards: 1 standards note has a warning on its citations; context-central lint names it$/m)
-  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8').split('\n').filter(line => line === 'cat-file --batch').length, 1)
+  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8').split('\n').filter(line => line === 'cat-file --batch --follow-symlinks').length, 1)
 })
 
 const missing = (repos: Json[], estate = tree(acme({}, { repos: [...ACME_CONFIG.repos, ...repos] }))) => ({ estate, line: doctor(estate).stdout.split('\n').find(line => line.includes(' repos')) })

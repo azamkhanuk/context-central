@@ -501,8 +501,24 @@ test("implement and checkpoint name the one note an item's review is kept in, at
   assert.ok(lessons().includes('`work/<item>/notes/review.md`'))
 })
 
-test('checkpoint ends a rule learned from review with the line that shows it and the commit that line was read at', () => {
-  assert.ok(lessons().includes('`<file:line>` at `<short commit>`'))
+test("checkpoint ends a rule learned from review in the form lint reads as the rule's own commit, a line and then the commit it was read at", () => {
+  const form = '`<file:line>` at `<short commit>`'
+  const made = solo()
+  tree(made.base)
+  const read = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  writeFileSync(join(made.main, 'src', 'app.js'), 'export const limited = true\n')
+  git(made, made.main, 'commit', '-q', '-am', 'second')
+  const built = git(made, made.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  const note = (source: string) => `# solo\n\nRead at \`${read}\`.\n\n## Code\n\n- A module says what it limits. Source: review round 1 of the work item \`PROJ-12\`, 2026-01-15, ${source}.\n`
+  mkdirSync(join(made.main, '.context-central', 'standards'))
+  const printedFor = (source: string) => {
+    writeFileSync(join(made.main, '.context-central', 'standards', 'solo.md'), note(source))
+    return run(['lint'], { cwd: made.main, env: made.env }).stdout
+  }
+
+  assert.match(printedFor('`src/app.js:1`'), /^WARN standards: .* has 1 citation that has moved /)
+  assert.equal(printedFor(form.replace('<file:line>', 'src/app.js:1').replace('<short commit>', built)), 'ok\n')
+  assert.ok(lessons().includes(form))
 })
 
 test('design and implement name the start of the line lint prints for a standards note whose citation has moved', () => {

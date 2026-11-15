@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict'
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { pathToFileURL } from 'node:url'
-import { NEEDS_STAND_IN, SOLO_CONFIG, disposable, git, makeTree, run, solo, standIns, workTree } from './helpers.mts'
+import { NEEDS_STAND_IN, SOLO_CONFIG, disposable, git, makeTree, notOnWindows, run, solo, standIns, workTree } from './helpers.mts'
 import type { Checkout, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
 const NOTE = '.context-central/standards/solo.md'
 const OK = { code: 0, stdout: 'ok\n', stderr: '' }
+const BY_MODE = notOnWindows('a file on Windows is not closed to reading by its mode')
+const LINKS = notOnWindows('symlinks need a right most Windows accounts lack')
 const LIMIT = { 'src/limit.js': 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls > LIMIT\n}\n' }
 const ONE_MOVED = `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/limit.js:4\`, at line 7); /context-central:standards solo refreshes the note\n`
 
@@ -123,6 +125,46 @@ test('a span in backticks that is no path, a path the repo never held and a fold
   committed(one, { 'src/limit.js': 'export const limited = () => false\n' })
 
   assert.deepEqual(lint(one, one.main), OK)
+})
+
+test('a range written backwards is the same lines, and one that names a line the file never had has moved', () => {
+  const backwards = made(solo(LIMIT))
+  const pastTheEnd = made(solo(LIMIT))
+  noted(backwards, '## Code\n\n- A limit is compared in one function, as `src/limit.js:5-3`.\n')
+  noted(pastTheEnd, '## Code\n\n- A limit is compared in one function, as `src/limit.js:900-3`.\n')
+  const asRead = lint(backwards, backwards.main)
+
+  committed(backwards, { 'src/limit.js': 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls >= LIMIT\n}\n' })
+
+  assert.deepEqual(asRead, OK)
+  assert.equal(warned(backwards), `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/limit.js:5-3\`, at line 7); /context-central:standards solo refreshes the note\n`)
+  assert.equal(warned(pastTheEnd), `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/limit.js:900-3\`, at line 7); /context-central:standards solo refreshes the note\n`)
+})
+
+test('a cited file that is a link inside the repo is read through to the file it leads to, and a link that leads nowhere or out of the repo is passed over', LINKS, () => {
+  const one = made(solo(LIMIT))
+  symlinkSync('limit.js', join(one.main, 'src/link.js'))
+  symlinkSync('gone.js', join(one.main, 'src/dangling.js'))
+  symlinkSync(join('..', '..', 'outside.js'), join(one.main, 'src/out.js'))
+  committed(one, {})
+  noted(one, '## Code\n\n- A limit is never read from `src/dangling.js:1` or `src/out.js:1`, and is compared in one place, as `src/link.js:4`.\n- A limit is a constant, as `src/link.js:1`.\n')
+  const asRead = lint(one, one.main)
+
+  committed(one, { 'src/limit.js': 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls >= LIMIT\n}\n' })
+
+  assert.deepEqual(asRead, OK)
+  assert.equal(warned(one), `WARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/link.js:4\`, at line 7); /context-central:standards solo refreshes the note\n`)
+})
+
+test('a standards note that cannot be read earns the line any note that cannot be read earns, and nothing more is said of it', BY_MODE, () => {
+  const one = made(solo(LIMIT))
+  noted(one, '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n')
+  committed(one, { 'src/limit.js': 'export const limited = () => false\n' })
+
+  chmodSync(join(one.main, NOTE), 0o000)
+
+  assert.deepEqual(lint(one, one.main), { code: 1, stdout: 'ERROR read: standards/solo.md cannot be read (EACCES), so the listings pass over it\n', stderr: '' })
+  assert.match(run(['doctor'], { cwd: one.main, env: { ...one.env, HOME: one.base } }).stdout, /^FIX {2}lint: 1 error; run context-central lint\n(?:.*\n)*ok {3}standards$/m)
 })
 
 test('a path that leads out of the repo is never asked of git, so the citations beside it are still compared', () => {
@@ -320,7 +362,7 @@ const notHeld = (commit: string, line: number) => `WARN standards: ${NOTE} names
 
 test('a note that names no commit on its opening lines earns one warning that says so, its citations are not compared, and it fails only under --strict', () => {
   const one = made(solo(LIMIT))
-  put(one.main, NOTE, '# solo\n\nEach rule names its source.\n\n## Code\n\n- A limit is compared in one place, as `src/limit.js:4`. Read at `0123ABC`.\n')
+  put(one.main, NOTE, `# solo\n\nEach rule names its source. The lines are those of \`solo\` at \`${headOf(one).toUpperCase()}\`, a commit written in capitals.\n\n## Code\n\n- A limit is compared in one place, as \`src/limit.js:4\`.\n`)
 
   committed(one, { 'src/limit.js': AT_ITS_EDGE })
 
@@ -376,6 +418,16 @@ test("a repo whose name reads as a commit is not taken for the note's commit", (
 
   assert.equal(warned(filled), 'WARN standards: .context-central/standards/cafe123.md has 1 citation that has moved since the commit it was read at (`src/limit.js:4`, at line 7); /context-central:standards cafe123 refreshes the note\n')
   assert.equal(warned(unfilled), 'WARN standards: .context-central/standards/cafe123.md names no commit on its opening lines for its citations to be read at; /context-central:standards cafe123 sets one\n')
+})
+
+test('a tag named as a commit is written does not stand in for a commit the repo does not hold', () => {
+  const one = made(solo(LIMIT))
+  committed(one, { 'src/limit.js': 'export const limited = () => false\n' })
+  git(one, one.main, 'tag', '0123abc', 'HEAD~1')
+
+  noted(one, '## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n', '0123abc')
+
+  assert.equal(warned(one), notHeld('0123abc', 3))
 })
 
 test('a shallow clone that lacks the commit a note names says the repo does not hold it', () => {
@@ -480,6 +532,17 @@ test('a git that reads the files and then will not say what the head holds says 
   assert.deepEqual(lint({ env: { ...one.env, PATH: standIn } }, one.main), OK)
 })
 
+test('a git that cannot be started, and one whose answer is past the most the plugin takes, say nothing of a note that names no commit', NEEDS_STAND_IN, () => {
+  const one = made(solo(LIMIT))
+  put(one.main, NOTE, '# solo\n\n## Code\n\n- A limit is compared in one place, as `src/limit.js:4`.\n')
+  const notStarted = tree(standIns({ git: '#!/nonexistent/interpreter\n' }))
+  const tooLong = tree(standIns({ git: '#!/bin/sh\necho asked >> "$0.log"\nexec /usr/bin/head -c 268435457 /dev/zero\n' }))
+
+  assert.deepEqual(lint({ env: { ...one.env, PATH: notStarted } }, one.main), OK)
+  assert.deepEqual(lint({ env: { ...one.env, PATH: tooLong } }, one.main), OK)
+  assert.equal(readFileSync(join(tooLong, 'git.log'), 'utf8'), 'asked\n')
+})
+
 test('the largest note, a thousand citations of a thousand files, starts git twice', NEEDS_STAND_IN, () => {
   const files = Object.fromEntries(Array.from({ length: 1000 }, (_, at) => [`src/part-${at}.js`, `export const part = ${at}\n`]))
   const one = made(solo(files))
@@ -492,5 +555,5 @@ test('the largest note, a thousand citations of a thousand files, starts git twi
   const result = lint({ env: { ...one.env, PATH: counting } }, one.main)
 
   assert.equal(result.stdout, `WARN node: standards/solo.md is 49 KB (soft cap 20 KB)\nWARN standards: ${NOTE} has 1 citation that has moved since the commit it was read at (\`src/part-999.js:1\`, at line 1006); /context-central:standards solo refreshes the note\n`)
-  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8'), `cat-file --batch\nrev-list ${read} --not HEAD\n`)
+  assert.equal(readFileSync(join(counting, 'git.log'), 'utf8'), `cat-file --batch --follow-symlinks\nrev-list ${read} --not HEAD\n`)
 })
