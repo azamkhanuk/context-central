@@ -491,13 +491,18 @@ test('implement names the line where prints in a work tree', () => {
   assert.ok(skillText('implement').includes('`work tree:`'))
 })
 
-test("implement names the one note an item's review is kept in, at a place draft prints a path for", () => {
+test("implement and checkpoint name the one note an item's review is kept in, at a place draft prints a path for", () => {
   const made = soloWorkTree()
 
   const drafted = run(['draft', 'work/PROJ-12/notes/review.md'], { cwd: made.inside, env: made.env })
 
   assert.deepEqual(drafted, { code: 0, stdout: `${join(made.inside, '.context-central', 'work', 'PROJ-12', 'notes', 'review.md')}\n`, stderr: '' })
   assert.ok(step('implement', '5. Review').includes('`work/<item>/notes/review.md`'))
+  assert.ok(lessons().includes('`work/<item>/notes/review.md`'))
+})
+
+test('checkpoint ends a rule learned from review with the line that shows it and the commit that line was read at', () => {
+  assert.ok(lessons().includes('`<file:line>` at `<short commit>`'))
 })
 
 test("standards, design and implement take a repo's folder from the root standards gives as JSON", () => {
