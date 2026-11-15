@@ -59,7 +59,7 @@ const NODE_TEMPLATES: Record<string, (title: string, name: string) => string> = 
   edges: title =>
     `# ${title}\n\nStatus is \`verified\` (checked in the code) or \`inferred\` (read from names or documents).\n\n| From | To | Status |\n|---|---|---|\n`,
   standards: (title, name) =>
-    `# ${title}\n\nEach rule names its source: who said it and when, or the file that shows it. An example is a pointer to real code, as a path and a line. The lines are those of \`${name}\` at \`<commit>\`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n`,
+    `# ${title}\n\nEach rule names its source: who said it and when, the file that shows it, or the review it was learned from, with its work item and the commit its line was read at. An example is a pointer to real code, as a path and a line. The lines are those of \`${name}\` at \`<commit>\`, on <date>.\n\n## Design\n\n## Code\n\n## Tests\n\n## Review\n`,
 }
 
 export function nodeTemplate(kind: string, title: string, name = title) {
