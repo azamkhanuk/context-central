@@ -2,6 +2,14 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.19.1 - 2026-11-14
+
+The README gives the token count that Claude Code prints now. Nothing changes in what the commands, the hooks, the skills or the agents do.
+
+- **About 550 tokens, where the README said about 530.** That is what the plugin's own skills and agents add to a session by Claude Code's count: `claude plugin details context-central@azamkhanuk` printed 547 for 0.19.0 on 2026-11-14, with Claude Code 2.1.325. The count is the host's estimate, and no test holds it.
+
+For a map that already exists: nothing changes.
+
 ## 0.19.0 - 2026-11-14
 
 A build leaves proof. Each run of a repo's recorded checks is written down with the commit it ran on, and four readers say when that proof is not whole: `lint`, `doctor`, the live index and `work done`. They say so and stop nothing. With it come a rule that a claim marked `verified` names a source, three tries for a slice whose checks stay red, checkpoint's offer of a check, a repo's remote, and a fourth eval case.
