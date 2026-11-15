@@ -22,6 +22,7 @@ It is for people whose work runs across several repositories, or across many ses
 - **What is written stays written.** Long text is kept in full, and each short note names the full text behind it. Two sessions that write the map at the same moment cannot undo each other's lines: a command holds the map's lock while it writes, and one that cannot get it says so and writes nothing.
 - **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
 - **A build leaves proof.** Each run of a repo's recorded checks is written down with the commit it ran on. The index, `lint`, `doctor` and `work done` then say when that proof is older than the head of the branch, when a check is red there, or when none was run. They say so and stop nothing.
+- **Standards learn from review.** A build offers what its review rounds taught as lessons, and a checkpoint offers what a review of the pull request found later. A rule goes into a repo's standards note only on your yes, with where it came from, and `lint` says when a line a rule cites no longer reads as it did.
 - **It works in a git work tree.** One map serves every work tree of a checkout: a session in one finds it, runs the repo's checks in the work tree, and writes the map through the plugin's own commands, with nothing to copy.
 - **It stays quiet.** The hooks say nothing unless a map covers the folder and the match is confident.
 - **It is plain files.** The map is Markdown and stays readable without the plugin. There are no runtime dependencies, and the resolver makes no network call.
@@ -46,7 +47,7 @@ Two rules keep it honest:
 ## How it works for you
 
 1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map. Or start with the work: where there is no map yet, research, prep, design and implement offer to make a plain one on the spot, which git does not show.
-2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Skip it and the rest works as it did.
+2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Run it again later and it refreshes the note against the code as it now is. Skip it and the rest works as it did.
 3. **Start a session.** Claude already has the list of work in flight.
 4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. Claude is pointed at its state file and the notes behind it.
 5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, writes no code and names the step that comes next, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
@@ -55,7 +56,7 @@ Two rules keep it honest:
 ## What it runs
 
 - **Two hooks.** Claude Code starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once, and at a session's start it asks `git` whether the proof of each item in flight is whole, for two seconds at most.
-- **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores, and which commit a recorded check ran on. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
+- **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores, which commit a recorded check ran on, and whether a line a standards note cites still reads as it did. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
 - **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere.
 
 [What it runs, what it writes and how to remove it](docs/what-it-runs.md) has all of it: each program it starts, each place it writes outside the map, and how to take every trace away.
@@ -115,7 +116,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, how a session in a git work tree reads and writes the map, the budget of each tier, and evidence |
 | [Connections](docs/connections.md) | How a connection is recorded, references, presets, the three ways a connection is read, and a pinned account |
-| [Standards and checks](docs/standards.md) | A repo's standards note, the files and the checks recorded beside it, and what is done where none is recorded |
+| [Standards and checks](docs/standards.md) | A repo's standards note, the files and the checks recorded beside it, what is done where none is recorded, how a note learns from review, and the proof of a build |
 | [What the hooks put in context](docs/hooks.md) | What is added at session start and when a prompt is submitted, the routes in order, and when the hooks stay silent |
 | [Commands, skills and agents](docs/commands.md) | Every command of `context-central` with its flags, what `doctor` checks, the seven skills and the three agents |
 | [Working from a terminal](docs/terminal.md) | The launcher that runs the CLI outside a session, and what the checks have shown on Windows |
@@ -128,7 +129,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 - Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
-- It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source and that the proof of what was built is whole. They say what they find and hold nothing back.
+- It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source, that the proof of what was built is whole and that a line a standards note cites still reads as it did. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
 - It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
 

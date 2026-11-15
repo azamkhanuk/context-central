@@ -24,6 +24,15 @@ _Avoid_: edge cases, error paths, negative tests
 **Review round**: One run of the reviewer for each repo a build touches. The estate sets how many a build may have, three unless it says otherwise, and a build whose last round still brings a finding that needs a fix stops and asks.
 _Avoid_: iteration, loop, pass
 
+**Lesson**: What a review finding teaches a repo's standards note: a rule the note lacks, or a correction of one it has, worded, placed under its part and given its source. A build offers its lessons when the review rounds end and checkpoint offers the late ones, and one is written only on the person's yes.
+_Avoid_: learning, takeaway, insight
+
+**Late finding**: A finding on a work item's pull request that no review round of the build raised. Checkpoint offers it as a lesson, marked late with the round that passed it.
+_Avoid_: post-merge finding, missed finding
+
+**Review note**: The note in a work item that holds its build's review: each round with its findings, what was done with each and the written rule it rested on, and each lesson offered with how it was ruled. A yes given later is written from it, and a late finding is told by it.
+_Avoid_: ledger, review log, findings file
+
 **Closing answer**: What a skill says to the person when its run ends: one line that gives the outcome, then the groups that have a point, then one line saying where the detail is and, where there is one, the next step. A run that stops before its closing step gives none, and a list of questions put to the person is not one.
 _Avoid_:
 
@@ -48,8 +57,14 @@ _Avoid_:
 **Mark**: The word on a research claim that says how it is known: `verified`, read in a primary source, or `inferred`, reasoned from something else.
 _Avoid_:
 
-**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it or the person who said it, and the note names the commit its lines were read at. A repo's own instruction files are listed under `standards` on its entry and never copied into it. The plugin ships none and knows no language.
+**Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it, the person who said it or the review it was learned from, and the note names the commit its lines were read at. A repo's own instruction files are listed under `standards` on its entry and never copied into it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
+
+**Citation**: A `path:line` in a rule of a standards note: the rule's source or its pointer to real code. It has moved when that line no longer reads as it did at the commit the rule names, or at the note's where the rule names none, or when its file is gone.
+_Avoid_: reference, link, anchor
+
+**Refresh**: What the standards skill does to a standards note that exists: it reads each citation again, points one that moved at the line that shows its rule now, puts to the person each rule the code no longer shows, and sets the note's commit and date again.
+_Avoid_: sync, regenerate, rebuild
 
 **Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. A repo's are listed under `standards` on its entry, never copied into its standards note.
 _Avoid_: memory files, context files, agent instructions
