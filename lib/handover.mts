@@ -1,4 +1,4 @@
-import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix } from 'node:path'
 import { citedIn } from './citations.mts'
 import { draftsDir, mapFiles } from './drafts.mts'
@@ -68,7 +68,6 @@ const THE_HEAD = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---/
 const A_LINE_OF_THE_HEAD = /[^\n]*\n/g
 const RESTS_ON = /^- (?:Source|From):/
 const NOTHING = 'nothing was handed over'
-const NOT_THERE = ['ENOENT', 'ENOTDIR']
 
 export function handOver(estate: Estate, research: Research, asked: Asked): HandedOver {
   refuseFolder(estate, asked)
@@ -111,7 +110,7 @@ function placeOf(path: string): string {
   try {
     return realpathSync.native(path)
   } catch (error) {
-    if (!NOT_THERE.includes(codeOf(error)) || dirname(path) === path) throw error
+    if (codeOf(error) !== 'ENOENT' || dirname(path) === path) throw error
     return join(placeOf(dirname(path)), basename(path))
   }
 }
@@ -292,17 +291,19 @@ function restsOnlyOn(fact: Fact, left: Set<string>) {
 function write({ folder, written }: Asked, copies: Copy[]) {
   const wasThereAndEmpty = lstatSync(folder, { throwIfNoEntry: false }) !== undefined
   const made: string[] = []
+  let writing: Copy | null = null
   try {
-    for (const { to, from, text } of copies) {
-      const path = join(folder, ...to.split('/'))
+    for (const copy of copies) {
+      writing = copy
+      const path = join(folder, ...copy.to.split('/'))
       const firstFolderMade = mkdirSync(dirname(path), { recursive: true })
       if (firstFolderMade !== undefined) made.push(firstFolderMade)
-      if (text === null) copyFileSync(from, path, constants.COPYFILE_EXCL)
-      else writeFileSync(path, text, { flag: 'wx' })
+      writeFileSync(path, copy.text ?? readFileSync(copy.from), { flag: 'wx' })
     }
   } catch (error) {
     const ofThisRun = wasThereAndEmpty ? readdirSync(folder).map(name => join(folder, name)) : made.slice(0, 1)
     for (const path of ofThisRun) rmSync(path, { recursive: true, force: true })
+    if (writing !== null && codeOf(error) === 'EEXIST') throw new PluginError(`${NOTHING}: ${writing.rel} would be written as ${writing.to}, a name this disk holds as one with a file of the copy written before it`)
     throw new PluginError(`${written} could not be written (${codeOf(error)}), and nothing of the copy is left there`)
   }
 }

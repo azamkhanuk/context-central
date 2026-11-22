@@ -23,6 +23,14 @@ const ONE_NAME_UNDER_BOTH_CASES = (() => {
   rmSync(probe, { recursive: true, force: true })
   return one
 })()
+const ONE_NAME_FOR_TWO_SPELLINGS = (() => {
+  const probe = makeTree({ 'ß.md': '' })
+  const one = existsSync(join(probe, 'ss.md'))
+  rmSync(probe, { recursive: true, force: true })
+  return one
+})()
+const FOLDS_SPELLINGS = ONE_NAME_FOR_TWO_SPELLINGS ? {} : { skip: 'this disk tells ß and ss apart' }
+const TELLS_SPELLINGS_APART = ONE_NAME_FOR_TWO_SPELLINGS ? { skip: 'this disk holds ß and ss as one name' } : {}
 const BLIND_TO_CASE = ONE_NAME_UNDER_BOTH_CASES ? {} : { skip: 'this disk tells the cases of letters apart' }
 const TELLS_CASES_APART = ONE_NAME_UNDER_BOTH_CASES ? { skip: 'this disk holds one name under both letter cases' } : {}
 
@@ -365,7 +373,7 @@ test('a research just made, with no fact and no source, is handed over as it is'
 })
 
 test('a link shown in a fenced block or in a code span is left as it is written, a full address is kept in each form it is written in, and a fragment stays on a link that is kept', () => {
-  const shown = ['```', '[the gateway](../../concepts/gateway.md) and [the reading](reading.md)', '```', '', 'Written as `[the reading](reading.md)`, read at https://example.com/limits.md, [there](https://example.com/limits.md "The page"), <https://example.com/limits.md> and [by mail](mailto:shop@example.com), with [a place on this page](#facts).', '', '[page]: https://example.com/limits.md', '', `See [the first round](log.md#round-1-2026-01-14) and [the ticket](../../work/PROJ-12/sources/${TICKET}#the-ask).`, '']
+  const shown = ['```', '[the gateway](../../concepts/gateway.md) and [the reading](reading.md)', '```', '', 'Written as `[the reading](reading.md)`, read at https://example.com/limits.md, [there](https://example.com/limits.md "The page"), <https://example.com/limits.md> and [by mail](mailto:shop@example.com), with [a place on this page](#facts) and [nothing]().', '', '[page]: https://example.com/limits.md', '', `See [the first round](log.md#round-1-2026-01-14) and [the ticket](../../work/PROJ-12/sources/${TICKET}#the-ask).`, '']
   const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${shown.join('\n')}` })
   const out = elsewhere()
 
@@ -441,14 +449,17 @@ test('a hand-over changes nothing in the map', () => {
   assert.equal(readFileSync(join(root, 'work/PROJ-12/sources', TICKET), 'utf8'), THE_TICKET)
 })
 
-test("a folder that is a link to a folder inside the map, a path that leads through a link into the map, and a folder of the map reached by another spelling of the path to it are inside the map, and a link to an empty folder outside it is taken", LINKS, () => {
+test("a folder that is a link to a folder inside the map, a path that leads through a link into the map, a folder of the map reached by another spelling of the path to it, and the place a folder of the map leads to where it is itself a link are inside the map, and a link to an empty folder outside it is taken", LINKS, () => {
   const root = withResearch()
   const outside = tree(makeTree({}))
   mkdirSync(join(root, 'research/empty-in-map'))
   mkdirSync(join(outside, 'real'))
+  mkdirSync(join(outside, 'kept-elsewhere'))
   for (const [to, link] of [[join(root, 'research/empty-in-map'), 'link'], [join(root, 'research'), 'r'], [root, 'estate'], [join(outside, 'real'), 'to-real']]) symlinkSync(to, join(outside, link))
+  symlinkSync(join(outside, 'kept-elsewhere'), join(root, 'decisions'))
 
-  for (const folder of [join(outside, 'link'), join(outside, 'r', 'handed'), join(outside, 'estate', 'concepts', 'handed'), join(outside, 'estate', 'areas', 'handed')]) assert.deepEqual(handover(root, NAME, folder), inTheMap(folder), folder)
+  for (const folder of [join(outside, 'link'), join(outside, 'r', 'handed'), join(outside, 'estate', 'concepts', 'handed'), join(outside, 'estate', 'areas', 'handed'), join(outside, 'kept-elsewhere', 'handed')]) assert.deepEqual(handover(root, NAME, folder), inTheMap(folder), folder)
+  assert.deepEqual(readdirSync(join(outside, 'kept-elsewhere')), [])
   assert.deepEqual(readdirSync(join(root, 'research')).sort(), ['empty-in-map', 'gateway-limits'])
   assert.deepEqual(readdirSync(join(root, 'research/empty-in-map')), [])
   assert.ok(!existsSync(join(root, 'concepts/handed')) && !existsSync(join(root, 'areas')))
@@ -495,13 +506,13 @@ test('a link that leads nowhere is there already, so nothing is written through 
   assert.ok(!existsSync(join(base, 'not-there')))
 })
 
-test("a folder below one that cannot be searched, a folder that cannot be listed and a name too long for a folder are each refused in the plugin's own words, with what the system said in brackets", BY_MODE, () => {
+test("a folder below one that cannot be searched, a folder that cannot be listed, a name too long for a folder and a path that leads through a file are each refused in the plugin's own words, with what the system said in brackets", BY_MODE, () => {
   const root = withResearch()
-  const base = tree(makeTree({ 'closed/inner/keep.txt': 'mine\n' }))
+  const base = tree(makeTree({ 'closed/inner/keep.txt': 'mine\n', 'a-file': 'mine\n' }))
   mkdirSync(join(base, 'unlisted'))
   chmodSync(join(base, 'closed'), 0o000)
   chmodSync(join(base, 'unlisted'), 0o300)
-  const folders = [join(base, 'closed', 'inner', 'handed'), join(base, 'unlisted'), join(base, 'n'.repeat(300))]
+  const folders = [join(base, 'closed', 'inner', 'handed'), join(base, 'unlisted'), join(base, 'n'.repeat(300)), join(base, 'a-file', 'handed')]
 
   const results = folders.map(folder => handover(root, NAME, folder))
   chmodSync(join(base, 'closed'), 0o755)
@@ -511,6 +522,7 @@ test("a folder below one that cannot be searched, a folder that cannot be listed
     refused(`${folders[0]} cannot be reached (EACCES), so nothing was handed over`),
     refused(`${folders[1]} cannot be reached (EACCES), so nothing was handed over`),
     refused(`${folders[2]} cannot be reached (ENAMETOOLONG), so nothing was handed over`),
+    refused(`${folders[3]} cannot be reached (ENOTDIR), so nothing was handed over`),
   ])
   assert.deepEqual(readdirSync(join(base, 'unlisted')), [])
 })
@@ -557,7 +569,7 @@ test("the item's line is left out of the copy's head however it is spaced, and e
   for (const at of heads.keys()) assert.equal(copied(`${out}-${at}`)['index.md'], sheet(COPIED), heads[at])
 })
 
-test('a link that leads outside the research stops the hand-over in every form Markdown writes one: with a title, in angle brackets, as the definition of a reference, as a picture, and by a path from the root of the disk', () => {
+test('a link that leads outside the research stops the hand-over in every form Markdown writes one: with a title, in angle brackets, as the definition of a reference and as a picture', () => {
   const out = elsewhere()
   const stopped = (line: string) => handover(withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${line}\n` }), NAME, out)
   const outside = (target: string) => refused(`nothing was handed over: ${DIR}/brief.md:7 links ${target}, which is outside the research`)
@@ -569,6 +581,15 @@ test('a link that leads outside the research stops the hand-over in every form M
   assert.deepEqual(stopped('  [gw]: <../../concepts/gateway.md> "The gateway"'), outside('../../concepts/gateway.md'))
   assert.deepEqual(stopped('![a shot](../../work/PROJ-12/SPEC.md)'), outside('../../work/PROJ-12/SPEC.md'))
   assert.deepEqual(stopped('[x](../../CLAUDE.md)'), outside('../../CLAUDE.md'))
+  assert.ok(!existsSync(out))
+})
+
+test('a link by a path from the root of the disk leads outside the research, whatever lies there', notOnWindows('a path from the root of a disk opens with its letter and a colon there, which reads as an address'), () => {
+  const root = withResearch()
+  const out = elsewhere()
+  writeFileSync(join(root, DIR, 'brief.md'), `${BRIEF}\n[the hub](${root}/CLAUDE.md) and [gone](${root}/not-there.md)\n`)
+
+  assert.deepEqual(handover(root, NAME, out), refused(`nothing was handed over: ${DIR}/brief.md:7 links ${root}/CLAUDE.md, which is outside the research`))
   assert.ok(!existsSync(out))
 })
 
@@ -594,8 +615,9 @@ test("a link to a file that is copied leads to it in every form it is written in
     '[[research/gateway-limits/my notes]] and [mine](my%20notes.md)',
     '[[research/gateway-limits/log#round-1-2026-01-14]] and [[research/gateway-limits/log#round-1-2026-01-14|round one]]',
     '[the log](../gateway-limits/log.md) and ![the log](./log.md)',
+    `![the ticket](../../work/PROJ-12/sources/${TICKET}) and [[research/gateway-limits/notes (old)]]`,
   ]
-  const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${lines.join('\n\n')}\n`, 'work/PROJ-12/sources/02 pr 88.md': '# PR 88\n', [`${DIR}/my notes.md`]: '# Mine\n' })
+  const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${lines.join('\n\n')}\n`, 'work/PROJ-12/sources/02 pr 88.md': '# PR 88\n', [`${DIR}/my notes.md`]: '# Mine\n', [`${DIR}/notes (old).md`]: '# Old\n' })
   const out = elsewhere()
 
   const result = handover(root, NAME, out)
@@ -611,6 +633,7 @@ test("a link to a file that is copied leads to it in every form it is written in
     '[my notes](my%20notes.md) and [mine](my%20notes.md)',
     '[log](log.md#round-1-2026-01-14) and [round one](log.md#round-1-2026-01-14)',
     '[the log](log.md) and ![the log](./log.md)',
+    `![the ticket](sources/item-${TICKET}) and [notes (old)](notes%20%28old%29.md)`,
   ])
   assert.equal(files['sources/item-02 pr 88.md'], '# PR 88\n')
   assert.equal(files['my notes.md'], '# Mine\n')
@@ -644,4 +667,24 @@ test("a fact rests only on sources left out where it names one and nothing that 
   const out = elsewhere()
 
   assert.deepEqual(linesOf(handover(root, NAME, out, '--without', 'mail')), [`handed over research gateway-limits to ${out}: 1 file`, 'left out: 1 source of kind mail', 'F3 and F5 rest only on sources left out'])
+})
+
+const SPELT_TWO_WAYS = { 'work/PROJ-12/sources/a/ß.md': '# One\n', 'work/PROJ-12/sources/a-ss.md': '# Two\n', [`${DIR}/brief.md`]: `${BRIEF}\nSee [one](../../work/PROJ-12/sources/a/ß.md) and [two](../../work/PROJ-12/sources/a-ss.md).\n` }
+
+test('two files whose names the disk holds as one, though they differ by more than the case of their letters, stop the hand-over when the second would be written over the first: the line names it, and nothing of the copy is left', FOLDS_SPELLINGS, () => {
+  const base = tree(makeTree({ 'keep.txt': 'mine\n' }))
+
+  const result = handover(withResearch(SPELT_TWO_WAYS), NAME, join(base, 'p', 'handed'))
+
+  assert.deepEqual(result, refused('nothing was handed over: work/PROJ-12/sources/a/ß.md would be written as sources/item-a-ß.md, a name this disk holds as one with a file of the copy written before it'))
+  assert.deepEqual(readdirSync(base), ['keep.txt'])
+})
+
+test('on a disk that tells ß and ss apart, two files whose names differ by those alone are both copied', TELLS_SPELLINGS_APART, () => {
+  const out = elsewhere()
+
+  const result = handover(withResearch(SPELT_TWO_WAYS), NAME, out)
+
+  assert.equal(result.code, 0)
+  assert.deepEqual([copied(out)['sources/item-a-ß.md'], copied(out)['sources/item-a-ss.md']], ['# One\n', '# Two\n'])
 })
