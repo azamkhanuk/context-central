@@ -1,6 +1,6 @@
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, posix } from 'node:path'
-import { mapFiles } from './drafts.mts'
+import { copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, posix } from 'node:path'
+import { draftsDir, mapFiles } from './drafts.mts'
 import { PluginError } from './errors.mts'
 import { filesUnder, findWorkItem, parseLinks } from './nodes.mts'
 import { readResearch, relOf } from './research.mts'
@@ -45,6 +45,7 @@ const THE_HEAD = /^﻿?---\r?\n[\s\S]*?\r?\n---/
 const AN_ITEM_LINE = /^item:.*\r?\n/m
 const A_SOURCE_LINE = /^- Source:/
 const NOTHING = 'nothing was handed over'
+const NOT_THERE = ['ENOENT', 'ENOTDIR']
 
 export function handOver(estate: Estate, research: Research, asked: Asked): HandedOver {
   refuseFolder(estate, asked)
@@ -54,10 +55,50 @@ export function handOver(estate: Estate, research: Research, asked: Asked): Hand
 }
 
 function refuseFolder(estate: Estate, { folder, written }: Asked) {
-  const there = statSync(folder, { throwIfNoEntry: false })
-  if (there && (!there.isDirectory() || readdirSync(folder).length > 0)) throw new PluginError(`${written} is there already and is not an empty folder, so nothing was handed over`)
-  const inside = estate.layout === 'inner' ? holds(estate.mapDir, folder) : mapFiles(estate).folders.some(own => holds(join(estate.mapDir, own), folder))
+  const drafts = draftsDir(estate)
+  const ofTheMap = [...(estate.layout === 'inner' ? [estate.mapDir] : mapFiles(estate).folders.map(own => join(estate.mapDir, own))), ...(drafts ? [drafts] : [])]
+  const { taken, inside } = reached(written, () => {
+    const asTheDiskHoldsIt = holdsOneNameUnderBothCases(estate.mapDir) ? (path: string) => path.normalize('NFC').toLowerCase() : (path: string) => path
+    const place = asTheDiskHoldsIt(placeOf(folder))
+    return { taken: isTaken(folder), inside: ofTheMap.some(own => holds(asTheDiskHoldsIt(placeOf(own)), place)) }
+  })
+  if (taken) throw new PluginError(`${written} is there already and is not an empty folder, so nothing was handed over`)
   if (inside) throw new PluginError(`${written} is inside the map, so nothing was handed over: a hand-over is a folder outside it`)
+}
+
+function reached<Read>(written: string, read: () => Read): Read {
+  try {
+    return read()
+  } catch (error) {
+    throw new PluginError(`${written} cannot be reached (${codeOf(error)}), so nothing was handed over`)
+  }
+}
+
+function codeOf(error: unknown) {
+  return (error as NodeJS.ErrnoException).code ?? 'unknown'
+}
+
+function isTaken(folder: string) {
+  if (!lstatSync(folder, { throwIfNoEntry: false })) return false
+  const there = statSync(folder, { throwIfNoEntry: false })
+  return !there?.isDirectory() || readdirSync(folder).length > 0
+}
+
+function placeOf(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch (error) {
+    if (!NOT_THERE.includes(codeOf(error)) || dirname(path) === path) throw error
+    return join(placeOf(dirname(path)), basename(path))
+  }
+}
+
+function holdsOneNameUnderBothCases(folder: string): boolean {
+  const name = basename(folder)
+  const inTheOtherCase = join(dirname(folder), name === name.toLowerCase() ? name.toUpperCase() : name.toLowerCase())
+  if (inTheOtherCase === folder) return dirname(folder) !== folder && holdsOneNameUnderBothCases(dirname(folder))
+  const [here, there] = [folder, inTheOtherCase].map(path => statSync(path, { throwIfNoEntry: false, bigint: true }))
+  return here !== undefined && there !== undefined && here.ino === there.ino && here.dev === there.dev
 }
 
 function planned(estate: Estate, research: Research, { without, reading }: Asked): { copies: Copy[]; done: HandedOver } {

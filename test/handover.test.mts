@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, acme, disposable, makeTree, notOnWindows, run, solo } from './helpers.mts'
+import { ACME_FILES, acme, disposable, makeTree, notOnWindows, run, solo, workTree } from './helpers.mts'
 import type { TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -16,6 +16,15 @@ const QUOTA = '05-2026-01-14-mail-quota-full-text.md'
 const GONE = '(left out of this copy)'
 const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json], handover <name> <folder> [--without <kind>]... [--reading]'
 const BY_MODE = process.getuid?.() === 0 ? { skip: 'root writes a folder whatever its mode' } : notOnWindows('a folder on Windows is not closed to writing by its mode')
+const LINKS = notOnWindows('symlinks need a right most Windows accounts lack')
+const ONE_NAME_UNDER_BOTH_CASES = (() => {
+  const probe = makeTree({ 'a.md': '' })
+  const one = existsSync(join(probe, 'A.md'))
+  rmSync(probe, { recursive: true, force: true })
+  return one
+})()
+const BLIND_TO_CASE = ONE_NAME_UNDER_BOTH_CASES ? {} : { skip: 'this disk tells the cases of letters apart' }
+const TELLS_CASES_APART = ONE_NAME_UNDER_BOTH_CASES ? { skip: 'this disk holds one name under both letter cases' } : {}
 
 type Links = { item: string, reading: string, ticket: string, chat: string, mail: string, quota: string }
 
@@ -105,6 +114,8 @@ const withResearch = (more: TreeFiles = {}) => tree(acme(research(more)))
 const elsewhere = () => join(tree(makeTree({})), 'handed')
 const handover = (cwd: string, ...args: string[]) => run(['research', 'handover', ...args], { cwd })
 const refused = (line: string, code = 1) => ({ code, stdout: '', stderr: `context-central research: ${line}\n` })
+const inTheMap = (folder: string) => refused(`${folder} is inside the map, so nothing was handed over: a hand-over is a folder outside it`)
+const inAMapInACheckout = () => solo(Object.fromEntries(Object.entries(research({ [`${DIR}/index.md`]: sheet({ ...IN_THE_MAP, item: '', ticket: TICKET }) })).map(([path, content]) => [`.context-central/${path}`, content])))
 const linesOf = ({ stdout }: { stdout: string }) => stdout.trimEnd().split('\n').map(line => line.replace(/ \(\d[^)]*\)$/, ''))
 const copied = (folder: string) =>
   Object.fromEntries(
@@ -428,4 +439,78 @@ test('a hand-over changes nothing in the map', () => {
 
   assert.deepEqual(copied(join(root, 'research')), before)
   assert.equal(readFileSync(join(root, 'work/PROJ-12/sources', TICKET), 'utf8'), THE_TICKET)
+})
+
+test("a folder that is a link to a folder inside the map, a path that leads through a link into the map, and a folder of the map reached by another spelling of the path to it are inside the map, and a link to an empty folder outside it is taken", LINKS, () => {
+  const root = withResearch()
+  const outside = tree(makeTree({}))
+  mkdirSync(join(root, 'research/empty-in-map'))
+  mkdirSync(join(outside, 'real'))
+  for (const [to, link] of [[join(root, 'research/empty-in-map'), 'link'], [join(root, 'research'), 'r'], [root, 'estate'], [join(outside, 'real'), 'to-real']]) symlinkSync(to, join(outside, link))
+
+  for (const folder of [join(outside, 'link'), join(outside, 'r', 'handed'), join(outside, 'estate', 'concepts', 'handed'), join(outside, 'estate', 'areas', 'handed')]) assert.deepEqual(handover(root, NAME, folder), inTheMap(folder), folder)
+  assert.deepEqual(readdirSync(join(root, 'research')).sort(), ['empty-in-map', 'gateway-limits'])
+  assert.deepEqual(readdirSync(join(root, 'research/empty-in-map')), [])
+  assert.ok(!existsSync(join(root, 'concepts/handed')) && !existsSync(join(root, 'areas')))
+  assert.deepEqual(linesOf(handover(root, NAME, join(outside, 'to-real'))), [`handed over research gateway-limits to ${join(outside, 'to-real')}: 8 files`])
+  assert.deepEqual(copied(join(outside, 'real')), kept(COPIED))
+})
+
+test('on a disk that holds one name under both letter cases, a folder inside the map that is spelt in another case is inside the map, and so is one inside a folder of the map that is not there yet', BLIND_TO_CASE, () => {
+  const root = withResearch()
+
+  for (const folder of ['Research/gateway-limits/sources/x', 'CONCEPTS/handed', 'Areas/handed', join(root.toUpperCase(), 'work', 'handed')]) assert.deepEqual(handover(root, NAME, folder), inTheMap(folder), folder)
+  assert.deepEqual(readdirSync(join(root, DIR, 'sources')).sort(), [CHAT, MAIL, QUOTA])
+  assert.ok(!existsSync(join(root, 'concepts/handed')) && !existsSync(join(root, 'areas')) && !existsSync(join(root, 'work/handed')))
+})
+
+test('on a disk that tells the cases of letters apart, a folder whose name differs from a folder of the map only in the case of its letters is outside the map', TELLS_CASES_APART, () => {
+  const root = withResearch()
+
+  assert.deepEqual(linesOf(handover(root, NAME, 'Concepts/handed')), ['handed over research gateway-limits to Concepts/handed: 8 files'])
+  assert.deepEqual(copied(join(root, 'Concepts/handed')), kept(COPIED))
+})
+
+test("in a git work tree the folder the session's drafts lie in is the map too, so nothing is handed over into it for take to carry into the map, and a folder beside it is taken", () => {
+  const one = inAMapInACheckout()
+  tree(one.base)
+  const linked = workTree(one, join(one.base, 'tree'))
+  const from = (...args: string[]) => run(['research', 'handover', NAME, ...args], { cwd: linked, env: one.env })
+
+  assert.deepEqual(from('.context-central/handed'), inTheMap('.context-central/handed'))
+  assert.deepEqual(from(join(one.main, '.context-central', 'handed')), inTheMap(join(one.main, '.context-central', 'handed')))
+  assert.ok(!existsSync(join(linked, '.context-central')) && !existsSync(join(one.main, '.context-central', 'handed')))
+  assert.deepEqual(linesOf(from('handed')), ['handed over research gateway-limits to handed: 7 files'])
+  assert.ok(existsSync(join(linked, 'handed', 'index.md')))
+})
+
+test('a link that leads nowhere is there already, so nothing is written through it and it is still there afterwards', LINKS, () => {
+  const root = withResearch()
+  const base = tree(makeTree({}))
+  const dangling = join(base, 'dangling')
+  symlinkSync(join(base, 'not-there'), dangling)
+
+  assert.deepEqual(handover(root, NAME, dangling), refused(`${dangling} is there already and is not an empty folder, so nothing was handed over`))
+  assert.ok(lstatSync(dangling).isSymbolicLink())
+  assert.ok(!existsSync(join(base, 'not-there')))
+})
+
+test("a folder below one that cannot be searched, a folder that cannot be listed and a name too long for a folder are each refused in the plugin's own words, with what the system said in brackets", BY_MODE, () => {
+  const root = withResearch()
+  const base = tree(makeTree({ 'closed/inner/keep.txt': 'mine\n' }))
+  mkdirSync(join(base, 'unlisted'))
+  chmodSync(join(base, 'closed'), 0o000)
+  chmodSync(join(base, 'unlisted'), 0o300)
+  const folders = [join(base, 'closed', 'inner', 'handed'), join(base, 'unlisted'), join(base, 'n'.repeat(300))]
+
+  const results = folders.map(folder => handover(root, NAME, folder))
+  chmodSync(join(base, 'closed'), 0o755)
+  chmodSync(join(base, 'unlisted'), 0o755)
+
+  assert.deepEqual(results, [
+    refused(`${folders[0]} cannot be reached (EACCES), so nothing was handed over`),
+    refused(`${folders[1]} cannot be reached (EACCES), so nothing was handed over`),
+    refused(`${folders[2]} cannot be reached (ENAMETOOLONG), so nothing was handed over`),
+  ])
+  assert.deepEqual(readdirSync(join(base, 'unlisted')), [])
 })
