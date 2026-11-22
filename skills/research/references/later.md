@@ -4,7 +4,7 @@ A research is added to, asked and checked, and never rewritten. Where the first 
 
 ## Which kind of run it is
 
-What follows the name says which kind of run it is. Take the first of these that fits, and name it in the one line that says the way in:
+What follows the name says which kind of run it is. Take the first of these that fits:
 
 1. **A run that was cut off**, whatever follows the name, where the `rounds:` line that `context-central research open` printed ends `not stopped`.
 2. **Nothing follows the name.** Give where the research stands, from the lines the command printed, and say in plain words what can be asked of it. That is the whole reply: nothing more is run, and nothing is written.
@@ -14,13 +14,15 @@ What follows the name says which kind of run it is. Take the first of these that
 6. **Does it still hold**, where the person asks whether the research, or a fact of it, still holds or is still right, or asks for the whole of it to be checked again. An ask to look again at a subject, and not at the research or one of its facts, is a question, below.
 7. **A question**, for anything else. A part of it that the facts answer is answered from them, as a plain question is. A part they do not answer is a new question for the research, and a round is run for it.
 
+Then say the one line on the way in, for every kind and before another command is run: that the run is on this research, which kind it is, and, where the day to check again by has passed, that it has.
+
 ## Where it stands
 
 `context-central research open <name>` printed where the research stands, a line each. Three of its lines steer the run:
 
 - `item:` names the work item the research belongs to, where it has one. That item's state file is read and written as step 4 of the skill has it.
 - `rounds:` ends `not stopped` where the last run was cut off before it wrote the round that stops it.
-- `check again by:` ends `passed <N> days ago` where the day on the sheet has gone by. Say so in the one line that says the way in, whatever kind the run is. A round that gathers, and the check of whether it still holds, write the day anew.
+- `check again by:` ends `passed <N> days ago` where the day on the sheet has gone by. Say so twice, whatever kind the run is: in the one line that says the way in, and in the first line of the reply the run ends on, after what that line answers. A round that gathers, and the check of whether it still holds, write the day anew.
 
 Then, but for a bare name and for a hand-over with no folder named, run `context-central resolve <name> --absolute`, which lists the fact sheet, its pages, the brief, the log, the reading and the set-aside list. Run `context-central draft` on each file of the research before it is read or written, and use the path it prints, never the one `resolve` printed: read the sheet, its pages and the brief so. Where the research has an item, run `context-central resolve <item> --absolute` as well: it gives the places of the item's spec and design, which the choice of the next step reads.
 
