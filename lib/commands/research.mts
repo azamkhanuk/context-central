@@ -73,10 +73,22 @@ function create(estate: Estate, name: string, { title, item: asked }: { title?: 
     const item = asked === undefined ? null : findWorkItem(estate, asked)
     if (asked !== undefined && !item) throw new PluginError(`no work item "${asked}"`)
     const reading = readingTemplate === undefined ? undefined : templateAt(estate, readingTemplate)
-    makeFolder(estate.mapDir, `${dirRel}/sources`)
-    for (const [file, text] of Object.entries(researchTemplates({ name, title: title ?? name, item: item?.id ?? null, reading }))) writeWhole(join(estate.mapDir, dirRel, file), text)
+    written(dirRel, () => {
+      makeFolder(estate.mapDir, `${dirRel}/sources`)
+      for (const [file, text] of Object.entries(researchTemplates({ name, title: title ?? name, item: item?.id ?? null, reading }))) writeWhole(join(estate.mapDir, dirRel, file), text)
+    })
   })
   return dirRel
+}
+
+function written(dirRel: string, write: () => void) {
+  try {
+    write()
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    if (error instanceof PluginError || !code) throw error
+    throw new PluginError(`${dirRel} could not be made (${code})`)
+  }
 }
 
 function templateAt({ estateRoot }: Estate, rel: string) {

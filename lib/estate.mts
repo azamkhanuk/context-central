@@ -294,6 +294,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   const keyPatterns = patterns(tracker.keyPatterns ?? [], 'tracker.keyPatterns', fail)
   const repos = list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail))
   const workDir = text(raw.workDir ?? 'work', 'workDir', fail)
+  const deepDirs = strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail)
   return {
     ...raw,
     title: text(raw.title ?? raw.name, 'title', fail),
@@ -302,8 +303,8 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     notNodes: strings(raw.notNodes ?? [], 'notNodes', fail).map(entry => entry.replace(/\/+$/, '')),
     leftAlone: strings(raw.leftAlone ?? [], 'leftAlone', fail),
     workDir,
-    researchDir: researchFolder(raw.researchDir ?? 'research', workDir, fail),
-    deepDirs: strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail),
+    researchDir: researchFolder(raw.researchDir ?? 'research', workDir, deepDirs, fail),
+    deepDirs,
     deepPatterns: strings(raw.deepPatterns ?? ['*-full-text.md'], 'deepPatterns', fail),
     legacyHooks: strings(raw.legacyHooks ?? [], 'legacyHooks', fail),
     repos,
@@ -316,11 +317,16 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   }
 }
 
-function researchFolder(value: unknown, workDir: string, fail: Fail) {
+function researchFolder(value: unknown, workDir: string, deepDirs: string[], fail: Fail) {
   const written = text(value, 'researchDir', fail)
   const dir = written.replace(/\/+$/, '')
-  if (/^([/\\]|[A-Za-z]:)/.test(written) || dir.includes('\\') || dir.split('/').some(part => part === '' || part === '.' || part === '..')) fail(`"researchDir" is "${written}"; it names a folder counted from the map's folder, with forward slashes and no ".."`)
-  if (dir === workDir.replace(/\/+$/, '') || dir === 'log') fail(`"researchDir" is "${written}"; research's folder is not the work folder or the log`)
+  const parts = dir.split('/')
+  const lower = dir.toLowerCase()
+  const deep = deepDirs.find(kept => parts.some(part => part.toLowerCase() === kept.toLowerCase()))
+  if (/^([/\\]|[A-Za-z]:)/.test(written) || dir.includes('\\') || parts.some(part => part === '' || part === '.' || part === '..')) fail(`"researchDir" is "${written}"; it names a folder counted from the map's folder, with forward slashes and no ".."`)
+  if (parts.some(part => part.startsWith('.') || part === 'node_modules')) fail(`"researchDir" is "${written}"; the map never lists a folder whose name opens with a dot, nor node_modules`)
+  if ([workDir.replace(/\/+$/, '').toLowerCase(), 'log'].some(kept => lower === kept || lower.startsWith(`${kept}/`))) fail(`"researchDir" is "${written}"; research's folder is not the work folder or the log, nor a folder inside one of them`)
+  if (deep !== undefined) fail(`"researchDir" is "${written}"; the map keeps a folder named ${deep} for the deep tier, so nothing under it is read as a note`)
   return dir
 }
 

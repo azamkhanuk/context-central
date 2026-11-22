@@ -90,6 +90,8 @@ function brokenRule(estate: Estate, kind: string, parts: string[]) {
   if (unlisted !== undefined) return `"${unlisted}" is a folder the map never lists`
   if (parts.length > 1 && kind === 'decisions') return 'a decision takes no folder'
   if (parts.length > 1 && kind === 'standards') return 'a standards note takes no folder'
+  const { researchDir } = estate.config
+  if (`${[kind, ...parts.slice(0, -1)].join('/')}/`.startsWith(`${researchDir}/`)) return `${researchDir} is kept for researches, which research new makes`
   const deep = parts.slice(0, -1).find(part => estate.config.deepDirs.includes(part))
   return deep === undefined ? null : `"${deep}" is kept for the deep tier`
 }

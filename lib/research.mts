@@ -77,7 +77,7 @@ const LINKS_ITS_OWN = "a research links its own files, a full address and its it
 
 export function researchTaken({ estateRoot, mapDir, config }: Estate): string | null {
   const folder = join(mapDir, config.researchDir)
-  if (statSync(folder, { throwIfNoEntry: false })?.isFile()) return 'is a file, not a folder'
+  if (isAFile(folder)) return 'is a file, not a folder'
   if (existsSync(join(folder, '.git'))) return 'holds a .git of its own'
   const repo = config.repos.find(candidate => {
     const root = resolve(estateRoot, candidate.path)
@@ -227,6 +227,14 @@ function linksOut(estate: Estate, research: Research) {
             .map(link => ({ rel: file.rel, line: index + 1, target: link.target })),
     )
   })
+}
+
+function isAFile(path: string) {
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isFile() ?? false
+  } catch {
+    return false
+  }
 }
 
 function linesOf(path: string) {

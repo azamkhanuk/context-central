@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { acme, checkout, disposable, git, hook, makeTree, notOnWindows, run, solo, workTree } from './helpers.mts'
@@ -126,6 +126,8 @@ const FULL_LOG = `# How the gateway limits a shop: the log
 - **F3** \`verified\` The gateway retries a failed call twice.
   - Source: https://example.com/pr/88
 `
+
+const BY_MODE = process.getuid?.() === 0 ? { skip: 'root reads a folder whatever its mode' } : notOnWindows('a folder on Windows is not closed to reading by its mode')
 
 const research = (cwd: string, ...args: string[]) => run(['research', ...args], { cwd })
 const open = (cwd: string, ...args: string[]) => run(['research', 'open', ...args], { cwd, env: { TZ: 'UTC' } })
@@ -286,7 +288,7 @@ test('a folder for researches that is not text is refused when the settings are 
 })
 
 test('a folder for researches that is absolute, holds two dots or a backslash, or would leave the map is refused when the settings are read', () => {
-  for (const odd of ['/tmp/research', 'C:/research', '../research', 'notes/../../research', 'notes\\research', './research', '/']) {
+  for (const odd of ['/tmp/research', 'C:/research', '../research', 'notes/../../research', 'notes\\research', './research', '/', 'notes//research']) {
     const result = settingsRefused({ researchDir: odd })
 
     assert.equal(result.code, 1, odd)
@@ -294,12 +296,36 @@ test('a folder for researches that is absolute, holds two dots or a backslash, o
   }
 })
 
-test('the work folder and the log are not taken as the folder for researches', () => {
-  for (const [odd, settings] of [['work', {}], ['log', {}], ['items/', { workDir: 'items' }]] as const) {
+test('the work folder and the log are not taken as the folder for researches, whatever the case of their letters, and nor is a folder inside either', () => {
+  const kept: [string, { [key: string]: Json }][] = [['work', {}], ['log', {}], ['Work', {}], ['LOG/', {}], ['work/research', {}], ['Work/Research', {}], ['log/research', {}], ['items/', { workDir: 'items' }], ['Items/found', { workDir: 'items/' }]]
+
+  for (const [odd, settings] of kept) {
     const result = settingsRefused({ ...settings, researchDir: odd })
 
     assert.equal(result.code, 1, odd)
-    assert.ok(result.stderr.endsWith(`estate.json: "researchDir" is "${odd}"; research's folder is not the work folder or the log\n`), odd)
+    assert.ok(result.stderr.endsWith(`estate.json: "researchDir" is "${odd}"; research's folder is not the work folder or the log, nor a folder inside one of them\n`), odd)
+  }
+  assert.equal(run(['config', '--get', 'researchDir'], { cwd: tree(acme({}, { researchDir: 'workshop/logbook' })) }).stdout, 'workshop/logbook\n')
+})
+
+test('a folder of the deep tier is not taken as the folder for researches, nor one below it, since nothing under it is read as a note', () => {
+  const deep: [string, string, { [key: string]: Json }][] = [['sources', 'sources', {}], ['Sources', 'sources', {}], ['research/sources', 'sources', {}], ['notes/sources/research', 'sources', {}], ['raw/research', 'raw', { deepDirs: ['sources', 'raw'] }]]
+
+  for (const [odd, folder, settings] of deep) {
+    const result = settingsRefused({ ...settings, researchDir: odd })
+
+    assert.equal(result.code, 1, odd)
+    assert.ok(result.stderr.endsWith(`estate.json: "researchDir" is "${odd}"; the map keeps a folder named ${folder} for the deep tier, so nothing under it is read as a note\n`), odd)
+  }
+  assert.equal(run(['config', '--get', 'researchDir'], { cwd: tree(acme({}, { researchDir: 'raw/research' })) }).stdout, 'raw/research\n')
+})
+
+test('a folder the map never lists is not taken as the folder for researches: one whose name opens with a dot, or node_modules, or one below either', () => {
+  for (const odd of ['.research', 'notes/.hidden', 'notes/.hidden/research', 'node_modules', 'notes/node_modules/research']) {
+    const result = settingsRefused({ researchDir: odd })
+
+    assert.equal(result.code, 1, odd)
+    assert.ok(result.stderr.endsWith(`estate.json: "researchDir" is "${odd}"; the map never lists a folder whose name opens with a dot, nor node_modules\n`), odd)
   }
 })
 
@@ -891,4 +917,41 @@ test('a title that holds a line break is wrong usage, so no line of it is writte
   assert.equal(existsSync(join(root, 'research')), false)
   assert.equal(research(root, 'new', NAME, '--title', 'Limits: what a shop gets, and why').code, 0)
   assert.ok(read(root, 'research', NAME, 'index.md').startsWith('---\nresearch: gateway-limits\ntitle: Limits: what a shop gets, and why\n---\n'))
+})
+
+test("a note is not started inside research's folder where that folder lies below a kind of note, and one beside it still is", () => {
+  const root = tree(acme({}, { researchDir: 'docs/research' }))
+  const refused = { code: 2, stdout: '', stderr: 'context-central note: docs/research is kept for researches, which research new makes: expected --new <kind>/<name>, where the kind is one of: repos, areas, concepts, edges, decisions, docs, standards\n' }
+
+  assert.deepEqual(run(['note', '--new', 'docs/research/loose'], { cwd: root }), refused)
+  assert.deepEqual(run(['note', '--new', 'docs/research/gateway-limits/extra'], { cwd: root }), refused)
+  assert.equal(existsSync(join(root, 'docs')), false)
+  assert.deepEqual(run(['note', '--new', 'docs/researcher/loose'], { cwd: root }), { code: 0, stdout: 'docs/researcher/loose.md\n', stderr: '' })
+  assert.deepEqual(run(['note', '--new', 'docs/research'], { cwd: root }), { code: 0, stdout: 'docs/research.md\n', stderr: '' })
+})
+
+test("where research's folder cannot be reached, lint names it as it names any entry it cannot read, and graph, resolve, draft and research say what they say of a map with no research", BY_MODE, () => {
+  const below = tree(acme({ 'notes/research/alpha/index.md': SHEET.replace('gateway-limits', 'alpha') }, { researchDir: 'notes/research' }))
+  const itself = tree(acme({ 'research/alpha/index.md': SHEET.replace('gateway-limits', 'alpha') }))
+  const closed: [string, string, string][] = [[below, 'notes', 'notes/research'], [itself, 'research', 'research']]
+
+  for (const [root, folder, researchDir] of closed) {
+    chmodSync(join(root, folder), 0o000)
+    const said = {
+      lint: run(['lint'], { cwd: root }),
+      graph: run(['graph'], { cwd: root }),
+      resolve: run(['resolve', 'PROJ-12'], { cwd: root }),
+      draft: run(['draft', 'concepts/gateway.md'], { cwd: root }),
+      open: open(root, 'alpha'),
+      made: research(root, 'new', 'beta'),
+    }
+    chmodSync(join(root, folder), 0o755)
+
+    assert.deepEqual(said.lint, { code: 1, stdout: `ERROR read: ${researchDir} cannot be read (EACCES), so the listings pass over it\n`, stderr: '' }, researchDir)
+    assert.deepEqual(said.graph, { code: 0, stdout: '7 nodes, 5 links\nORPHAN repos/web.md\nUNREFERENCED work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md\n', stderr: '' }, researchDir)
+    assert.equal(said.resolve.stdout.split('\n')[0], 'Context for work item PROJ-12:', researchDir)
+    assert.deepEqual(said.draft, { code: 0, stdout: `${join(root, 'concepts', 'gateway.md')}\n`, stderr: '' }, researchDir)
+    assert.deepEqual(said.open, { code: 1, stdout: '', stderr: 'context-central research: no research "alpha" in this map. It holds none.\n' }, researchDir)
+    assert.deepEqual(said.made, { code: 1, stdout: '', stderr: `context-central research: ${researchDir}/beta could not be made (EACCES)\n` }, researchDir)
+  }
 })
