@@ -48,7 +48,7 @@ Then, where there are any, a line for each of these:
 
 The first round is wide, and each round after it goes after what the round before left open. In a round:
 
-1. **Sweep.** In the first round, sweep every connection the brief covers that is searched by `server` or by `command`, and every tool of the session it covers, as below. In a later round, sweep only where an open lead calls for a search.
+1. **Sweep.** In the first round, sweep every connection the brief covers that is searched by `server` or by `command`, and every tool of the session it covers, as below. All of them are swept in that round, however many there are: the cap on agents says how many run at one time, never how many sweeps a round has. In a later round, sweep only where an open lead calls for a search.
 2. **Take each lead.** A lead is read in full, the way step 2 of the skill reads its kind, or it is set aside with its reason on the set-aside list. None is dropped, and nothing is drawn from a lead's line in a search result alone. A line the person moved under `## Bring in` is read, and nothing under `## Set aside` is used.
 3. **Read** the code, the saved sources and the pages the questions need.
 4. **Write the round** into the folder before the next one starts: the new facts on the fact sheet, with each source in its list, and the round's entry at the end of the log, then `context-central take`. The first round also writes the sheet's questions, as the brief has them, and the last its day to check again by.
