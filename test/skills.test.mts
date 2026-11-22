@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { REPO, SOLO_STATE, acme, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
+import { ACME_FILES, REPO, SOLO_STATE, acme, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
 import type { Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
 const AGENTS = ['reader', 'fetcher', 'reviewer']
-const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take', 'proof']
+const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take', 'proof', 'research']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
   'disallowed-tools', 'model', 'effort', 'context', 'agent', 'background', 'hooks', 'paths', 'shell', 'metadata', 'license', 'compatibility',
@@ -33,13 +33,14 @@ const FLAGS: Record<string, string[]> = {
   wrapper: ['write'],
   budget: ['json'],
   slice: ['toc', 'heading', 'lines', 'grep', 'context', 'max-bytes'],
-  fetch: ['item', 'repo', 'connection', 'check'],
+  fetch: ['item', 'research', 'repo', 'connection', 'check'],
   connections: ['json', 'presets', 'ticket', 'pr', 'item'],
   evidence: ['item', 'as'],
   standards: ['json'],
   draft: [],
   take: ['over'],
   proof: ['check', 'exit'],
+  research: ['title', 'item', 'json'],
 }
 const STATE_PARTS = ['Where it stands', 'Done', 'Next', 'Blocked', 'Standing traps', 'Where the detail lives']
 const STANDARDS_PARTS = ['Design', 'Code', 'Tests', 'Review']
@@ -48,11 +49,16 @@ const tree = disposable()
 
 type Draft = { config: { [key: string]: Json } }
 
-const skillText = (name: string) => readFileSync(join(REPO, 'skills', name, 'SKILL.md'), 'utf8')
+const skillFile = (name: string) => readFileSync(join(REPO, 'skills', name, 'SKILL.md'), 'utf8')
+const referenceNames = (name: string) => (existsSync(join(REPO, 'skills', name, 'references')) ? readdirSync(join(REPO, 'skills', name, 'references')).sort().map(file => `references/${file}`) : [])
+const referenceText = (name: string, file: string) => readFileSync(join(REPO, 'skills', name, file), 'utf8')
+const skillText = (name: string) => [skillFile(name), ...referenceNames(name).map(file => referenceText(name, file))].join('\n')
 const agentText = (name: string) => readFileSync(join(REPO, 'agents', `${name}.md`), 'utf8')
-const step = (name: string, heading: string) => skillText(name).split(/^## /m).find(part => part.startsWith(`${heading}\n`)) ?? ''
+const partOf = (text: string, heading: string) => text.split(/^## /m).find(part => part.startsWith(`${heading}\n`)) ?? ''
+const step = (name: string, heading: string) => partOf(skillFile(name), heading)
 const lessons = () => step('checkpoint', '5. Lessons that outlive the item')
-const everyFile = () => [...SKILLS.map(name => [`skills/${name}`, skillText(name)]), ...AGENTS.map(name => [`agents/${name}`, agentText(name)])]
+const everyHead = () => [...SKILLS.map(name => [`skills/${name}`, skillFile(name)]), ...AGENTS.map(name => [`agents/${name}`, agentText(name)])]
+const everyFile = () => [...everyHead(), ...SKILLS.flatMap(name => referenceNames(name).map(file => [`skills/${name}/${file}`, referenceText(name, file)]))]
 
 function frontmatter(text: string) {
   const block = /^---\n([\s\S]*?)\n---\n/.exec(text)
@@ -60,7 +66,7 @@ function frontmatter(text: string) {
   return Object.fromEntries(block[1].split('\n').map(line => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()]))
 }
 
-const skill = (name: string) => frontmatter(skillText(name))
+const skill = (name: string) => frontmatter(skillFile(name))
 const agent = (name: string) => frontmatter(agentText(name))
 
 test('every skill is named after its folder and says what it does', () => {
@@ -87,8 +93,8 @@ test('no skill sets a model or an effort level', () => {
   }
 })
 
-test('every skill runs the plugin without a permission prompt', () => {
-  for (const name of SKILLS) assert.equal(skill(name)['allowed-tools'], 'Bash(context-central *)', name)
+test('every skill runs the plugin without a permission prompt, and one with reference files reads its own folder without one', () => {
+  for (const name of SKILLS) assert.equal(skill(name)['allowed-tools'], referenceNames(name).length > 0 ? 'Bash(context-central *) Read(/${CLAUDE_SKILL_DIR}/**)' : 'Bash(context-central *)', name)
 })
 
 test('the skills that take an argument say which', () => {
@@ -100,12 +106,34 @@ test('the skills that take an argument say which', () => {
 })
 
 test('every skill is under 120 lines', () => {
-  for (const name of SKILLS) assert.ok(skillText(name).split('\n').length < 120, name)
+  for (const name of SKILLS) assert.ok(skillFile(name).split('\n').length < 120, name)
 })
 
 test('only documented frontmatter fields are used', () => {
   for (const name of SKILLS) assert.deepEqual(Object.keys(skill(name)).filter(field => !SKILL_FIELDS.includes(field)), [], name)
   for (const name of AGENTS) assert.deepEqual(Object.keys(agent(name)).filter(field => !AGENT_FIELDS.includes(field)), [], name)
+})
+
+test('every reference file a skill names is in its folder, and its folder holds none that it does not name', () => {
+  for (const name of SKILLS) {
+    const named = [...new Set([...skillText(name).matchAll(/`(references\/[a-z0-9-]+\.md)`/g)].map(([, file]) => file))].sort()
+
+    assert.deepEqual(named, referenceNames(name), name)
+  }
+})
+
+test('a skill with reference files gives the command that prints one where its read is refused, and that command prints each of them whole', () => {
+  const withReferences = SKILLS.filter(name => referenceNames(name).length > 0)
+
+  assert.ok(withReferences.includes('research'))
+  for (const name of withReferences) {
+    assert.ok(skillFile(name).includes("`context-central slice <the file's full path> --lines 1-400`"), name)
+    for (const file of referenceNames(name)) {
+      const { stdout } = run(['slice', join(REPO, 'skills', name, file), '--lines', '1-400'])
+
+      assert.equal(stdout.slice(stdout.indexOf('\n') + 1), referenceText(name, file), file)
+    }
+  }
 })
 
 test('every plugin command a skill or agent mentions is a real command', () => {
@@ -161,7 +189,7 @@ test('every flag a skill or agent passes to a plugin command is one that command
 })
 
 test('frontmatter values are plain YAML scalars, so the whole block parses', () => {
-  for (const [file, text] of everyFile()) {
+  for (const [file, text] of everyHead()) {
     for (const [field, value] of Object.entries(frontmatter(text))) {
       assert.doesNotMatch(value, /: | #|^[\[{>|*&!%@`'"]/, `${file}: ${field}`)
     }
@@ -169,7 +197,7 @@ test('frontmatter values are plain YAML scalars, so the whole block parses', () 
 })
 
 test('every description fits the 1,536 characters the skill listing keeps', () => {
-  for (const [file, text] of everyFile()) assert.ok(frontmatter(text).description.length < 1536, file)
+  for (const [file, text] of everyHead()) assert.ok(frontmatter(text).description.length < 1536, file)
 })
 
 test('a user-only skill is only ever suggested to the person as a slash command', () => {
@@ -571,6 +599,87 @@ test('onboard names every key of a connection that the plugin reads', () => {
 
   assert.ok(read.length >= 8)
   assert.deepEqual(read.filter(key => !named.has(key)), [])
+})
+
+test('research makes its folder with research new, whose answer gives the place of the fact sheet, and names the refusal of a name that is taken', () => {
+  const root = tree(acme())
+
+  const made = run(['research', 'new', 'gateway-limits', '--title', 'How the gateway limits a shop', '--json'], { cwd: root })
+  const again = run(['research', 'new', 'gateway-limits'], { cwd: root })
+
+  assert.deepEqual(JSON.parse(made.stdout) as unknown, { sheet: 'research/gateway-limits/index.md', git: null })
+  assert.equal(again.stderr, 'context-central research: research/gateway-limits is there already\n')
+  for (const named of ['`context-central research new <name> --title "<title>" --json`', '`sheet`', '`is there already`']) assert.ok(step('research', '1. Place the question').includes(named), named)
+})
+
+test('research goes on where resolve finds nothing in the map for the question, which it tells by the words that answer opens with', () => {
+  const root = tree(acme())
+
+  assert.equal(run(['resolve', 'supplier rate card overage', '--absolute'], { cwd: root }).stdout, 'No confident match for "supplier rate card overage".\n')
+  assert.ok(step('research', '1. Place the question').includes('`No confident match`'))
+})
+
+test('research takes the next numbers of a fact and of a source, the last round and the day from the lines research open prints', () => {
+  const root = tree(acme())
+  run(['research', 'new', 'gateway-limits'], { cwd: root })
+
+  const printed = run(['research', 'open', 'gateway-limits'], { cwd: root }).stdout.split('\n')
+
+  assert.deepEqual(printed.filter(line => /^(facts|sources|rounds|dates):/.test(line)), [
+    'facts: none; the next is F1',
+    'sources: none saved; the next is 01',
+    'rounds: none',
+    'dates: today is 2026-01-15, 30 days on is 2026-02-14, 7 days on is 2026-01-22',
+  ])
+  assert.ok(printed.some(line => line.startsWith('sheet: ')))
+  for (const label of ['`sources:`', '`dates:`']) assert.ok(step('research', '2. Gather from primary sources').includes(label), label)
+  for (const label of ['`facts:`', '`rounds:`', '`dates:`', '`sheet:`']) assert.ok(referenceText('research', 'references/folder.md').includes(label), label)
+})
+
+const fencedUnder = (text: string, heading: string) => (/^````\n([\s\S]*?)^````$/m.exec(text.slice(text.indexOf(`\n## ${heading}\n`))) ?? [])[1] ?? ''
+
+test("a research written as the skill's layout shows it is one the plugin reads whole: research open counts its facts and its rounds, and lint and graph say nothing of it", () => {
+  const layout = referenceText('research', 'references/folder.md')
+  const sheet = fencedUnder(layout, 'The fact sheet')
+  const log = fencedUnder(layout, 'The log')
+  const saved = [...new Set([...`${sheet}${log}`.matchAll(/\]\((sources\/[^)]+)\)/g)].map(([, file]) => file))]
+  const state = `${ACME_FILES['work/PROJ-12/STATE.md']}\n## Where the detail lives\n\n- Research: [the fact sheet](../../research/gateway-limits/index.md).\n`
+  const root = tree(acme({ 'work/PROJ-12/STATE.md': state }))
+  run(['research', 'new', 'gateway-limits', '--item', 'PROJ-12'], { cwd: root })
+  const written = (file: string) => readFileSync(join(root, 'research/gateway-limits', file), 'utf8')
+  writeFileSync(join(root, 'research/gateway-limits/index.md'), `${written('index.md').split('## Questions\n')[0]}${sheet}`)
+  writeFileSync(join(root, 'research/gateway-limits/log.md'), `${written('log.md')}\n${log}`)
+  for (const file of saved) writeFileSync(join(root, 'research/gateway-limits', file), '# A source, in full\n')
+
+  const opened = run(['research', 'open', 'gateway-limits'], { cwd: root }).stdout.split('\n')
+  const linted = run(['lint'], { cwd: root }).stdout
+  const graphed = run(['graph'], { cwd: root }).stdout
+
+  assert.ok(sheet.startsWith('## Questions\n') && log.startsWith('## Round 3, 2026-11-22\n'))
+  assert.equal(saved.length, 3)
+  assert.deepEqual(opened.slice(2, 6), [
+    'facts: 4 stand, 1 superseded; the next is F11',
+    'sources: 3 saved; the next is 05',
+    'rounds: 3, the last on 2026-11-22, stopped: a round added no fact and no lead',
+    'check again by: 2026-11-29, 318 days off',
+  ])
+  assert.equal(linted, 'ok\n')
+  assert.deepEqual(graphed.split('\n').filter(line => line.includes('research/')), [])
+})
+
+test('what lint and graph print of a research names its folder, which is how research tells the lines that are its own to mend, and a sheet nothing links is the line the skill names', () => {
+  const twice = '- **F1** `verified` The gateway retries three times.\n  - Source: https://example.com/retries\n- **F1** `verified` The gateway waits a second between tries.\n  - Source: https://example.com/retries\n'
+  const root = tree(acme())
+  run(['research', 'new', 'gateway-limits'], { cwd: root })
+  const sheet = join(root, 'research/gateway-limits/index.md')
+  writeFileSync(sheet, readFileSync(sheet, 'utf8').replace('## Facts\n', `## Facts\n\n${twice}`))
+
+  const linted = run(['lint'], { cwd: root }).stdout.split('\n')
+  const graphed = run(['graph'], { cwd: root }).stdout.split('\n')
+
+  assert.deepEqual(linted.filter(line => line.includes('research/gateway-limits')), ['WARN research: research/gateway-limits uses F1 twice (index.md:23 and index.md:25); a number is used once across the sheet and the log'])
+  assert.deepEqual(graphed.filter(line => line.includes('research/gateway-limits')), ['ORPHAN research/gateway-limits/index.md'])
+  for (const named of ['`context-central lint`', '`context-central graph`', '`ORPHAN`']) assert.ok(step('research', "4. Write the research's folder").includes(named), named)
 })
 
 test('each of the four steps runs the skill a repo names for it, at the place the line standards prints is read', () => {
