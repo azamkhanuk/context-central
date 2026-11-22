@@ -8,7 +8,7 @@ import type { Checkout } from './helpers.mts'
 const tree = disposable()
 
 const MAP = '.context-central'
-const NODE_FOLDERS = 'repos, areas, concepts, edges, decisions, docs, standards, log, work'
+const MAP_FOLDERS = 'repos, areas, concepts, edges, decisions, docs, standards, log, work, research'
 
 function estate() {
   const made = solo()
@@ -87,7 +87,7 @@ test('draft refuses a path that is no file of the map, and then drafts none of t
     const result = draft(made, made.inside, SOLO_STATE, odd)
 
     assert.equal(result.code, 2, odd)
-    assert.equal(result.stderr, `context-central draft: ${odd} is not a file of the map: expected estate.json, glossary.md or a path under one of: ${NODE_FOLDERS}\n`, odd)
+    assert.equal(result.stderr, `context-central draft: ${odd} is not a file of the map: expected estate.json, glossary.md or a path under one of: ${MAP_FOLDERS}\n`, odd)
     assert.equal(result.stdout, '', odd)
     assert.equal(existsSync(join(made.inside, MAP)), false, odd)
   }
@@ -404,7 +404,7 @@ test('the work folder is a place for drafts where the settings keep it out of th
   const inside = workTree(made, join(made.main, '.claude', 'worktrees', 'limit'))
 
   assert.equal(draft(made, inside, 'items/PROJ-12/STATE.md').stdout, `${join(inside, MAP, 'items', 'PROJ-12', 'STATE.md')}\n`)
-  assert.equal(draft(made, inside, 'concepts/gateway.md').stderr, 'context-central draft: concepts/gateway.md is not a file of the map: expected estate.json, glossary.md or a path under one of: repos, items\n')
+  assert.equal(draft(made, inside, 'concepts/gateway.md').stderr, 'context-central draft: concepts/gateway.md is not a file of the map: expected estate.json, glossary.md or a path under one of: repos, items, research\n')
 })
 
 test("a draft that was not edited is brought up to date when the map's file has changed, so it can be read", () => {

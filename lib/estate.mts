@@ -73,6 +73,7 @@ export interface Settings {
   notNodes: string[]
   leftAlone: string[]
   workDir: string
+  researchDir: string
   deepDirs: string[]
   deepPatterns: string[]
   legacyHooks: string[]
@@ -84,6 +85,7 @@ export interface Settings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: string
+  readingTemplate?: string
 }
 
 type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown; steps?: unknown }
@@ -97,6 +99,7 @@ interface WrittenSettings {
   notNodes?: unknown
   leftAlone?: unknown
   workDir?: unknown
+  researchDir?: unknown
   deepDirs?: unknown
   deepPatterns?: unknown
   legacyHooks?: unknown
@@ -109,6 +112,7 @@ interface WrittenSettings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: unknown
+  readingTemplate?: unknown
 }
 
 export interface StandardsFile {
@@ -286,6 +290,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   const tracker = raw.connections === undefined ? (raw.tracker ?? {}) : {}
   const keyPatterns = patterns(tracker.keyPatterns ?? [], 'tracker.keyPatterns', fail)
   const repos = list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail))
+  const workDir = text(raw.workDir ?? 'work', 'workDir', fail)
   return {
     ...raw,
     title: text(raw.title ?? raw.name, 'title', fail),
@@ -293,7 +298,8 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     nodeDirs: strings(raw.nodeDirs ?? DEFAULT_NODE_DIRS, 'nodeDirs', fail),
     notNodes: strings(raw.notNodes ?? [], 'notNodes', fail).map(entry => entry.replace(/\/+$/, '')),
     leftAlone: strings(raw.leftAlone ?? [], 'leftAlone', fail),
-    workDir: text(raw.workDir ?? 'work', 'workDir', fail),
+    workDir,
+    researchDir: researchFolder(raw.researchDir ?? 'research', workDir, fail),
     deepDirs: strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail),
     deepPatterns: strings(raw.deepPatterns ?? ['*-full-text.md'], 'deepPatterns', fail),
     legacyHooks: strings(raw.legacyHooks ?? [], 'legacyHooks', fail),
@@ -303,7 +309,16 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     evidence: evidence(raw.evidence, fail),
     budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) },
     glossary: raw.glossary === undefined ? undefined : pathsInEstate([text(raw.glossary, 'glossary', fail)], 'glossary', fail)[0],
+    readingTemplate: raw.readingTemplate === undefined ? undefined : pathsInEstate([text(raw.readingTemplate, 'readingTemplate', fail)], 'readingTemplate', fail)[0],
   }
+}
+
+function researchFolder(value: unknown, workDir: string, fail: Fail) {
+  const written = text(value, 'researchDir', fail)
+  const dir = written.replace(/\/+$/, '')
+  if (/^([/\\]|[A-Za-z]:)/.test(written) || dir.includes('\\') || dir.split('/').some(part => part === '' || part === '.' || part === '..')) fail(`"researchDir" is "${written}"; it names a folder counted from the map's folder, with forward slashes and no ".."`)
+  if (dir === workDir.replace(/\/+$/, '') || dir === 'log') fail(`"researchDir" is "${written}"; research's folder is not the work folder or the log`)
+  return dir
 }
 
 function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {

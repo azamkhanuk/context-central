@@ -6,6 +6,7 @@ import { CONFIG_FILE, validateConfig } from './estate.mts'
 import { glossaryPath, glossaryRepo } from './glossary.mts'
 import { copyWhole, locked } from './lock.mts'
 import { makeFolder } from './nodes.mts'
+import { researchTaken } from './research.mts'
 import { withoutBom } from './text.mts'
 import { holds, trackedUnder } from './worktree.mts'
 import type { Env } from './cli.mts'
@@ -53,8 +54,9 @@ export function inMap(estate: Estate, dir: string | null, given: string) {
 }
 
 export function mapFiles(estate: Estate) {
-  const { nodeDirs, workDir } = estate.config
-  return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir].map(dir => dir.replace(/\/+$/, '')))] }
+  const { nodeDirs, workDir, researchDir } = estate.config
+  const research = researchTaken(estate) ? [] : [researchDir]
+  return { files: [CONFIG_FILE, ...ownGlossary(estate)], folders: [...new Set([...nodeDirs, workDir, ...research].map(dir => dir.replace(/\/+$/, '')))] }
 }
 
 export function drafted(estate: Estate, drafts: Drafts | null, rel: string, from: string) {

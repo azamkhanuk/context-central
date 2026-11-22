@@ -136,6 +136,13 @@ export function listFiles(estate: Estate) {
     .map(rel => describe(estate, rel))
 }
 
+export function filesUnder(estate: Estate, dirRel: string) {
+  if (!isFolder(estate, dirRel)) return []
+  return walk(estate, dirRel)
+    .filter(rel => !leftOut(estate.config, rel))
+    .map(rel => describe(estate, rel))
+}
+
 export function leftOut(config: Settings, rel: string) {
   return underNotNodes(config, rel) || (posix.dirname(rel) === config.workDir && NOT_ITEMS.includes(posix.basename(rel).toLowerCase()))
 }

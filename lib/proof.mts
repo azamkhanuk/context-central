@@ -1,6 +1,7 @@
 import { arch, platform } from 'node:os'
 import { join, relative, resolve, sep } from 'node:path'
 import { isObject } from './checks.mts'
+import { mapFiles } from './drafts.mts'
 import { PluginError } from './errors.mts'
 import { repoFolder } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
@@ -208,8 +209,8 @@ function headOf(folder: string, env: Env) {
 }
 
 function mapsOwnFiles(estate: Estate, folder: string) {
-  const { layout, mapDir, configPath, config, workTree } = estate
-  const own = layout === 'inner' ? [mapDir] : [...[...config.nodeDirs, config.workDir, LAUNCHER_FILE, CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE].map(rel => join(mapDir, rel)), configPath, glossaryPath(estate)]
+  const { layout, mapDir, configPath, workTree } = estate
+  const own = layout === 'inner' ? [mapDir] : [...[...mapFiles(estate).folders, LAUNCHER_FILE, CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE].map(rel => join(mapDir, rel)), configPath, glossaryPath(estate)]
   return [...own, hubPath(estate)]
     .map(path => (workTree ? inTree(workTree, path) : path))
     .filter(path => holds(folder, path) && relative(folder, path) !== '')

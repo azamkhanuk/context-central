@@ -62,7 +62,8 @@ function underDay(text: string, day: string, entry: string) {
 }
 
 function create(estate: Estate, target: string, title: string | undefined, io: Io) {
-  const kinds = estate.config.nodeDirs.filter(dir => dir !== estate.config.workDir && dir !== 'log')
+  const { nodeDirs, workDir, researchDir } = estate.config
+  const kinds = nodeDirs.filter(dir => dir !== workDir && dir !== 'log' && dir.replace(/\/+$/, '') !== researchDir)
   const expected = `expected --new <kind>/<name>, where the kind is one of: ${kinds.join(', ')}`
   const [kind, ...parts] = target.replace(/\.md$/, '').split('/')
   const name = parts.at(-1)
