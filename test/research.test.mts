@@ -847,3 +847,19 @@ test('a research named in digits alone answers to its name, and a number that na
   assert.equal(run(['resolve', '124'], { cwd: root }).stdout, 'No confident match for "124".\n')
   assert.deepEqual(hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '123' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } }), { code: 0, stdout: '', stderr: '' })
 })
+
+test("in the root layout the folders of the researches are the map's own and nothing else under research's folder is, so code a repository keeps there still counts as a change", () => {
+  const one = made(checkout({ ...ROOT_MAP, 'estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.', checks: ['./check.sh'] }] }, 'research/model.py': 'x = 1\n', 'work/PROJ-12/STATE.md': '---\nitem: PROJ-12\nstatus: active\n---\n# PROJ-12\n' }))
+  const dirty = () => read(one.main, 'work/PROJ-12/proof.jsonl').trimEnd().split('\n').map(line => (JSON.parse(line) as { dirty: unknown }).dirty)
+  const prove = () => inGit(one, one.main, 'proof', 'PROJ-12', '--check', './check.sh', '--exit', '0')
+
+  inGit(one, one.main, 'research', 'new', NAME)
+  prove()
+  writeFileSync(join(one.main, 'research', 'model.py'), 'x = 2\n')
+  prove()
+  git(one, one.main, 'checkout', '-q', '--', 'research/model.py')
+  writeFileSync(join(one.main, 'research', 'scratch.txt'), 'kept beside the researches\n')
+  prove()
+
+  assert.deepEqual(dirty(), [false, true, true])
+})
