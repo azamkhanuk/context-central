@@ -99,12 +99,18 @@ test('how a connection is searched is in the JSON alone: the lines connections p
   )
 })
 
-test('on a map made before connections a tracker with no way of its own is searched by name alone, and so is one whose command is words and no map of actions', () => {
-  const plain = estate({ tracker: { type: 'jira', keyPatterns: ['PROJ-\\d+'] } })
-  const inWords = estate({ tracker: { type: 'desk', keyPatterns: ['DESK-\\d+'], commands: 'by hand' } })
+const recorded = (root: string) => (JSON.parse(connections(root, '--json').stdout) as { name: string, search: unknown, unasked?: boolean }[]).filter(one => !one.unasked).map(({ name, search }) => [name, search])
+const olderTracker = (more: { [key: string]: Json }) => estate({ tracker: { type: 'desk', keyPatterns: ['DESK-\\d+'], ...more } })
 
-  assert.deepEqual(searched(plain), [['jira', { by: 'name' }]])
-  assert.deepEqual(searched(inWords), [['desk', { by: 'name' }]])
+test('on a map made before connections a tracker with no way of its own is searched by name alone, and so is one whose command is words and no map of actions', () => {
+  assert.deepEqual(recorded(olderTracker({})), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: 'by hand' })), [['desk', { by: 'name' }]])
+})
+
+test('on such a map a search command that is no list of words is passed over, since nothing has refused it there, and one that is such a list is the way the tracker is searched', () => {
+  assert.deepEqual(recorded(olderTracker({ commands: { search: [7, null] } })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', ''] } })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', 'find'] } })), [['desk', { by: 'command' }]])
 })
 
 test('with no connection the JSON is an empty list', () => {

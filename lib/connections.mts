@@ -207,7 +207,7 @@ export function reachOf(connection: Connection, env: Env): Reach {
 export function searchOf({ entry: { researchSkill, commands, server } }: Connection): Search {
   const words: unknown = commands?.search
   if (typeof researchSkill === 'string' && researchSkill) return { by: 'skill', skill: researchSkill }
-  if (Array.isArray(words) && words.length > 0) return { by: 'command' }
+  if (Array.isArray(words) && words.length > 0 && words.every(word => typeof word === 'string' && word !== '')) return { by: 'command' }
   return server ? { by: 'server', server } : { by: 'name' }
 }
 
