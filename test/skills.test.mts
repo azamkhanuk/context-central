@@ -636,7 +636,7 @@ test('research goes on where resolve finds nothing in the map for the question, 
   assert.ok(step('research', '1. Place the question').includes('`No confident match`'))
 })
 
-test('research takes the next numbers of a fact and of a source, the last round and the day from the lines research open prints', () => {
+test('research opens each round with research open, and takes the last round, the next numbers of a fact and of a source and the day from the lines it prints', () => {
   const root = tree(acme())
   run(['research', 'new', 'gateway-limits'], { cwd: root })
 
@@ -651,6 +651,7 @@ test('research takes the next numbers of a fact and of a source, the last round 
   assert.ok(printed.some(line => line.startsWith('sheet: ')))
   for (const label of ['`sources:`', '`dates:`']) assert.ok(step('research', '2. Gather from primary sources').includes(label), label)
   for (const label of ['`facts:`', '`rounds:`', '`dates:`', '`sheet:`']) assert.ok(referenceText('research', 'references/folder.md').includes(label), label)
+  for (const label of ['`context-central research open <name>`', '`rounds:`', '`none`', '`facts:`', '`sources:`', '`dates:`']) assert.ok(partOf(referenceText('research', 'references/run.md'), 'Rounds').includes(label), label)
 })
 
 const fencedUnder = (text: string, heading: string) => (/^````\n([\s\S]*?)^````$/m.exec(text.slice(text.indexOf(`\n## ${heading}\n`))) ?? [])[1] ?? ''

@@ -61,7 +61,7 @@ One research is one folder of the map, made by `context-central research new`, a
 **A fact** is a list item at no indent: `- **F<n>** `, its mark in backticks, then one sentence that says one thing.
 
 - It says the thing itself, and never that a source says it: `Export files are kept for seven days`, with a `Source` line for each source that says so, and not `The thread says that files are kept for a week`. Who said a thing, and where, is what its `Source` lines are for. The one fact that is about a source is what a source says against what holds, as below.
-- Its number is the next one: the `facts:` line of `research open` gives it, and each fact written after it takes one more.
+- Its number is the next one: the `facts:` line of `research open` gives it when the round is opened, and each fact written after it takes one more.
 - The first mark, `verified`, is earned only where the source itself was read in this run, by the session or by an agent that was handed the source and gives the lines it read: the code at a commit, the saved text of a ticket or a thread, the page at its address. A search result, a digest, a summary, a recollection and a note of the map are leads and not sources: read what they point at, or mark the fact `inferred`.
 - Under a fact marked `verified` there is a `- Source:` line for every source that says it, and under one marked `inferred` one `- From:` line, with the facts it was reasoned from, by number, and anything else.
 - Two sources that say one thing are one fact with a `Source` line for each, never two facts, however differently they word it: a thread that says a week, a record that says seven days and the code that sets 7 say one thing. The same holds where the question names the sources: what they say is not a fact for each of them.
@@ -92,7 +92,7 @@ It is written before anything is gathered, and `references/run.md` has how.
 
 ## The log
 
-`log.md` gets one entry for each round, added at its end and never changed afterwards. A round's number is one more than the `rounds:` line of `research open` gives, and 1 where that line says `none`. Its day is the one the `dates:` line gives.
+`log.md` gets one entry for each round, added at its end when that round's reading is done, before the next round is opened, and never changed afterwards. Two rounds are never written in one go. A round's number is one more than the `rounds:` line of `research open` gives when the round is opened, and 1 where that line says `none`. Its day is the one the `dates:` line gives.
 
 ````
 ## Round 3, 2026-11-22
