@@ -1,4 +1,5 @@
 import { readFileSync, statSync } from 'node:fs'
+import { posix } from 'node:path'
 import { noteWarnings } from './citations.mts'
 import { standardsFiles } from './estate.mts'
 import { glossaryPath } from './glossary.mts'
@@ -6,14 +7,16 @@ import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
 import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, savedSourceNames, strayFiles } from './nodes.mts'
 import { saidOf, unproven } from './proof.mts'
-import { formatBytes, plural } from './text.mts'
+import { LOG_FILE, layoutFindings, listResearches } from './research.mts'
+import { fenced, formatBytes, plural, unquoted } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
 import type { Node, StrayFile, WorkItem } from './nodes.mts'
+import type { Research } from './research.mts'
 
 export type Level = 'ERROR' | 'WARN'
 
-export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read' | 'proof' | 'mark'
+export type Check = 'hub' | 'glossary' | 'state' | 'entry' | 'node' | 'evidence' | 'standards' | 'index' | 'read' | 'proof' | 'mark' | 'research'
 
 export interface Finding {
   level: Level
@@ -22,28 +25,27 @@ export interface Finding {
   message: string
 }
 
-type Fence = { run: string, depth: number }
-
 const DATED = /(?<![\w/-])\d{4}-\d{2}-\d{2}(?![\d-]|\.\w)|\b\d{1,2} (?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/
 const DATED_ALLOWED = 3
 const VERIFIED = '`verified`'
 const INFERRED = '`inferred`'
-const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
-const INDENT_AND_QUOTE_MARKS = /^[ \t>]*/
-const QUOTE_MARK = /> ?/g
 const TAB_IS = '    '
 const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)\s]+\)|\[\[[^\]]+\]\]/]
 
 export function lintEstate(estate: Estate, env: Env): Finding[] {
   const items = listWorkItems(estate)
   const itemsInFlight = items.filter(inFlight)
+  const nodes = listNodes(estate)
+  const researches = listResearches(estate)
+  const logs = new Set(researches.map(research => `${research.dirRel}/${LOG_FILE}`))
   return [
     ...hubFindings(estate, env),
     ...glossaryFindings(estate),
     ...items.flatMap(item => stateFindings(estate, item)),
     ...itemsInFlight.flatMap(item => entryFindings(estate, item)),
-    ...listNodes(estate).flatMap(node => nodeFindings(estate, node)),
-    ...markFindings(estate),
+    ...once([...nodes, ...researches.flatMap(research => research.files)]).filter(node => !logs.has(node.rel)).flatMap(node => nodeFindings(estate, node)),
+    ...markFindings(estate, once([...nodes, ...researches.flatMap(readForFacts)]), researches.flatMap(research => research.sources.map(source => posix.basename(source.rel)))),
+    ...researches.flatMap(research => layoutFindings(estate, research)).map(({ rel, message }) => finding('WARN', 'research', rel, message)),
     ...items.flatMap(item => evidenceSizeFindings(estate, item)),
     ...strayFiles(estate).map(strayFinding),
     ...proofFindings(estate, itemsInFlight, env),
@@ -100,10 +102,19 @@ function nodeFindings(estate: Estate, node: Node) {
   return [finding('WARN', 'node', node.rel, `${node.rel} is ${formatBytes(node.bytes)} (soft cap ${formatBytes(cap)})`)]
 }
 
-function markFindings(estate: Estate) {
-  const saved = savedSourceNames(estate)
+function once(nodes: Node[]) {
+  const seen = new Set<string>()
+  return nodes.filter(node => !seen.has(node.rel) && seen.add(node.rel))
+}
+
+function readForFacts({ dirRel, sheet, pages, files }: Research) {
+  return files.filter(file => file === sheet || pages.includes(file) || file.rel === `${dirRel}/${LOG_FILE}`)
+}
+
+function markFindings(estate: Estate, nodes: Node[], ofResearches: string[]) {
+  const saved = [...savedSourceNames(estate), ...ofResearches]
   const hub = hubPath(estate)
-  return listNodes(estate).filter(node => node.path !== hub).flatMap(node => {
+  return nodes.filter(node => node.path !== hub).flatMap(node => {
     const unsourced = claimsWithNoSource(readFileSync(node.path, 'utf8').split(/\r?\n/), saved)
     if (unsourced.length === 0) return []
     const [first] = unsourced
@@ -113,23 +124,13 @@ function markFindings(estate: Estate) {
 }
 
 function claimsWithNoSource(asWritten: string[], saved: string[]) {
-  const depths = asWritten.map(line => (INDENT_AND_QUOTE_MARKS.exec(line)?.[0].match(QUOTE_MARK) ?? []).length)
-  const lines = asWritten.map(line => line.replace(INDENT_AND_QUOTE_MARKS, lead => lead.replace(QUOTE_MARK, '')))
+  const lines = asWritten.map(unquoted)
+  const inAFence = fenced(asWritten)
   const namesASource = (line: string) => NAMES_A_SOURCE.some(kind => kind.test(line)) || saved.some(name => line.includes(name))
-  let fence: Fence | null = null
   return lines.flatMap((line, at) => {
-    const open = fence !== null && depths[at] < fence.depth ? null : fence
-    fence = fenceAfter(line, depths[at], open)
-    const claim = open === null && fence === null && line.includes(VERIFIED) && !line.includes(INFERRED)
+    const claim = !inAFence[at] && line.includes(VERIFIED) && !line.includes(INFERRED)
     return claim && !namesASource(line) && !linesUnder(lines, at).some(namesASource) ? [at + 1] : []
   })
-}
-
-function fenceAfter(line: string, depth: number, open: Fence | null): Fence | null {
-  const [, run, rest] = FENCE.exec(line) ?? []
-  if (!run) return open
-  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : { run, depth }
-  return depth === open.depth && run[0] === open.run[0] && run.length >= open.run.length && rest.trim() === '' ? null : open
 }
 
 function linesUnder(lines: string[], at: number) {

@@ -7,7 +7,12 @@ export interface Parsed {
   body: string
 }
 
+type Fence = { run: string, depth: number }
+
 const BOM = '\uFEFF'
+const FENCE = /^[ \t]*(`{3,}|~{3,})(.*)$/
+const INDENT_AND_QUOTE_MARKS = /^[ \t>]*/
+const QUOTE_MARK = /> ?/g
 const FRONTMATTER = /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n)---(?:\r?\n)?/
 
 export function withoutBom(text: string) {
@@ -69,6 +74,27 @@ export function headings(body: string) {
 
 export function withoutCode(text: string) {
   return text.replace(/^ *(```|~~~)[\s\S]*?^ *\1[^\n]*$/gm, '').replace(/`[^`\n]*`/g, '')
+}
+
+export function fenced(lines: string[]): boolean[] {
+  let fence: Fence | null = null
+  return lines.map(line => {
+    const depth = (INDENT_AND_QUOTE_MARKS.exec(line)?.[0].match(QUOTE_MARK) ?? []).length
+    const open = fence !== null && depth < fence.depth ? null : fence
+    fence = fenceAfter(unquoted(line), depth, open)
+    return open !== null || fence !== null
+  })
+}
+
+export function unquoted(line: string) {
+  return line.replace(INDENT_AND_QUOTE_MARKS, lead => lead.replace(QUOTE_MARK, ''))
+}
+
+function fenceAfter(line: string, depth: number, open: Fence | null): Fence | null {
+  const [, run, rest] = FENCE.exec(line) ?? []
+  if (!run) return open
+  if (open === null) return run.startsWith('`') && rest.includes('`') ? null : { run, depth }
+  return depth === open.depth && run[0] === open.run[0] && run.length >= open.run.length && rest.trim() === '' ? null : open
 }
 
 export function truncate(text: string, max: number, suffix = '') {
