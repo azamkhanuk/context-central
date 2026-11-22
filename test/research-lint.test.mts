@@ -165,6 +165,17 @@ test('a line that opens as a fact and does not read as one is one line with its 
   assert.deepEqual(lint(withResearch(['- **F7** The gateway retries.', F8, '- **F9** Twice.'], ['- **F3** Once.'])), warned(`${DIR} has 3 lines that open as a fact and do not read as one (first at index.md:9)`))
 })
 
+test('a heading of the log that opens as a round and does not read as one is one line with its place, and several are counted', () => {
+  const entry = (heading: string) => [heading, '', '- Stopped: the cap was reached', '']
+  const logged = (...headings: string[]) => withResearch([F7], [], { [`${DIR}/log.md`]: text('# The log', '', '## Round 1, 2026-01-13', '', '- Open: Q2', '', ...headings.flatMap(entry)) })
+
+  for (const unread of ['## Round 2 2026-01-14', '## Round two, 2026-01-14', '## Round 2', '## Round']) {
+    assert.deepEqual(lint(logged(unread)), warned(`${DIR}/log.md has a heading that opens as a round and does not read as one (line 7)`), unread)
+  }
+  assert.deepEqual(lint(logged('## Round 2 2026-01-14', '## Round 3, 2026-01-15', '## Round 4: 2026-01-16')), warned(`${DIR}/log.md has 2 headings that open as a round and do not read as one (first at line 7)`))
+  assert.deepEqual(lint(logged('## Round 2, 2026-01-14', '### Superseded', '## Rounds of talks', '### Round 9', '```', '## Round 5 2026-01-16', '```')), OK)
+})
+
 test('a line that only looks like a fact is none: one that is indented, one in a quote, and one whose number is no number', () => {
   const root = withResearch([F7, '  - **F7** `verified` Said again under it, with its source at https://example.com/retries', '> - **F7** `verified` As the thread quotes it, at https://example.com/thread', '- **Fast** `verified` path, as https://example.com/fast has it.', '- **F7b** not a number'])
 

@@ -955,3 +955,38 @@ test("where research's folder cannot be reached, lint names it as it names any e
     assert.deepEqual(said.made, { code: 1, stdout: '', stderr: `context-central research: ${researchDir}/beta could not be made (EACCES)\n` }, researchDir)
   }
 })
+
+test('the next number of a fact passes every number on a line that opens as a fact, read or not, on the sheet and in the log', () => {
+  const unreadOnTheSheet = withSheet('- **F1** `inferred` One.', '  - From: the brief', '- **F2** verified Two')
+  const unreadInTheLog = tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, 'research/gateway-limits/log.md': '# The log\n\n- **F3** `inferred` Once.\n  - From: F1\n- **F14** superseded, and written with no mark\n' }))
+
+  assert.equal(opened(unreadOnTheSheet, 'facts'), 'facts: 1 stands, none superseded; the next is F3')
+  assert.equal(opened(unreadInTheLog, 'facts'), 'facts: 3 stand, 1 superseded; the next is F15')
+  assert.equal((JSON.parse(open(unreadOnTheSheet, NAME, '--json').stdout) as { facts: { next: unknown } }).facts.next, 'F3')
+})
+
+test('a budget research open reads that is no number of 0 or more stops it with a line that names the budget and what it holds', () => {
+  const said = (budgets: { [key: string]: Json }) => open(withFull({}, { budgets }), NAME)
+  const refused = (key: string, held: string) => ({ code: 1, stdout: '', stderr: `context-central research: "budgets.${key}" is ${held} in estate.json, where research open needs a number of 0 or more\n` })
+
+  assert.deepEqual(said({ researchStableDays: 'thirty' }), refused('researchStableDays', '"thirty"'))
+  assert.deepEqual(said({ researchSheetBytes: null }), refused('researchSheetBytes', 'null'))
+  assert.deepEqual(said({ researchMovingDays: -3 }), refused('researchMovingDays', '-3'))
+  assert.deepEqual(said({ researchSheetBytes: '16000' }), refused('researchSheetBytes', '"16000"'))
+  assert.equal(opened(withFull({}, { budgets: { researchMovingDays: 0, researchStableDays: 1 } }), 'dates'), 'dates: today is 2026-01-15, 1 day on is 2026-01-16, 0 days on is 2026-01-15')
+})
+
+test('what stopped a run is not taken from under a heading that opens as a round and does not read as one, so a run cut off there reads as not stopped', () => {
+  const log = (heading: string) => ['# The log', '', '## Round 1, 2026-11-20', '', '- Open: Q2', '', heading, '', '- Stopped: the cap was reached', ''].join('\n')
+  const rounds = (heading: string) => opened(withFull({ 'research/gateway-limits/log.md': log(heading) }), 'rounds')
+
+  for (const unread of ['## Round 2 2026-11-22', '## Round two, 2026-11-22', '## Round 2', '## Round']) assert.equal(rounds(unread), 'rounds: 1, the last on 2026-11-20, not stopped', unread)
+  for (const other of ['### Superseded', '## Rounds of talks', '### Round 2, 2026-11-22']) assert.equal(rounds(other), 'rounds: 1, the last on 2026-11-20, stopped: the cap was reached', other)
+  assert.equal(rounds('## Round 2, 2026-11-22'), 'rounds: 2, the last on 2026-11-22, stopped: the cap was reached')
+})
+
+test('the last round is the one of the highest number, wherever its entry sits in the log', () => {
+  const root = withFull({ 'research/gateway-limits/log.md': '# The log\n\n## Round 2, 2026-01-14\n\n- Stopped: every question was answered\n\n## Round 1, 2026-01-13\n\n- Open: Q2\n' })
+
+  assert.equal(opened(root, 'rounds'), 'rounds: 2, the last on 2026-01-14, stopped: every question was answered')
+})

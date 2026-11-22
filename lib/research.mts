@@ -43,11 +43,18 @@ export interface Round {
   stopped: string | null
 }
 
+export interface Unread {
+  rel: string
+  line: number
+  number: number
+}
+
 export interface Read {
   stands: Fact[]
   superseded: Fact[]
-  unread: { rel: string; line: number }[]
+  unread: Unread[]
   rounds: Round[]
+  unreadRounds: Place[]
   checkAgain: string | null
 }
 
@@ -63,8 +70,9 @@ export const LOG_FILE = 'log.md'
 export const NAME_ANOTHER = 'name another folder with "researchDir" in estate.json'
 
 const PAGE = /^facts-[a-z0-9-]+\.md$/
-const OPENS_AS_A_FACT = /^- \*\*F\d+\*\*/
+const OPENS_AS_A_FACT = /^- \*\*F(\d+)\*\*/
 const FACT = /^- \*\*F(\d+)\*\* `(verified|inferred)`( `disputed`)?(?! `disputed`) \S/
+const OPENS_AS_A_ROUND = /^## Round(\s|$)/
 const ROUND = /^## Round (\d+), (\d{4}-\d{2}-\d{2})\s*$/
 const STOPPED = /^- Stopped: (\S.*)$/
 const CHECK_AGAIN_BY = /^## Check again by\s*$/
@@ -119,18 +127,23 @@ export function readResearch(research: Research): Read {
   const log = research.files.find(file => file.rel === `${research.dirRel}/${LOG_FILE}`)
   const sheet = [research.sheet, ...research.pages].map(factsIn)
   const logged = log ? factsIn(log) : { facts: [], unread: [] }
-  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread), rounds: log ? roundsIn(log) : [], checkAgain: dateOn(research.sheet) }
+  const { rounds, unread: unreadRounds } = log ? roundsIn(log) : { rounds: [], unread: [] }
+  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread), rounds, unreadRounds, checkAgain: dateOn(research.sheet) }
 }
 
 function roundsIn(log: Node) {
   const rounds: Round[] = []
+  const unread: Place[] = []
+  let open: Round | null = null
   for (const { text, line } of proseOf(log)) {
-    const opened = ROUND.exec(text)
-    const last = rounds.at(-1)
-    if (opened) rounds.push({ number: Number(opened[1]), day: opened[2], line, stopped: null })
-    else if (last && last.stopped === null) last.stopped = STOPPED.exec(text)?.[1].trimEnd() ?? null
+    if (OPENS_AS_A_ROUND.test(text)) {
+      const read = ROUND.exec(text)
+      open = read ? { number: Number(read[1]), day: read[2], line, stopped: null } : null
+      if (open) rounds.push(open)
+      else unread.push({ rel: log.rel, line })
+    } else if (open && open.stopped === null) open.stopped = STOPPED.exec(text)?.[1].trimEnd() ?? null
   }
-  return rounds
+  return { rounds, unread }
 }
 
 function dateOn(sheet: Node) {
@@ -156,7 +169,7 @@ function proseOf(file: Node) {
 
 export function layoutFindings(estate: Estate, research: Research): Said[] {
   const { dirRel, sheet } = research
-  const { stands, superseded, unread } = readResearch(research)
+  const { stands, superseded, unread, unreadRounds } = readResearch(research)
   const at = ({ rel, line }: Place) => `${posix.relative(dirRel, rel)}:${line}`
   const every = [...stands, ...superseded]
   const naming = every.flatMap(by => by.supersedes.map(named => ({ ...named, rel: by.rel, by: by.number })))
@@ -179,6 +192,7 @@ export function layoutFindings(estate: Estate, research: Research): Said[] {
     ...counted(undated, sheet.rel, named => `${dirRel} names F${named.number} as superseded with no date and reason (${at(named)})`, (named, count) => `${dirRel} names ${count} facts as superseded with no date and reason (first F${named.number}, ${at(named)})`),
     ...counted(out, out[0]?.rel ?? sheet.rel, link => `${link.rel} links out of its research (${link.target}, at line ${link.line}); ${LINKS_ITS_OWN}`, (link, count) => `${dirRel} has ${count} links out of its research (first ${link.target}, at ${at(link)}); ${LINKS_ITS_OWN}`),
     ...counted(unread, unread[0]?.rel ?? sheet.rel, line => `${line.rel} has a line that opens as a fact and does not read as one (line ${line.line})`, (line, count) => `${dirRel} has ${count} lines that open as a fact and do not read as one (first at ${at(line)})`),
+    ...counted(unreadRounds, log, heading => `${log} has a heading that opens as a round and does not read as one (line ${heading.line})`, (heading, count) => `${log} has ${count} headings that open as a round and do not read as one (first at line ${heading.line})`),
   ]
 }
 
@@ -191,11 +205,12 @@ function factsIn(file: Node) {
   const lines = linesOf(file.path)
   const inAFence = fenced(lines)
   const facts: Fact[] = []
-  const unread: Place[] = []
+  const unread: Unread[] = []
   lines.forEach((written, index) => {
-    if (inAFence[index] || !OPENS_AS_A_FACT.test(written)) return
+    const opened = inAFence[index] ? null : OPENS_AS_A_FACT.exec(written)
+    if (!opened) return
     const read = FACT.exec(written)
-    if (!read) return void unread.push({ rel: file.rel, line: index + 1 })
+    if (!read) return void unread.push({ rel: file.rel, line: index + 1, number: Number(opened[1]) })
     const nested = nestedUnder(lines, index)
     facts.push({ number: Number(read[1]), verified: read[2] === 'verified', disputed: read[3] !== undefined, rel: file.rel, line: index + 1, written, nested, supersedes: nested.flatMap(supersedingOn) })
   })

@@ -119,21 +119,27 @@ function open(estate: Estate, name: string, json: boolean | undefined, io: Io) {
 }
 
 function standingOf(estate: Estate, research: Research, today: string): Standing {
-  const { researchSheetBytes, researchStableDays, researchMovingDays } = estate.config.budgets
-  const { stands, superseded, rounds, checkAgain } = readResearch(research)
+  const [researchSheetBytes, researchStableDays, researchMovingDays] = (['researchSheetBytes', 'researchStableDays', 'researchMovingDays'] as const).map(key => aNumber(estate, key))
+  const { stands, superseded, unread, rounds, checkAgain } = readResearch(research)
   const last = rounds.reduce<(typeof rounds)[number] | null>((highest, round) => (highest && highest.number > round.number ? highest : round), null)
   const on = (days: number) => ({ days, day: new Date(Date.parse(`${today}T00:00:00Z`) + days * A_DAY_MS).toISOString().slice(0, 10) })
   return {
     name: research.name,
     title: research.title,
     item: research.item,
-    facts: { stand: stands.length, superseded: superseded.length, next: `F${Math.max(0, ...[...stands, ...superseded].map(fact => fact.number)) + 1}` },
+    facts: { stand: stands.length, superseded: superseded.length, next: `F${Math.max(0, ...[...stands, ...superseded, ...unread].map(fact => fact.number)) + 1}` },
     sources: { saved: research.sources.length, next: nextSourceNumber(estate.mapDir, `${research.dirRel}/sources`) },
     rounds: { last: last?.number ?? 0, day: last?.day ?? null, stopped: last?.stopped ?? null },
     checkAgain: checkAgain === null ? null : { day: checkAgain, daysOff: Math.round((Date.parse(`${checkAgain}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / A_DAY_MS) },
     sheet: { bytes: research.sheet.bytes, limit: researchSheetBytes, pages: research.pages.length },
     dates: { today, stable: on(researchStableDays), moving: on(researchMovingDays) },
   }
+}
+
+function aNumber({ config }: Estate, key: 'researchSheetBytes' | 'researchStableDays' | 'researchMovingDays') {
+  const held: unknown = config.budgets[key]
+  if (typeof held !== 'number' || !Number.isFinite(held) || held < 0) throw new PluginError(`"budgets.${key}" is ${JSON.stringify(held)} in estate.json, where research open needs a number of 0 or more`)
+  return held
 }
 
 function said({ name, title, item, facts, sources, rounds, checkAgain, sheet, dates }: Standing) {
