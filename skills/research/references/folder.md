@@ -112,8 +112,8 @@ It is written before anything is gathered, and `references/run.md` has how.
 
 - `Answered` and `Open` name the questions by number, with the facts that answer each. Several are joined by commas, as `Q1 by F7 and F8, Q2 by F9`, and a line with nothing to name says `none`.
 - `New leads`, `Set aside` and `Gaps` hold one thing each in the forms above, the parts parted by ` | `. For more than one, the line is written again for each, and a line with none says `none`. A lead is something that may bear on a question and was not read: its title, its address, the date the source gives it, and why it may bear. One judged beside the point is set aside with its reason, never dropped. A gap is what was wanted and could not be reached.
-- `Stopped` is written at no indent, in the last round of a run only: the test that stopped the run, as `references/run.md` words it.
-- `### Superseded` is there only in a round that found that a fact no longer holds. The fact is moved under it from the sheet, word for word, with the lines under it.
+- `Stopped` is written at no indent, in the last round of a run only: the test that stopped the run, as `references/run.md` words it. A check of a research that is there writes an entry of its own form, which `references/later.md` gives.
+- `### Superseded` is there only in a round that superseded a fact. The fact is moved under it from the sheet, word for word, with the lines under it.
 
 ## The set-aside list
 
