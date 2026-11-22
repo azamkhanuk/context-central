@@ -84,6 +84,7 @@ const TWO_LETTER_CASES = (() => {
 
 type Named = { researchDir: string, notNodes?: string[] }
 
+const A_NAME = 'a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits'
 const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
 const DATES = 'dates: today is 2026-01-15, 30 days on is 2026-02-14, 7 days on is 2026-01-22'
 const FULL_SHEET = `---
@@ -196,7 +197,7 @@ test('a research given no title is titled by its name', () => {
 test('a research with no name, or a name that is not letters, digits, dots, dashes and underscores, is wrong usage and makes nothing', () => {
   const root = tree(acme())
 
-  for (const odd of [[], ['../escape'], ['gateway limits'], ['.hidden'], ['a/b'], ['one', 'two']]) {
+  for (const odd of [[], ['../escape'], ['gateway limits'], ['.hidden'], ['_draft'], ['a/b'], ['one', 'two'], ['foo.'], ['v1..'], ['.']]) {
     const result = research(root, 'new', ...odd)
 
     assert.equal(result.code, 2, odd.join(' '))
@@ -204,7 +205,9 @@ test('a research with no name, or a name that is not letters, digits, dots, dash
     assert.equal(existsSync(join(root, 'research')), false, odd.join(' '))
   }
   assert.equal(research(root, 'new').stderr, `context-central research: ${USAGE}\n`)
-  assert.equal(research(root, 'new', '../escape').stderr, 'context-central research: a research name is letters, digits, dots, dashes and underscores, for example gateway-limits\n')
+  assert.equal(research(root, 'new', '../escape').stderr, `context-central research: ${A_NAME}\n`)
+  assert.equal(research(root, 'new', 'foo.').stderr, `context-central research: ${A_NAME}\n`)
+  assert.equal(research(root, 'new', 'v1.2_final-b').stdout, 'research/v1.2_final-b/index.md\n')
 })
 
 test('an action that research does not have is wrong usage', () => {
@@ -862,4 +865,30 @@ test("in the root layout the folders of the researches are the map's own and not
   prove()
 
   assert.deepEqual(dirty(), [false, true, true])
+})
+
+test('a research does not take a name the map reads as something else: a folder of the deep tier, the evidence folder or one the map never lists', () => {
+  const root = tree(acme())
+  const own = tree(acme({}, { deepDirs: ['sources', 'raw'] }))
+  const kept = (name: string, names: string) => ({ code: 1, stdout: '', stderr: `context-central research: ${name} is a name the map keeps for something else, so no research takes it: ${names}\n` })
+
+  for (const name of ['sources', 'Sources', 'evidence', 'EVIDENCE', 'node_modules']) {
+    assert.deepEqual(research(root, 'new', name), kept(name, 'sources, evidence, node_modules'), name)
+  }
+  assert.deepEqual(research(own, 'new', 'raw'), kept('raw', 'sources, raw, evidence, node_modules'))
+  assert.equal(research(root, 'new', 'raw').code, 0)
+  assert.equal(research(root, 'new', 'sources-of-truth').code, 0)
+  assert.deepEqual(readdirSync(join(root, 'research')).sort(), ['raw', 'sources-of-truth'])
+  assert.equal(existsSync(join(own, 'research')), false)
+})
+
+test('a title that holds a line break is wrong usage, so no line of it is written into the head of the fact sheet', () => {
+  const root = tree(acme())
+
+  for (const title of ['Limits\nitem: PROJ-99', 'Limits\r\nitem: PROJ-99', 'Limits\ritem: PROJ-99', 'Limits item: PROJ-99', '\n']) {
+    assert.deepEqual(research(root, 'new', NAME, '--title', title), { code: 2, stdout: '', stderr: 'context-central research: a title is one line\n' }, JSON.stringify(title))
+  }
+  assert.equal(existsSync(join(root, 'research')), false)
+  assert.equal(research(root, 'new', NAME, '--title', 'Limits: what a shop gets, and why').code, 0)
+  assert.ok(read(root, 'research', NAME, 'index.md').startsWith('---\nresearch: gateway-limits\ntitle: Limits: what a shop gets, and why\n---\n'))
 })

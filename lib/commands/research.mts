@@ -2,9 +2,9 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
-import { NODE_NAME, requireEstate } from '../estate.mts'
+import { requireEstate } from '../estate.mts'
 import { locked, writeWhole } from '../lock.mts'
-import { findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
+import { EVIDENCE_DIR, findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
 import { NAME_ANOTHER, SHEET_FILE, readResearch, requireResearch, researchTaken } from '../research.mts'
 import { researchTemplates } from '../templates.mts'
 import { formatBytes, localDate, plural } from '../text.mts'
@@ -31,6 +31,9 @@ export const summary = 'Research folders: new <name>, open <name>'
 
 const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
 const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'] }
+const A_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?$/
+const A_LINE_BREAK = /[\r\n\u0085\u2028\u2029]/
+const NEVER_LISTED = 'node_modules'
 const IGNORED = 0
 const NOT_IGNORED = 1
 const A_DAY_MS = 86_400_000
@@ -46,7 +49,8 @@ export function run(args: string[], io: Io) {
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   if (action === 'open') return open(requireEstate(io), name, values.json, io)
-  if (!NODE_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, for example gateway-limits')
+  if (!A_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits')
+  if (values.title !== undefined && A_LINE_BREAK.test(values.title)) throw new UsageError('a title is one line')
   const estate = requireEstate(io)
   const dirRel = create(estate, name, values)
   const sheet = `${dirRel}/${SHEET_FILE}`
@@ -58,8 +62,10 @@ export function run(args: string[], io: Io) {
 }
 
 function create(estate: Estate, name: string, { title, item: asked }: { title?: string; item?: string }) {
-  const { researchDir, readingTemplate } = estate.config
+  const { researchDir, readingTemplate, deepDirs } = estate.config
   const dirRel = `${researchDir}/${name}`
+  const kept = [...new Set([...deepDirs, EVIDENCE_DIR, NEVER_LISTED])]
+  if (kept.some(held => held.toLowerCase() === name.toLowerCase())) throw new PluginError(`${name} is a name the map keeps for something else, so no research takes it: ${kept.join(', ')}`)
   locked(estate.mapDir, () => {
     const taken = researchTaken(estate)
     if (taken) throw new PluginError(`${researchDir} ${taken}, so no research is made there: ${NAME_ANOTHER}`)

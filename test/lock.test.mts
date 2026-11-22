@@ -154,6 +154,7 @@ test('a log that is a relative link to a file not yet there is followed from the
 const TAKERS: [what: string, files: TreeFiles, args: string[], written: string][] = [
   ['note --new', {}, ['note', '--new', 'concepts/limits'], 'concepts/limits.md'],
   ['work new', {}, ['work', 'new', 'PROJ-13'], 'work/PROJ-13/STATE.md'],
+  ['research new', {}, ['research', 'new', 'gateway-limits'], 'research/gateway-limits/index.md'],
   ['work adopt', { 'work/PROJ-7.md': '# PROJ-7: Old shape\n' }, ['work', 'adopt', 'PROJ-7'], 'work/PROJ-7/STATE.md'],
   ['work done', {}, ['work', 'done', 'PROJ-12'], 'work/PROJ-12/STATE.md'],
   ['work reopen', {}, ['work', 'reopen', 'PROJ-12'], 'work/PROJ-12/STATE.md'],
