@@ -114,11 +114,12 @@ test('only documented frontmatter fields are used', () => {
   for (const name of AGENTS) assert.deepEqual(Object.keys(agent(name)).filter(field => !AGENT_FIELDS.includes(field)), [], name)
 })
 
-test('every reference file a skill names is in its folder, and its folder holds none that it does not name', () => {
-  for (const name of SKILLS) {
-    const named = [...new Set([...skillText(name).matchAll(/`(references\/[a-z0-9-]+\.md)`/g)].map(([, file]) => file))].sort()
+test('every reference file a skill names is in its folder, its folder holds none that the skill itself does not name, and a reference file names none that is not there', () => {
+  const namedIn = (text: string) => [...new Set([...text.matchAll(/`(references\/[a-z0-9-]+\.md)`/g)].map(([, file]) => file))].sort()
 
-    assert.deepEqual(named, referenceNames(name), name)
+  for (const name of SKILLS) {
+    assert.deepEqual(namedIn(skillFile(name)), referenceNames(name), name)
+    for (const file of referenceNames(name)) assert.deepEqual(namedIn(referenceText(name, file)).filter(named => !referenceNames(name).includes(named)), [], file)
   }
 })
 
