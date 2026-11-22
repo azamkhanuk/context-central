@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util'
 import { citedIn, judgedIn } from '../citations.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { repoAt, repoFolder, requireEstate } from '../estate.mts'
+import { handOver } from '../handover.mts'
 import { locked, writeWhole } from '../lock.mts'
 import { onPath } from '../machine.mts'
 import { EVIDENCE_DIR, findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
@@ -45,10 +46,10 @@ interface Compared {
   at: string
 }
 
-export const summary = 'Research folders: new <name>, open <name>, moved <name>'
+export const summary = 'Research folders: new <name>, open <name>, moved <name>, handover <name> <folder>'
 
-const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json]'
-const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'], moved: ['json'] }
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json], handover <name> <folder> [--without <kind>]... [--reading]'
+const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'], moved: ['json'], handover: ['without', 'reading'] }
 const A_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?$/
 const A_LINE_BREAK = /[\r\n\u0085\u2028\u2029]/
 const NEVER_LISTED = 'node_modules'
@@ -60,14 +61,15 @@ export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { title: { type: 'string' }, item: { type: 'string' }, json: { type: 'boolean' } },
+    options: { title: { type: 'string' }, item: { type: 'string' }, json: { type: 'boolean' }, without: { type: 'string', multiple: true }, reading: { type: 'boolean' } },
   })
   const [action, name, ...more] = positionals
-  if (!Object.hasOwn(ACTIONS, action ?? '') || more.length > 0 || name === undefined) throw new UsageError(USAGE)
+  if (!Object.hasOwn(ACTIONS, action ?? '') || more.length !== (action === 'handover' ? 1 : 0) || name === undefined) throw new UsageError(USAGE)
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   if (action === 'open') return open(requireEstate(io), name, values.json, io)
   if (action === 'moved') return moved(requireEstate(io), name, values.json, io)
+  if (action === 'handover') return handover(requireEstate(io), name, more[0], values, io)
   if (!A_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits')
   if (values.title !== undefined && A_LINE_BREAK.test(values.title)) throw new UsageError('a title is one line')
   const estate = requireEstate(io)
@@ -238,4 +240,20 @@ function counted(compared: Compared[]) {
   const which = citing === 1 ? `The one fact that cites a line of a repo has${moving === 1 ? '' : ' not'}` : `${moving || 'None'} of ${citing} facts that cite a line of a repo ${many ? 'have' : 'has'}`
   const notCompared = left === 0 ? '' : ` ${left === 1 ? '1 has' : `${left} have`} a line that was not compared.`
   return `${which} moved since the commit ${many ? 'they were' : 'it was'} read at.${notCompared}`
+}
+
+function handover(estate: Estate, name: string, folder: string, { without = [], reading = false }: { without?: string[]; reading?: boolean }, io: Io) {
+  const research = requireResearch(estate, name)
+  const { files, bytes, leftOut, restOnLeftOut } = handOver(estate, research, { folder: resolve(io.cwd, folder), written: folder, without: [...new Set(without)], reading })
+  io.out(
+    [
+      `handed over research ${research.name} to ${folder}: ${plural(files, 'file')} (${formatBytes(bytes)})`,
+      ...leftOut.map(({ kind, count }) => `left out: ${plural(count, 'source')} of kind ${kind}`),
+      ...(restOnLeftOut.length > 0 ? [`${listed(restOnLeftOut.map(number => `F${number}`))} ${restOnLeftOut.length === 1 ? 'rests' : 'rest'} only on sources left out`] : []),
+    ].join('\n'),
+  )
+}
+
+function listed(names: string[]) {
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }

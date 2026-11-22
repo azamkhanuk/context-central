@@ -5,7 +5,7 @@ import { filesUnder, findWorkItem, parseLinks, underNotNodes } from './nodes.mts
 import { fenced, firstHeading, parseFrontmatter } from './text.mts'
 import { holds } from './worktree.mts'
 import type { Estate } from './estate.mts'
-import type { Node } from './nodes.mts'
+import type { Link, Node } from './nodes.mts'
 
 export interface Research {
   name: string
@@ -56,6 +56,7 @@ export interface Read {
   rounds: Round[]
   unreadRounds: Place[]
   checkAgain: string | null
+  kinds: Map<string, string>
 }
 
 export interface Said {
@@ -76,6 +77,8 @@ const OPENS_AS_A_ROUND = /^## Round(\s|$)/
 const ROUND = /^## Round (\d+), (\d{4}-\d{2}-\d{2})\s*$/
 const STOPPED = /^- Stopped: (\S.*)$/
 const CHECK_AGAIN_BY = /^## Check again by\s*$/
+const SOURCES = /^## Sources\s*$/
+const A_KIND = /(?:\)|\]\])\s*:\s*(\S+)/
 const HEADING = /^#{1,6}\s/
 const A_DAY = /\b\d{4}-\d{2}-\d{2}\b/
 const SUPERSEDES = /^- Supersedes F(\d+)(?:, (\d{4}-\d{2}-\d{2}): (\S.*))?/
@@ -128,7 +131,11 @@ export function readResearch(research: Research): Read {
   const sheet = [research.sheet, ...research.pages].map(factsIn)
   const logged = log ? factsIn(log) : { facts: [], unread: [] }
   const { rounds, unread: unreadRounds } = log ? roundsIn(log) : { rounds: [], unread: [] }
-  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread), rounds, unreadRounds, checkAgain: dateOn(research.sheet) }
+  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread), rounds, unreadRounds, checkAgain: dateOn(research.sheet), kinds: kindsOn(research.sheet) }
+}
+
+export function relOf(fromRel: string, { style, target }: Link) {
+  return posix.normalize(style === 'wiki' ? `${target.replace(/\.md$/, '')}.md` : posix.join(posix.dirname(fromRel), target))
 }
 
 function roundsIn(log: Node) {
@@ -147,13 +154,27 @@ function roundsIn(log: Node) {
 }
 
 function dateOn(sheet: Node) {
-  const prose = proseOf(sheet)
-  const from = prose.findIndex(({ text }) => CHECK_AGAIN_BY.test(text))
-  if (from === -1) return null
+  const [day] = partUnder(sheet, CHECK_AGAIN_BY).flatMap(({ text }) => A_DAY.exec(text) ?? [])
+  return day !== undefined && isADay(day) ? day : null
+}
+
+function kindsOn(sheet: Node) {
+  const kinds = new Map<string, string>()
+  for (const { text } of partUnder(sheet, SOURCES)) {
+    const [link] = parseLinks(text)
+    const kind = A_KIND.exec(text)?.[1]
+    if (link && kind && !kinds.has(relOf(sheet.rel, link))) kinds.set(relOf(sheet.rel, link), kind)
+  }
+  return kinds
+}
+
+function partUnder(file: Node, heading: RegExp) {
+  const prose = proseOf(file)
+  const from = prose.findIndex(({ text }) => heading.test(text))
+  if (from === -1) return []
   const below = prose.slice(from + 1)
   const until = below.findIndex(({ text }) => HEADING.test(text))
-  const [day] = below.slice(0, until === -1 ? below.length : until).flatMap(({ text }) => A_DAY.exec(text) ?? [])
-  return day !== undefined && isADay(day) ? day : null
+  return below.slice(0, until === -1 ? below.length : until)
 }
 
 function isADay(day: string) {
@@ -238,7 +259,7 @@ function linksOut(estate: Estate, research: Research) {
       inAFence[index]
         ? []
         : parseLinks(written)
-            .filter(link => !within.some(folder => posix.normalize(link.style === 'wiki' ? link.target : posix.join(posix.dirname(file.rel), link.target)).startsWith(folder)))
+            .filter(link => !within.some(folder => relOf(file.rel, link).startsWith(folder)))
             .map(link => ({ rel: file.rel, line: index + 1, target: link.target })),
     )
   })

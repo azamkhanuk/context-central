@@ -16,7 +16,7 @@ const OPENING = ['---', 'research: limits', '---', '# Limits', '', '## Facts', '
 const NOT_MOVED = 'The one fact that cites a line of a repo has not moved since the commit it was read at.\n'
 const ONE_MOVED = 'The one fact that cites a line of a repo has moved since the commit it was read at.\n'
 const ONE_NOT_COMPARED = `${NOT_MOVED.trimEnd()} 1 has a line that was not compared.\n`
-const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json]'
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json], handover <name> <folder> [--without <kind>]... [--reading]'
 
 const made = (one: Checkout) => (tree(one.base), one)
 const headOf = (one: Checkout, dir = one.main) => git(one, dir, 'rev-parse', 'HEAD').stdout.trim()

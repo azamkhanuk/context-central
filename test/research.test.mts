@@ -85,7 +85,7 @@ const TWO_LETTER_CASES = (() => {
 type Named = { researchDir: string, notNodes?: string[] }
 
 const A_NAME = 'a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits'
-const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json]'
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json], handover <name> <folder> [--without <kind>]... [--reading]'
 const DATES = 'dates: today is 2026-01-15, 30 days on is 2026-02-14, 7 days on is 2026-01-22'
 const FULL_SHEET = `---
 research: gateway-limits
