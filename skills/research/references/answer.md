@@ -13,7 +13,7 @@ A point names the facts it rests on by their numbers. What would sit in two grou
 
 ## The next step
 
-With the plugin, the next step is the earliest that any fact calls for, read against the item's `SPEC.md` and `DESIGN.md` where step 1 listed them, which are read before the step is chosen. With no item it is prep or none, since design and implement read nothing kept outside an item. Where the question asked for something to be built or changed, the next step is prep, as step 1 has it, however small the change looks: research names the step, and whether to take it is the person's.
+With the plugin, the next step is the earliest that any fact calls for, read against the item's `SPEC.md` and `DESIGN.md` where the answer of `resolve` in step 1 named them, which are read before the step is chosen. With no item it is prep or none, since design and implement read nothing kept outside an item. Where the question asked for something to be built or changed, the next step with the plugin is prep, as step 1 has it, however small the change looks: research names the step, and whether to take it is the person's. Taken alone, as below, no step is named for that either.
 
 - `/context-central:prep <item>`, here or in a fresh session, where there is something to build and no spec, or a fact changes what is built: the problem, a requirement, a decision. With no item, give a short name for prep to make it under, or the name of the item the research fits.
 - `/context-central:design <item>` in a fresh session, where a spec is there and a fact changes only how it is built, such as an interface, a failure or the order, or shows the design wrong.

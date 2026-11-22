@@ -40,7 +40,7 @@ How this machine reaches a connection is its `by`:
 
 How it is searched is the `by` of its `search`:
 
-- `server`: through the server named there. Whether that server has a tool that searches is known once its sweep has looked: where it has none, the connection is read by name only, and its line of the start line is changed to say so.
+- `server`: through the server named there. Whether that server has a tool that searches is known once its sweep has looked: where it has none, the connection is read by name only, and its line of the start line is changed to say so, a change that is taken with the round. That records what the sweep found and changes nothing that was agreed: the brief is not shown again, and the closing answer says under Not known that the connection could not be searched.
 - `command`: with the estate's own command for `search`, in the entry's `commands`.
 - `name`: nothing searches it, so the run reads from it only what it can name.
 - `skill`: the map names a skill of the estate's own for searching it. A run does not start that skill: it reads the connection by name only, and its line says that and names no skill.
@@ -51,7 +51,7 @@ Then, where there are any, a line for each of these:
 - A kind of source the questions need that nothing reaches, such as chat, mail, documents or meetings. Each is a gap: it is said here, and written in the first round as the gaps below are.
 - What `research new` answered as `git`: for `kept`, that the map is kept in git and this folder goes into it with every source it saves, and for `ignored`, that git ignores the folder, so the research stays on this machine. Where it answered neither, git does not hold the map, and the start line says nothing of it.
 
-**Agreeing it.** Run `context-central take`, then give the person the brief, whole, with its start line, and end the turn there. Anything the run needs from the person is asked here and nowhere later: which of two connections holds a ticket, a text only they can paste. Their yes starts the gathering. A reply that changes the brief is a yes to the brief as changed: write the change in, take it, and start, without showing it again. A source they say to leave out is struck from Sources to cover and written under Out of scope, and its line of the start line says that the person left it out. With nobody there the brief is taken as written.
+**Agreeing it.** Run `context-central take`. With nobody there the brief is taken as written: it is shown to nobody, no turn ends, and the run goes straight on. With the person there, give them the brief, whole, with its start line, and end the turn there. Anything the run needs from the person is asked here and nowhere later: which of two connections holds a ticket, a text only they can paste. Their yes starts the gathering. A reply that changes the brief is a yes to the brief as changed: write the change in, take it, and start, without showing it again. A source they say to leave out is struck from Sources to cover and written under Out of scope, and its line of the start line says that the person left it out.
 
 ## Rounds
 
@@ -69,19 +69,19 @@ No more agents are started at once than the depth allows: where there is more to
 
 ## The sweep
 
-A sweep is a search of one connection for leads on the brief's questions. It goes to the `context-central:sweeper` agent: one sweeper for each connection, and one connection for each sweeper. Where the session holds that agent, the sweep is the agent's to make, and the session does not search a connection itself. Where the session holds no such agent, hand the brief in `references/sweeper.md` to a subagent the host has, and with none, do what that brief says in the session. Give it the brief's questions, the connection's name, its entry, which `context-central connections --json` gives as `entry`, and how it is searched. It returns leads, one a line, and what it could not reach, and it saves nothing. A sweeper that finds no tool that searches says so: the connection is then read by name only, which is no gap.
+A sweep is a search of one connection for leads on the brief's questions. It goes to the `context-central:sweeper` agent: one sweeper for each connection, and one connection for each sweeper. Where the session holds that agent, the sweep is the agent's to make, and the session does not search a connection itself. Where the session holds no such agent, hand the brief in `references/sweeper.md` to a subagent the host has, and with none, do what that brief says in the session. Give it the brief's questions, the connection's name, its entry, which `context-central connections --json` gives as `entry`, and how it is searched. It returns leads, one a line, and what it could not reach, and it saves nothing. A sweeper that finds no tool that searches says so: the connection is then read by name only, which is no gap, since nothing was asked of it. A sweep that ran and returned no lead is a gap, since the connection gave nothing. Its line has the three parts of every gap: as what was wanted, the words searched for and the connection's name, as what pointed at it, the questions searched for, by their numbers, and as how to connect it, that a thing in the connection has to be named for a run to read it.
 
 A connection searched by `name` is not swept. The start line says so, and the run reads from it only what a source or the person names.
 
 ## What an agent is handed
 
-Every agent that gathers, the reader, the fetcher, the sweeper and the web reader, is handed the brief's questions as they are written there, with what to read or where to look, and nothing of what the person wants built or changed. This holds however the question was typed: the wish stays out of every prompt. A prompt names a connection's server and never a tool of it: each agent finds the tool itself, as its brief has it.
+Every agent that gathers, the reader, the fetcher, the sweeper and the web reader, is handed the brief's questions as they are written there, with what it is to do: the reader its paths, the fetcher the one thing to fetch, its connection and the path to save to, the sweeper its connection, the web reader its addresses or what to look for. None is handed what the person wants built or changed. This holds however the question was typed: the wish stays out of every prompt. A prompt names a connection's server and never a tool of it: each agent finds the tool itself, as its brief has it.
 
 A page on the web is read by the `context-central:web-reader` agent, whose tools cannot write: give it the questions and the addresses, or what to look for. Where the session holds no such agent, hand the brief in `references/web-reader.md` to a subagent the host has, and with none, read the page in the session.
 
 ## The stops
 
-A question is answered once a fact on the sheet answers it. When a round's reading is done, before its entry is written, try these in this order. The run stops at the first that holds, and the entry of that round carries it as its `Stopped` line:
+A question is answered once a fact on the sheet answers it. A fact that carries `disputed` answers none: its question stays open. When a round's reading is done, before its entry is written, try these in this order. The run stops at the first that holds, and the entry of that round carries it as its `Stopped` line:
 
 - `every question is answered`: with the person waiting only.
 - `a round added no fact and no lead`, or `no lead is open, so another round would add no fact and no lead`.
@@ -96,7 +96,8 @@ A lead still open when a run stops is not lost. It stays in the last round's `Ne
 A gap is something the questions needed and the run could not reach. It is written when it is met, in the `Gaps` line of the round and under `## Not reached` on the fact sheet, as what was wanted, what pointed at it and how to connect it, in plain words. One met at the brief is written in the first round. The sheet holds one line for one thing: where a later source points at the same thing, its line is not written twice. What is out of reach and beside the point is set aside, under the name the source gives it. Each of these is a gap:
 
 - A lead into a system that nothing reaches.
-- A connection that failed, gave nothing or was cut short.
+- A connection that failed or was cut short, or whose sweep ran and gave nothing.
+- A connection that nothing on this machine reaches, where the questions need something from it: the question, by its number, is what pointed at it.
 - A kind of source in the brief, or a term of the estate's glossary, with nothing behind it that reaches it: no connection and no tool of the session. `context-central where` prints the place of the glossary, which is a file of the map.
 - A ticket or a pull request that more than one connection could hold, where neither the brief nor a sweep says which.
 - A text that only the person could paste, and did not.
