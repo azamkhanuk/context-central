@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, posix, relative, resolve, sep } from 'node:path'
+import { PluginError } from './errors.mts'
 import { filesUnder, findWorkItem, parseLinks, underNotNodes } from './nodes.mts'
 import { fenced, firstHeading, parseFrontmatter } from './text.mts'
 import { holds } from './worktree.mts'
@@ -59,6 +60,7 @@ type Place = { rel: string; line: number }
 
 export const SHEET_FILE = 'index.md'
 export const LOG_FILE = 'log.md'
+export const NAME_ANOTHER = 'name another folder with "researchDir" in estate.json'
 
 const PAGE = /^facts-[a-z0-9-]+\.md$/
 const OPENS_AS_A_FACT = /^- \*\*F\d+\*\*/
@@ -102,6 +104,15 @@ export function listResearches(estate: Estate): Research[] {
 export function findResearch(estate: Estate, name: string): Research | null {
   const all = listResearches(estate)
   return all.find(one => one.name === name) ?? all.find(one => one.name.toLowerCase() === name.toLowerCase()) ?? null
+}
+
+export function requireResearch(estate: Estate, name: string): Research {
+  const taken = researchTaken(estate)
+  if (taken) throw new PluginError(`${estate.config.researchDir} ${taken}, so it holds no research: ${NAME_ANOTHER}`)
+  const research = findResearch(estate, name)
+  if (research) return research
+  const names = listResearches(estate).map(held => held.name)
+  throw new PluginError(`no research "${name}" in this map. ${names.length > 0 ? `Its researches: ${names.join(', ')}.` : 'It holds none.'}`)
 }
 
 export function readResearch(research: Research): Read {

@@ -5,7 +5,7 @@ import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
 import { locked, writeWhole } from '../lock.mts'
 import { findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
-import { SHEET_FILE, findResearch, listResearches, readResearch, researchTaken } from '../research.mts'
+import { NAME_ANOTHER, SHEET_FILE, readResearch, requireResearch, researchTaken } from '../research.mts'
 import { researchTemplates } from '../templates.mts'
 import { formatBytes, localDate, plural } from '../text.mts'
 import { asked, gitTracks } from '../worktree.mts'
@@ -31,7 +31,6 @@ export const summary = 'Research folders: new <name>, open <name>'
 
 const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
 const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'] }
-const NAME_ANOTHER = 'name another folder with "researchDir" in estate.json'
 const IGNORED = 0
 const NOT_IGNORED = 1
 const A_DAY_MS = 86_400_000
@@ -97,14 +96,7 @@ function namesIn(dir: string) {
 }
 
 function open(estate: Estate, name: string, json: boolean | undefined, io: Io) {
-  const taken = researchTaken(estate)
-  if (taken) throw new PluginError(`${estate.config.researchDir} ${taken}, so it holds no research: ${NAME_ANOTHER}`)
-  const research = findResearch(estate, name)
-  if (!research) {
-    const names = listResearches(estate).map(held => held.name)
-    throw new PluginError(`no research "${name}" in this map. ${names.length > 0 ? `Its researches: ${names.join(', ')}.` : 'It holds none.'}`)
-  }
-  const standing = standingOf(estate, research, localDate(io.env).day)
+  const standing = standingOf(estate, requireResearch(estate, name), localDate(io.env).day)
   io.out(json ? JSON.stringify(standing, null, 2) : said(standing).join('\n'))
 }
 

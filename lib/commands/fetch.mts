@@ -1,28 +1,29 @@
 import { spawnSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { FETCH_WORDS, PULL_REQUESTS, REFERENCE, TICKETS, chosenAmong, kindOf, listed, notRunningAs, parametersOf, pinnedAccount, pinnedToken, referenceOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { locked, writeWhole } from '../lock.mts'
-import { findWorkItem, folderToSaveIn, makeFolder } from '../nodes.mts'
+import { findWorkItem, folderToSaveIn, makeFolder, nextSourceNumber } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
+import { requireResearch } from '../research.mts'
 import { formatBytes, localDate } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Connection } from '../connections.mts'
 import type { Estate } from '../estate.mts'
 import type { WorkItem } from '../nodes.mts'
 import type { Laid, Preset, Reading } from '../presets.mts'
+import type { Research } from '../research.mts'
 
 interface Asked {
   reference: string
   repo: string | undefined
 }
 
-export const summary = 'Read a ticket or a pull request through its connection and save it in full: fetch ticket|pr <reference> --item <item>; --check tries a connection and saves nothing'
+export const summary = 'Read a ticket or a pull request through its connection and save it in full: fetch ticket|pr <reference> --item <item>; --research <name> saves into a research that has no item, and --check tries a connection and saves nothing'
 
-const USAGE = 'expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --check in place of --item to try the connection and save nothing'
+const USAGE = 'expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --research <name> in place of --item to save into a research that has no item, or --check to try the connection and save nothing'
 const ONE_WORD = /^[^\s\p{Cc}]+$/u
 const WORDS: Record<string, { word: string; label: string }> = { [TICKETS]: { word: 'ticket', label: 'Ticket' }, [PULL_REQUESTS]: { word: 'pr', label: 'Pull request' } }
 
@@ -30,17 +31,19 @@ export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { item: { type: 'string' }, repo: { type: 'string' }, connection: { type: 'string' }, check: { type: 'boolean' } },
+    options: { item: { type: 'string' }, research: { type: 'string' }, repo: { type: 'string' }, connection: { type: 'string' }, check: { type: 'boolean' } },
   })
   const [typed, given] = positionals
   const kind = Object.hasOwn(FETCH_WORDS, typed ?? '') ? FETCH_WORDS[typed] : null
   const readsItsOwn = kind === TICKETS && values.item !== undefined
-  if (!kind || positionals.length > 2 || Boolean(values.check) === (values.item !== undefined) || (!given && !readsItsOwn)) throw new UsageError(USAGE)
+  const places = [values.item !== undefined, values.research !== undefined, Boolean(values.check)].filter(Boolean)
+  if (!kind || positionals.length > 2 || places.length !== 1 || (!given && !readsItsOwn)) throw new UsageError(USAGE)
   if ([given, values.repo].some(value => value !== undefined && !REFERENCE.test(value))) throw new UsageError('a reference and a repo are each one word that does not start with a dash')
   const estate = requireEstate(io)
   const item = values.item === undefined ? null : findWorkItem(estate, values.item)
   if (values.item !== undefined && !item) throw new PluginError(`no work item "${values.item}"`)
-  const sourcesRel = item && `${folderToSaveIn(estate, item)}/sources`
+  const research = values.research === undefined ? null : withNoItem(requireResearch(estate, values.research))
+  const sourcesRel = item ? `${folderToSaveIn(estate, item)}/sources` : research && `${research.dirRel}/sources`
   const asked = { reference: given ?? ownTicket(estate, item), repo: values.repo }
   const connection = chosen(estate, kind, typed, asked.reference, values.connection)
   const { preset, reading } = readingOf(connection, kind, asked)
@@ -50,12 +53,17 @@ export function run(args: string[], io: Io) {
   if (!sourcesRel) return io.out(`ok: connection ${connection.name} read ${WORDS[kind].word} ${laid.id} (${formatBytes(Buffer.byteLength(printed))})`)
   const name = locked(estate.mapDir, () => {
     const sourcesAbs = makeFolder(estate.mapDir, sourcesRel)
-    const numbered = `${nextNumber(sourcesAbs)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
+    const numbered = `${nextSourceNumber(estate.mapDir, sourcesRel)}-${day}-${typed}-${safe(laid.id)}-full-text.md`
     writeWhole(join(sourcesAbs, numbered), laid.text)
     return numbered
   })
   io.out(laid.digest)
   io.out(`saved: ${sourcesRel}/${name} (${formatBytes(Buffer.byteLength(laid.text))})`)
+}
+
+function withNoItem(research: Research) {
+  if (research.item) throw new PluginError(`research ${research.name} belongs to work item ${research.item}: its ticket or pull request is saved with --item ${research.item}`)
+  return research
 }
 
 function ownTicket(estate: Estate, item: WorkItem | null) {
@@ -142,11 +150,6 @@ function asPrinted(connection: Connection, kind: string, { reference }: Asked, p
   const id = referenceOf([connection], reference)?.id ?? reference
   const head = [`# ${WORDS[kind].label} ${id}`, [`Connection: ${connection.name}`, `Reference: ${reference}`, `Fetched: ${day}`].map(fact => `- ${fact}`).join('\n')]
   return { id, digest: `${WORDS[kind].word} ${id} read through ${connection.name}`, text: [...head, printed.replace(/\r\n/g, '\n').trimEnd()].join('\n\n').concat('\n') }
-}
-
-function nextNumber(sourcesAbs: string) {
-  const taken = readdirSync(sourcesAbs).map(name => Number(/^(\d{2})-/.exec(name)?.[1] ?? 0))
-  return String(Math.max(0, ...taken) + 1).padStart(2, '0')
 }
 
 function safe(id: string) {
