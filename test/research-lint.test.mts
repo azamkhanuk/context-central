@@ -24,6 +24,7 @@ const ONCE = 'a number is used once across the sheet and the log'
 const LEAVES = 'a superseded fact leaves the sheet for the log'
 const RETRIES = '03-2026-01-14-chat-retries-full-text.md'
 const TICKET = '01-2026-01-09-PROJ-12-full-text.md'
+const ACME_GRAPH = `7 nodes, 5 links\nORPHAN repos/web.md\nUNREFERENCED work/PROJ-12/sources/${TICKET}\n`
 const TIDY = {
   'estate.json': { contextCentral: 1, name: 'acme' },
   'CLAUDE.md': '# Acme estate\n\nStart at [[concepts/gateway]].\n',
@@ -292,11 +293,10 @@ test("a folder of the estate's own under research's name, and a research in a fo
   const faulty = text(HEAD, F8, F8, '- **F7** not a fact', '[out](../../concepts/gateway.md)')
   const ownFolder = tree(acme({ 'research/market/index.md': faulty.replace('research: gateway-limits\n', '') }))
   const leftAlone = tree(acme({ 'scratch/research/gateway-limits/index.md': faulty }, { researchDir: 'scratch/research' }))
-  const before = graph(tree(acme())).stdout
 
   for (const root of [ownFolder, leftAlone]) {
     assert.deepEqual(lint(root, '--strict'), OK)
-    assert.equal(graph(root).stdout, before)
+    assert.equal(graph(root).stdout, ACME_GRAPH)
   }
 })
 
@@ -320,6 +320,6 @@ test('a map with no research is linted and graphed as it was', () => {
   const root = tree(acme())
 
   assert.deepEqual(lint(root), OK)
-  assert.equal(graph(root).stdout, `7 nodes, 5 links\nORPHAN repos/web.md\nUNREFERENCED work/PROJ-12/sources/${TICKET}\n`)
+  assert.equal(graph(root).stdout, ACME_GRAPH)
   assert.equal(Object.keys(ACME_FILES).some(file => file.startsWith('research/')), false)
 })
