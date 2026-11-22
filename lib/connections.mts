@@ -211,6 +211,11 @@ export function searchOf({ entry: { researchSkill, commands, server } }: Connect
   return server ? { by: 'server', server } : { by: 'name' }
 }
 
+export function goneWith({ recorded, unasked }: Pick<Held, 'recorded' | 'unasked'>): Connection[] {
+  const isRecorded = ({ entry }: Connection) => recorded.some(held => held.entry.preset === entry.preset && held.entry.holds === entry.holds)
+  return [...recorded, ...unasked.filter(one => !isRecorded(one))]
+}
+
 export function whyNotStarted(preset: Preset, env: Env, { hint = true }: { hint?: boolean } = {}) {
   if (isOnlyAScript(preset.program, env)) return `${preset.program} is a .cmd or .bat file, which the plugin cannot start`
   return `${preset.program} is not on PATH${hint && preset.hint ? `; ${preset.hint}` : ''}`

@@ -149,6 +149,34 @@ test('as JSON, a connection that the map does not record says so, and one that i
   assert.deepEqual([first('--ticket', '4312').name, 'unasked' in first('--ticket', '4312')], ['azure-devops', false])
 })
 
+test('as JSON, the list of a map made before connections holds, after the connections it records, each one a preset applies unasked, marked so, and the lines it prints hold what they held', () => {
+  const nothingOnPath = { PATH: tree(makeTree({})) }
+  const root = oldMap(OLD_AZURE)
+
+  const listed = JSON.parse(run(['connections', '--json'], { cwd: root, env: nothingOnPath }).stdout) as { name: string, holds: string, by: string, unasked?: boolean }[]
+
+  assert.deepEqual(listed.map(({ name, holds, by, unasked }) => [name, holds, by, unasked ?? false]), [
+    ['azure-devops', 'tickets', 'hand', false],
+    ['github', 'tickets', 'hand', true],
+    ['github', 'pull-requests', 'hand', true],
+  ])
+  assert.equal(run(['connections'], { cwd: root, env: nothingOnPath }).stdout, 'azure-devops | tickets | by hand (not by fetch here: az is not on PATH)\n')
+})
+
+test('as JSON, a connection the map records is listed once, where a preset would apply the same one unasked', () => {
+  const root = oldMap({ tracker: { type: 'github', keyPatterns: [] } })
+
+  const listed = JSON.parse(run(['connections', '--json'], { cwd: root, env: { PATH: tree(makeTree({})) } }).stdout) as { name: string, holds: string, unasked?: boolean }[]
+
+  assert.deepEqual(listed.map(({ name, holds, unasked }) => [name, holds, unasked ?? false]), [['github', 'tickets', false], ['github', 'pull-requests', true]])
+})
+
+test('as JSON, a map that records its connections lists those and no other, since no preset applies unasked there', () => {
+  const root = estate({ boards: { holds: 'tickets', preset: 'azure-devops' } })
+
+  assert.deepEqual((JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { name: string }[]).map(({ name }) => name), ['boards'])
+})
+
 test('each preset says which parameters of an entry it takes, so that no document has to', () => {
   assert.equal(run(['connections', '--presets'], { cwd: oldMap({}) }).stdout, [
     'azure-devops | holds tickets, pull-requests | starts az | reads tickets, pull-requests | takes org: the organisation; project: the project',

@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { REFERENCE, chosenAmong, listed, reachOf, searchOf, ticketOf, whyNotStarted } from '../connections.mts'
+import { REFERENCE, chosenAmong, goneWith, listed, reachOf, searchOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -44,7 +44,9 @@ export function run(args: string[], io: Io) {
   if (named.some(({ reference }) => !REFERENCE.test(reference))) throw new UsageError('a reference is one word that does not start with a dash')
   if (values.presets) return io.out(values.json ? JSON.stringify(PRESETS.map(presetAsJson), null, 2) : PRESETS.length > 0 ? PRESETS.map(describePreset).join('\n') : NO_PRESETS)
   const estate = requireEstate(io)
-  const asked = values.item !== undefined ? [theOneOf(estate, ownTicket(estate, values.item))] : named.length > 0 ? [theOneOf(estate, named[0])] : listed(estate.config.connections)
+  const recorded = listed(estate.config.connections)
+  const all = values.json ? goneWith({ recorded, unasked: estate.unasked }) : recorded
+  const asked = values.item !== undefined ? [theOneOf(estate, ownTicket(estate, values.item))] : named.length > 0 ? [theOneOf(estate, named[0])] : all
   const found = asked.map(connection => ({ connection, reach: reachOf(connection, io.env), unasked: estate.unasked.includes(connection) }))
   if (values.json) return io.out(JSON.stringify(found.map(asJson), null, 2))
   io.out(found.length > 0 ? found.map(one => describe(one, io.env)).join('\n') : NONE)
