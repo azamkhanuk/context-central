@@ -22,7 +22,7 @@ What follows the name says which kind of run it is. Take the first of these that
 - `rounds:` ends `not stopped` where the last run was cut off before it wrote the round that stops it.
 - `check again by:` ends `passed <N> days ago` where the day on the sheet has gone by. Say so in the one line that says the way in, whatever kind the run is. A round that gathers, and the check of whether it still holds, write the day anew.
 
-Then, but for a bare name and for a hand-over with no folder named, run `context-central resolve <name> --absolute`, which lists the fact sheet, its pages, the brief, the log, the reading and the set-aside list. Read the sheet, its pages and the brief, each at the path `context-central draft` prints for it. Where the research has an item, run `context-central resolve <item> --absolute` as well: it gives the places of the item's spec and design, which the choice of the next step reads.
+Then, but for a bare name and for a hand-over with no folder named, run `context-central resolve <name> --absolute`, which lists the fact sheet, its pages, the brief, the log, the reading and the set-aside list. Run `context-central draft` on each file of the research before it is read or written, and use the path it prints, never the one `resolve` printed: read the sheet, its pages and the brief so. Where the research has an item, run `context-central resolve <item> --absolute` as well: it gives the places of the item's spec and design, which the choice of the next step reads.
 
 A hand-over, a plain question and a bare name take none of the skill's numbered steps: each says here all that it does. Every other kind takes them so:
 
@@ -62,7 +62,7 @@ This check reads again the code that the facts cite, and ends in a round. It has
 
 1. Open the round as every round is opened, then run `context-central research moved <name>`. It compares every line of a repo that a standing fact cites, at the commit its own line names, with the head of that repo as it is checked out. It prints a line for each cited line that `has moved`, a line for each that `was not compared`, and a last line that counts the facts.
 2. For each line that `has moved`, read the place again at the head: the file where it stands now, and what took its place where it is gone. Then judge the fact:
-   - It still holds, and only its lines moved: write a fact with the older fact's own sentence and the place as it is at the head's commit, which supersedes the older one. Its reason is that the cited lines moved.
+   - It still holds, and only its lines moved: write a fact with the older fact's own sentence and the place as it is at the head's commit, which supersedes the older one. The place is the lines that the same code stands on now, which are seldom the lines it stood on. Its reason is that the cited lines moved.
    - It no longer holds: write the fact that says what is so now, which supersedes it. Its reason is what changed.
 3. A line that `was not compared` says why. Where it says `its line names no commit`, or that the repo `holds no such file at the commit`, the place was written in a form that cannot be compared: read it at the head, and where the fact holds, write a fact that supersedes it, with the place and its commit as `references/folder.md` has them. Every other reason goes in the closing answer under Not known, as the command gave it.
 4. Facts that cite no line of a repo, such as one that rests on a saved thread or on a page, are not read again by this check. Where there are any, say how many, under Not known.
@@ -101,7 +101,7 @@ Given a spec, a design or a diff, this check says where it and the research part
 - Stopped: the check was done
 ````
 
-The first part of the `Checked` line names what was checked: `the spec of PROJ-12`, `the design of PROJ-12`, or a diff by its repo and what was compared, as `the diff of api, main...work/plus-limit`. A part with nothing to name reads `it goes against none`, `it puts none out of date` or `it rests on nothing no fact covers`.
+The first part of the `Checked` line names what was checked, between `whether` and `agrees`: `whether the spec of PROJ-12 agrees`, `whether the design of PROJ-12 agrees`, or for a diff its repo and what was compared, as `whether the diff of api, main...work/plus-limit agrees`. A part with nothing to name reads `it goes against none`, `it puts none out of date` or `it rests on nothing no fact covers`. One thing reads `it rests on 1 thing no fact covers`.
 
 The run's part of the reading opens with what was checked, in place of the questions, and what was found, in a few lines. Its points name the place in what was read beside the fact: what it goes against under Needs a fix, what it puts out of date under Yours to decide, the facts it leaves as they are in one point under Fine as it is, and what no fact covers under Not known. This check does not read the facts again: where the day to check again by has passed, say under Not known that the facts were not checked first.
 

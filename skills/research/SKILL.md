@@ -30,7 +30,7 @@ What the person typed is a new question, or it opens with the name of a research
 - It prints where that research stands: the run is on that research. Read `references/later.md` now, whole, in this turn, and do what it has for what follows the name: more questions, a plain question about the research, whether it still holds, whether a spec, a design or a diff agrees with it, what a build learned, or a hand-over. It says which of the steps below such a run takes.
 - Any other answer is a refusal: say it as it was printed, and stop.
 
-Say in one line which way in the run took, as the run starts. That line is no part of the closing answer.
+Say in one line which way in the run took: for a new question as the run starts, and for a run on a research once `references/later.md` is read, with what that file has the line say. That line is no part of the closing answer.
 
 ## 1. Place the question
 
