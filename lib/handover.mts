@@ -1,5 +1,6 @@
 import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix } from 'node:path'
+import { citedIn } from './citations.mts'
 import { draftsDir, mapFiles } from './drafts.mts'
 import { PluginError } from './errors.mts'
 import { filesUnder, findWorkItem, parseLinks } from './nodes.mts'
@@ -34,17 +35,38 @@ interface Copy {
 
 interface Places {
   kept: Map<string, string>
-  moved: Set<string>
   gone: Set<string>
+}
+
+interface Page {
+  file: MapFile
+  to: string
+  lines: string[]
+}
+
+interface Link {
+  rel: string
+  asWritten: string | null
+  fragment: string
+  shown: string
+  words: string
+  line: number
+  whole: string
+  again: (destination: string) => string
 }
 
 const READING_FILE = 'reading.md'
 const LEFT_OUT = '(left out of this copy)'
 const A_CODE_SPAN = /(`[^`\n]*`)/
-const A_LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]|\[((?:[^[\]]|\[[^[\]]*\])*)\]\((?!\w+:)[^)\s#]+\.md(#[^)]*)?\)/g
-const THE_HEAD = /^﻿?---\r?\n[\s\S]*?\r?\n---/
-const AN_ITEM_LINE = /^item:.*\r?\n/m
-const A_SOURCE_LINE = /^- Source:/
+const A_LINK = /\[\[([^\]|#]+)(#[^\]|]*)?(?:\|([^\]]*))?\]\]|(!?)\[((?:[^[\]]|\[[^[\]]*\])*)\]\(\s*(?:<([^<>\n]*)>|([^\s()<>]*(?:\([^\s()<>]*\)[^\s()<>]*)*))((?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?)\s*\)/g
+const A_DEFINITION = /^( {0,3}\[(?!\^)([^\]\n]+)\]:\s*)(?:<([^<>\n]*)>|(\S+))(.*)$/
+const AN_ADDRESS = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i
+const A_FULL_ADDRESS = /\b[a-z][a-z0-9+.-]*:\/\/\S/i
+const A_FACT_NAMED = /\bF\d+\b/
+const NOT_PLAIN_IN_A_LINK = /[%\s()<>#?"\\]/g
+const THE_HEAD = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---/
+const A_LINE_OF_THE_HEAD = /[^\n]*\n/g
+const RESTS_ON = /^- (?:Source|From):/
 const NOTHING = 'nothing was handed over'
 const NOT_THERE = ['ENOENT', 'ENOTDIR']
 
@@ -106,17 +128,16 @@ function planned(estate: Estate, research: Research, { without, reading }: Asked
   const { dirRel } = research
   const { stands, kinds } = readResearch(research)
   const readingRel = `${dirRel}/${READING_FILE}`
-  const pages = research.files.filter(file => reading || file.rel !== readingRel).map(file => ({ file, to: file.rel.slice(dirRel.length + 1), lines: readFileSync(file.path, 'utf8').split('\n') }))
-  const linked = new Set(pages.flatMap(({ file, lines }) => prose(lines).flatMap(({ text }) => parseLinks(text).map(link => relOf(file.rel, link)))))
+  const pages: Page[] = research.files.filter(file => reading || file.rel !== readingRel).map(file => ({ file, to: file.rel.slice(dirRel.length + 1), lines: readFileSync(file.path, 'utf8').split('\n') }))
+  const linked = new Set(pages.flatMap(({ file, lines }) => linksIn(file.rel, lines).map(link => link.rel)))
   const sources = [...research.sources.map(source => ({ source, to: source.rel.slice(dirRel.length + 1) })), ...itemSources(estate, research).filter(({ source }) => linked.has(source.rel))]
   const left = leftOut(research, sources.map(({ source }) => source), kinds, without)
   const taken = sources.filter(({ source }) => !left.has(source.rel))
   const places: Places = {
     kept: new Map([...pages.map(({ file, to }) => [file.rel, to] as const), ...taken.map(({ source, to }) => [source.rel, to] as const)]),
-    moved: new Set(taken.filter(({ source }) => !source.rel.startsWith(`${dirRel}/`)).map(({ source }) => source.rel)),
     gone: new Set([...left, ...(reading ? [] : [readingRel])]),
   }
-  const texts = pages.map(page => ({ ...page, lines: rewritten(page, places) }))
+  const texts = pages.map(page => ({ ...page, lines: rewritten(page.file.rel, page.lines, link => ledTo(estate, research, page, places, link)) }))
   for (const page of texts) refuseLinks(estate, research, page, new Set(places.kept.values()))
   const copies = [
     ...texts.map(({ file, to, lines }) => asText(file, to, file.rel === research.sheet.rel ? withoutItem(lines.join('\n')) : lines.join('\n'))),
@@ -130,7 +151,7 @@ function planned(estate: Estate, research: Research, { without, reading }: Asked
       files: copies.length,
       bytes: copies.reduce((sum, { bytes }) => sum + bytes, 0),
       leftOut: without.map(kind => ({ kind, count: count(kind) })),
-      restOnLeftOut: stands.filter(fact => restsOn(fact, left)).map(fact => fact.number),
+      restOnLeftOut: stands.filter(fact => restsOnlyOn(fact, left)).map(fact => fact.number),
     },
   }
 }
@@ -157,42 +178,86 @@ function prose(lines: string[]) {
   return lines.flatMap((text, index) => (inAFence[index] ? [] : [{ text, line: index + 1 }]))
 }
 
-function rewritten({ file, to, lines }: { file: MapFile; to: string; lines: string[] }, { kept, moved, gone }: Places) {
-  const inAFence = fenced(lines)
-  const relink = (whole: string, wikiTarget: string | undefined, wikiWords: string | undefined, words: string | undefined, fragment = '') => {
-    const [link] = parseLinks(whole)
-    if (!link) return whole
-    const rel = relOf(file.rel, link)
-    const said = words ?? wikiWords ?? posix.basename(wikiTarget ?? '').replace(/\.md$/, '')
-    if (gone.has(rel)) return `${said} ${LEFT_OUT}`
-    const place = kept.get(rel)
-    if (place === undefined || (link.style === 'path' && !moved.has(rel))) return whole
-    return `[${said}](${posix.relative(posix.dirname(to), place)}${fragment})`
-  }
-  return lines.map((line, index) =>
-    inAFence[index]
-      ? line
-      : line
-          .split(A_CODE_SPAN)
-          .map((part, at) => (at % 2 === 1 ? part : part.replace(A_LINK, relink)))
-          .join(''),
-  )
+function linksIn(fromRel: string, lines: string[]) {
+  const found: Link[] = []
+  rewritten(fromRel, lines, link => (found.push(link), link.whole))
+  return found
 }
 
-function refuseLinks(estate: Estate, { dirRel }: Research, { file, to, lines }: { file: MapFile; to: string; lines: string[] }, copied: Set<string>) {
+function rewritten(fromRel: string, lines: string[], write: (link: Link) => string) {
+  const inAFence = fenced(lines)
+  return lines.map((text, index) => {
+    if (inAFence[index]) return text
+    const line = index + 1
+    const plainLink = (whole: string, words: string, destination: string, again: Link['again']) => {
+      const target = targetOf(fromRel, destination)
+      return target ? write({ ...target, shown: destination, words, line, whole, again }) : whole
+    }
+    const linkFromTheMap = (whole: string, target: string, fragment: string, itsWords: string | undefined) => {
+      const words = itsWords ?? posix.basename(target).replace(/\.md$/, '')
+      return write({ rel: relOf(fromRel, { style: 'wiki', target }), asWritten: null, fragment, shown: target, words, line, whole, again: destination => `[${words}](${destination})` })
+    }
+    const [, opening, label, angled, bare, rest] = A_DEFINITION.exec(text) ?? []
+    if (opening !== undefined) return plainLink(text, label, angled ?? bare, destination => `${opening}${destination}${rest}`)
+    const relink = (whole: string, mapTarget?: string, mapFragment = '', mapWords?: string, picture = '', words = '', inAngles?: string, plain = '', title = '') =>
+      mapTarget === undefined ? plainLink(whole, words, inAngles ?? plain, destination => `${picture}[${words}](${destination}${title})`) : linkFromTheMap(whole, mapTarget, mapFragment, mapWords)
+    return text
+      .split(A_CODE_SPAN)
+      .map((part, at) => (at % 2 === 1 ? part : part.replace(A_LINK, relink)))
+      .join('')
+  })
+}
+
+function targetOf(fromRel: string, destination: string) {
+  if (destination === '' || destination.startsWith('#') || AN_ADDRESS.test(destination)) return null
+  const [path, ...after] = destination.split('#')
+  const asWritten = posix.normalize(decoded(path))
+  return { rel: posix.isAbsolute(asWritten) ? asWritten : posix.normalize(posix.join(posix.dirname(fromRel), asWritten)), asWritten, fragment: after.length > 0 ? `#${after.join('#')}` : '' }
+}
+
+function decoded(path: string) {
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
+}
+
+function ledTo(estate: Estate, research: Research, { file, to }: Page, { kept, gone }: Places, link: Link) {
+  if (gone.has(link.rel)) return `${link.words} ${LEFT_OUT}`
+  const place = kept.get(link.rel)
+  if (place === undefined) throw refusal(estate, research, file, link)
+  const inTheCopy = posix.relative(posix.dirname(to), place)
+  return link.asWritten === inTheCopy ? link.whole : link.again(`${inTheCopy.replace(NOT_PLAIN_IN_A_LINK, sign => encodeURIComponent(sign).replace('(', '%28').replace(')', '%29'))}${link.fragment}`)
+}
+
+function refusal({ mapDir }: Estate, { dirRel }: Research, file: MapFile, { rel, shown, line }: Pick<Link, 'rel' | 'shown' | 'line'>) {
+  const ofTheResearch = rel.startsWith(`${dirRel}/`)
+  const there = entryAt(posix.isAbsolute(rel) ? rel : join(mapDir, rel))
+  if (there?.isFile() && ofTheResearch && rel.endsWith('.md')) return new PluginError(`${NOTHING}: ${rel} cannot be read`)
+  const why = !there ? 'which is not there' : ofTheResearch ? 'which is no Markdown file, so the copy would not hold it' : 'which is outside the research'
+  return new PluginError(`${NOTHING}: ${file.rel}:${line} links ${shown}, ${why}`)
+}
+
+function entryAt(path: string) {
+  try {
+    return statSync(path, { throwIfNoEntry: false })
+  } catch {
+    return undefined
+  }
+}
+
+function refuseLinks(estate: Estate, research: Research, { file, to, lines }: Page, copied: Set<string>) {
   for (const { text, line } of prose(lines)) {
     for (const link of parseLinks(text)) {
       if (link.style === 'path' && copied.has(posix.normalize(posix.join(posix.dirname(to), link.target)))) continue
-      const rel = relOf(file.rel, link)
-      const there = statSync(join(estate.mapDir, rel), { throwIfNoEntry: false })?.isFile() ?? false
-      if (there && rel.startsWith(`${dirRel}/`)) throw new PluginError(`${NOTHING}: ${rel} cannot be read`)
-      throw new PluginError(`${NOTHING}: ${file.rel}:${line} links ${link.target}, which is ${there ? 'outside the research' : 'not there'}`)
+      throw refusal(estate, research, file, { rel: relOf(file.rel, link), shown: link.target, line })
     }
   }
 }
 
 function withoutItem(text: string) {
-  return text.replace(THE_HEAD, head => head.replace(AN_ITEM_LINE, ''))
+  return text.replace(THE_HEAD, head => head.replace(A_LINE_OF_THE_HEAD, line => (line.indexOf(':') > 0 && line.slice(0, line.indexOf(':')).trim() === 'item' ? '' : line)))
 }
 
 function asText(file: MapFile, to: string, text: string): Copy {
@@ -217,9 +282,11 @@ function refuseOneNameTwice(copies: Copy[]) {
   }
 }
 
-function restsOn(fact: Fact, left: Set<string>) {
-  const sources = fact.nested.filter(({ text }) => A_SOURCE_LINE.test(text)).map(({ text }) => parseLinks(text).map(link => relOf(fact.rel, link)))
-  return sources.length > 0 && sources.every(rels => rels.length > 0 && rels.every(rel => left.has(rel)))
+function restsOnlyOn(fact: Fact, left: Set<string>) {
+  const lines = fact.nested.filter(({ text }) => RESTS_ON.test(text))
+  const files = linksIn(fact.rel, lines.map(({ text }) => text))
+  const stays = lines.some(({ text }) => A_FULL_ADDRESS.test(text) || citedIn(text, 0).some(cited => cited.first !== null) || A_FACT_NAMED.test(text.replace(A_LINK, '').replace(/`[^`]*`/g, '')))
+  return files.length > 0 && files.every(link => left.has(link.rel)) && !stays
 }
 
 function write({ folder, written }: Asked, copies: Copy[]) {

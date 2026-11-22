@@ -364,14 +364,14 @@ test('a research just made, with no fact and no source, is handed over as it is'
   assert.deepEqual(copied(out), { 'brief.md': inTheMap('brief.md'), 'index.md': inTheMap('index.md').replace('[The reading](reading.md)', `The reading ${GONE}`), 'log.md': inTheMap('log.md'), 'set-aside.md': inTheMap('set-aside.md') })
 })
 
-test('a link shown in a fenced block or in a code span is left as it is written, a full address and a link to a file that is not Markdown are kept, and a fragment stays on a link that is kept', () => {
-  const shown = ['```', '[the gateway](../../concepts/gateway.md) and [the reading](reading.md)', '```', '', 'Written as `[the reading](reading.md)`, read at https://example.com/limits.md and [there](https://example.com/limits.md), drawn in [the chart](chart.png).', '', `See [the first round](log.md#round-1-2026-01-14) and [the ticket](../../work/PROJ-12/sources/${TICKET}#the-ask).`, '']
+test('a link shown in a fenced block or in a code span is left as it is written, a full address is kept in each form it is written in, and a fragment stays on a link that is kept', () => {
+  const shown = ['```', '[the gateway](../../concepts/gateway.md) and [the reading](reading.md)', '```', '', 'Written as `[the reading](reading.md)`, read at https://example.com/limits.md, [there](https://example.com/limits.md "The page"), <https://example.com/limits.md> and [by mail](mailto:shop@example.com), with [a place on this page](#facts).', '', '[page]: https://example.com/limits.md', '', `See [the first round](log.md#round-1-2026-01-14) and [the ticket](../../work/PROJ-12/sources/${TICKET}#the-ask).`, '']
   const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${shown.join('\n')}` })
   const out = elsewhere()
 
   handover(root, NAME, out)
 
-  assert.equal(copied(out)['brief.md'], `${BRIEF}\n${[...shown.slice(0, 6), `See [the first round](log.md#round-1-2026-01-14) and [the ticket](sources/item-${TICKET}#the-ask).`, ''].join('\n')}`)
+  assert.equal(copied(out)['brief.md'], `${BRIEF}\n${[...shown.slice(0, 8), `See [the first round](log.md#round-1-2026-01-14) and [the ticket](sources/item-${TICKET}#the-ask).`, ''].join('\n')}`)
 })
 
 test('a link written from the map in double brackets becomes a plain link inside the copy, with its own words where it has some, and one to a file left out becomes its words and the mark', () => {
@@ -546,4 +546,102 @@ test('a copy that cannot be written part of the way through is taken away again,
   assert.match(there.stderr, notWritten)
   assert.deepEqual(readdirSync(base).sort(), ['empty', 'keep.txt'])
   assert.deepEqual(readdirSync(join(base, 'empty')), [])
+})
+
+test("the item's line is left out of the copy's head however it is spaced, and every one of them where the head holds more than one", () => {
+  const out = elsewhere()
+  const heads = ['item : PROJ-12\n', ' item: PROJ-12\n', 'item: PROJ-12\nitem: PROJ-12\n', 'item:PROJ-12\r\n']
+
+  heads.forEach((item, at) => handover(withResearch({ [`${DIR}/index.md`]: sheet({ ...IN_THE_MAP, item }) }), NAME, `${out}-${at}`))
+
+  for (const at of heads.keys()) assert.equal(copied(`${out}-${at}`)['index.md'], sheet(COPIED), heads[at])
+})
+
+test('a link that leads outside the research stops the hand-over in every form Markdown writes one: with a title, in angle brackets, as the definition of a reference, as a picture, and by a path from the root of the disk', () => {
+  const out = elsewhere()
+  const stopped = (line: string) => handover(withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${line}\n` }), NAME, out)
+  const outside = (target: string) => refused(`nothing was handed over: ${DIR}/brief.md:7 links ${target}, which is outside the research`)
+
+  assert.deepEqual(stopped('[x](../../concepts/gateway.md "The gateway")'), outside('../../concepts/gateway.md'))
+  assert.deepEqual(stopped("[x](../../concepts/gateway.md 'The gateway')"), outside('../../concepts/gateway.md'))
+  assert.deepEqual(stopped('[x](<../../concepts/gateway.md>)'), outside('../../concepts/gateway.md'))
+  assert.deepEqual(stopped('[gw]: ../../concepts/gateway.md'), outside('../../concepts/gateway.md'))
+  assert.deepEqual(stopped('  [gw]: <../../concepts/gateway.md> "The gateway"'), outside('../../concepts/gateway.md'))
+  assert.deepEqual(stopped('![a shot](../../work/PROJ-12/SPEC.md)'), outside('../../work/PROJ-12/SPEC.md'))
+  assert.deepEqual(stopped('[x](../../CLAUDE.md)'), outside('../../CLAUDE.md'))
+  assert.ok(!existsSync(out))
+})
+
+test('a link to a file of the research that is no Markdown file, or to a folder of it, stops the hand-over, since the copy would not hold it, and a note that opens as a footnote does is no link', () => {
+  const out = elsewhere()
+  const stopped = (line: string) => handover(withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${line}\n`, [`${DIR}/chart.png`]: 'not text' }), NAME, out)
+  const notHeld = (target: string) => refused(`nothing was handed over: ${DIR}/brief.md:7 links ${target}, which is no Markdown file, so the copy would not hold it`)
+
+  assert.deepEqual(stopped('![the chart](chart.png)'), notHeld('chart.png'))
+  assert.deepEqual(stopped('[the sources](sources/)'), notHeld('sources/'))
+  assert.deepEqual(stopped('[a chart](missing.png)'), refused(`nothing was handed over: ${DIR}/brief.md:7 links missing.png, which is not there`))
+  assert.ok(!existsSync(out))
+  assert.equal(stopped('[^1]: A note at the foot of the page, with (a word) in brackets.').code, 0)
+})
+
+test("a link to a file that is copied leads to it in every form it is written in: the item's file with a title, in angle brackets and as the definition of a reference, a name with a space in it, a fragment on a link written from the map, and a path that leaves the research's folder and comes back", () => {
+  const lines = [
+    `[t](../../work/PROJ-12/sources/${TICKET} "The ticket")`,
+    `[t](<../../work/PROJ-12/sources/${TICKET}>)`,
+    `[t]: ../../work/PROJ-12/sources/${TICKET} "The ticket"`,
+    '[the pr](../../work/PROJ-12/sources/02%20pr%2088.md)',
+    '[the pr](<../../work/PROJ-12/sources/02 pr 88.md>)',
+    '[[research/gateway-limits/my notes]] and [mine](my%20notes.md)',
+    '[[research/gateway-limits/log#round-1-2026-01-14]] and [[research/gateway-limits/log#round-1-2026-01-14|round one]]',
+    '[the log](../gateway-limits/log.md) and ![the log](./log.md)',
+  ]
+  const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${lines.join('\n\n')}\n`, 'work/PROJ-12/sources/02 pr 88.md': '# PR 88\n', [`${DIR}/my notes.md`]: '# Mine\n' })
+  const out = elsewhere()
+
+  const result = handover(root, NAME, out)
+  const files = copied(out)
+
+  assert.equal(result.code, 0)
+  assert.deepEqual(files['brief.md'].slice(BRIEF.length + 1).trimEnd().split('\n\n'), [
+    `[t](sources/item-${TICKET} "The ticket")`,
+    `[t](sources/item-${TICKET})`,
+    `[t]: sources/item-${TICKET} "The ticket"`,
+    '[the pr](sources/item-02%20pr%2088.md)',
+    '[the pr](sources/item-02%20pr%2088.md)',
+    '[my notes](my%20notes.md) and [mine](my%20notes.md)',
+    '[log](log.md#round-1-2026-01-14) and [round one](log.md#round-1-2026-01-14)',
+    '[the log](log.md) and ![the log](./log.md)',
+  ])
+  assert.equal(files['sources/item-02 pr 88.md'], '# PR 88\n')
+  assert.equal(files['my notes.md'], '# Mine\n')
+})
+
+test('a link to a file left out becomes its words and the mark in every form too: with a title, as a picture, and as the definition of a reference, which becomes a line of plain words', () => {
+  const lines = [`[the mail](sources/${MAIL} "Limits")`, `![the mail](<sources/${MAIL}>)`, `[the mail]: sources/${MAIL}`, '[r]: reading.md "The reading"']
+  const root = withResearch({ [`${DIR}/brief.md`]: `${BRIEF}\n${lines.join('\n\n')}\n` })
+  const out = elsewhere()
+
+  handover(root, NAME, out, '--without', 'mail')
+
+  assert.deepEqual(copied(out)['brief.md'].slice(BRIEF.length + 1).trimEnd().split('\n\n'), [`the mail ${GONE}`, `the mail ${GONE}`, `the mail ${GONE}`, `r ${GONE}`])
+})
+
+test("a fact rests only on sources left out where it names one and nothing that stays: a line of code or a full address on the same line as the source keeps it out of the list, and so does a fact it is reasoned from, while a fact reasoned from the source alone is in it", () => {
+  const mail = IN_THE_MAP.mail
+  const facts = [
+    '- **F1** `verified` One.',
+    `  - Source: ${mail} and \`api/src/gateway.js:9\` at \`3f2a9c1\``,
+    '- **F2** `verified` Two.',
+    `  - Source: ${mail} and https://example.com/limits`,
+    '- **F3** `inferred` Three.',
+    `  - From: ${mail}`,
+    '- **F4** `inferred` Four.',
+    `  - From: F3 and ${mail}`,
+    '- **F5** `verified` Five.',
+    `  - Source: [the mail](sources/${MAIL} "Limits")`,
+  ]
+  const root = tree(acme({ [`${DIR}/index.md`]: ['---', 'research: gateway-limits', '---', '# Limits', '', '## Facts', '', ...facts, '', '## Sources', '', `- ${mail}: mail`, ''].join('\n'), [`${DIR}/sources/${MAIL}`]: SAVED[MAIL] }))
+  const out = elsewhere()
+
+  assert.deepEqual(linesOf(handover(root, NAME, out, '--without', 'mail')), [`handed over research gateway-limits to ${out}: 1 file`, 'left out: 1 source of kind mail', 'F3 and F5 rest only on sources left out'])
 })
