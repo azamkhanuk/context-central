@@ -26,7 +26,7 @@ Write the brief before anything is gathered, in `brief.md`, at the path `context
   | standard | `context-central config --get budgets.researchStandardRounds` | `context-central config --get budgets.researchStandardAgents` |
   | deep | `context-central config --get budgets.researchDeepRounds` | `context-central config --get budgets.researchDeepAgents` |
 
-  Run the two commands of the depth and write the word with both numbers, as `deep: at most 6 rounds, and 5 agents at once`.
+  Run the two commands of the depth and write the word with both numbers, as `deep: at most 6 rounds, and 5 agents at once`, with `round` or `agent` where the number is 1.
 - **Out of scope.** What the person said to leave out, a line each, or `none`.
 - **Start line.** What the run goes with, as below.
 
@@ -59,7 +59,7 @@ No more agents are started at once than the depth allows: where there is more to
 
 ## The sweep
 
-A sweep is a search of one connection for leads on the brief's questions. It goes to the `context-central:sweeper` agent, one for each connection. Where the session holds no such agent, hand the brief in `references/sweeper.md` to a subagent the host has, and with none, do what that brief says in the session. Give it the brief's questions, the connection's name, its entry, which `context-central connections --json` gives as `entry`, and how it is searched. It returns leads, one a line, and what it could not reach, and it saves nothing. A sweeper that finds no tool that searches says so: the connection is then read by name only, which is no gap.
+A sweep is a search of one connection for leads on the brief's questions. It goes to the `context-central:sweeper` agent: one sweeper for each connection, and one connection for each sweeper. Where the session holds that agent, the sweep is the agent's to make, and the session does not search a connection itself. Where the session holds no such agent, hand the brief in `references/sweeper.md` to a subagent the host has, and with none, do what that brief says in the session. Give it the brief's questions, the connection's name, its entry, which `context-central connections --json` gives as `entry`, and how it is searched. It returns leads, one a line, and what it could not reach, and it saves nothing. A sweeper that finds no tool that searches says so: the connection is then read by name only, which is no gap.
 
 A connection searched by `name` is not swept. The start line says so, and the run reads from it only what a source or the person names.
 
@@ -75,7 +75,7 @@ A question is answered once a fact on the sheet answers it. When a round's readi
 
 - `every question is answered`: with the person waiting only.
 - `a round added no fact and no lead`, or `no lead is open, so another round would add no fact and no lead`.
-- `the cap of <n> rounds was reached`, with the number of the depth.
+- `the cap of the depth was reached`, then a colon and the rounds it allows, as `the cap of the depth was reached: 3 rounds`, or `1 round`.
 
 Left alone, with nobody there, a run does not stop at its answers. While a lead is open it runs another round, to read that lead or set it aside, and it stops when a round added no fact and no lead or left no lead open. The cap is kept as a valve: it stops a run left alone as it stops any other.
 
