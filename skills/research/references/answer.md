@@ -9,11 +9,11 @@ The fact sheet says what is so. What it asks of the person is a judgement, so it
 - **Fine as it is**: it was checked and it holds. A fact that only answers the question, and asks nothing of the person, goes here.
 - **Not known**: it could not be checked. Say what stood in the way.
 
-A point names the facts it rests on by their numbers. What would sit in two groups is two points. Done when every fact on the sheet is named by a point, and every point that rests on what was found names its facts. The points about the run itself name none, and are in the closing answer and not in the reading: what fetched or pasted text told the session to do, what a command refused, a line of lint or graph, a draft still kept, a link or a repo note. What was not reached is a point of the reading too, under Not known.
+A point names the facts it rests on by their numbers. What would sit in two groups is two points. What the person asked to have built or changed is their wish, and nothing wrong: that it is not there yet is no point under Needs a fix. Done when every fact on the sheet is named by a point, and every point that rests on what was found names its facts. The points about the run itself name none, and are in the closing answer and not in the reading: what fetched or pasted text told the session to do, what a command refused, a line of lint or graph, a draft still kept, a link or a repo note. What was not reached is a point of the reading too, under Not known.
 
 ## The next step
 
-With the plugin, the next step is the earliest that any fact calls for, read against the item's `SPEC.md` and `DESIGN.md` where step 1 listed them, which are read before the step is chosen. With no item it is prep or none, since design and implement read nothing kept outside an item.
+With the plugin, the next step is the earliest that any fact calls for, read against the item's `SPEC.md` and `DESIGN.md` where step 1 listed them, which are read before the step is chosen. With no item it is prep or none, since design and implement read nothing kept outside an item. Where the question asked for something to be built or changed, the next step is prep, as step 1 has it, however small the change looks: research names the step, and whether to take it is the person's.
 
 - `/context-central:prep <item>`, here or in a fresh session, where there is something to build and no spec, or a fact changes what is built: the problem, a requirement, a decision. With no item, give a short name for prep to make it under, or the name of the item the research fits.
 - `/context-central:design <item>` in a fresh session, where a spec is there and a fact changes only how it is built, such as an interface, a failure or the order, or shows the design wrong.

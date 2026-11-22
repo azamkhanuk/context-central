@@ -57,7 +57,7 @@ A setting that is absent makes `config --get` exit 1; treat it as unset. With no
 
 ## 3. Mark every fact, and choose the next step
 
-Each thing found is a fact: one thing in one sentence, with a number, a mark and every source that says it, written as `references/folder.md` has it. Two sources that say one thing are one fact with both under it, never two facts. The mark is `verified` only for what was read in the source itself in this run, and `inferred` says from what.
+Each thing found is a fact: one thing in one sentence, with a number, a mark and every source that says it, written as `references/folder.md` has it. A fact says the thing itself, never that a source says it, so two sources that say one thing are one fact with both under it, never two facts. The mark is `verified` only for what was read in the source itself in this run, and `inferred` says from what.
 
 Then sort what the facts ask of the person into the four groups, and choose the next step, as `references/answer.md` has both. The next step is a step of the plugin only where the line "The plugin's folder" above ends in a path. Where that line ends at its colon or still shows a placeholder, this skill was taken alone: there is no step to name, and the next things to do are given in plain words.
 

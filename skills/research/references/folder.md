@@ -44,7 +44,7 @@ One research is one folder of the map, made by `context-central research new`, a
 - **F9** `verified` `disputed` The limit is 100 calls a minute by one source and 60 by the other.
   - Source: [04-2026-11-22-mail-limits-full-text.md](sources/04-2026-11-22-mail-limits-full-text.md): 100
   - Source: https://example.com/limits: 60
-- **F10** `verified` The ticket asks for one limit for every client.
+- **F10** `verified` Every client is given the same limit.
   - Source: [01-2026-01-09-PROJ-12-full-text.md](../../work/PROJ-12/sources/01-2026-01-09-PROJ-12-full-text.md)
 
 ## Sources
@@ -60,10 +60,11 @@ One research is one folder of the map, made by `context-central research new`, a
 
 **A fact** is a list item at no indent: `- **F<n>** `, its mark in backticks, then one sentence that says one thing.
 
+- It says the thing itself, and never that a source says it: `Export files are kept for seven days`, with a `Source` line for each source that says so, and not `The thread says that files are kept for a week`. Who said a thing, and where, is what its `Source` lines are for. The one fact that is about a source is what a source says against what holds, as below.
 - Its number is the next one: the `facts:` line of `research open` gives it, and each fact written after it takes one more.
 - The first mark, `verified`, is earned only where the source itself was read in this run, by the session or by an agent that was handed the source and gives the lines it read: the code at a commit, the saved text of a ticket or a thread, the page at its address. A search result, a digest, a summary, a recollection and a note of the map are leads and not sources: read what they point at, or mark the fact `inferred`.
 - Under a fact marked `verified` there is a `- Source:` line for every source that says it, and under one marked `inferred` one `- From:` line, with the facts it was reasoned from, by number, and anything else.
-- Two sources that say one thing are one fact with a `Source` line for each, never two facts.
+- Two sources that say one thing are one fact with a `Source` line for each, never two facts, however differently they word it: a thread that says a week, a record that says seven days and the code that sets 7 say one thing. The same holds where the question names the sources: what they say is not a fact for each of them.
 - Where sources disagree and the run cannot tell which holds, write one fact that says what each holds, with `disputed` in backticks after its mark, a `Source` line for each, and after each a colon and what that source says. Where the run can tell, as where one of them is the thing itself, such as the code that runs, nothing is disputed: one fact says what holds, with every source that says so, and what another source says against it is a fact of its own, about that source.
 - A fact that no longer holds is superseded, never rewritten. The fact that takes its place has the next number and a line under it, `- Supersedes F<n>, <YYYY-MM-DD>: <the reason>`. The older fact leaves the sheet for the log, as below.
 
@@ -71,7 +72,7 @@ One research is one folder of the map, made by `context-central research new`, a
 
 - A saved file, as a link, `[<file>](sources/<file>)`. A file the item saved is linked the same way, by its path from the sheet's folder.
 - A page on the web, by its full address.
-- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at.
+- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at. Two places in one file are two `Source` lines.
 
 **The list of sources** gives each source once, then a colon and its kind. For what came through a connection the kind is the word that connection holds, which is the second field of its line in `context-central connections`. Otherwise it is `web` for a page, `paste` for pasted text, `note` for a copy of a note of the map, and `code` for a repo, written as its name and the commit read. `context-central graph` reports a saved source that no file names.
 
