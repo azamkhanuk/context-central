@@ -700,13 +700,39 @@ test('what lint and graph print of a research names its folder, which is how res
   for (const named of ['`context-central lint`', '`context-central graph`', '`ORPHAN`']) assert.ok(step('research', "4. Write the research's folder").includes(named), named)
 })
 
-test('research writes its start line from what connections gives as JSON, and the three ways a connection is searched that a run acts on are the ones its text names', () => {
-  const root = tree(acme({}, { connections: { desk: { holds: 'tickets', commands: { search: ['desk', 'find'] } }, talk: { holds: 'chat', server: 'threads' }, post: { holds: 'mail' } } }))
+const waysOf = (type: string) => [...(new RegExp(`^export type ${type} = (.+)$`, 'm').exec(readFileSync(join(REPO, 'lib', 'connections.mts'), 'utf8'))?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map(([, way]) => way)
 
-  const listed = JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { name: string, holds: string, by: string, search: { by: string } }[]
+test('research writes its start line from what connections gives as JSON, with a line for each way the plugin can say a connection is reached and each way it can say one is searched, and for no other', () => {
+  const root = tree(acme({}, { connections: { desk: { holds: 'tickets', commands: { search: ['desk', 'find'] } }, talk: { holds: 'chat', server: 'threads' }, post: { holds: 'mail', how: 'Ask the office.' }, wiki: { holds: 'documents', route: { via: 'the wiki tool' }, researchSkill: 'wiki-search' } } }))
 
-  assert.deepEqual(listed.map(({ name, holds, by, search }) => [name, holds, by, search.by]), [['desk', 'tickets', 'command', 'command'], ['talk', 'chat', 'server', 'server'], ['post', 'mail', 'hand', 'name']])
-  for (const named of ['`context-central connections --json`', '`holds`', '`by`', '`search`', '`server`', '`command`', '`name`']) assert.ok(referenceText('research', 'references/run.md').includes(named), named)
+  const listed = JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { name: string, holds: string, by: string, missing: unknown, search: { by: string }, entry: { [key: string]: unknown } }[]
+  const brief = partOf(referenceText('research', 'references/run.md'), 'The brief')
+  const headed = brief.split('\n').filter(line => /^- `[a-z]+`/.test(line)).flatMap(line => [...line.slice(0, line.indexOf(':')).matchAll(/`([a-z]+)`/g)].map(([, way]) => way))
+
+  assert.deepEqual(listed.map(({ name, holds, by, search }) => [name, holds, by, search.by]), [['desk', 'tickets', 'command', 'command'], ['talk', 'chat', 'server', 'server'], ['post', 'mail', 'hand', 'name'], ['wiki', 'documents', 'route', 'skill']])
+  assert.deepEqual([listed[2].missing, listed[2].entry.how], [null, 'Ask the office.'])
+  assert.deepEqual([waysOf('Way'), waysOf('Search')], [['fetch', 'server', 'command', 'route', 'hand'], ['skill', 'command', 'server', 'name']])
+  assert.deepEqual(headed.sort(), [...waysOf('Way'), ...waysOf('Search')].sort())
+  for (const named of ['`context-central connections --json`', '`holds`', '`by`', '`search`', '`missing`', '`how`']) assert.ok(brief.includes(named), named)
+  for (const named of ['`context-central connections --json`', '`holds`']) assert.ok(referenceText('research', 'references/folder.md').includes(named), named)
+})
+
+test('research writes a line of its start line for a connection that a preset applies unasked, which connections gives as JSON on a map made before connections and marks', () => {
+  const root = tree(acme({}, { tracker: { type: 'desk', keyPatterns: ['DESK-\\d+'] } }))
+
+  const listed = JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { holds: string, unasked?: boolean }[]
+
+  assert.deepEqual(listed.map(({ holds, unasked }) => [holds, unasked ?? false]), [['tickets', false], ['tickets', true], ['pull-requests', true]])
+  assert.ok(partOf(referenceText('research', 'references/run.md'), 'The brief').includes('`unasked`'))
+})
+
+test("research names where for the place of the estate's glossary, which that command prints", () => {
+  const root = tree(acme())
+
+  const printed = run(['where'], { cwd: root }).stdout.split('\n')
+
+  assert.deepEqual(printed.filter(line => line.startsWith('glossary: ')).map(line => line.endsWith('glossary.md')), [true])
+  assert.ok(partOf(referenceText('research', 'references/run.md'), 'Gaps').includes('`context-central where`'))
 })
 
 test('research says in its start line what research new answers as git for a map that git tracks, kept or ignored', () => {
@@ -721,12 +747,16 @@ test('research says in its start line what research new answers as git for a map
   for (const named of ['`git`', '`kept`', '`ignored`']) assert.ok(referenceText('research', 'references/run.md').includes(named), named)
 })
 
-test('research reads the two caps of a depth with config, a key for each, which a map that sets none answers with a number', () => {
+test("research reads the two caps of a depth with config, a key for each, which a map that sets none answers with the number the text gives as the plugin's own, and which prints as it was written a cap that is no whole number above zero", () => {
   const root = tree(acme())
-  const keys = [...referenceText('research', 'references/run.md').matchAll(/`context-central config --get (budgets\.research[A-Za-z]+)`/g)].map(([, key]) => key)
+  const odd = tree(acme({}, { budgets: { researchQuickRounds: 0, researchQuickAgents: 2.5, researchDeepAgents: 'many' } }))
+  const printed = (cwd: string, key: string) => run(['config', '--get', key], { cwd }).stdout
+  const rows = [...referenceText('research', 'references/run.md').matchAll(/^ *\| (quick|standard|deep) \| `context-central config --get (budgets\.research[A-Za-z]+)` \| `context-central config --get (budgets\.research[A-Za-z]+)` \| (\d+) and (\d+) \|$/gm)].map(([, depth, rounds, agents, ownRounds, ownAgents]) => ({ depth, keys: [rounds, agents], own: [`${ownRounds}\n`, `${ownAgents}\n`] }))
 
-  assert.deepEqual(keys, ['budgets.researchQuickRounds', 'budgets.researchQuickAgents', 'budgets.researchStandardRounds', 'budgets.researchStandardAgents', 'budgets.researchDeepRounds', 'budgets.researchDeepAgents'])
-  assert.deepEqual(keys.map(key => run(['config', '--get', key], { cwd: root }).stdout), ['1\n', '2\n', '3\n', '3\n', '6\n', '5\n'])
+  assert.deepEqual(rows.map(({ depth, keys }) => [depth, ...keys]), [['quick', 'budgets.researchQuickRounds', 'budgets.researchQuickAgents'], ['standard', 'budgets.researchStandardRounds', 'budgets.researchStandardAgents'], ['deep', 'budgets.researchDeepRounds', 'budgets.researchDeepAgents']])
+  assert.deepEqual(rows.map(({ keys }) => keys.map(key => printed(root, key))), [['1\n', '2\n'], ['3\n', '3\n'], ['6\n', '5\n']])
+  assert.deepEqual(rows.map(({ own }) => own), [['1\n', '2\n'], ['3\n', '3\n'], ['6\n', '5\n']])
+  assert.deepEqual(['budgets.researchQuickRounds', 'budgets.researchQuickAgents', 'budgets.researchDeepAgents'].map(key => printed(odd, key)), ['0\n', '2.5\n', 'many\n'])
 })
 
 test('each of the four steps runs the skill a repo names for it, at the place the line standards prints is read', () => {

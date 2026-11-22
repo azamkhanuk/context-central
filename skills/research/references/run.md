@@ -20,21 +20,30 @@ Write the brief before anything is gathered, in `brief.md`, at the path `context
 - **Sources to cover.** Where the run will look, a line each: every connection by its name, each tool of the session that the map does not record and that reaches a kind of source the questions could need, each repo the run will read, each page or kind of page. This is the person's say over where a run looks: they strike a line or add one.
 - **Depth.** One of quick, standard and deep: the one the person typed, and with none typed standard with the person waiting and deep with nobody there. Each depth caps the rounds of one run and the agents started at once, and the estate sets the numbers:
 
-  | Depth | Rounds | Agents at once |
-  |---|---|---|
-  | quick | `context-central config --get budgets.researchQuickRounds` | `context-central config --get budgets.researchQuickAgents` |
-  | standard | `context-central config --get budgets.researchStandardRounds` | `context-central config --get budgets.researchStandardAgents` |
-  | deep | `context-central config --get budgets.researchDeepRounds` | `context-central config --get budgets.researchDeepAgents` |
+  | Depth | Rounds | Agents at once | The plugin's own |
+  |---|---|---|---|
+  | quick | `context-central config --get budgets.researchQuickRounds` | `context-central config --get budgets.researchQuickAgents` | 1 and 2 |
+  | standard | `context-central config --get budgets.researchStandardRounds` | `context-central config --get budgets.researchStandardAgents` | 3 and 3 |
+  | deep | `context-central config --get budgets.researchDeepRounds` | `context-central config --get budgets.researchDeepAgents` | 6 and 5 |
 
-  Run the two commands of the depth and write the word with both numbers, as `deep: at most 6 rounds, and 5 agents at once`, with `round` or `agent` where the number is 1.
+  Run the two commands of the depth, each as a line of its own, and write the word with both numbers, as `deep: at most 6 rounds, and 5 agents at once`, with `round` or `agent` where the number is 1. A budget is never absent: each command prints the estate's number, or the plugin's own where the estate sets none. A cap is a whole number of 1 or more. Where a command prints anything else, such as `0`, `2.5`, a word or `null`, the estate holds what a run cannot use: go by the plugin's own number for that cap, from the last column of the table, say so on the same line, after the numbers, as `(budgets.researchQuickAgents holds 0, which is no cap: the plugin's own 2 is used)`, and name the key in the closing answer, under Needs a fix.
 - **Out of scope.** What the person said to leave out, a line each, or `none`.
 - **Start line.** What the run goes with, as below.
 
-**The start line.** Run `context-central connections --json`. Write a line for each connection: its name, what it `holds`, how this machine reaches it, which is its `by`, and how it is searched, which is the `by` of its `search`:
+**The start line.** Run `context-central connections --json`. Write a line for each connection it gives: its name, what it `holds`, how this machine reaches it and how it is searched. One that carries `unasked` is a connection the map does not record: on a map made before connections a preset applies it unasked, a ticket or a pull request can be read through it, and its line says that the map does not record it.
+
+How this machine reaches a connection is its `by`:
+
+- `fetch`: the plugin's own fetch reads a ticket or a pull request from it here.
+- `server`, `command` or `route`: a session reads it the way its entry says, by its `server`, its `commands` or its `route`. The fetcher is handed that entry.
+- `hand`: neither the plugin nor a server, a command or a route reaches it here. Where `missing` names a program, that program is what this machine lacks. Where its entry holds a `how`, those words say how it is read: a fetcher handed the entry follows them where a session can do what they say, and where only a person can, nothing here reads it, and its line says so. What the questions need from it and nothing gets is a gap, unless the person gives its text.
+
+How it is searched is the `by` of its `search`:
 
 - `server`: through the server named there. Whether that server has a tool that searches is known once its sweep has looked: where it has none, the connection is read by name only, and its line of the start line is changed to say so.
 - `command`: with the estate's own command for `search`, in the entry's `commands`.
 - `name`: nothing searches it, so the run reads from it only what it can name.
+- `skill`: the map names a skill of the estate's own for searching it. A run does not start that skill: it reads the connection by name only, and its line says that and names no skill.
 
 Then, where there are any, a line for each of these:
 
@@ -66,7 +75,7 @@ A connection searched by `name` is not swept. The start line says so, and the ru
 
 ## What an agent is handed
 
-Every agent that gathers, the reader, the fetcher, the sweeper and the web reader, is handed the brief's questions as they are written there, with what to read or where to look, and nothing of what the person wants built or changed. This holds however the question was typed: the wish stays out of every prompt.
+Every agent that gathers, the reader, the fetcher, the sweeper and the web reader, is handed the brief's questions as they are written there, with what to read or where to look, and nothing of what the person wants built or changed. This holds however the question was typed: the wish stays out of every prompt. A prompt names a connection's server and never a tool of it: each agent finds the tool itself, as its brief has it.
 
 A page on the web is read by the `context-central:web-reader` agent, whose tools cannot write: give it the questions and the addresses, or what to look for. Where the session holds no such agent, hand the brief in `references/web-reader.md` to a subagent the host has, and with none, read the page in the session.
 
@@ -88,7 +97,7 @@ A gap is something the questions needed and the run could not reach. It is writt
 
 - A lead into a system that nothing reaches.
 - A connection that failed, gave nothing or was cut short.
-- A kind of source in the brief, or a term of the estate's glossary, with nothing behind it that reaches it: no connection and no tool of the session.
+- A kind of source in the brief, or a term of the estate's glossary, with nothing behind it that reaches it: no connection and no tool of the session. `context-central where` prints the place of the glossary, which is a file of the map.
 - A ticket or a pull request that more than one connection could hold, where neither the brief nor a sweep says which.
 - A text that only the person could paste, and did not.
 

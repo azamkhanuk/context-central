@@ -72,9 +72,9 @@ One research is one folder of the map, made by `context-central research new`, a
 
 - A saved file, as a link, `[<file>](sources/<file>)`. A file the item saved is linked the same way, by its path from the sheet's folder.
 - A page on the web, by its full address.
-- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at. Two places in one file are cited apart, each as its own `<path>:<line>`, and never as one with a comma.
+- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at, which `git -C <the repo's folder> rev-parse --short HEAD` prints. Two places in one file are cited apart, each as its own `<path>:<line>`, and never as one with a comma.
 
-**The list of sources** gives each source once, then a colon and its kind. For what came through a connection the kind is the word that connection holds, which is the second field of its line in `context-central connections`. Otherwise it is `web` for a page, `paste` for pasted text, `note` for a copy of a note of the map, and `code` for a repo, written as its name and the commit read. `context-central graph` reports a saved source that no file names.
+**The list of sources** gives each source once, then a colon and its kind. For what came through a connection the kind is the word that connection `holds`, as `context-central connections --json` gives it. Otherwise it is `web` for a page, `paste` for pasted text, `note` for a copy of a note of the map, and `code` for a repo, written as its name and the commit read. `context-central graph` reports a saved source that no file names.
 
 Where the `sheet:` line of `research open` says the sheet is past its size, move facts, whole and word for word, to pages beside it named `facts-<subject>.md`, a subject in small letters, digits and dashes, and list each page under `## Facts` with the numbers it holds.
 

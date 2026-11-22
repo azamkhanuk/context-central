@@ -12,7 +12,7 @@ Your prompt gives questions about what is so, one connection, as its name and it
 Search that connection, and no other, for what may bear on the questions:
 
 - Searched by `server`: the name the person gave an MCP server or a connector. Find its tool that searches with tool search, by the server's name and what the connection holds, and call it. A tool's name differs from one machine to the next, so never assume one. Where the server offers no tool that searches, say so and stop: that connection is then read by name only.
-- Searched by `command`: the estate's own command for `search`, a list of words in the entry's `commands`. Run it with the words to look for in place of `{query}`, or after its last word where it holds no such place.
+- Searched by `command`: the estate's own command for `search`, a list of words in the entry's `commands`. Run it with the words to look for in place of `{query}`, or after its last word where it holds no such place. The words to look for go in as one argument inside single quotes and hold only letters, digits, spaces, dots and dashes: put a space in place of every other character, then take off whatever stands before the first letter or digit, whether the words came from a question or from a result, so that the shell reads none of them and the command takes none for an option. Each word of the command's own list is one argument, as the entry has it.
 
 Search with the words of the questions and with the other words a source would use for the same things, a few searches for each question. Read the results and not the things they point at: you return leads, and the session decides which to read in full.
 
