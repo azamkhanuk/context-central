@@ -4,20 +4,37 @@ import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
 import { locked, writeWhole } from '../lock.mts'
-import { findWorkItem, makeFolder } from '../nodes.mts'
-import { SHEET_FILE, researchTaken } from '../research.mts'
+import { findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
+import { SHEET_FILE, findResearch, listResearches, readResearch, researchTaken } from '../research.mts'
 import { researchTemplates } from '../templates.mts'
+import { formatBytes, localDate, plural } from '../text.mts'
 import { asked, gitTracks } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate } from '../estate.mts'
+import type { Research } from '../research.mts'
 
 type KeptByGit = 'kept' | 'ignored' | null
 
-export const summary = 'Research folders: new <name>'
+interface Standing {
+  name: string
+  title: string
+  item: string | null
+  facts: { stand: number; superseded: number; next: string }
+  sources: { saved: number; next: string }
+  rounds: { last: number; day: string | null; stopped: string | null }
+  checkAgain: { day: string; daysOff: number } | null
+  sheet: { bytes: number; limit: number; pages: number }
+  dates: { today: string; stable: { days: number; day: string }; moving: { days: number; day: string } }
+}
 
-const USAGE = 'expected: research new <name> [--title <title>] [--item <item>] [--json]'
+export const summary = 'Research folders: new <name>, open <name>'
+
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
+const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'] }
+const NAME_ANOTHER = 'name another folder with "researchDir" in estate.json'
 const IGNORED = 0
 const NOT_IGNORED = 1
+const A_DAY_MS = 86_400_000
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
@@ -26,7 +43,10 @@ export function run(args: string[], io: Io) {
     options: { title: { type: 'string' }, item: { type: 'string' }, json: { type: 'boolean' } },
   })
   const [action, name, ...more] = positionals
-  if (action !== 'new' || more.length > 0 || name === undefined) throw new UsageError(USAGE)
+  if (!Object.hasOwn(ACTIONS, action ?? '') || more.length > 0 || name === undefined) throw new UsageError(USAGE)
+  const misplaced = Object.keys(values).find(flag => !ACTIONS[action].includes(flag))
+  if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
+  if (action === 'open') return open(requireEstate(io), name, values.json, io)
   if (!NODE_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, for example gateway-limits')
   const estate = requireEstate(io)
   const dirRel = create(estate, name, values)
@@ -43,7 +63,7 @@ function create(estate: Estate, name: string, { title, item: asked }: { title?: 
   const dirRel = `${researchDir}/${name}`
   locked(estate.mapDir, () => {
     const taken = researchTaken(estate)
-    if (taken) throw new PluginError(`${researchDir} ${taken}, so no research is made there: name another folder with "researchDir" in estate.json`)
+    if (taken) throw new PluginError(`${researchDir} ${taken}, so no research is made there: ${NAME_ANOTHER}`)
     if (namesIn(join(estate.mapDir, researchDir)).some(held => held.toLowerCase() === name.toLowerCase())) throw new PluginError(`${dirRel} is there already`)
     const item = asked === undefined ? null : findWorkItem(estate, asked)
     if (asked !== undefined && !item) throw new PluginError(`no work item "${asked}"`)
@@ -74,4 +94,58 @@ function namesIn(dir: string) {
   } catch {
     return []
   }
+}
+
+function open(estate: Estate, name: string, json: boolean | undefined, io: Io) {
+  const taken = researchTaken(estate)
+  if (taken) throw new PluginError(`${estate.config.researchDir} ${taken}, so it holds no research: ${NAME_ANOTHER}`)
+  const research = findResearch(estate, name)
+  if (!research) {
+    const names = listResearches(estate).map(held => held.name)
+    throw new PluginError(`no research "${name}" in this map. ${names.length > 0 ? `Its researches: ${names.join(', ')}.` : 'It holds none.'}`)
+  }
+  const standing = standingOf(estate, research, localDate(io.env).day)
+  io.out(json ? JSON.stringify(standing, null, 2) : said(standing).join('\n'))
+}
+
+function standingOf(estate: Estate, research: Research, today: string): Standing {
+  const { researchSheetBytes, researchStableDays, researchMovingDays } = estate.config.budgets
+  const { stands, superseded, rounds, checkAgain } = readResearch(research)
+  const last = rounds.reduce<(typeof rounds)[number] | null>((highest, round) => (highest && highest.number > round.number ? highest : round), null)
+  const on = (days: number) => ({ days, day: new Date(Date.parse(`${today}T00:00:00Z`) + days * A_DAY_MS).toISOString().slice(0, 10) })
+  return {
+    name: research.name,
+    title: research.title,
+    item: research.item,
+    facts: { stand: stands.length, superseded: superseded.length, next: `F${Math.max(0, ...[...stands, ...superseded].map(fact => fact.number)) + 1}` },
+    sources: { saved: research.sources.length, next: nextSourceNumber(estate.mapDir, `${research.dirRel}/sources`) },
+    rounds: { last: last?.number ?? 0, day: last?.day ?? null, stopped: last?.stopped ?? null },
+    checkAgain: checkAgain === null ? null : { day: checkAgain, daysOff: Math.round((Date.parse(`${checkAgain}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / A_DAY_MS) },
+    sheet: { bytes: research.sheet.bytes, limit: researchSheetBytes, pages: research.pages.length },
+    dates: { today, stable: on(researchStableDays), moving: on(researchMovingDays) },
+  }
+}
+
+function said({ name, title, item, facts, sources, rounds, checkAgain, sheet, dates }: Standing) {
+  const stand = facts.stand === 1 ? '1 stands' : `${facts.stand || 'none'} stand`
+  const size = formatBytes(sheet.bytes)
+  const limit = formatBytes(sheet.limit)
+  const past = sheet.bytes > sheet.limit
+  return [
+    `research ${name}: ${title}`,
+    ...(item ? [`item: ${item}`] : []),
+    `facts: ${facts.stand + facts.superseded === 0 ? 'none' : `${stand}, ${facts.superseded || 'none'} superseded`}; the next is ${facts.next}`,
+    `sources: ${sources.saved || 'none'} saved; the next is ${sources.next}`,
+    `rounds: ${rounds.day === null ? 'none' : `${rounds.last}, the last on ${rounds.day}, ${rounds.stopped === null ? 'not stopped' : `stopped: ${rounds.stopped}`}`}`,
+    `check again by: ${checkAgain === null ? 'no date on the sheet' : `${checkAgain.day}, ${off(checkAgain.daysOff)}`}`,
+    past
+      ? `sheet: ${size}, past ${limit}: its facts go to ${sheet.pages > 0 ? `its ${plural(sheet.pages, 'page')}` : 'pages'} by subject`
+      : `sheet: ${size} of ${limit}${sheet.pages > 0 ? `, and ${plural(sheet.pages, 'page')} by subject` : ''}`,
+    `dates: today is ${dates.today}, ${plural(dates.stable.days, 'day')} on is ${dates.stable.day}, ${plural(dates.moving.days, 'day')} on is ${dates.moving.day}`,
+  ]
+}
+
+function off(days: number) {
+  if (days === 0) return 'today'
+  return days > 0 ? `${plural(days, 'day')} off` : `passed ${plural(-days, 'day')} ago`
 }

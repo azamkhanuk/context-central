@@ -31,6 +31,9 @@ const DEFAULT_BUDGETS = {
   hookTextChars: 600,
   resumeNoticeTokens: 100000,
   evidenceBytes: 1024 * 1024,
+  researchSheetBytes: 16000,
+  researchStableDays: 30,
+  researchMovingDays: 7,
 }
 
 export type Layout = 'root' | 'inner'

@@ -84,7 +84,54 @@ const TWO_LETTER_CASES = (() => {
 
 type Named = { researchDir: string, notNodes?: string[] }
 
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
+const DATES = 'dates: today is 2026-01-15, 30 days on is 2026-02-14, 7 days on is 2026-01-22'
+const FULL_SHEET = `---
+research: gateway-limits
+title: How the gateway limits a shop
+item: PROJ-12
+---
+# How the gateway limits a shop
+
+## Check again by
+
+2026-02-13, since the limits are being changed. It was first set for 2026-01-20.
+
+## Facts
+
+- **F7** \`verified\` The gateway retries a failed call three times.
+  - Source: [03-2026-01-14-chat-retries-full-text.md](sources/03-2026-01-14-chat-retries-full-text.md)
+  - Supersedes F3, 2026-01-14: the count was raised from two.
+- **F8** \`inferred\` An export retries the same way, since it calls the gateway.
+  - From: F7
+- **F9** \`verified\` \`disputed\` The limit is 100 calls a minute by one source and 60 by the other.
+  - Source: [04-2026-01-14-mail-limits-full-text.md](sources/04-2026-01-14-mail-limits-full-text.md): 100
+  - Source: https://example.com/limits: 60
+`
+const FULL_LOG = `# How the gateway limits a shop: the log
+
+## Round 1, 2026-01-13
+
+- Answered: Q1 by F3
+- Stopped: every question was answered
+
+## Round 2, 2026-01-14
+
+- Answered: Q1 by F7 and F8
+- Stopped: a round added no fact and no lead
+
+### Superseded
+
+- **F3** \`verified\` The gateway retries a failed call twice.
+  - Source: https://example.com/pr/88
+`
+
 const research = (cwd: string, ...args: string[]) => run(['research', ...args], { cwd })
+const open = (cwd: string, ...args: string[]) => run(['research', 'open', ...args], { cwd, env: { TZ: 'UTC' } })
+const opened = (cwd: string, label: string) => open(cwd, NAME).stdout.split('\n').find(line => line.startsWith(`${label}:`))
+const withFull = (more: TreeFiles = {}, settings: { [key: string]: Json } = {}) =>
+  tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, 'research/gateway-limits/log.md': FULL_LOG, 'research/gateway-limits/sources/03-2026-01-14-chat-retries-full-text.md': '# Retries\n', 'research/gateway-limits/sources/04-2026-01-14-mail-limits-full-text.md': '# Limits\n', ...more }, settings))
+const withSheet = (...below: string[]) => tree(acme({ 'research/gateway-limits/index.md': ['---', 'research: gateway-limits', '---', '# Limits', '', ...below, ''].join('\n') }))
 const inGit = (made: Checkout, cwd: string, ...args: string[]) => run(args, { cwd, env: made.env })
 const made = (one: Checkout) => (tree(one.base), one)
 const settingsRefused = (settings: { [key: string]: Json }) => run(['config'], { cwd: tree(acme({}, settings)) })
@@ -156,7 +203,7 @@ test('a research with no name, or a name that is not letters, digits, dots, dash
     assert.equal(result.stdout, '', odd.join(' '))
     assert.equal(existsSync(join(root, 'research')), false, odd.join(' '))
   }
-  assert.equal(research(root, 'new').stderr, 'context-central research: expected: research new <name> [--title <title>] [--item <item>] [--json]\n')
+  assert.equal(research(root, 'new').stderr, `context-central research: ${USAGE}\n`)
   assert.equal(research(root, 'new', '../escape').stderr, 'context-central research: a research name is letters, digits, dots, dashes and underscores, for example gateway-limits\n')
 })
 
@@ -164,7 +211,7 @@ test('an action that research does not have is wrong usage', () => {
   const root = tree(acme())
 
   for (const odd of [[], ['remove', NAME]]) {
-    assert.deepEqual(research(root, ...odd), { code: 2, stdout: '', stderr: 'context-central research: expected: research new <name> [--title <title>] [--item <item>] [--json]\n' }, odd.join(' '))
+    assert.deepEqual(research(root, ...odd), { code: 2, stdout: '', stderr: `context-central research: ${USAGE}\n` }, odd.join(' '))
   }
 })
 
@@ -580,4 +627,185 @@ test("in the root layout a research is the map's own, so one that is not committ
 
   assert.match(git(one, one.main, 'status', '--porcelain').stdout, /^\?\? research\/$/m)
   assert.deepEqual(dirty(), [false, true])
+})
+
+test('a research just made is opened as one with no fact, no source and no round, with the day and the two days on from it', () => {
+  const root = tree(acme())
+  research(root, 'new', NAME, '--title', TITLE)
+
+  const result = open(root, NAME)
+
+  assert.deepEqual(result, {
+    code: 0,
+    stderr: '',
+    stdout: ['research gateway-limits: How the gateway limits a shop', 'facts: none; the next is F1', 'sources: none saved; the next is 01', 'rounds: none', 'check again by: no date on the sheet', 'sheet: 1.1 KB of 16 KB', DATES, ''].join('\n'),
+  })
+})
+
+test('a research is opened with its item, its facts and the next number, its saved sources and the next, its last round and what stopped it, its date and the size of its sheet', () => {
+  const root = withFull()
+
+  const result = open(root, NAME)
+
+  assert.deepEqual(result, {
+    code: 0,
+    stderr: '',
+    stdout: [
+      'research gateway-limits: How the gateway limits a shop',
+      'item: PROJ-12',
+      'facts: 3 stand, 1 superseded; the next is F10',
+      'sources: 2 saved; the next is 05',
+      'rounds: 2, the last on 2026-01-14, stopped: a round added no fact and no lead',
+      'check again by: 2026-02-13, 29 days off',
+      `sheet: ${sizeOf(FULL_SHEET)} B of 16 KB`,
+      DATES,
+      '',
+    ].join('\n'),
+  })
+})
+
+test('with --json a research is opened as one object with the same nine things', () => {
+  const root = withFull()
+
+  const result = open(root, NAME, '--json')
+
+  assert.equal(result.code, 0)
+  assert.deepEqual(JSON.parse(result.stdout), {
+    name: 'gateway-limits',
+    title: 'How the gateway limits a shop',
+    item: 'PROJ-12',
+    facts: { stand: 3, superseded: 1, next: 'F10' },
+    sources: { saved: 2, next: '05' },
+    rounds: { last: 2, day: '2026-01-14', stopped: 'a round added no fact and no lead' },
+    checkAgain: { day: '2026-02-13', daysOff: 29 },
+    sheet: { bytes: sizeOf(FULL_SHEET), limit: 16000, pages: 0 },
+    dates: { today: '2026-01-15', stable: { days: 30, day: '2026-02-14' }, moving: { days: 7, day: '2026-01-22' } },
+  })
+  assert.deepEqual(JSON.parse(open(tree(acme({ 'research/gateway-limits/index.md': '---\nresearch: gateway-limits\n---\n# Limits\n' })), NAME, '--json').stdout), {
+    name: 'gateway-limits',
+    title: 'Limits',
+    item: null,
+    facts: { stand: 0, superseded: 0, next: 'F1' },
+    sources: { saved: 0, next: '01' },
+    rounds: { last: 0, day: null, stopped: null },
+    checkAgain: null,
+    sheet: { bytes: 42, limit: 16000, pages: 0 },
+    dates: { today: '2026-01-15', stable: { days: 30, day: '2026-02-14' }, moving: { days: 7, day: '2026-01-22' } },
+  })
+})
+
+test('a run that was cut off is known by a last round with no line for what stopped it', () => {
+  const cutOff = withFull({ 'research/gateway-limits/log.md': `${FULL_LOG}\n## Round 3, 2026-01-15\n\n- Answered: Q2 by F9\n- Open: Q3\n` })
+  const onlyOne = tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, 'research/gateway-limits/log.md': '# The log\n\n## Round 1, 2026-01-15\n\n- Open: Q1\n' }))
+
+  const nested = tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, 'research/gateway-limits/log.md': '# The log\n\n## Round 1, 2026-01-15\n\n- Gaps: the mail of the two shops\n  - Stopped: said of the search, under the gap it met\n' }))
+
+  assert.equal(opened(cutOff, 'rounds'), 'rounds: 3, the last on 2026-01-15, not stopped')
+  assert.equal(opened(onlyOne, 'rounds'), 'rounds: 1, the last on 2026-01-15, not stopped')
+  assert.equal(opened(nested, 'rounds'), 'rounds: 1, the last on 2026-01-15, not stopped')
+})
+
+test('a round is an entry of the log that opens with its number and its date, and one shown in a fenced block or written another way is none', () => {
+  const log = ['# The log', '', '## Round 4, 2026-01-12', '', '- Stopped: at the cap of its depth', '', '```', '## Round 9, 2026-01-14', '- Stopped: shown as an example', '```', '', '## Round five, 2026-01-14', '## Round 6', '### Round 7, 2026-01-14', '  - Stopped: nested under nothing', ''].join('\n')
+  const root = withFull({ 'research/gateway-limits/log.md': log })
+
+  assert.equal(opened(root, 'rounds'), 'rounds: 4, the last on 2026-01-12, stopped: at the cap of its depth')
+  assert.equal(opened(root, 'facts'), 'facts: 3 stand, none superseded; the next is F10')
+})
+
+test('the date to check again by is said as days off, as today, or as passed so many days ago', () => {
+  const said = (...below: string[]) => opened(withSheet('## Check again by', '', ...below), 'check again by')
+
+  assert.equal(said('2026-01-08'), 'check again by: 2026-01-08, passed 7 days ago')
+  assert.equal(said('2026-01-14'), 'check again by: 2026-01-14, passed 1 day ago')
+  assert.equal(said('2026-01-15'), 'check again by: 2026-01-15, today')
+  assert.equal(said('2026-01-16'), 'check again by: 2026-01-16, 1 day off')
+  assert.equal(said('By 2027-01-15, a year on.', '', '2026-01-16'), 'check again by: 2027-01-15, 365 days off')
+})
+
+test('a sheet with no date under its heading for it, or with one that is no day of the calendar, has no date', () => {
+  const none = 'check again by: no date on the sheet'
+
+  assert.equal(opened(withSheet('## Check again by', '', '## Not reached', '', '2026-02-13'), 'check again by'), none)
+  assert.equal(opened(withSheet('## Questions', '', '- Asked on 2026-01-10.'), 'check again by'), none)
+  assert.equal(opened(tree(acme({ 'research/gateway-limits/index.md': '---\nresearch: gateway-limits\nmade: 2026-01-10\n---\n# Limits\n' })), 'check again by'), none)
+  assert.equal(opened(withSheet('## Check again by', '', '2026-02-30'), 'check again by'), none)
+  assert.equal(opened(withSheet('## Check again by', '', '2026-13-01'), 'check again by'), none)
+  assert.equal(opened(withSheet('```', '## Check again by', '', '2026-02-13', '```'), 'check again by'), none)
+})
+
+test('a sheet past the size for one is said to be past it, with its pages counted where it has some', () => {
+  const pages = { 'research/gateway-limits/facts-retries.md': '# Retries\n\n- **F12** `verified` A retry waits one second.\n  - Source: https://example.com/pr/90\n', 'research/gateway-limits/facts-limits.md': '# Limits\n' }
+  const sized = (bytes: number, more: TreeFiles = {}) => opened(withFull(more, { budgets: { researchSheetBytes: bytes } }), 'sheet')
+  const size = sizeOf(FULL_SHEET)
+
+  assert.equal(sized(size - 1), `sheet: ${size} B, past ${size - 1} B: its facts go to pages by subject`)
+  assert.equal(sized(size), `sheet: ${size} B of ${size} B`)
+  assert.equal(sized(size - 1, pages), `sheet: ${size} B, past ${size - 1} B: its facts go to its 2 pages by subject`)
+  assert.equal(sized(size, pages), `sheet: ${size} B of ${size} B, and 2 pages by subject`)
+  assert.equal(opened(withFull(pages), 'facts'), 'facts: 4 stand, 1 superseded; the next is F13')
+})
+
+test('the next number of a fact is one more than the highest on the sheet, on its pages and in the log', () => {
+  const root = tree(acme({
+    'research/gateway-limits/index.md': '---\nresearch: gateway-limits\n---\n# Limits\n\n- **F2** `inferred` One.\n  - From: F1\n  - Supersedes F14, 2026-01-14: read again.\n',
+    'research/gateway-limits/facts-retries.md': '# Retries\n\n- **F9** `inferred` Two.\n  - From: F2\n',
+    'research/gateway-limits/log.md': '# The log\n\n- **F14** `inferred` Three.\n  - From: F2\n',
+  }))
+
+  assert.equal(opened(root, 'facts'), 'facts: 2 stand, 1 superseded; the next is F15')
+  assert.equal(opened(withSheet('- **F7** `inferred` One alone.', '  - From: the brief'), 'facts'), 'facts: 1 stands, none superseded; the next is F8')
+})
+
+test('the next number of a source is one more than the highest that opens a name with two or three digits, so the hundredth source is 100', () => {
+  const next = (...names: string[]) => opened(tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, ...Object.fromEntries(names.map(name => [`research/gateway-limits/sources/${name}`, '# Saved\n'])) })), 'sources')
+
+  assert.equal(next('99-2026-01-14-chat-retries-full-text.md'), 'sources: 1 saved; the next is 100')
+  assert.equal(next('100-2026-01-14-chat-retries-full-text.md', '02-2026-01-14-mail-full-text.md'), 'sources: 2 saved; the next is 101')
+  assert.equal(next('2026-01-09-notes.md', '7-chat.md', '1000-chat.md', '03chat.md'), 'sources: 4 saved; the next is 01')
+  assert.equal(next('08-2026-01-14-chat-full-text.md', '12-2026-01-14-export.csv'), 'sources: 1 saved; the next is 13')
+})
+
+test('a research whose sources reach 999 is not opened, since no number is left for the next', () => {
+  const root = tree(acme({ 'research/gateway-limits/index.md': FULL_SHEET, 'research/gateway-limits/sources/999-2026-01-14-chat-full-text.md': '# Saved\n' }))
+
+  assert.deepEqual(open(root, NAME), { code: 1, stdout: '', stderr: 'context-central research: research/gateway-limits/sources holds 999 numbered sources, and no number is left\n' })
+})
+
+test("the two days on are counted from the estate's own numbers where it sets them, and across the end of a year", () => {
+  const root = withFull({}, { budgets: { researchStableDays: 14, researchMovingDays: 3 } })
+  const plain = withFull()
+  const at = (cwd: string, now: string) => run(['research', 'open', NAME], { cwd, env: { TZ: 'UTC', CONTEXT_CENTRAL_NOW: now } }).stdout.trimEnd().split('\n').at(-1)
+
+  assert.equal(at(root, '2026-01-15T12:00:00Z'), 'dates: today is 2026-01-15, 14 days on is 2026-01-29, 3 days on is 2026-01-18')
+  assert.equal(at(plain, '2026-12-28T23:30:00Z'), 'dates: today is 2026-12-28, 30 days on is 2027-01-27, 7 days on is 2027-01-04')
+  assert.equal(run(['config', '--get', 'budgets.researchSheetBytes'], { cwd: plain }).stdout, '16000\n')
+  assert.equal(run(['config', '--get', 'budgets.researchStableDays'], { cwd: plain }).stdout, '30\n')
+  assert.equal(run(['config', '--get', 'budgets.researchMovingDays'], { cwd: plain }).stdout, '7\n')
+})
+
+test('a research that is not there is not opened, and the line names the researches the map holds, or says it holds none', () => {
+  const two = withFull({ 'research/retries/index.md': '---\nresearch: retries\n---\n# Retries\n', 'research/market/index.md': '# No head\n' })
+  const none = tree(acme({ 'research/market/index.md': '# No head\n' }))
+
+  assert.deepEqual(open(two, 'nope'), { code: 1, stdout: '', stderr: 'context-central research: no research "nope" in this map. Its researches: gateway-limits, retries.\n' })
+  assert.deepEqual(open(none, 'market'), { code: 1, stdout: '', stderr: 'context-central research: no research "market" in this map. It holds none.\n' })
+  assert.deepEqual(open(tree(acme()), 'nope'), { code: 1, stdout: '', stderr: 'context-central research: no research "nope" in this map. It holds none.\n' })
+})
+
+test("a research is not opened where research's folder is not the plugin's to use, and the line gives the reason", () => {
+  const root = tree(acme({ 'scratch/research/gateway-limits/index.md': FULL_SHEET }, { researchDir: 'scratch/research' }))
+
+  assert.deepEqual(open(root, NAME), { code: 1, stdout: '', stderr: `context-central research: scratch/research is under a leftAlone entry, so it holds no research: ${NOWHERE_ELSE}\n` })
+})
+
+test('a research is opened by its name in another letter case, and with no name or a flag that goes with another action it is wrong usage', () => {
+  const root = withFull()
+
+  assert.equal(open(root, 'Gateway-Limits').stdout.split('\n')[0], 'research gateway-limits: How the gateway limits a shop')
+  assert.deepEqual(open(root), { code: 2, stdout: '', stderr: `context-central research: ${USAGE}\n` })
+  assert.deepEqual(open(root, NAME, 'more'), { code: 2, stdout: '', stderr: `context-central research: ${USAGE}\n` })
+  assert.deepEqual(open(root, NAME, '--title', 'x'), { code: 2, stdout: '', stderr: 'context-central research: --title does not go with open\n' })
+  assert.deepEqual(open(root, NAME, '--item', 'PROJ-12'), { code: 2, stdout: '', stderr: 'context-central research: --item does not go with open\n' })
+  assert.match(open(tree(makeTree({ 'readme.txt': 'x\n' })), NAME).stderr, /^context-central research: no context map found/)
 })

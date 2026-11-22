@@ -35,10 +35,19 @@ export interface Fact {
   supersedes: Superseding[]
 }
 
+export interface Round {
+  number: number
+  day: string
+  line: number
+  stopped: string | null
+}
+
 export interface Read {
   stands: Fact[]
   superseded: Fact[]
   unread: { rel: string; line: number }[]
+  rounds: Round[]
+  checkAgain: string | null
 }
 
 export interface Said {
@@ -54,6 +63,11 @@ export const LOG_FILE = 'log.md'
 const PAGE = /^facts-[a-z0-9-]+\.md$/
 const OPENS_AS_A_FACT = /^- \*\*F\d+\*\*/
 const FACT = /^- \*\*F(\d+)\*\* `(verified|inferred)`( `disputed`)?(?! `disputed`) \S/
+const ROUND = /^## Round (\d+), (\d{4}-\d{2}-\d{2})\s*$/
+const STOPPED = /^- Stopped: (\S.*)$/
+const CHECK_AGAIN_BY = /^## Check again by\s*$/
+const HEADING = /^#{1,6}\s/
+const A_DAY = /\b\d{4}-\d{2}-\d{2}\b/
 const SUPERSEDES = /^- Supersedes F(\d+)(?:, (\d{4}-\d{2}-\d{2}): (\S.*))?/
 const ONCE = 'a number is used once across the sheet and the log'
 const LEAVES = 'a superseded fact leaves the sheet for the log'
@@ -94,7 +108,39 @@ export function readResearch(research: Research): Read {
   const log = research.files.find(file => file.rel === `${research.dirRel}/${LOG_FILE}`)
   const sheet = [research.sheet, ...research.pages].map(factsIn)
   const logged = log ? factsIn(log) : { facts: [], unread: [] }
-  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread) }
+  return { stands: sheet.flatMap(read => read.facts), superseded: logged.facts, unread: [...sheet, logged].flatMap(read => read.unread), rounds: log ? roundsIn(log) : [], checkAgain: dateOn(research.sheet) }
+}
+
+function roundsIn(log: Node) {
+  const rounds: Round[] = []
+  for (const { text, line } of proseOf(log)) {
+    const opened = ROUND.exec(text)
+    const last = rounds.at(-1)
+    if (opened) rounds.push({ number: Number(opened[1]), day: opened[2], line, stopped: null })
+    else if (last && last.stopped === null) last.stopped = STOPPED.exec(text)?.[1].trimEnd() ?? null
+  }
+  return rounds
+}
+
+function dateOn(sheet: Node) {
+  const prose = proseOf(sheet)
+  const from = prose.findIndex(({ text }) => CHECK_AGAIN_BY.test(text))
+  if (from === -1) return null
+  const below = prose.slice(from + 1)
+  const until = below.findIndex(({ text }) => HEADING.test(text))
+  const [day] = below.slice(0, until === -1 ? below.length : until).flatMap(({ text }) => A_DAY.exec(text) ?? [])
+  return day !== undefined && isADay(day) ? day : null
+}
+
+function isADay(day: string) {
+  const at = Date.parse(`${day}T00:00:00Z`)
+  return !Number.isNaN(at) && new Date(at).toISOString().startsWith(day)
+}
+
+function proseOf(file: Node) {
+  const lines = linesOf(file.path)
+  const inAFence = fenced(lines)
+  return lines.flatMap((text, index) => (inAFence[index] ? [] : [{ text, line: index + 1 }]))
 }
 
 export function layoutFindings(estate: Estate, research: Research): Said[] {

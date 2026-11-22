@@ -80,6 +80,8 @@ export const EVIDENCE_DIR = 'evidence'
 export const PROOF_FILE = 'proof.jsonl'
 
 const NOT_ITEMS = ['readme.md', 'index.md']
+const NUMBERED_SOURCE = /^(\d{2,3})-/
+const LAST_SOURCE_NUMBER = 999
 const LINK = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]|\]\((?!\w+:)([^)\s#]+\.md)(?:#[^)]*)?\)/g
 const listings = new Map<string, Set<string>>()
 const passed = new WeakMap<Estate, Map<string, string>>()
@@ -204,6 +206,13 @@ export function makeFolder(mapDir: string, rel: string) {
   const path = join(mapDir, rel)
   mkdirSync(path, { recursive: true })
   return path
+}
+
+export function nextSourceNumber(mapDir: string, sourcesRel: string) {
+  const taken = readNames(join(mapDir, sourcesRel)).map(name => Number(NUMBERED_SOURCE.exec(name)?.[1] ?? 0))
+  const next = Math.max(0, ...taken) + 1
+  if (next > LAST_SOURCE_NUMBER) throw new PluginError(`${sourcesRel} holds ${LAST_SOURCE_NUMBER} numbered sources, and no number is left`)
+  return String(next).padStart(2, '0')
 }
 
 export function folderToSaveIn(estate: Estate, item: WorkItem) {
