@@ -1,17 +1,20 @@
 import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
+import { citedIn, judgedIn } from '../citations.mts'
 import { PluginError, UsageError } from '../errors.mts'
-import { requireEstate } from '../estate.mts'
+import { repoAt, repoFolder, requireEstate } from '../estate.mts'
 import { locked, writeWhole } from '../lock.mts'
+import { onPath } from '../machine.mts'
 import { EVIDENCE_DIR, findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
 import { NAME_ANOTHER, SHEET_FILE, readResearch, requireResearch, researchTaken } from '../research.mts'
 import { researchTemplates } from '../templates.mts'
 import { formatBytes, localDate, plural } from '../text.mts'
 import { asked, gitTracks } from '../worktree.mts'
+import type { Cited, Judged } from '../citations.mts'
 import type { Env, Io } from '../cli.mts'
-import type { Estate } from '../estate.mts'
-import type { Research } from '../research.mts'
+import type { Estate, Repo } from '../estate.mts'
+import type { Fact, Research } from '../research.mts'
 
 type KeptByGit = 'kept' | 'ignored' | null
 
@@ -27,10 +30,25 @@ interface Standing {
   dates: { today: string; stable: { days: number; day: string }; moving: { days: number; day: string } }
 }
 
-export const summary = 'Research folders: new <name>, open <name>'
+interface CitedLine {
+  fact: Fact
+  cited: Cited
+  repo: Repo | null
+}
 
-const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json]'
-const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'] }
+interface Compared {
+  fact: string
+  span: string
+  commit: string | null
+  repo: string | null
+  state: Judged | 'no repo' | 'no answer'
+  at: string
+}
+
+export const summary = 'Research folders: new <name>, open <name>, moved <name>'
+
+const USAGE = 'expected one of: new <name> [--title <title>] [--item <item>] [--json], open <name> [--json], moved <name> [--json]'
+const ACTIONS: Record<string, string[]> = { new: ['title', 'item', 'json'], open: ['json'], moved: ['json'] }
 const A_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9_-])?$/
 const A_LINE_BREAK = /[\r\n\u0085\u2028\u2029]/
 const NEVER_LISTED = 'node_modules'
@@ -49,6 +67,7 @@ export function run(args: string[], io: Io) {
   const misplaced = Object.keys(values).find(flag => !ACTIONS[action].includes(flag))
   if (misplaced) throw new UsageError(`--${misplaced} does not go with ${action}`)
   if (action === 'open') return open(requireEstate(io), name, values.json, io)
+  if (action === 'moved') return moved(requireEstate(io), name, values.json, io)
   if (!A_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits')
   if (values.title !== undefined && A_LINE_BREAK.test(values.title)) throw new UsageError('a title is one line')
   const estate = requireEstate(io)
@@ -164,4 +183,59 @@ function said({ name, title, item, facts, sources, rounds, checkAgain, sheet, da
 function off(days: number) {
   if (days === 0) return 'today'
   return days > 0 ? `${plural(days, 'day')} off` : `passed ${plural(-days, 'day')} ago`
+}
+
+function moved(estate: Estate, name: string, json: boolean | undefined, io: Io) {
+  const research = requireResearch(estate, name)
+  const lines = citedLines(estate, research)
+  if (lines.length > 0 && !onPath('git', io.env)) throw new PluginError('git was not found on the PATH, so nothing was compared')
+  const compared = comparedWith(estate, lines, io.env)
+  if (json) return io.out(JSON.stringify(compared, null, 2))
+  if (compared.length === 0) return io.out(`No fact of ${research.name} cites a line of a repo.`)
+  io.out([...compared.flatMap(saidOf), counted(compared)].join('\n'))
+}
+
+function citedLines(estate: Estate, research: Research): CitedLine[] {
+  return readResearch(research).stands.flatMap(fact =>
+    fact.nested.flatMap(({ line, text }) =>
+      citedIn(text, line - 1)
+        .filter(cited => cited.first !== null)
+        .map(cited => ({ fact, cited, repo: repoAt(estate, dirname(resolve(estate.estateRoot, cited.path))) })),
+    ),
+  )
+}
+
+function comparedWith(estate: Estate, lines: CitedLine[], env: Env): Compared[] {
+  const states = new Map<CitedLine, Compared['state']>()
+  for (const repo of new Set(lines.flatMap(line => line.repo ?? []))) {
+    const inRepo = lines.filter(line => line.repo === repo)
+    const judged = judgedIn(repoFolder(estate, repo), repo, inRepo.map(({ cited }) => cited), env)
+    inRepo.forEach((line, at) => states.set(line, judged?.[at] ?? 'no answer'))
+  }
+  return lines.map(line => ({ fact: `F${line.fact.number}`, span: line.cited.span, commit: line.cited.commit, repo: line.repo?.name ?? null, state: states.get(line) ?? 'no repo', at: `${line.fact.rel}:${line.cited.line}` }))
+}
+
+function saidOf({ fact, span, commit, repo, state, at }: Compared) {
+  if (state === 'held') return []
+  if (state === 'moved') return [`${fact} has moved: \`${span}\` at \`${commit}\` (${at})`]
+  const why = {
+    'no commit': 'its line names no commit',
+    'commit not held': `repo ${repo} does not hold the commit \`${commit}\``,
+    'not behind the head': `the commit is not behind the head of repo ${repo}`,
+    'no such file': `repo ${repo} holds no such file at the commit`,
+    'no repo': 'it is in no repo the map registers',
+    'no answer': `git gave no answer in repo ${repo}`,
+  }[state]
+  return [`${fact} was not compared: ${why} (\`${span}\`, ${at})`]
+}
+
+function counted(compared: Compared[]) {
+  const factsWith = (states: (state: Compared['state']) => boolean) => new Set(compared.filter(({ state }) => states(state)).map(({ fact }) => fact)).size
+  const citing = factsWith(() => true)
+  const moving = factsWith(state => state === 'moved')
+  const left = factsWith(state => state !== 'moved' && state !== 'held')
+  const many = moving > 1
+  const which = citing === 1 ? `The one fact that cites a line of a repo has${moving === 1 ? '' : ' not'}` : `${moving || 'None'} of ${citing} facts that cite a line of a repo ${many ? 'have' : 'has'}`
+  const notCompared = left === 0 ? '' : ` ${left === 1 ? '1 has' : `${left} have`} a line that was not compared.`
+  return `${which} moved since the commit ${many ? 'they were' : 'it was'} read at.${notCompared}`
 }
