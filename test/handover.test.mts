@@ -514,3 +514,36 @@ test("a folder below one that cannot be searched, a folder that cannot be listed
   ])
   assert.deepEqual(readdirSync(join(base, 'unlisted')), [])
 })
+
+test("two files that would take one name in the copy stop the hand-over with both named, and nothing is written: a source of the research's own under the name an item's file is given, two files of the item that come to one name, two names that differ only in the case of their letters, and a file under the name of a folder", () => {
+  const out = elsewhere()
+  const link = (file: string) => `${BRIEF}\nSee [it](../../work/PROJ-12/sources/${file}).\n`
+  const own = withResearch({ [`${DIR}/sources/item-${TICKET}`]: "# The research's own\n" })
+  const two = withResearch({ 'work/PROJ-12/sources/a/b.md': '# One\n', 'work/PROJ-12/sources/a-b.md': '# Two\n', [`${DIR}/brief.md`]: `${link('a/b.md')}${link('a-b.md')}` })
+  const cases = withResearch({ 'work/PROJ-12/sources/Notes.md': '# Notes\n', [`${DIR}/sources/item-notes.md`]: '# Own\n', [`${DIR}/brief.md`]: link('Notes.md') })
+  const folder = withResearch({ [`${DIR}/sources/item-${TICKET}/x.md`]: '# In a folder\n' })
+
+  assert.deepEqual(handover(own, NAME, out), refused(`nothing was handed over: ${DIR}/sources/item-${TICKET} and work/PROJ-12/sources/${TICKET} would both be written as sources/item-${TICKET}`))
+  assert.deepEqual(handover(two, NAME, out), refused('nothing was handed over: work/PROJ-12/sources/a-b.md and work/PROJ-12/sources/a/b.md would both be written as sources/item-a-b.md'))
+  assert.deepEqual(handover(cases, NAME, out), refused(`nothing was handed over: ${DIR}/sources/item-notes.md and work/PROJ-12/sources/Notes.md would be written as sources/item-notes.md and sources/item-Notes.md, which are one name on a disk that does not tell the cases of letters apart`))
+  assert.deepEqual(handover(folder, NAME, out), refused(`nothing was handed over: work/PROJ-12/sources/${TICKET} would be written as sources/item-${TICKET}, and ${DIR}/sources/item-${TICKET}/x.md into a folder of that name`))
+  assert.ok(!existsSync(out))
+})
+
+test('a copy that cannot be written part of the way through is taken away again, with every folder this run made for it, and what was there before the run stays', () => {
+  const long = `${'n'.repeat(248)}.md`
+  const root = withResearch({ [`work/PROJ-12/sources/${long}`]: '# Long\n', [`${DIR}/brief.md`]: `${BRIEF}\nSee [the long one](../../work/PROJ-12/sources/${long}).\n` })
+  const base = tree(makeTree({ 'keep.txt': 'mine\n' }))
+  mkdirSync(join(base, 'empty'))
+  const notWritten = /^context-central research: .+ could not be written \([A-Z]+\), and nothing of the copy is left there\n$/
+
+  const deep = handover(root, NAME, join(base, 'p', 'q', 'r', 'handed'))
+  const there = handover(root, NAME, join(base, 'empty'))
+
+  assert.equal(deep.code, 1)
+  assert.match(deep.stderr, notWritten)
+  assert.equal(there.code, 1)
+  assert.match(there.stderr, notWritten)
+  assert.deepEqual(readdirSync(base).sort(), ['empty', 'keep.txt'])
+  assert.deepEqual(readdirSync(join(base, 'empty')), [])
+})

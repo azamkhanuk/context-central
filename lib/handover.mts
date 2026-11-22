@@ -1,4 +1,4 @@
-import { copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { constants, copyFileSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix } from 'node:path'
 import { draftsDir, mapFiles } from './drafts.mts'
 import { PluginError } from './errors.mts'
@@ -26,6 +26,7 @@ export interface HandedOver {
 
 interface Copy {
   to: string
+  rel: string
   from: string
   text: string | null
   bytes: number
@@ -119,8 +120,9 @@ function planned(estate: Estate, research: Research, { without, reading }: Asked
   for (const page of texts) refuseLinks(estate, research, page, new Set(places.kept.values()))
   const copies = [
     ...texts.map(({ file, to, lines }) => asText(file, to, file.rel === research.sheet.rel ? withoutItem(lines.join('\n')) : lines.join('\n'))),
-    ...taken.map(({ source, to }) => ({ to, from: source.path, text: null, bytes: source.bytes })),
+    ...taken.map(({ source, to }) => ({ to, rel: source.rel, from: source.path, text: null, bytes: source.bytes })),
   ]
+  refuseOneNameTwice(copies)
   const count = (kind: string) => sources.filter(({ source }) => left.has(source.rel) && kinds.get(source.rel) === kind).length
   return {
     copies,
@@ -194,7 +196,25 @@ function withoutItem(text: string) {
 }
 
 function asText(file: MapFile, to: string, text: string): Copy {
-  return { to, from: file.path, text, bytes: Buffer.byteLength(text) }
+  return { to, rel: file.rel, from: file.path, text, bytes: Buffer.byteLength(text) }
+}
+
+function refuseOneNameTwice(copies: Copy[]) {
+  const whateverTheCase = (name: string) => name.normalize('NFC').toLowerCase()
+  const files = new Map<string, Copy>()
+  const folders = new Map<string, Copy>()
+  for (const copy of copies) {
+    const name = whateverTheCase(copy.to)
+    const first = files.get(name)
+    if (first && first.to === copy.to) throw new PluginError(`${NOTHING}: ${first.rel} and ${copy.rel} would both be written as ${copy.to}`)
+    if (first) throw new PluginError(`${NOTHING}: ${first.rel} and ${copy.rel} would be written as ${first.to} and ${copy.to}, which are one name on a disk that does not tell the cases of letters apart`)
+    files.set(name, copy)
+    for (let folder = posix.dirname(name); folder !== '.'; folder = posix.dirname(folder)) if (!folders.has(folder)) folders.set(folder, copy)
+  }
+  for (const [name, copy] of files) {
+    const inside = folders.get(name)
+    if (inside) throw new PluginError(`${NOTHING}: ${copy.rel} would be written as ${copy.to}, and ${inside.rel} into a folder of that name`)
+  }
 }
 
 function restsOn(fact: Fact, left: Set<string>) {
@@ -203,17 +223,19 @@ function restsOn(fact: Fact, left: Set<string>) {
 }
 
 function write({ folder, written }: Asked, copies: Copy[]) {
-  const wasThere = statSync(folder, { throwIfNoEntry: false }) !== undefined
+  const wasThereAndEmpty = lstatSync(folder, { throwIfNoEntry: false }) !== undefined
+  const made: string[] = []
   try {
     for (const { to, from, text } of copies) {
       const path = join(folder, ...to.split('/'))
-      mkdirSync(dirname(path), { recursive: true })
-      if (text === null) copyFileSync(from, path)
-      else writeFileSync(path, text)
+      const firstFolderMade = mkdirSync(dirname(path), { recursive: true })
+      if (firstFolderMade !== undefined) made.push(firstFolderMade)
+      if (text === null) copyFileSync(from, path, constants.COPYFILE_EXCL)
+      else writeFileSync(path, text, { flag: 'wx' })
     }
   } catch (error) {
-    if (wasThere) for (const name of readdirSync(folder)) rmSync(join(folder, name), { recursive: true, force: true })
-    else rmSync(folder, { recursive: true, force: true })
-    throw new PluginError(`${written} could not be written (${(error as NodeJS.ErrnoException).code ?? 'unknown'}), and nothing of the copy is left there`)
+    const ofThisRun = wasThereAndEmpty ? readdirSync(folder).map(name => join(folder, name)) : made.slice(0, 1)
+    for (const path of ofThisRun) rmSync(path, { recursive: true, force: true })
+    throw new PluginError(`${written} could not be written (${codeOf(error)}), and nothing of the copy is left there`)
   }
 }
