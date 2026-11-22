@@ -108,8 +108,10 @@ const STOP_WORDS = new Set(
 )
 
 export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false, researches = false }: { max?: number; plainWords?: boolean; itemWords?: boolean; researches?: boolean } = {}): Resolution | null {
+  const research = researches ? byResearch(estate, query) : null
+  if (research) return research
   if (numberAlone(estate, query)) return null
-  const routes = [...(researches ? [byResearch] : []), byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byOneWordIdentifier, byCodeName] : [])]
+  const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byOneWordIdentifier, byCodeName] : [])]
   for (const route of routes) {
     const found = route(estate, query, max)
     if (found) return found
@@ -179,7 +181,7 @@ function byWorkItem(estate: Estate, query: string, max: number) {
 
 function byResearch(estate: Estate, query: string) {
   const research = findResearch(estate, query.trim())
-  if (!research || findWorkItem(estate, research.name)?.entry) return null
+  if (!research || isAnItemsNameOrTicket(estate, query.trim())) return null
   const held = (file: string) => research.files.filter(found => found.rel === `${research.dirRel}/${file}`)
   const pointers = [
     pointer(estate, research.sheet.rel, 'fact sheet: the facts that stand, each with its sources'),
@@ -188,6 +190,14 @@ function byResearch(estate: Estate, query: string) {
   ]
   const deep = research.sources.length === 0 ? null : savedIn(estate, research.sources)
   return resolution({ by: 'research', key: `research:${research.name}`, name: research.name, label: `research ${research.name}`, pointers, more: 0, deep })
+}
+
+function isAnItemsNameOrTicket(estate: Estate, asked: string) {
+  if (findWorkItem(estate, asked)?.entry) return true
+  const tickets = holding(listed(estate.config.connections), TICKETS)
+  const reference = referenceOf(tickets, asked)
+  if (reference && answerer(estate, tickets, [])(reference) !== null) return true
+  return listWorkItems(estate).some(item => item.entry && item.ticket?.trim().toLowerCase() === asked.toLowerCase())
 }
 
 function byItemNameOrTitle(estate: Estate, query: string, max: number) {

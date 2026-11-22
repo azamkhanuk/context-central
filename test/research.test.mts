@@ -489,12 +489,15 @@ test('resolve gives a research as absolute paths with --absolute, and by researc
   })
 })
 
-test('a work item of the same name as a research answers first', () => {
-  const root = tree(acme())
+test('a work item of the same name as a research answers first, whether or not its name reads as a ticket', () => {
+  const root = tree(acme({ 'work/portal-split/STATE.md': '---\nitem: portal-split\nstatus: active\n---\n# portal-split: Split the portal\n' }))
   research(root, 'new', 'PROJ-12')
+  research(root, 'new', 'portal-split')
 
   assert.equal(run(['resolve', 'PROJ-12'], { cwd: root }).stdout.split('\n')[0], 'Context for work item PROJ-12:')
   assert.equal(run(['resolve', 'proj-12'], { cwd: root }).stdout.split('\n')[0], 'Context for work item PROJ-12:')
+  assert.equal(run(['resolve', 'portal-split'], { cwd: root }).stdout.split('\n')[0], 'Context for work item portal-split:')
+  assert.equal(run(['resolve', 'Portal-Split'], { cwd: root }).stdout.split('\n')[0], 'Context for work item portal-split:')
 })
 
 test("a research whose name holds the key of a work item's ticket, or is an item's title, still answers to its own name", () => {
@@ -808,4 +811,39 @@ test('a research is opened by its name in another letter case, and with no name 
   assert.deepEqual(open(root, NAME, '--title', 'x'), { code: 2, stdout: '', stderr: 'context-central research: --title does not go with open\n' })
   assert.deepEqual(open(root, NAME, '--item', 'PROJ-12'), { code: 2, stdout: '', stderr: 'context-central research: --item does not go with open\n' })
   assert.match(open(tree(makeTree({ 'readme.txt': 'x\n' })), NAME).stderr, /^context-central research: no context map found/)
+})
+
+test("a research named as the key of a work item's ticket gives way to that item, where the item has another name, on a map with no connection and on one whose tickets a connection reads", () => {
+  const state = (ticket: string) => `---\nitem: rate-limit\ntitle: Rate limit the gateway\nstatus: active\nticket: "${ticket}"\n---\n# rate-limit: Rate limit the gateway\n`
+  const plain = tree(makeTree({ 'estate.json': { contextCentral: 1, name: 'solo', connections: {} }, 'CLAUDE.md': '# Solo\n', 'work/rate-limit/STATE.md': state('PROJ-12') }))
+  const read = tree(acme({ 'work/rate-limit/STATE.md': state('https://tracker.acme.example/browse/PROJ-77') }))
+
+  for (const [root, key] of [[plain, 'PROJ-12'], [read, 'PROJ-77']]) {
+    assert.equal(run(['resolve', key], { cwd: root }).stdout.split('\n')[0], 'Context for work item rate-limit:', `${key} before`)
+    research(root, 'new', key)
+    research(root, 'new', `${key}-limits`)
+
+    assert.equal(run(['resolve', key], { cwd: root }).stdout.split('\n')[0], 'Context for work item rate-limit:', key)
+    assert.equal(run(['resolve', key.toLowerCase()], { cwd: root }).stdout.split('\n')[0], 'Context for work item rate-limit:', key.toLowerCase())
+    assert.equal(run(['resolve', `${key}-limits`], { cwd: root }).stdout.split('\n')[0], `Context for research ${key}-limits:`, `${key}-limits`)
+    assert.equal(open(root, key).stdout.split('\n')[0], `research ${key}: ${key}`)
+  }
+})
+
+test('a research named as a ticket that no work item has answers to its name, and so does one named as a work item that has no entry file', () => {
+  const root = tree(acme({ 'work/PROJ-40/notes/loose.md': '# Loose\n' }))
+  research(root, 'new', 'PROJ-13')
+  research(root, 'new', 'PROJ-40')
+
+  assert.equal(run(['resolve', 'PROJ-13'], { cwd: root }).stdout.split('\n')[0], 'Context for research PROJ-13:')
+  assert.equal(run(['resolve', 'PROJ-40'], { cwd: root }).stdout.split('\n')[0], 'Context for research PROJ-40:')
+})
+
+test('a research named in digits alone answers to its name, and a number that names nothing still resolves to nothing', () => {
+  const root = tree(acme())
+  research(root, 'new', '123')
+
+  assert.equal(run(['resolve', '123'], { cwd: root }).stdout.split('\n')[0], 'Context for research 123:')
+  assert.equal(run(['resolve', '124'], { cwd: root }).stdout, 'No confident match for "124".\n')
+  assert.deepEqual(hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: '123' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } }), { code: 0, stdout: '', stderr: '' })
 })
