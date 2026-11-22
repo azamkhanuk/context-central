@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { REFERENCE, chosenAmong, listed, reachOf, ticketOf, whyNotStarted } from '../connections.mts'
+import { REFERENCE, chosenAmong, listed, reachOf, searchOf, ticketOf, whyNotStarted } from '../connections.mts'
 import { PluginError, UsageError } from '../errors.mts'
 import { requireEstate } from '../estate.mts'
 import { findWorkItem } from '../nodes.mts'
@@ -66,8 +66,9 @@ function theOneOf(estate: Estate, { word, reference }: Named) {
   throw new PluginError(`more than one connection holds ${kind} and none claims "${reference}": ${candidates.map(candidate => candidate.name).join(', ')}`)
 }
 
-function asJson({ connection: { name, entry }, reach, unasked }: Found) {
-  return { name, holds: entry.holds, ...reach, entry, ...(unasked ? { unasked } : {}) }
+function asJson({ connection, reach, unasked }: Found) {
+  const { name, entry } = connection
+  return { name, holds: entry.holds, ...reach, search: searchOf(connection), entry, ...(unasked ? { unasked } : {}) }
 }
 
 function describe(found: Found, env: Env) {

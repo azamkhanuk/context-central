@@ -2,12 +2,12 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_FILES, REPO, SOLO_STATE, acme, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
-import type { Json } from './helpers.mts'
+import { ACME_FILES, REPO, SOLO_STATE, acme, checkout, disposable, git, makeTree, run, solo, workTree } from './helpers.mts'
+import type { Checkout, Json } from './helpers.mts'
 
 const SKILLS = ['onboard', 'standards', 'research', 'prep', 'design', 'implement', 'checkpoint']
 const USER_ONLY = ['onboard', 'standards', 'research', 'prep', 'design', 'implement']
-const AGENTS = ['reader', 'fetcher', 'reviewer']
+const AGENTS = ['reader', 'fetcher', 'reviewer', 'sweeper', 'web-reader']
 const COMMANDS = ['config', 'where', 'work', 'resolve', 'index', 'note', 'graph', 'lint', 'doctor', 'detect', 'init', 'wrapper', 'budget', 'slice', 'fetch', 'evidence', 'connections', 'standards', 'draft', 'take', 'proof', 'research']
 const SKILL_FIELDS = [
   'name', 'description', 'when_to_use', 'argument-hint', 'arguments', 'disable-model-invocation', 'user-invocable', 'allowed-tools',
@@ -168,9 +168,26 @@ test('the reviewer keeps the instruction files and thinks hard', () => {
   assert.deepEqual(rest, { name: 'reviewer', tools: 'Read, Grep, Glob, Bash', effort: 'high' })
 })
 
+test('the sweeper is a cheap agent that starts without the instruction files and is denied the tools that write a file', () => {
+  const { description, ...rest } = agent('sweeper')
+
+  assert.ok(description.length > 20)
+  assert.deepEqual(rest, { name: 'sweeper', disallowedTools: 'Write, Edit, NotebookEdit', model: 'sonnet', effort: 'medium', omitClaudeMd: 'true' })
+})
+
+test('the web reader is a cheap agent that holds the two tools that read the web and no other', () => {
+  const { description, ...rest } = agent('web-reader')
+
+  assert.ok(description.length > 20)
+  assert.deepEqual(rest, { name: 'web-reader', tools: 'WebFetch, WebSearch', model: 'sonnet', effort: 'medium', omitClaudeMd: 'true' })
+})
+
+test("the brief research hands a host's own subagent, where the session holds no agent of the plugin, is that agent's own text, word for word", () => {
+  for (const name of ['sweeper', 'web-reader']) assert.equal(referenceText('research', `references/${name}.md`), agentText(name).replace(/^---\n[\s\S]*?\n---\n\n/, ''), name)
+})
+
 test('skills name the agents by their plugin-scoped identifiers', () => {
-  assert.match(skillText('research'), /context-central:reader/)
-  assert.match(skillText('research'), /context-central:fetcher/)
+  for (const name of ['reader', 'fetcher', 'sweeper', 'web-reader']) assert.ok(step('research', '2. Gather from primary sources').includes(`\`context-central:${name}\``), name)
   assert.match(skillText('implement'), /context-central:reviewer/)
   assert.match(skillText('implement'), /context-central:checkpoint/)
 })
@@ -202,7 +219,7 @@ test('every description fits the 1,536 characters the skill listing keeps', () =
 
 test('a user-only skill is only ever suggested to the person as a slash command', () => {
   for (const [file, text] of everyFile()) {
-    for (const [, before, name] of text.matchAll(/(.)context-central:([a-z]+)/g)) {
+    for (const [, before, name] of text.matchAll(/(.)context-central:([a-z-]+)/g)) {
       assert.ok([...SKILLS, ...AGENTS].includes(name), `${file}: ${name}`)
       if (USER_ONLY.includes(name)) assert.equal(before, '/', `${file}: ${name}`)
     }
@@ -680,6 +697,35 @@ test('what lint and graph print of a research names its folder, which is how res
   assert.deepEqual(linted.filter(line => line.includes('research/gateway-limits')), ['WARN research: research/gateway-limits uses F1 twice (index.md:23 and index.md:25); a number is used once across the sheet and the log'])
   assert.deepEqual(graphed.filter(line => line.includes('research/gateway-limits')), ['ORPHAN research/gateway-limits/index.md'])
   for (const named of ['`context-central lint`', '`context-central graph`', '`ORPHAN`']) assert.ok(step('research', "4. Write the research's folder").includes(named), named)
+})
+
+test('research writes its start line from what connections gives as JSON, and the three ways a connection is searched that a run acts on are the ones its text names', () => {
+  const root = tree(acme({}, { connections: { desk: { holds: 'tickets', commands: { search: ['desk', 'find'] } }, talk: { holds: 'chat', server: 'threads' }, post: { holds: 'mail' } } }))
+
+  const listed = JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { name: string, holds: string, by: string, search: { by: string } }[]
+
+  assert.deepEqual(listed.map(({ name, holds, by, search }) => [name, holds, by, search.by]), [['desk', 'tickets', 'command', 'command'], ['talk', 'chat', 'server', 'server'], ['post', 'mail', 'hand', 'name']])
+  for (const named of ['`context-central connections --json`', '`holds`', '`by`', '`search`', '`server`', '`command`', '`name`']) assert.ok(referenceText('research', 'references/run.md').includes(named), named)
+})
+
+test('research says in its start line what research new answers as git for a map that git tracks, kept or ignored', () => {
+  const files = { 'estate.json': { contextCentral: 1, name: 'solo', repos: [{ name: 'solo', path: '.' }] }, 'CLAUDE.md': '# Solo\n', 'src/app.js': 'export {}\n' }
+  const kept = checkout(files)
+  const ignored = checkout({ ...files, '.gitignore': '/research/\n' })
+  for (const made of [kept, ignored]) tree(made.base)
+  const answered = (made: Checkout) => (JSON.parse(run(['research', 'new', 'gateway-limits', '--json'], { cwd: made.main, env: made.env }).stdout) as { git: unknown }).git
+
+  assert.deepEqual([answered(kept), answered(ignored)], ['kept', 'ignored'])
+  assert.ok(step('research', '1. Place the question').includes('`git`'))
+  for (const named of ['`git`', '`kept`', '`ignored`']) assert.ok(referenceText('research', 'references/run.md').includes(named), named)
+})
+
+test('research reads the two caps of a depth with config, a key for each, which a map that sets none answers with a number', () => {
+  const root = tree(acme())
+  const keys = [...referenceText('research', 'references/run.md').matchAll(/`context-central config --get (budgets\.research[A-Za-z]+)`/g)].map(([, key]) => key)
+
+  assert.deepEqual(keys, ['budgets.researchQuickRounds', 'budgets.researchQuickAgents', 'budgets.researchStandardRounds', 'budgets.researchStandardAgents', 'budgets.researchDeepRounds', 'budgets.researchDeepAgents'])
+  assert.deepEqual(keys.map(key => run(['config', '--get', key], { cwd: root }).stdout), ['1\n', '2\n', '3\n', '3\n', '6\n', '5\n'])
 })
 
 test('each of the four steps runs the skill a repo names for it, at the place the line standards prints is read', () => {

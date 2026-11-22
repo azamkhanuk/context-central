@@ -33,6 +33,8 @@ export interface Reach {
   missing: string | null
 }
 
+export type Search = { by: 'skill'; skill: string } | { by: 'command' } | { by: 'server'; server: string } | { by: 'name' }
+
 export interface Reference {
   text: string
   at: number
@@ -200,6 +202,13 @@ export function reachOf(connection: Connection, env: Env): Reach {
     fetch: here ? `context-central fetch ${word} "<reference>" --item <item>` : null,
     missing: reads && !here ? preset.program : null,
   }
+}
+
+export function searchOf({ entry: { researchSkill, commands, server } }: Connection): Search {
+  const words: unknown = commands?.search
+  if (typeof researchSkill === 'string' && researchSkill) return { by: 'skill', skill: researchSkill }
+  if (Array.isArray(words) && words.length > 0) return { by: 'command' }
+  return server ? { by: 'server', server } : { by: 'name' }
 }
 
 export function whyNotStarted(preset: Preset, env: Env, { hint = true }: { hint?: boolean } = {}) {

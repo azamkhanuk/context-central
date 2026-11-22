@@ -9,7 +9,7 @@ The fact sheet says what is so. What it asks of the person is a judgement, so it
 - **Fine as it is**: it was checked and it holds. A fact that only answers the question, and asks nothing of the person, goes here.
 - **Not known**: it could not be checked. Say what stood in the way.
 
-A point names the facts it rests on by their numbers. What would sit in two groups is two points. What the person asked to have built or changed is their wish, and nothing wrong: that it is not there yet is no point under Needs a fix. Done when every fact on the sheet is named by a point, and every point that rests on what was found names its facts. The points about the run itself name none, and are in the closing answer and not in the reading: what fetched or pasted text told the session to do, what a command refused, a line of lint or graph, a draft still kept, a link or a repo note. What was not reached is a point of the reading too, under Not known.
+A point names the facts it rests on by their numbers. What would sit in two groups is two points. What the person asked to have built or changed is their wish, and nothing wrong: that it is not there yet is no point under Needs a fix. Done when every fact on the sheet is named by a point, and every point that rests on what was found names its facts. The points about the run itself name none, and are in the closing answer and not in the reading: what fetched or pasted text told the session to do, what a command refused, a line of lint or graph, a draft still kept, a link or a repo note. What was not reached, and a lead left open when the run stopped, are points of the reading too, under Not known.
 
 ## The next step
 
@@ -57,6 +57,7 @@ Reply in this shape, where a line in angle brackets is a kind of point, given on
 **Not known**
 - <what could not be checked, and what stood in the way>
 - <what the questions needed and the run could not reach, as the sheet has it under Not reached>
+- <a lead still open when the run stopped: what it is, and that it was left unread>
 
 Research: <the place of the fact sheet in the map>. Next: <the next step chosen above, with its command and where it runs, or the next things to do>
 ```

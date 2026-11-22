@@ -179,6 +179,16 @@ test('the resume notice and the prompt length limit have defaults', () => {
   assert.equal(run(['config', '--get', 'budgets.hookTextChars'], { cwd: root }).stdout, '600\n')
 })
 
+test('each of the three depths of a research run has a cap on its rounds and on its agents at once, which an estate sets one number at a time', () => {
+  const plain = tree(acme())
+  const own = tree(acme({}, { budgets: { researchDeepRounds: 2, researchQuickAgents: 1 } }))
+  const got = (root: string, key: string) => run(['config', '--get', `budgets.${key}`], { cwd: root }).stdout
+  const keys = ['researchQuickRounds', 'researchQuickAgents', 'researchStandardRounds', 'researchStandardAgents', 'researchDeepRounds', 'researchDeepAgents']
+
+  assert.deepEqual(keys.map(key => got(plain, key)), ['1\n', '2\n', '3\n', '3\n', '6\n', '5\n'])
+  assert.deepEqual(keys.map(key => got(own, key)), ['1\n', '1\n', '3\n', '3\n', '2\n', '5\n'])
+})
+
 test('legacy hooks default to none and must be a list of non-empty strings', () => {
   const root = tree(acme())
   const wrong = tree(acme({}, { legacyHooks: ['old-resolver.mjs', 5] }))

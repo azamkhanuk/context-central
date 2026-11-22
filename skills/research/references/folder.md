@@ -72,7 +72,7 @@ One research is one folder of the map, made by `context-central research new`, a
 
 - A saved file, as a link, `[<file>](sources/<file>)`. A file the item saved is linked the same way, by its path from the sheet's folder.
 - A page on the web, by its full address.
-- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at. Two places in one file are two `Source` lines.
+- A line of code, as `` `<path>:<line>` at `<short commit>` `` or with a range, `<first>-<last>`, in place of the line. The path is counted from the estate root, which `context-central where` prints, and the commit is the one of that repo the line was read at. Two places in one file are cited apart, each as its own `<path>:<line>`, and never as one with a comma.
 
 **The list of sources** gives each source once, then a colon and its kind. For what came through a connection the kind is the word that connection holds, which is the second field of its line in `context-central connections`. Otherwise it is `web` for a page, `paste` for pasted text, `note` for a copy of a note of the map, and `code` for a repo, written as its name and the commit read. `context-central graph` reports a saved source that no file names.
 
@@ -83,9 +83,12 @@ Where the `sheet:` line of `research open` says the sheet is past its size, move
 `brief.md` holds what was asked and where the run looked:
 
 - `## Questions`: the same questions as the sheet, with their numbers.
-- `## Sources to cover`: each place the run looked, or was asked to look, a line each: a connection, a repo, a page.
+- `## Sources to cover`: each place the run will look, a line each: a connection, a repo, a page.
+- `## Depth`: the depth of the run, with its two caps.
 - `## Out of scope`: what the person said to leave out, a line each, or `none`.
-- `## Depth` and `## Start line`: left as they are where the run set neither.
+- `## Start line`: what the run goes with: each connection and how it is reached and searched, each tool of the session that the map does not record, each kind the questions need that nothing reaches, and whether git keeps the folder.
+
+It is written before anything is gathered, and `references/run.md` has how.
 
 ## The log
 
@@ -109,7 +112,7 @@ Where the `sheet:` line of `research open` says the sheet is past its size, move
 
 - `Answered` and `Open` name the questions by number, with the facts that answer each. Several are joined by commas, as `Q1 by F7 and F8, Q2 by F9`, and a line with nothing to name says `none`.
 - `New leads`, `Set aside` and `Gaps` hold one thing each in the forms above, the parts parted by ` | `. For more than one, the line is written again for each, and a line with none says `none`. A lead is something that may bear on a question and was not read: its title, its address, the date the source gives it, and why it may bear. One judged beside the point is set aside with its reason, never dropped. A gap is what was wanted and could not be reached.
-- `Stopped` is written at no indent, in the last round of a run only: why the run stopped there, in a few words.
+- `Stopped` is written at no indent, in the last round of a run only: the test that stopped the run, as `references/run.md` words it.
 - `### Superseded` is there only in a round that found that a fact no longer holds. The fact is moved under it from the sheet, word for word, with the lines under it.
 
 ## The set-aside list
@@ -118,4 +121,4 @@ Where the `sheet:` line of `research open` says the sheet is past its size, move
 
 ## The reading
 
-`reading.md` is the judgement of the facts, written for the person. Each run adds one part at its end, headed `## <YYYY-MM-DD>` with the day of the run: the question, the answer in a few lines, then the four groups of the closing answer in its order, Needs a fix, Yours to decide, Fine as it is and Not known, each a heading `### <group>` with its points under it, or `none`. It holds the points that rest on what was found, what was not reached among them, under Not known, and not the ones about the run itself, such as a link that is missing or a command that refused. A point starts on a line of its own and names the facts it rests on by number, as `(F7, F8)`. Its recommendation, where it has one, is the line under it, as `- **Recommended:** <the answer, and why>`. A fact's sources are not repeated in the reading: its number leads to them.
+`reading.md` is the judgement of the facts, written for the person. Each run adds one part at its end, headed `## <YYYY-MM-DD>` with the day of the run: the questions, as the brief has them, the answer in a few lines, then the four groups of the closing answer in its order, Needs a fix, Yours to decide, Fine as it is and Not known, each a heading `### <group>` with its points under it, or `none`. It holds the points that rest on what was found, what was not reached and each lead left open among them, under Not known, and not the ones about the run itself, such as a link that is missing or a command that refused. A point starts on a line of its own and names the facts it rests on by number, as `(F7, F8)`. Its recommendation, where it has one, is the line under it, as `- **Recommended:** <the answer, and why>`. A fact's sources are not repeated in the reading: its number leads to them.
