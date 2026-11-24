@@ -98,7 +98,7 @@ test("the JSON names a connection's skill for searching as it is written, with t
 })
 
 test("a connection's skill for searching that is no skill's name stops every command when the settings are read", () => {
-  for (const odd of [7, '', ['wiki-search'], 'wiki search', 'acme:kit:wiki', ':wiki', 'wiki:', '-wiki', 'wiki/search']) {
+  for (const odd of [7, null, '', ['wiki-search'], 'wiki search', 'acme:kit:wiki', ':wiki', 'wiki:', '-wiki', 'acme:-wiki', 'acme:.wiki', 'wiki/search']) {
     const result = connections(withConnections({ wiki: { holds: 'documents', researchSkill: odd, server: 'pages' } }))
 
     assert.equal(result.code, 1, JSON.stringify(odd))

@@ -340,7 +340,7 @@ test('a map that names no skill for research reads as before, and config --get s
 })
 
 test("a skill for research that is no skill's name stops every command when the settings are read", () => {
-  for (const odd of [7, '', ['deep-dig'], 'deep dig', 'acme:kit:dig', ':dig', 'dig:', '-dig', 'acme/dig']) {
+  for (const odd of [7, null, '', ['deep-dig'], 'deep dig', 'acme:kit:dig', ':dig', 'dig:', '-dig', 'acme:-dig', 'acme:.dig', 'acme/dig']) {
     const result = settingsRefused({ researchSkill: odd })
 
     assert.equal(result.code, 1, JSON.stringify(odd))

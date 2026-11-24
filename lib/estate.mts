@@ -48,7 +48,6 @@ export const STEPS = ['research', 'prep', 'design', 'implement'] as const
 
 export type Step = (typeof STEPS)[number]
 
-
 export type Budgets = typeof DEFAULT_BUDGETS
 
 export interface Repo {
