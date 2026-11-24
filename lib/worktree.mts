@@ -70,6 +70,14 @@ export function trackedUnder(dir: string, folder: string, env: Env) {
   return status === 0 ? stdout.split('\0').filter(path => path.startsWith(within)).map(path => path.slice(within.length)) : null
 }
 
+export function trackedThere(path: string, env: Env) {
+  const above = checkoutAbove(dirname(path))
+  if (!above) return { root: null, tracked: false }
+  const blind = asked(above.dir, ['config', '--bool', 'core.ignorecase'], env).stdout?.trim() === 'true'
+  const { status } = asked(above.dir, ['ls-files', '--error-unmatch', '--', `:(literal${blind ? ',icase' : ''})${asGitTakesIt(above.dir, path)}`], env)
+  return { root: above.dir, tracked: status === 0 ? true : status === NOT_SO ? false : null }
+}
+
 export function gitIgnores(dir: string, path: string, env: Env) {
   return asked(dir, ['check-ignore', '-q', '--', asGitTakesIt(dir, path)], env).status === 0
 }
