@@ -23,6 +23,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Publish the release the manifest names, unless it is out already
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,3 +39,13 @@ jobs:
           git tag -a "$tag" -m "$title"
           git push origin "refs/tags/$tag"
           gh release create "$tag" --verify-tag --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "made=true" >> "$GITHUB_OUTPUT"
+      - name: Attach the command as a package npm installs from the file
+        if: ${{ steps.publish.outputs.made == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(node scripts/release-notes.mts --tag)"
+          folder="$(node --no-warnings scripts/pack.mts "$RUNNER_TEMP/pack")"
+          file="$(npm pack "$folder" --pack-destination "$RUNNER_TEMP" --silent | tail -n 1)"
+          gh release upload "$tag" "$RUNNER_TEMP/$file"

@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export type Entry = Record<string, unknown>
@@ -59,8 +59,9 @@ export interface Preset extends PresetBody {
   name: string
 }
 
-const PLACE = join(dirname(fileURLToPath(import.meta.url)), 'presets')
-const EXTENSION = '.mts'
+const HERE = fileURLToPath(import.meta.url)
+const PLACE = join(dirname(HERE), 'presets')
+const EXTENSION = extname(HERE)
 
 export const PRESETS: Preset[] = await Promise.all(files().map(load))
 
