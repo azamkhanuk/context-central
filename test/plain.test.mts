@@ -436,7 +436,7 @@ test('in a folder git does not hold, a hub that would lie in a checkout below it
 })
 
 test('the line the exclude file gains for a hub names that one file at the root of the checkout and no other, so git shows nothing and hides nothing else', () => {
-  for (const hub of ['[hub].md', '!hub.md', '#hub.md', 'hub.md ', 'h*b.md', 'h?b.md', 'MAP.md']) {
+  for (const hub of ['[hub].md', '!hub.md', '#hub.md', 'h[u]b.md', 'MAP.md']) {
     const made = fresh()
     writeFileSync(join(made.main, 'hub.md.txt'), 'x\n')
     mkdirSync(join(made.main, 'sub'))
@@ -444,8 +444,27 @@ test('the line the exclude file gains for a hub names that one file at the root 
     writeFileSync(join(made.main, 'hub.md'), 'x\n')
 
     assert.equal(plain(made, made.main, '--hub', hub).code, 0, hub)
-    assert.deepEqual(shownByGit(made).split('\n').filter(Boolean).sort(), ['hub.md', 'hub.md.txt', `sub/${hub}`].map(name => `?? ${name.endsWith(' ') ? `"${name}"` : name}`).sort(), hub)
+    assert.deepEqual(shownByGit(made).split('\n').filter(Boolean).sort(), ['hub.md', 'hub.md.txt', `sub/${hub}`].map(name => `?? ${name}`).sort(), hub)
   }
+})
+
+test('a hub whose name holds a sign a disk of Windows refuses, or has a part that ends in a space or a dot, is wrong usage on every system, and nothing is written', () => {
+  const made = fresh()
+
+  for (const odd of ['h*b.md', 'h?b.md', 'a<b.md', 'a>b.md', 'notes/a:b.md', 'a"b.md', 'a|b.md', 'hub.md ', 'hub.md.', 'notes /MAP.md', 'notes./MAP.md']) {
+    assert.deepEqual(plain(made, made.main, '--hub', odd), { code: 2, stdout: '', stderr: `context-central init: --hub "${odd}": a hub's name holds none of < > : " | ? * and no part of it ends in a space or a dot, so that every disk can hold it\n` }, odd)
+  }
+  assert.equal(existsSync(join(made.main, MAP)), false)
+  assert.equal(read(made.main, EXCLUDE), EXCLUDED)
+})
+
+test('a refusal names the place the write would land under the spelling of the folder it was given, though that folder is reached through a link', LINKS, () => {
+  const made = fresh()
+  mkdirSync(join(made.main, 'vendor', 'kit'), { recursive: true })
+  git(made, join(made.main, 'vendor', 'kit'), 'init', '-q', '-b', 'main')
+  symlinkSync(made.main, join(made.base, 'via'), 'dir')
+
+  assert.deepEqual(plain(made, made.base, 'via', '--hub', 'vendor/kit/MAP.md'), refusedAs(`${join(made.base, 'via', 'vendor', 'kit', 'MAP.md')} lies in the checkout ${join(made.base, 'via', 'vendor', 'kit')}, where git would show it, so a plain map there could not be kept out of git; ${ONBOARD}`))
 })
 
 test('a second plain map with another --hub is refused, naming the hub the map has, and the same --hub is kept as it is', () => {

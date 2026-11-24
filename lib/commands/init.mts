@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, estateAt, findEstate, validateConfig } from '../estate.mts'
@@ -91,6 +91,7 @@ function hubNamed(asked: string) {
   const parts = asked.split('/')
   if (/^([/\\]|[A-Za-z]:)/.test(asked) || asked.includes('\\') || parts.some(part => part === '' || part === '.' || part === '..')) throw new UsageError(`--hub "${asked}": a hub is a file counted from the estate root, with forward slashes, and no part that is empty, "." or ".."`)
   if (parts.some(part => part.toLowerCase() === GITS_OWN)) throw new UsageError(`--hub "${asked}": a hub cannot lie in a folder named .git, which is git's own`)
+  if (/[<>:"|?*\x00-\x1f]/.test(asked) || parts.some(part => /[ .]$/.test(part))) throw new UsageError(`--hub "${asked}": a hub's name holds none of < > : " | ? * and no part of it ends in a space or a dot, so that every disk can hold it`)
   return asked
 }
 
@@ -98,6 +99,7 @@ interface Landing {
   path: string
   landing: string
   spelled: string
+  shown: (place: string) => string
 }
 
 function landingOf(dir: string, hub: string): Landing {
@@ -108,13 +110,14 @@ function landingOf(dir: string, hub: string): Landing {
   if (entryAt(landing)?.isDirectory()) throw new PluginError(`${path} is a folder, so the hub cannot be written there`)
   const home = realpathSync.native(dir)
   if (!holds(home, landing)) throw new PluginError(`${path} leads to ${landing}, outside ${dir}, so the hub cannot be written there`)
-  return { path, landing, spelled: join(home, hub) }
+  const shown = (place: string) => (holds(home, place) ? join(dir, relative(home, place)) : place)
+  return { path, landing, spelled: join(home, hub), shown }
 }
 
-function outOfGit(dir: string, { path, landing, spelled }: Landing, inCheckout: boolean, env: Env) {
+function outOfGit(dir: string, { path, landing, spelled, shown }: Landing, inCheckout: boolean, env: Env) {
   const { root, tracked } = trackedThere(landing, env)
-  if (tracked === true) throw new PluginError(landing === spelled ? `${path} is tracked by git, ${KEPT_OUT}` : `${path} would be written as ${landing}, which git tracks, ${KEPT_OUT}`)
-  if (root !== null && (!inCheckout || root !== realpathSync.native(dir))) throw new PluginError(`${path} lies in the checkout ${root}, where git would show it, ${KEPT_OUT}`)
+  if (tracked === true) throw new PluginError(landing === spelled ? `${path} is tracked by git, ${KEPT_OUT}` : `${path} would be written as ${shown(landing)}, which git tracks, ${KEPT_OUT}`)
+  if (root !== null && (!inCheckout || root !== realpathSync.native(dir))) throw new PluginError(`${path} lies in the checkout ${shown(root)}, where git would show it, ${KEPT_OUT}`)
 }
 
 function realPlace(path: string): string | null {
@@ -140,7 +143,7 @@ function entryAt(path: string, link = false) {
 }
 
 function excludeLine(hub: string) {
-  return hub === OWN_HUB ? hub : `/${hub.replace(/[*?[]/g, char => `\\${char}`).replace(/ +$/, spaces => spaces.replace(/ /g, '\\ '))}`
+  return hub === OWN_HUB ? hub : `/${hub.replaceAll('[', '\\[')}`
 }
 
 function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout) {
