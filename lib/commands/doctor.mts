@@ -63,7 +63,7 @@ export function run(args: string[], io: Io) {
 
 function checks(io: Io) {
   const { estate, fix } = load(io)
-  const first = [result('node', node(io.nodeVersion)), result('config', fix)]
+  const first = [result('node', node(io.nodeVersion)), result('config', fix ?? (estate && readingTemplate(estate)))]
   if (!estate) return first
   const unasked = onPath('git', io.env) ? [] : ASK_GIT
   return [...first, ...Object.entries(ESTATE_CHECKS).map(([name, check]) => result(name, unasked.includes(name) ? NO_GIT : check(estate, io)))]
@@ -93,6 +93,12 @@ function node(version: string) {
   const [major, minor] = version.split('.').map(Number)
   if (major > MIN_NODE[0] || (major === MIN_NODE[0] && minor >= MIN_NODE[1])) return null
   return `this is Node ${version}; install Node ${MIN_NODE.join('.')} or later`
+}
+
+function readingTemplate({ estateRoot, config }: Estate) {
+  const rel = config.readingTemplate
+  if (rel === undefined || statSync(join(estateRoot, rel), { throwIfNoEntry: false })?.isFile()) return null
+  return `the reading's template ${rel} cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`
 }
 
 function hub(estate: Estate) {

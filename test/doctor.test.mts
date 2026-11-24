@@ -117,6 +117,20 @@ test('an answer on committing evidence that is not true or false is the config f
   assert.equal(result.code, 1)
 })
 
+test("a template for the reading that is not there, or is a folder, is the config fix, since every new research would be refused, and one that is there is fine", () => {
+  const missing: TreeFiles[] = [{}, { 'templates/reading.md/x.md': '# x\n' }]
+
+  for (const files of missing) {
+    const root = tree(acme(files, { readingTemplate: 'templates/reading.md' }))
+
+    const result = doctor(root)
+
+    assert.equal(result.stdout.split('\n')[1], `FIX  config: the reading's template templates/reading.md cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`)
+    assert.equal(result.code, 1)
+  }
+  assert.equal(doctor(tree(acme({ 'templates/reading.md': '# Ours\n' }, { readingTemplate: 'templates/reading.md' }))).stdout.split('\n')[1], 'ok   config')
+})
+
 test('a folder with no map is told how to make one', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 
