@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { isObject, list, patterns, strings, text } from './checks.mts'
+import { isObject, list, patterns, skillName, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -48,7 +48,6 @@ export const STEPS = ['research', 'prep', 'design', 'implement'] as const
 
 export type Step = (typeof STEPS)[number]
 
-const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/
 
 export type Budgets = typeof DEFAULT_BUDGETS
 
@@ -94,6 +93,7 @@ export interface Settings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: string
+  researchSkill?: string
   readingTemplate?: string
 }
 
@@ -121,6 +121,7 @@ interface WrittenSettings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: unknown
+  researchSkill?: unknown
   readingTemplate?: unknown
 }
 
@@ -319,6 +320,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     evidence: evidence(raw.evidence, fail),
     budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) },
     glossary: raw.glossary === undefined ? undefined : pathsInEstate([text(raw.glossary, 'glossary', fail)], 'glossary', fail)[0],
+    researchSkill: raw.researchSkill === undefined ? undefined : skillName(raw.researchSkill, 'researchSkill', fail),
     readingTemplate: raw.readingTemplate === undefined ? undefined : pathsInEstate([text(raw.readingTemplate, 'readingTemplate', fail)], 'readingTemplate', fail)[0],
   }
 }
@@ -356,8 +358,7 @@ function stepSkills(value: unknown, fail: Fail): Partial<Record<Step, string>> {
   const named: Partial<Record<Step, string>> = {}
   for (const [key, skill] of Object.entries(value)) {
     if (!isStep(key)) fail(`"steps" names "${key}"; a step there is research, prep, design or implement`)
-    if (typeof skill !== 'string' || !SKILL_NAME.test(skill)) fail(`"steps.${key}" must name one skill, as "name" or "plugin:name"`)
-    named[key] = skill
+    named[key] = skillName(skill, `steps.${key}`, fail)
   }
   return named
 }

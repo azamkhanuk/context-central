@@ -1,4 +1,4 @@
-import { isObject, patterns, strings } from './checks.mts'
+import { isObject, isSkillName, patterns, skillName, strings } from './checks.mts'
 import { accountsOf, isOnlyAScript, onPath, tokenOf } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
@@ -206,7 +206,7 @@ export function reachOf(connection: Connection, env: Env): Reach {
 
 export function searchOf({ entry: { researchSkill, commands, server } }: Connection): Search {
   const words: unknown = commands?.search
-  if (typeof researchSkill === 'string' && researchSkill) return { by: 'skill', skill: researchSkill }
+  if (isSkillName(researchSkill)) return { by: 'skill', skill: researchSkill }
   if (Array.isArray(words) && words.length > 0 && words.every(word => typeof word === 'string' && word !== '')) return { by: 'command' }
   return server ? { by: 'server', server } : { by: 'name' }
 }
@@ -283,6 +283,7 @@ function readEntry(name: string, entry: unknown, repos: string[], fail: Fail): C
     if (entry[key] !== undefined && (typeof entry[key] !== 'string' || !entry[key])) fail(`"${at}.${key}" must be text`)
   }
   if (entry.references !== undefined) patterns(entry.references, `${at}.references`, fail)
+  if (entry.researchSkill !== undefined) skillName(entry.researchSkill, `${at}.researchSkill`, fail)
   if (entry.commands !== undefined) checkCommands(entry.commands, `${at}.commands`, fail)
   if (entry.repos !== undefined) {
     const unknown = strings(entry.repos, `${at}.repos`, fail).find(repo => !repos.includes(repo))

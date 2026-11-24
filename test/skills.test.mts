@@ -611,12 +611,37 @@ test("standards, design and implement take a repo's folder from the root standar
 
 test('onboard names every key of a connection that the plugin reads', () => {
   const source = readFileSync(join(REPO, 'lib', 'connections.mts'), 'utf8')
-  const textKeys = [...(/const TEXT_KEYS = \[([^\]]+)\]/.exec(source)?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map(([, key]) => key)
-  const read = [...new Set([...textKeys, ...[...source.matchAll(/entry\.([a-z]+)/g)].map(([, key]) => key)])]
-  const named = new Set([...step('onboard', '3. Draft the config').matchAll(/[`"]([a-z]+)[`"]/g)].map(([, key]) => key))
+  const textKeys = [...(/const TEXT_KEYS = \[([^\]]+)\]/.exec(source)?.[1] ?? '').matchAll(/'([A-Za-z]+)'/g)].map(([, key]) => key)
+  const read = [...new Set([...textKeys, ...[...source.matchAll(/entry\.([A-Za-z]+)/g)].map(([, key]) => key)])]
+  const drafting = step('onboard', '3. Draft the config')
+  const [, json = '{}'] = /```json\n([\s\S]*?)```/.exec(drafting) ?? []
+  const entries = Object.values((JSON.parse(json) as { config: { connections: Record<string, Record<string, Json>> } }).config.connections)
+  const named = new Set([...[...drafting.replace(json, '').matchAll(/[`"]([A-Za-z]+)[`"]/g)].map(([, key]) => key), ...entries.flatMap(entry => Object.keys(entry))])
 
-  assert.ok(read.length >= 8)
+  assert.ok(read.length >= 9)
+  assert.ok(read.includes('researchSkill'))
   assert.deepEqual(read.filter(key => !named.has(key)), [])
+})
+
+test("research starts the estate's own skill for research where config --get prints one, and a connection's in place of its sweep where connections gives that skill as the way it is searched", () => {
+  const root = tree(acme({}, { researchSkill: 'acme-kit:deep-dig', connections: { wiki: { holds: 'documents', server: 'pages', researchSkill: 'acme-kit:wiki-search' } } }))
+  const skills = partOf(referenceText('research', 'references/run.md'), "Skills of the estate's own")
+
+  assert.equal(run(['config', '--get', 'researchSkill'], { cwd: root }).stdout, 'acme-kit:deep-dig\n')
+  assert.equal(run(['config', '--get', 'researchSkill'], { cwd: tree(acme()) }).code, 1)
+  assert.deepEqual((JSON.parse(run(['connections', '--json'], { cwd: root }).stdout) as { search: unknown }[]).map(({ search }) => search), [{ by: 'skill', skill: 'acme-kit:wiki-search' }])
+  for (const named of ['`context-central config --get researchSkill`', '`context-central connections --json`', '`search`', '`skill`', '`context-central standards <repo>`', '`- research: <skill>`']) assert.ok(skills.includes(named), named)
+})
+
+test("research lays a run's part of the reading out as the estate's own template does where config --get prints its place, which is the file research new wrote as the reading", () => {
+  const template = '# What we make of it\n\n## <the day>\n\n### For the board\n'
+  const root = tree(acme({ 'templates/reading.md': template }, { readingTemplate: 'templates/reading.md' }))
+  run(['research', 'new', 'gateway-limits'], { cwd: root })
+
+  assert.equal(run(['config', '--get', 'readingTemplate'], { cwd: root }).stdout, 'templates/reading.md\n')
+  assert.equal(run(['config', '--get', 'readingTemplate'], { cwd: tree(acme()) }).code, 1)
+  assert.equal(readFileSync(join(root, 'research', 'gateway-limits', 'reading.md'), 'utf8'), template)
+  assert.ok(partOf(referenceText('research', 'references/folder.md'), 'The reading').includes('`context-central config --get readingTemplate`'))
 })
 
 test('research makes its folder with research new, whose answer gives the place of the fact sheet, and names the refusal of a name that is taken', () => {

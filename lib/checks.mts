@@ -31,3 +31,14 @@ export function patterns(value: unknown, name: string, fail: Fail) {
   }
   return sources
 }
+
+const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/
+
+export function isSkillName(value: unknown): value is string {
+  return typeof value === 'string' && SKILL_NAME.test(value)
+}
+
+export function skillName(value: unknown, name: string, fail: Fail): string {
+  if (!isSkillName(value)) fail(`"${name}" must name one skill, as "name" or "plugin:name"`)
+  return value
+}

@@ -329,6 +329,25 @@ test('a folder the map never lists is not taken as the folder for researches: on
   }
 })
 
+test("the estate's own skill for research is read from the settings, by its name alone or with its plugin's name before it", () => {
+  for (const named of ['deep-dig', 'acme-kit:deep-dig', 'dig.v2_x']) assert.deepEqual(run(['config', '--get', 'researchSkill'], { cwd: tree(acme({}, { researchSkill: named })) }), { code: 0, stdout: `${named}\n`, stderr: '' })
+})
+
+test('a map that names no skill for research reads as before, and config --get says it is unset', () => {
+  const result = run(['config', '--get', 'researchSkill'], { cwd: tree(acme()) })
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central config: no setting "researchSkill"\n' })
+})
+
+test("a skill for research that is no skill's name stops every command when the settings are read", () => {
+  for (const odd of [7, '', ['deep-dig'], 'deep dig', 'acme:kit:dig', ':dig', 'dig:', '-dig', 'acme/dig']) {
+    const result = settingsRefused({ researchSkill: odd })
+
+    assert.equal(result.code, 1, JSON.stringify(odd))
+    assert.ok(result.stderr.endsWith('estate.json: "researchSkill" must name one skill, as "name" or "plugin:name"\n'), JSON.stringify(odd))
+  }
+})
+
 test("a template for the reading that would leave the estate, or is not text, is refused when the settings are read", () => {
   for (const odd of ['../reading.md', '/tmp/reading.md', 'templates\\reading.md']) {
     const result = settingsRefused({ readingTemplate: odd })

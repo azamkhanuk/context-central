@@ -82,14 +82,29 @@ test("the JSON says how each connection is searched, by the first of these its e
   ])
 })
 
-test('a skill for searching that is no text, and a search command of no words, are passed over for what the entry has next', () => {
+test('a search command of no words is passed over for what the entry has next', () => {
   const root = withConnections({
-    wiki: { holds: 'documents', researchSkill: 7, commands: { search: [] }, server: 'pages' },
-    desk: { holds: 'tickets', researchSkill: '', commands: { search: ['desk', 'find'] } },
-    post: { holds: 'mail', researchSkill: ['wiki-search'], commands: { search: [] } },
+    wiki: { holds: 'documents', commands: { search: [] }, server: 'pages' },
+    post: { holds: 'mail', commands: { search: [] } },
   })
 
-  assert.deepEqual(searched(root), [['wiki', { by: 'server', server: 'pages' }], ['desk', { by: 'command' }], ['post', { by: 'name' }]])
+  assert.deepEqual(searched(root), [['wiki', { by: 'server', server: 'pages' }], ['post', { by: 'name' }]])
+})
+
+test("the JSON names a connection's skill for searching as it is written, with the plugin's name before it too", () => {
+  const root = withConnections({ wiki: { holds: 'documents', researchSkill: 'acme-kit:wiki-search' }, desk: { holds: 'tickets', researchSkill: 'desk.search_2' } })
+
+  assert.deepEqual(searched(root), [['wiki', { by: 'skill', skill: 'acme-kit:wiki-search' }], ['desk', { by: 'skill', skill: 'desk.search_2' }]])
+})
+
+test("a connection's skill for searching that is no skill's name stops every command when the settings are read", () => {
+  for (const odd of [7, '', ['wiki-search'], 'wiki search', 'acme:kit:wiki', ':wiki', 'wiki:', '-wiki', 'wiki/search']) {
+    const result = connections(withConnections({ wiki: { holds: 'documents', researchSkill: odd, server: 'pages' } }))
+
+    assert.equal(result.code, 1, JSON.stringify(odd))
+    assert.equal(result.stdout, '', JSON.stringify(odd))
+    assert.ok(result.stderr.endsWith('estate.json: "connections.wiki.researchSkill" must name one skill, as "name" or "plugin:name"\n'), JSON.stringify(odd))
+  }
 })
 
 test('how a connection is searched is in the JSON alone: the lines connections prints are as they were', () => {
@@ -111,6 +126,12 @@ test('on such a map a search command that is no list of words is passed over, si
   assert.deepEqual(recorded(olderTracker({ commands: { search: [7, null] } })), [['desk', { by: 'name' }]])
   assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', ''] } })), [['desk', { by: 'name' }]])
   assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', 'find'] } })), [['desk', { by: 'command' }]])
+})
+
+test("on such a map a tracker's skill for searching that is no skill's name is passed over, since nothing has refused it there, and one that is a skill's name is the way the tracker is searched", () => {
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 'desk search', commands: { search: ['desk', 'find'] } })), [['desk', { by: 'command' }]])
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 7 })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 'acme-kit:desk-search' })), [['desk', { by: 'skill', skill: 'acme-kit:desk-search' }]])
 })
 
 test('with no connection the JSON is an empty list', () => {

@@ -30,19 +30,20 @@ Send every unsettled question in one message, numbered, each on its own line and
 3. Whether evidence that is not text (screenshots, recordings, exports) is committed. Recommend yes exactly when the map is kept in git, and say that `lint` then warns on any file over `budgets.evidenceBytes` (1 MB unless set). The answer may be no because a screenshot can show personal data, and no text check reads an image.
 4. The repos to register and the role of each in a phrase.
 5. Folders the plugin leaves alone (scratch space, archives, other people's checkouts).
-6. Connections: each outside system the estate uses, one for each kind of thing it holds: tickets, pull requests, meetings, chat or any other. For each: a short name, what it holds, how a reference to it looks (a pattern from `keyCandidates`, a link) and how it is reached: a preset from `connectionCandidates`, a server this session holds, the estate's own command, or by hand. For a preset, `context-central connections --presets` lists the parameters it takes: ask for each one the candidate does not give. Recommend each candidate, and each server that plainly belongs to one. Recommend at least one connection, so that a session can read the ticket or the pull request behind the work, and accept "none".
+6. Connections: each outside system the estate uses, one for each kind of thing it holds: tickets, pull requests, meetings, chat, mail, documents, designs or any other. For each: a short name, what it holds, how a reference to it looks (a pattern from `keyCandidates`, a link), how it is reached: a preset from `connectionCandidates`, a server this session holds, the estate's own command, or by hand, and a skill of the estate's own that searches it for research, where the estate keeps one. For a preset, `context-central connections --presets` lists the parameters it takes: ask for each one the candidate does not give. Recommend each candidate, and each server that plainly belongs to one. Recommend at least one connection, so that a session can read the ticket or the pull request behind the work, and accept "none".
 7. For each connection, one reference the person can read through it (a ticket, a pull request), so that step 5 can prove it.
 8. Per repo: the base branch (recommend `defaultBranch`), where the key goes (branch name, commit subject, PR title), the commit style, and which connection holds its pull requests when more than one does.
 9. Write rules: what may be posted outside the map (ticket comments, transitions, PR comments, pushes) and which of those need approval each time.
 10. Whether implement writes tests, whether it runs a review, and how many review rounds it allows before it stops and asks. Recommend three.
-11. Estate skills the plugin should defer to for implementing.
+11. Estate skills the plugin should defer to for implementing, and one that research starts on the estate as a whole, where the estate keeps either.
 12. The estate's glossary: a file it already keeps, from `glossaryCandidates`, or the map's own. Recommend a candidate only where it holds the estate's terms.
+13. Whether a research's reading is laid out by a template of the estate's own, a file named by its path from the estate root. Recommend none unless the estate already keeps such a file.
 
 Done when every question has an answer or an explicit "none".
 
 ## 3. Draft the config
 
-Show the draft in this shape and wait for a yes. Omit a key that has no value. A repo's `remote` is the one `detect` gave for it, written as it is: with it `context-central doctor` can say how to clone a repo whose folder is missing. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `route`, `account`, `repos`.
+Show the draft in this shape and wait for a yes. Omit a key that has no value. A repo's `remote` is the one `detect` gave for it, written as it is: with it `context-central doctor` can say how to clone a repo whose folder is missing. Where the estate keeps its own glossary, add `"glossary"` to the config with the file's path from the estate root: `init` then lays out none and never changes that file. A connection carries only the keys that are true of it: `references`, `preset` with that preset's own parameters, `server`, `commands`, `how`, `route`, `account`, `repos`, `researchSkill`.
 
 ```json
 {
@@ -61,7 +62,8 @@ Show the draft in this shape and wait for a yes. Omit a key that has no value. A
       "notes": { "holds": "meetings", "how": "how a person gets at them" }
     },
     "writeRules": ["one rule per line, as the person worded it"],
-    "implement": { "tests": true, "review": true, "deferTo": "", "reviewRounds": 3 }
+    "implement": { "tests": true, "review": true, "deferTo": "", "reviewRounds": 3 },
+    "researchSkill": "the-estates-research-skill", "readingTemplate": "templates/reading.md"
   }
 }
 ```
