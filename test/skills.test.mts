@@ -662,7 +662,7 @@ test('onboard names every key of a connection that the plugin reads', () => {
 
 test("research starts the estate's own skill for research where config --get prints one, and a connection's in place of its sweep where connections gives that skill as the way it is searched", () => {
   const root = tree(acme({}, { researchSkill: 'acme-kit:deep-dig', connections: { wiki: { holds: 'documents', server: 'pages', researchSkill: 'acme-kit:wiki-search' } } }))
-  const skills = partOf(referenceText('research', 'references/run.md'), "Skills of the estate's own")
+  const skills = partOf(referenceText('research', 'references/agents.md'), "Skills of the estate's own")
 
   assert.equal(run(['config', '--get', 'researchSkill'], { cwd: root }).stdout, 'acme-kit:deep-dig\n')
   assert.equal(run(['config', '--get', 'researchSkill'], { cwd: tree(acme()) }).code, 1)
@@ -679,6 +679,7 @@ test("research lays a run's part of the reading out as the estate's own template
   assert.equal(run(['config', '--get', 'readingTemplate'], { cwd: tree(acme()) }).code, 1)
   assert.equal(readFileSync(join(root, 'research', 'gateway-limits', 'reading.md'), 'utf8'), template)
   assert.ok(partOf(referenceText('research', 'references/folder.md'), 'The reading').includes('`context-central config --get readingTemplate`'))
+  assert.ok(step('research', "4. Write the research's folder").includes('`context-central config --get readingTemplate`'))
 })
 
 test('research makes its folder with research new, whose answer gives the place of the fact sheet, and names the refusal of a name that is taken', () => {
