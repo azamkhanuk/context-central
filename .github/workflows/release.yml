@@ -23,7 +23,6 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Publish the release the manifest names, unless it is out already
-        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -39,13 +38,28 @@ jobs:
           git tag -a "$tag" -m "$title"
           git push origin "refs/tags/$tag"
           gh release create "$tag" --verify-tag --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
-          echo "made=true" >> "$GITHUB_OUTPUT"
-      - name: Attach the command as a package npm installs from the file
-        if: ${{ steps.publish.outputs.made == 'true' }}
+      - name: Attach the command as a package npm installs from the file, where the release lacks it
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$(node scripts/release-notes.mts --tag)"
+          if ! attached="$(gh release view "$tag" --json assets --jq '.assets[].name' 2>&1)"; then
+            if [[ "$attached" == *"release not found"* ]]; then
+              echo "$tag has no release. Nothing to attach."
+              exit 0
+            fi
+            echo "$attached"
+            exit 1
+          fi
           folder="$(node --no-warnings scripts/pack.mts "$RUNNER_TEMP/pack")"
           file="$(npm pack "$folder" --pack-destination "$RUNNER_TEMP" --silent | tail -n 1)"
+          if [ -z "$file" ] || [ ! -f "$RUNNER_TEMP/$file" ]; then
+            echo "npm pack made no file in $RUNNER_TEMP."
+            exit 1
+          fi
+          if grep -Fqx "$file" <<< "$attached"; then
+            echo "$file is attached to $tag already. Nothing to attach."
+            exit 0
+          fi
           gh release upload "$tag" "$RUNNER_TEMP/$file"
