@@ -187,6 +187,43 @@ test("the brief research hands a host's own subagent, where the session holds no
   for (const name of ['sweeper', 'web-reader']) assert.equal(referenceText('research', `references/${name}.md`), agentText(name).replace(/^---\n[\s\S]*?\n---\n\n/, ''), name)
 })
 
+test("the brief research hands a host's own subagent for reading or for fetching ends in that agent's own text, word for word, after one paragraph on what it is handed", () => {
+  for (const name of ['reader', 'fetcher']) {
+    const brief = referenceText('research', `references/${name}.md`)
+    const own = agentText(name).replace(/^---\n[\s\S]*?\n---\n\n/, '')
+
+    assert.ok(brief.endsWith(own), name)
+    assert.equal(brief.slice(0, -own.length).split('\n\n').filter(Boolean).length, 1, name)
+  }
+})
+
+test('research says in its head, for a host that reads the open skill format, the Node and the command it needs, as the package gives them, and no other skill says it', () => {
+  const { engines, bin } = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')) as { engines: { node: string }, bin: { [name: string]: string } }
+  const needs = skill('research').compatibility ?? ''
+
+  assert.deepEqual(Object.keys(bin), ['context-central'])
+  assert.ok(needs.includes(`Node ${engines.node.replace(/^>=/, '')} `), needs)
+  assert.ok(needs.includes('`context-central`'), needs)
+  assert.ok(needs.length <= 500)
+  assert.deepEqual(SKILLS.filter(name => 'compatibility' in skill(name)), ['research'])
+})
+
+test('research is kept to the person on a host that reads agents/openai.yaml beside the skill, as its head keeps it on Claude Code, and the file reads a key a line', () => {
+  const lines = readFileSync(join(REPO, 'skills', 'research', 'agents', 'openai.yaml'), 'utf8').split('\n').filter(line => line !== '')
+  const above: string[] = []
+  const read = lines.flatMap(line => {
+    const match = /^( *)([a-z_]+):(?: (\S.*))?$/.exec(line)
+    assert.ok(match, line)
+    above.length = match[1].length / 2
+    above.push(match[2])
+    return match[3] === undefined ? [] : [[above.join('.'), match[3]]]
+  })
+
+  assert.deepEqual(Object.fromEntries(read), { 'policy.allow_implicit_invocation': 'false' })
+  assert.equal(skill('research')['disable-model-invocation'], 'true')
+  assert.deepEqual(SKILLS.filter(name => existsSync(join(REPO, 'skills', name, 'agents'))), ['research'])
+})
+
 test('skills name the agents by their plugin-scoped identifiers', () => {
   for (const name of ['reader', 'fetcher', 'sweeper', 'web-reader']) assert.ok(step('research', '2. Gather from primary sources').includes(`\`context-central:${name}\``), name)
   assert.match(skillText('implement'), /context-central:reviewer/)

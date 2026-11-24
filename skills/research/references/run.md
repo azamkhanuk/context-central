@@ -78,6 +78,8 @@ A connection searched by `name` is not swept. The start line says so, and the ru
 
 Every agent that gathers, the reader, the fetcher, the sweeper and the web reader, is handed the brief's questions as they are written there, with what it is to do: the reader its paths, the fetcher the one thing to fetch, its connection and the path to save to, the sweeper its connection, the web reader its addresses or what to look for. None is handed what the person wants built or changed. This holds however the question was typed: the wish stays out of every prompt. A prompt names a connection's server and never a tool of it: each agent finds the tool itself, as its brief has it.
 
+Where the session holds no agent of the plugin, as where this skill was taken alone, each of the four is handed over as the sweep is above and a page on the web is below: its brief, `references/reader.md`, `references/fetcher.md`, `references/sweeper.md` or `references/web-reader.md`, goes to a subagent the host has, first in the prompt and before what the prompt hands it, and with none the session does what that brief says itself. The brief is the agent's own text, so the rules above hold for a subagent as they do for the plugin's agent.
+
 A page on the web is read by the `context-central:web-reader` agent, whose tools cannot write: give it the questions and the addresses, or what to look for. Where the session holds no such agent, hand the brief in `references/web-reader.md` to a subagent the host has, and with none, read the page in the session.
 
 ## Skills of the estate's own
