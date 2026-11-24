@@ -761,6 +761,7 @@ test("research reads the two caps of a depth with config, a key for each, which 
 })
 
 const later = () => referenceText('research', 'references/later.md')
+const checks = () => referenceText('research', 'references/checks.md')
 
 test('research tells a research that is there from a new question by what research open answers for the first word typed: where it stands, or the line for a name that is no research, or the one for a folder no map covers', () => {
   const root = tree(acme())
@@ -784,6 +785,42 @@ test('research reads from the lines research open prints that a research has an 
   assert.equal(run(['resolve', 'gateway-limits', '--absolute'], { cwd: root }).stdout.split('\n')[0], 'Context for research gateway-limits:')
 })
 
+test('research names what research open prints for a research with no round and no day yet, and for a day that passed one day ago', () => {
+  const root = tree(acme())
+  run(['research', 'new', 'gateway-limits'], { cwd: root })
+  const made = run(['research', 'open', 'gateway-limits'], { cwd: root }).stdout.split('\n')
+  writeFileSync(join(root, 'research/gateway-limits/index.md'), '---\nresearch: gateway-limits\n---\n# Limits\n\n## Check again by\n\n2026-01-14: it may move.\n')
+
+  const aDayLate = run(['research', 'open', 'gateway-limits'], { cwd: root, env: { TZ: 'UTC' } }).stdout.split('\n')
+
+  assert.deepEqual(made.filter(line => /^(rounds|check again by):/.test(line)), ['rounds: none', 'check again by: no date on the sheet'])
+  assert.deepEqual(aDayLate.filter(line => line.startsWith('check again by:')), ['check again by: 2026-01-14, passed 1 day ago'])
+  for (const named of ['`rounds: none`', '`no date on the sheet`', '`passed 1 day ago`']) assert.ok(partOf(later(), 'Where it stands').includes(named), named)
+})
+
+test('research names each opening of the last line research moved prints: for some of several facts, for none of several, for the one fact there is, and for no fact that cites a line', () => {
+  const one = solo({ 'src/limit.js': 'const LIMIT = 60\n', 'src/window.js': 'const WINDOW = 1\n' })
+  tree(one.base)
+  const read = git(one, one.main, 'rev-parse', '--short', 'HEAD').stdout.trim()
+  const limit = ['- **F1** `verified` A limit is a constant.', `  - Source: \`src/limit.js:1\` at \`${read}\``]
+  const others = ['- **F2** `verified` A window is a constant.', `  - Source: \`src/window.js:1\` at \`${read}\``, '- **F3** `verified` A window is counted in minutes.', `  - Source: \`src/window.js:1\` at \`${read}\``]
+  const thread = ['- **F4** `verified` A shop asked for more.', '  - Source: [01-2026-01-09-thread-full-text.md](sources/01-2026-01-09-thread-full-text.md)']
+  mkdirSync(join(one.main, '.context-central/research/limits'), { recursive: true })
+  const lastLine = (facts: string[]) => {
+    writeFileSync(join(one.main, '.context-central/research/limits/index.md'), ['---', 'research: limits', '---', '# Limits', '', '## Facts', '', ...facts, ''].join('\n'))
+    return run(['research', 'moved', 'limits'], { cwd: one.main, env: one.env }).stdout.trimEnd().split('\n').at(-1)
+  }
+  const held = [lastLine([...limit, ...others]), lastLine(limit), lastLine(thread)]
+  writeFileSync(join(one.main, 'src/limit.js'), 'const LIMIT = 90\n')
+  writeFileSync(join(one.main, 'src/window.js'), 'const WINDOW = 5\n')
+  git(one, one.main, 'commit', '-q', '-am', 'more')
+  const check = checks().slice(checks().indexOf('\n## Does it still hold\n'), checks().indexOf('\n## Does this agree\n'))
+
+  assert.deepEqual(held, ['None of 3 facts that cite a line of a repo has moved since the commit it was read at.', 'The one fact that cites a line of a repo has not moved since the commit it was read at.', 'No fact of limits cites a line of a repo.'])
+  assert.deepEqual([lastLine([...limit, ...others]), lastLine(limit)], ['3 of 3 facts that cite a line of a repo have moved since the commit they were read at.', 'The one fact that cites a line of a repo has moved since the commit it was read at.'])
+  for (const named of ['`2 of 9 facts that cite a line of a repo have moved`', '`has moved`', '`None of 9 facts that cite a line of a repo has moved`', '`The one fact that cites a line of a repo has moved`', '`has not moved`', '`No fact of <name> cites a line of a repo.`']) assert.ok(check.includes(named), named)
+})
+
 test('research asks research moved which cited lines read another way, and names the two kinds of line it prints and the two reasons it mends', () => {
   const limit = 'const LIMIT = 60\n\nexport function limited(calls) {\n  return calls > LIMIT\n}\n'
   const one = solo({ 'src/limit.js': limit })
@@ -796,7 +833,7 @@ test('research asks research moved which cited lines read another way, and names
   git(one, one.main, 'commit', '-q', '-am', 'more')
 
   const printed = run(['research', 'moved', 'limits'], { cwd: one.main, env: one.env }).stdout.split('\n')
-  const check = partOf(later(), 'Does it still hold')
+  const check = partOf(checks(), 'Does it still hold')
 
   assert.match(printed[0], /^F1 has moved: /)
   assert.match(printed[1], /^F2 was not compared: its line names no commit /)
@@ -805,7 +842,7 @@ test('research asks research moved which cited lines read another way, and names
 })
 
 test('the entry a check of a research writes in its log, as the skill shows it for each of the two checks, is a round the plugin reads, with what stopped it', () => {
-  const entries = [fencedUnder(later(), 'Does it still hold'), fencedUnder(later(), 'Does this agree')]
+  const entries = [fencedUnder(checks(), 'Does it still hold'), fencedUnder(checks(), 'Does this agree')]
   const root = tree(acme())
   run(['research', 'new', 'gateway-limits'], { cwd: root })
   const log = join(root, 'research/gateway-limits/log.md')
@@ -821,7 +858,7 @@ test('the entry a check of a research writes in its log, as the skill shows it f
   assert.deepEqual(run(['lint'], { cwd: root }).stdout.split('\n').filter(line => line.includes('research/gateway-limits')), [])
 })
 
-test("research hands a research over with research handover, and names the two flags it takes and how each line it prints opens or ends", () => {
+test("research hands a research over with research handover, and names the two flags it takes, how each line it prints opens or ends, and how a refusal opens on the error stream, for a link, for a kind no source has and for a folder inside the map", () => {
   const mail = '[04-2026-01-14-mail-limits-full-text.md](sources/04-2026-01-14-mail-limits-full-text.md)'
   const sheet = ['---', 'research: gateway-limits', '---', '# Limits', '', '[The reading](reading.md) is one judgement.', '', '## Facts', '', '- **F1** `verified` A shop may make 100 calls a minute.', `  - Source: ${mail}`, '', '## Sources', '', `- ${mail}: mail`, ''].join('\n')
   const files = { 'research/gateway-limits/index.md': sheet, 'research/gateway-limits/reading.md': '# Limits: the reading\n', 'research/gateway-limits/sources/04-2026-01-14-mail-limits-full-text.md': '# Limits\n' }
@@ -836,14 +873,20 @@ test("research hands a research over with research handover, and names the two f
   assert.ok(printed[0].startsWith('handed over research gateway-limits to '))
   assert.ok(printed[1].startsWith('left out: '))
   assert.ok(printed[2].endsWith('only on sources left out'))
+  const noSuchKind = run(['research', 'handover', 'gateway-limits', `${out}-3`, '--without', 'chat'], { cwd: root })
+  const inTheMap = run(['research', 'handover', 'gateway-limits', join(root, 'research', 'handed')], { cwd: root })
+
   assert.ok(refused.stderr.startsWith('context-central research: nothing was handed over'))
-  for (const named of ['`context-central research handover <name> <folder>`', '`context-central research handover <name> <folder> --reading`', '`--without <kind>`', '`handed over research`', '`left out:`', '`only on sources left out`', '`nothing was handed over`']) assert.ok(handing.includes(named), named)
+  assert.equal(noSuchKind.stderr, 'context-central research: no source of gateway-limits is of kind "chat"; its kinds are: mail\n')
+  assert.ok(inTheMap.stderr.startsWith('context-central research: ') && inTheMap.stderr.endsWith('is inside the map, so nothing was handed over: a hand-over is a folder outside it\n'))
+  assert.deepEqual([refused, noSuchKind, inTheMap].map(({ code, stdout }) => [code, stdout]), [[1, ''], [1, ''], [1, '']])
+  for (const named of ['`context-central research handover <name> <folder>`', '`context-central research handover <name> <folder> --reading`', '`--without <kind>`', '`handed over research`', '`left out:`', '`only on sources left out`', '`context-central research:`', '`nothing was handed over`', '`no source of`', '`## Sources`']) assert.ok(handing.includes(named), named)
 })
 
 test("research saves a copy of a note among a research's sources at a path draft prints, and finds what a build left through the item's own pointers", () => {
   const root = tree(acme())
   run(['research', 'new', 'gateway-limits'], { cwd: root })
-  const build = partOf(later(), 'What a build learned')
+  const build = partOf(checks(), 'What a build learned')
 
   assert.equal(run(['draft', 'research/gateway-limits/sources/01-2026-01-15-note-state-full-text.md'], { cwd: root }).stdout, `${join(root, 'research/gateway-limits/sources/01-2026-01-15-note-state-full-text.md')}\n`)
   assert.equal(run(['resolve', 'PROJ-12', '--absolute'], { cwd: root }).stdout.split('\n')[1], `- ${join(root, 'work/PROJ-12/STATE.md')} (${Buffer.byteLength(ACME_FILES['work/PROJ-12/STATE.md'])} B) state file: where the work stands and what is next`)
