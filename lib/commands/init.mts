@@ -34,18 +34,21 @@ export const summary = 'Write a new map from an answers file, or a plain one wit
 
 const LAYOUTS: Layout[] = ['root', 'inner']
 const OWN_HUB = 'CLAUDE.local.md'
-const KEPT_OUT_OF_GIT = [`${INNER_DIR}/`, OWN_HUB]
+const ROOT_HUB = 'CLAUDE.md'
+const ANOTHER_HOSTS_HUB = 'AGENTS.md'
+const CLAUDES_OWN = [ROOT_HUB, OWN_HUB, '.claude']
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { from: { type: 'string' }, plain: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
+    options: { from: { type: 'string' }, plain: { type: 'boolean' }, hub: { type: 'string' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
   })
   if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(), null, 2))
   if (Boolean(values.plain) === Boolean(values.from)) throw new UsageError('expected --from <answers.json> or --plain, one and not both, or --print-settings')
+  if (values.hub !== undefined && !values.plain) throw new UsageError('--hub names the hub of a plain map, so it goes with --plain')
   const given = resolve(io.cwd, positionals[0] ?? '.')
-  const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env)
+  const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env, values.hub === undefined ? undefined : hubNamed(values.hub))
   const planned = [...first, ...steps(dir, answers)]
   const done: string[] = values.plain ? [`plain map at ${dir}:`] : []
   const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
@@ -62,7 +65,7 @@ function madeFolder(path: string) {
   return path
 }
 
-function plain(given: string, env: Env): Plan {
+function plain(given: string, env: Env, asked: string | undefined): Plan {
   const around = checkoutAround(given)
   if (around && !around.main) throw new PluginError(`${join(around.root, '.git')} is a file that names no work tree, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
   const dir = around?.main ?? given
@@ -70,10 +73,27 @@ function plain(given: string, env: Env): Plan {
   const ours = around ? join(dir, INNER_DIR, CONFIG_FILE) : join(dir, CONFIG_FILE)
   const found = findEstate(given, env)
   if (found && found.configPath !== ours) throw new PluginError(`a map already covers this folder: ${found.configPath}`)
-  if (!around) return { dir, answers: { layout: 'root', config: { name, repos: checkoutsUnder(dir), connections: {} } }, first: [] }
-  if (!found && gitTracks(dir, join(dir, OWN_HUB), env)) throw new PluginError(`${join(dir, OWN_HUB)} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
-  const keptOut = { rel: '.git/info/exclude', content: KEPT_OUT_OF_GIT.map(line => `${line}\n`).join(''), lines: KEPT_OUT_OF_GIT }
-  return { dir, answers: { layout: 'inner', config: { name, hub: OWN_HUB, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut] }
+  const hub = asked ?? hubFound(dir, around !== null)
+  if (!found && tracked(join(dir, hub), env)) throw new PluginError(`${join(dir, hub)} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard`)
+  if (!around) return { dir, answers: { layout: 'root', config: { name, ...(hub === ROOT_HUB ? {} : { hub }), repos: checkoutsUnder(dir), connections: {} } }, first: [] }
+  const keptOutOfGit = [`${INNER_DIR}/`, ...(hub.startsWith(`${INNER_DIR}/`) ? [] : [hub])]
+  const keptOut = { rel: '.git/info/exclude', content: keptOutOfGit.map(line => `${line}\n`).join(''), lines: keptOutOfGit }
+  return { dir, answers: { layout: 'inner', config: { name, hub, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut] }
+}
+
+function hubNamed(asked: string) {
+  if (asked === '' || /^([/\\]|[A-Za-z]:)/.test(asked) || asked.includes('\\') || asked.split('/').includes('..')) throw new UsageError(`--hub "${asked}": a hub is a file counted from the folder of the map, with forward slashes and no ".."`)
+  return asked
+}
+
+function tracked(path: string, env: Env) {
+  return existsSync(dirname(path)) && gitTracks(dirname(path), path, env) === true
+}
+
+function hubFound(dir: string, inCheckout: boolean) {
+  const anotherHostsAlone = existsSync(join(dir, ANOTHER_HOSTS_HUB)) && !CLAUDES_OWN.some(name => existsSync(join(dir, name)))
+  if (!anotherHostsAlone) return inCheckout ? OWN_HUB : ROOT_HUB
+  return inCheckout ? `${INNER_DIR}/hub.md` : ANOTHER_HOSTS_HUB
 }
 
 function readAnswers(path: string) {

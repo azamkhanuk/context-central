@@ -188,6 +188,112 @@ test('a plain map is refused where git tracks CLAUDE.local.md, in a dry run as w
   assert.equal(shownByGit(made), '')
 })
 
+test('--hub names the hub of a plain map in a checkout, which is kept out of git beside the map, and git shows nothing new', () => {
+  const made = fresh()
+
+  const result = plain(made, made.main, '--hub', 'notes/MAP.md')
+
+  assert.deepEqual(result, { code: 0, stdout: [`plain map at ${made.main}:`, `updated ${EXCLUDE}`, ...INNER_FILES.map(file => `created ${file === 'CLAUDE.local.md' ? 'notes/MAP.md' : file}`), ''].join('\n'), stderr: '' })
+  assert.deepEqual(JSON.parse(read(made.main, `${MAP}/estate.json`)) as unknown, { ...SOLO, hub: 'notes/MAP.md' })
+  assert.ok(read(made.main, 'notes/MAP.md').includes(BLOCK))
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\nnotes/MAP.md\n`)
+  assert.equal(existsSync(join(made.main, 'CLAUDE.local.md')), false)
+  assert.equal(shownByGit(made), '')
+})
+
+test('--hub names the hub of a plain map in a folder git does not hold, and a file there keeps its text and gains the marked block', () => {
+  const root = tree(makeTree({ 'AGENTS.md': '# Ours\n' }))
+
+  const result = plain({ env: {} }, root, '--hub', 'AGENTS.md')
+
+  assert.deepEqual(result, { code: 0, stdout: said(root, 'created', ['estate.json', ...NODE_DIRS.map(dir => `${dir}/`)]).replace(/\n$/, '\nupdated AGENTS.md\ncreated glossary.md\n'), stderr: '' })
+  assert.equal((JSON.parse(read(root, 'estate.json')) as { hub: unknown }).hub, 'AGENTS.md')
+  assert.ok(read(root, 'AGENTS.md').startsWith(`# Ours\n\n${BLOCK}`))
+  assert.equal(existsSync(join(root, 'CLAUDE.md')), false)
+})
+
+test('with no --hub, a folder git does not hold whose only instruction file is AGENTS.md takes it as the hub, and one that holds a file of Claude Code too is as before', () => {
+  const alone = tree(makeTree({ 'AGENTS.md': '# Ours\n' }))
+  const beside: TreeFiles[] = [{ 'CLAUDE.md': '# Mine\n' }, { 'CLAUDE.local.md': '# Mine\n' }, { '.claude/settings.json': {} }]
+
+  assert.equal(plain({ env: {} }, alone).code, 0)
+  assert.equal((JSON.parse(read(alone, 'estate.json')) as { hub?: unknown }).hub, 'AGENTS.md')
+  assert.ok(read(alone, 'AGENTS.md').startsWith(`# Ours\n\n${BLOCK}`))
+  assert.equal(existsSync(join(alone, 'CLAUDE.md')), false)
+  for (const files of beside) {
+    const root = tree(makeTree({ 'AGENTS.md': '# Ours\n', ...files }))
+
+    assert.equal(plain({ env: {} }, root).code, 0, Object.keys(files)[0])
+    assert.equal((JSON.parse(read(root, 'estate.json')) as { hub?: unknown }).hub, undefined, Object.keys(files)[0])
+    assert.ok(read(root, 'CLAUDE.md').includes(BLOCK), Object.keys(files)[0])
+    assert.equal(read(root, 'AGENTS.md'), '# Ours\n', Object.keys(files)[0])
+  }
+})
+
+test("with no --hub, a checkout whose only instruction file is AGENTS.md keeps the hub inside the map's folder, touches AGENTS.md not at all, and git shows nothing new", () => {
+  const made = fresh({ 'AGENTS.md': '# Shared\n' })
+
+  const result = plain(made, made.main)
+
+  assert.deepEqual(result, { code: 0, stdout: [`plain map at ${made.main}:`, `updated ${EXCLUDE}`, ...INNER_FILES.map(file => `created ${file === 'CLAUDE.local.md' ? `${MAP}/hub.md` : file}`), ''].join('\n'), stderr: '' })
+  assert.deepEqual(JSON.parse(read(made.main, `${MAP}/estate.json`)) as unknown, { ...SOLO, hub: `${MAP}/hub.md` })
+  assert.ok(read(made.main, `${MAP}/hub.md`).includes(BLOCK))
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\n`)
+  assert.equal(read(made.main, 'AGENTS.md'), '# Shared\n')
+  assert.equal(existsSync(join(made.main, 'CLAUDE.local.md')), false)
+  assert.equal(shownByGit(made), '')
+})
+
+test('with no --hub, a checkout that holds a file of Claude Code beside AGENTS.md has its hub in CLAUDE.local.md, as before', () => {
+  const beside: TreeFiles[] = [{ 'CLAUDE.md': '# Mine\n' }, { '.claude/settings.json': '{}\n' }]
+
+  for (const files of beside) {
+    const made = fresh({ 'AGENTS.md': '# Shared\n', ...files })
+
+    assert.equal(plain(made, made.main).code, 0, Object.keys(files)[0])
+    assert.equal((JSON.parse(read(made.main, `${MAP}/estate.json`)) as { hub: unknown }).hub, 'CLAUDE.local.md', Object.keys(files)[0])
+    assert.equal(existsSync(join(made.main, MAP, 'hub.md')), false, Object.keys(files)[0])
+    assert.equal(shownByGit(made), '', Object.keys(files)[0])
+  }
+})
+
+test('a hub that git tracks is refused by name, in a dry run as well, and nothing is written', () => {
+  const made = fresh({ 'notes/MAP.md': '# Shared on purpose\n' })
+  const refused = { code: 1, stdout: '', stderr: `context-central init: ${join(made.main, 'notes', 'MAP.md')} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard\n` }
+
+  assert.deepEqual(plain(made, made.main, '--hub', 'notes/MAP.md', '--dry-run'), refused)
+  assert.deepEqual(plain(made, made.main, '--hub', 'notes/MAP.md'), refused)
+  assert.equal(existsSync(join(made.main, MAP)), false)
+  assert.equal(read(made.main, EXCLUDE), EXCLUDED)
+  assert.equal(shownByGit(made), '')
+})
+
+test('in a folder git does not hold, a hub that a checkout below it tracks is refused by name, and nothing is written', () => {
+  const made = checkout({ 'AGENTS.md': '# web\n' }, 'web')
+  tree(made.base)
+
+  const result = plain(made, made.base, '--hub', 'web/AGENTS.md')
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: `context-central init: ${join(made.base, 'web', 'AGENTS.md')} is tracked by git, so a plain map there could not be kept out of git; set the map up with /context-central:onboard\n` })
+  assert.equal(existsSync(join(made.base, 'estate.json')), false)
+  assert.equal(read(made.main, 'AGENTS.md'), '# web\n')
+})
+
+test('--hub with no --plain, and a hub that is absolute or leads out of the folder, are wrong usage, and nothing is written', () => {
+  const root = tree(makeTree({ 'answers.json': { layout: 'root', config: { name: 'acme' } } }))
+
+  const alone = run(['init', '--from', 'answers.json', '--hub', 'MAP.md'], { cwd: root })
+
+  assert.deepEqual([alone.code, alone.stdout], [2, ''])
+  assert.ok(alone.stderr.includes('--hub'), alone.stderr)
+  for (const odd of ['/tmp/MAP.md', 'C:/MAP.md', '../MAP.md', 'notes/../../MAP.md', 'notes\\MAP.md', '']) {
+    const result = plain({ env: {} }, root, '--hub', odd)
+
+    assert.deepEqual(result, { code: 2, stdout: '', stderr: `context-central init: --hub "${odd}": a hub is a file counted from the folder of the map, with forward slashes and no ".."\n` }, odd)
+  }
+  assert.deepEqual(readdirSync(root), ['answers.json'])
+})
+
 const NO_ANSWER_FROM_GIT: [when: string, standIn: string | null][] = [
   ['with no git on the PATH', null],
   ['where git refuses to answer', '#!/bin/sh\necho "fatal: detected dubious ownership" >&2\nexit 128\n'],
