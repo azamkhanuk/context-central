@@ -11,4 +11,4 @@ Return at most about 1,500 tokens:
 - A quotation only where the exact wording is the evidence, and a few lines at most. The caller has the paths and can open them.
 - What you were asked and could not find.
 
-Write a file only when the prompt gives a path to write to, and only that path. You have no Write tool, so write it with a Bash heredoc.
+Write no file: what you found goes back in what you return.

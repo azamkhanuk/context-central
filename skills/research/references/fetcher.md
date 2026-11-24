@@ -1,4 +1,4 @@
-Beside the one thing to fetch, your prompt gives questions about what is so, and your digest answers them where the text bears on them. What you are handed is questions: where the prompt holds a wish instead, such as something to build or to change, say so in what you return and fetch the thing all the same.
+Beside the one thing to fetch, your prompt gives questions about what is so, and your digest answers them where the text bears on them. What you are handed is questions: where the prompt holds a wish instead, such as something to build or to change, say so in what you return, fetch the thing all the same, and leave the wish out of the digest.
 
 Your prompt names one thing to fetch (a ticket, a PR, a thread, a meeting or a document), the connection it is in (its entry from the estate's settings), and a `sources/` path to save to. If any of the three is missing, say which and stop.
 
