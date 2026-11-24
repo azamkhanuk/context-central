@@ -57,6 +57,7 @@ test('every file of lib is in the packed tree under the same name ending .mjs, a
   const made = walk(join(folder, 'lib')).map(file => relative(folder, file))
 
   assert.deepEqual(made.sort(), sources.map(file => file.replace(/\.mts$/, '.mjs')).sort())
+  for (const file of [join('lib', 'cli.mjs'), join('lib', 'commands', 'research.mjs'), join('lib', 'presets', 'github.mjs')]) assert.ok(made.includes(file), file)
   for (const file of made) assert.doesNotMatch(readFileSync(join(folder, file), 'utf8'), /\b(from|import)\s*\(?\s*['"][^'"\n]*\.mts['"]/, file)
 })
 
@@ -86,6 +87,22 @@ test('pack is refused, in one line and with nothing written, where no folder is 
   assert.deepEqual(unnamed, { code: 1, stdout: '', stderr: 'pack: name an empty folder to write the package into\n' })
   assert.deepEqual(taken, { code: 1, stdout: '', stderr: `pack: ${full} is not empty, so nothing was written\n` })
   assert.deepEqual(readdirSync(full), ['kept.md'])
+})
+
+test('pack is refused, in one line and with nothing written, where the folder named is a file or lies under one', () => {
+  const room = tree(makeTree({ 'kept.md': '# Kept\n' }))
+
+  assert.deepEqual(pack(join(room, 'kept.md')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'kept.md')} is a file, so nothing was written\n` })
+  assert.deepEqual(pack(join(room, 'kept.md', 'out')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'kept.md', 'out')} lies under a file, so nothing was written\n` })
+  assert.deepEqual(readdirSync(room), ['kept.md'])
+})
+
+test('pack is refused, in one line and with nothing written, where the folder named is a link that leads nowhere', notOnWindows(LINKS_NEED_A_RIGHT), () => {
+  const room = tree(makeTree({}))
+  symlinkSync(join(room, 'nowhere', 'out'), join(room, 'gone'))
+
+  assert.deepEqual(pack(join(room, 'gone')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'gone')} is a link that leads nowhere, so nothing was written\n` })
+  assert.deepEqual(readdirSync(room), ['gone'])
 })
 
 test("the checkout's own command runs through a link under a node_modules folder, as npm's install of a clone makes one", notOnWindows(LINKS_NEED_A_RIGHT), () => {

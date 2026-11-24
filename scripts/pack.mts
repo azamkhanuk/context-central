@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,13 +32,29 @@ function pack(folder: string) {
   return tree
 }
 
+function entryAt(path: string, link = false) {
+  try {
+    return (link ? lstatSync : statSync)(path, { throwIfNoEntry: false })
+  } catch {
+    return undefined
+  }
+}
+
+function refusal(folder: string | null) {
+  if (folder === null) return 'pack: name an empty folder to write the package into'
+  const nearest = (path: string): string => (entryAt(path) || dirname(path) === path ? path : nearest(dirname(path)))
+  if (entryAt(folder, true) && !existsSync(folder)) return `pack: ${folder} is a link that leads nowhere, so nothing was written`
+  if (entryAt(folder)?.isFile()) return `pack: ${folder} is a file, so nothing was written`
+  if (!entryAt(nearest(folder))?.isDirectory()) return `pack: ${folder} lies under a file, so nothing was written`
+  if (existsSync(folder) && readdirSync(folder).length > 0) return `pack: ${folder} is not empty, so nothing was written`
+  return null
+}
+
 const [given] = process.argv.slice(2)
 const folder = given ? resolve(given) : null
-if (folder === null) {
-  console.error('pack: name an empty folder to write the package into')
-  process.exitCode = 1
-} else if (existsSync(folder) && readdirSync(folder).length > 0) {
-  console.error(`pack: ${folder} is not empty, so nothing was written`)
+const refused = refusal(folder)
+if (refused !== null || folder === null) {
+  console.error(refused)
   process.exitCode = 1
 } else {
   console.log(pack(folder))
