@@ -79,7 +79,7 @@ A research is named by the first word you type: `/context-central:research gatew
 - **Whether a spec, a design or a diff agrees with it.** The run lists the facts it goes against, the facts it puts out of date and what it rests on that no fact covers, in a dated round, and rewrites nothing.
 - **What a build learned.** A round you start reads what the build left where it lies, the item's review note, its state file, its saved pull request and the code at the commit it reached, and saves a copy of each note it rests on among the research's sources. No other step writes into a research.
 - **A run that was cut off** is taken up where it stopped: the name with `carry on` after it.
-- **A hand-over.** `context-central research handover <name> <folder>` copies the research into a folder outside the map that stands by itself, to attach to a feature or give to another planner. The item's saved ticket and pull request that the research links are copied in, `--without <kind>` leaves out the saved sources of a kind, such as mail, and names the facts that rest on them alone, and `--reading` copies the reading too. It writes nothing where a link would lead outside the copy.
+- **A hand-over.** `context-central research handover <name> <folder>` copies the research into a folder outside the map that stands by itself, to attach to a feature or give to another planner. The item's saved ticket and pull request that the research links are copied in, `--without <kind>` leaves out the saved sources of a kind, such as mail, by the sheet's list of sources, whether or not a file can be read, and names the facts that rest on them alone, and `--reading` copies the reading too. It writes nothing where a link would lead outside the copy.
 
 ## Leaving it to run
 
@@ -108,7 +108,7 @@ An estate extends research through its settings and its own skills, with no chan
 - **How it looks there**: a skill of the estate's own for research, named by a repo's `steps.research`, by `researchSkill` for the estate as a whole, or by `researchSkill` on one connection, which then is that connection's sweep. The start line names each, and you can strike one in the brief.
 - **How far it goes**: the depths, as the six keys under `budgets` above.
 - **How the result is laid out**: `readingTemplate`, a file counted from the estate root, such as `templates/reading.md`, whose headings lay out each run's part of the reading. The fact sheet's layout is fixed.
-- **Where it lives**: `researchDir`, a folder counted from the map's folder, `research` unless set.
+- **Where it lives**: `researchDir`, a folder counted from the map's folder, `research` unless set. Where the folder is on the disk under another case of its letters, such as `Research/`, `research new` refuses and says to name it as the disk has it.
 
 ## Research taken alone
 

@@ -88,6 +88,8 @@ function create(estate: Estate, name: string, { title, item: asked }: { title?: 
   const dirRel = `${researchDir}/${name}`
   const kept = [...new Set([...deepDirs, EVIDENCE_DIR, NEVER_LISTED])]
   if (kept.some(held => held.toLowerCase() === name.toLowerCase())) throw new PluginError(`${name} is a name the map keeps for something else, so no research takes it: ${kept.join(', ')}`)
+  const onDisk = asTheDiskHasIt(estate.mapDir, researchDir)
+  if (onDisk !== researchDir) throw new PluginError(`${researchDir} is on the disk as ${onDisk}: name the folder as the disk has it, with "researchDir": "${onDisk}" in estate.json`)
   locked(estate.mapDir, () => {
     const taken = researchTaken(estate)
     if (taken) throw new PluginError(`${researchDir} ${taken}, so no research is made there: ${NAME_ANOTHER}`)
@@ -118,6 +120,18 @@ function keptByGit({ mapDir, configPath }: Estate, sheet: string, env: Env): Kep
   if (gitTracks(mapDir, configPath, env) !== true) return null
   const { status } = asked(mapDir, ['check-ignore', '-q', '--', sheet], env)
   return status === IGNORED ? 'ignored' : status === NOT_IGNORED ? 'kept' : null
+}
+
+function asTheDiskHasIt(mapDir: string, rel: string) {
+  const parts = rel.split('/')
+  const held: string[] = []
+  for (const part of parts) {
+    const names = namesIn(join(mapDir, ...held))
+    const found = names.includes(part) ? part : names.find(name => name.toLowerCase() === part.toLowerCase())
+    if (found === undefined) return [...held, ...parts.slice(held.length)].join('/')
+    held.push(found)
+  }
+  return held.join('/')
 }
 
 function namesIn(dir: string) {

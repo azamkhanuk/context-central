@@ -156,15 +156,16 @@ function planned(estate: Estate, research: Research, { without, reading }: Asked
   const pages: Page[] = research.files.filter(file => reading || file.rel !== readingRel).map(file => ({ file, to: file.rel.slice(dirRel.length + 1), lines: readFileSync(file.path, 'utf8').split('\n') }))
   const linked = new Set(pages.flatMap(({ file, lines }) => linksIn(file.rel, lines).map(link => link.rel)))
   const sources = [...research.sources.map(source => ({ source, to: source.rel.slice(dirRel.length + 1) })), ...itemSources(estate, research).filter(({ source }) => linked.has(source.rel))]
-  const left = leftOut(research, sources.map(({ source }) => source), kinds, without)
   const unread = unreadableUnder(join(estate.mapDir, dirRel), dirRel)
-  const unreadLeft = unread.filter(rel => without.includes(kinds.get(rel) ?? ''))
-  const unreadTaken = unread.find(rel => !unreadLeft.includes(rel) && (reading || rel !== readingRel))
+  const readable = sources.map(({ source }) => source.rel)
+  const listed = [...readable, ...unread.filter(rel => kinds.has(rel))]
+  const left = leftOut(research, listed, kinds, without)
+  const unreadTaken = unread.find(rel => !left.has(rel) && (reading || rel !== readingRel))
   if (unreadTaken !== undefined) throw new PluginError(`${NOTHING}: ${unreadTaken} cannot be read`)
   const taken = sources.filter(({ source }) => !left.has(source.rel))
   const places: Places = {
     kept: new Map([...pages.map(({ file, to }) => [file.rel, to] as const), ...taken.map(({ source, to }) => [source.rel, to] as const)]),
-    gone: new Set([...left, ...unreadLeft, ...(reading ? [] : [readingRel])]),
+    gone: new Set([...left, ...(reading ? [] : [readingRel])]),
   }
   const texts = pages.map(page => ({ ...page, lines: rewritten(page.file.rel, page.lines, link => ledTo(estate, research, page, places, link)) }))
   for (const page of texts) refuseLinks(estate, research, page, new Set(places.kept.values()))
@@ -173,7 +174,7 @@ function planned(estate: Estate, research: Research, { without, reading }: Asked
     ...taken.map(({ source, to }) => ({ to, rel: source.rel, from: source.path, text: null, bytes: source.bytes })),
   ]
   refuseOneNameTwice(copies)
-  const count = (kind: string) => sources.filter(({ source }) => left.has(source.rel) && kinds.get(source.rel) === kind).length
+  const count = (kind: string) => listed.filter(rel => left.has(rel) && kinds.get(rel) === kind).length
   return {
     copies,
     done: {
@@ -191,15 +192,15 @@ function itemSources(estate: Estate, research: Research) {
   return folder ? filesUnder(estate, folder).map(source => ({ source, to: `sources/item-${source.rel.slice(folder.length + 1).split('/').join('-')}` })) : []
 }
 
-function leftOut({ name }: Research, sources: MapFile[], kinds: Map<string, string>, without: string[]) {
+function leftOut({ name }: Research, sources: string[], kinds: Map<string, string>, without: string[]) {
   if (without.length === 0) return new Set<string>()
-  const unsorted = sources.filter(source => !kinds.has(source.rel))
-  if (unsorted.length === 1) throw new PluginError(`${NOTHING}: ${unsorted[0].rel} has no kind under Sources on the fact sheet, so --without cannot tell whether to leave it out`)
-  if (unsorted.length > 1) throw new PluginError(`${NOTHING}: ${plural(unsorted.length, 'saved source')} have no kind under Sources on the fact sheet (first ${unsorted[0].rel}), so --without cannot tell whether to leave them out`)
-  const held = [...new Set(sources.map(source => kinds.get(source.rel)))]
+  const unsorted = sources.filter(rel => !kinds.has(rel))
+  if (unsorted.length === 1) throw new PluginError(`${NOTHING}: ${unsorted[0]} has no kind under Sources on the fact sheet, so --without cannot tell whether to leave it out`)
+  if (unsorted.length > 1) throw new PluginError(`${NOTHING}: ${plural(unsorted.length, 'saved source')} have no kind under Sources on the fact sheet (first ${unsorted[0]}), so --without cannot tell whether to leave them out`)
+  const held = [...new Set(sources.map(rel => kinds.get(rel)))]
   const unknown = without.find(kind => !held.includes(kind))
   if (unknown !== undefined) throw new PluginError(`no source of ${name} is of kind "${unknown}"; ${held.length > 0 ? `its kinds are: ${held.join(', ')}` : 'none of its sources has a kind'}`)
-  return new Set(sources.filter(source => without.includes(kinds.get(source.rel) ?? '')).map(source => source.rel))
+  return new Set(sources.filter(rel => without.includes(kinds.get(rel) ?? '')))
 }
 
 function prose(lines: string[]) {

@@ -13,6 +13,7 @@ const ONE_NAME_UNDER_BOTH_CASES = (() => {
   return one
 })()
 const BLIND_TO_CASE = ONE_NAME_UNDER_BOTH_CASES ? {} : { skip: 'this disk tells the cases of letters apart' }
+const TELLS_CASES_APART = ONE_NAME_UNDER_BOTH_CASES ? { skip: 'this disk holds one name under both letter cases' } : {}
 
 const NAME = 'gateway-limits'
 const TITLE = 'How the gateway limits a shop'
@@ -351,6 +352,49 @@ test('where nodeDirs lists the folder for researches under another case of its l
   assert.doesNotMatch(run(['resolve', 'how the gateway limits a shop'], { cwd: root }).stdout, /gateway-limits/)
   assert.equal(run(['lint'], { cwd: root }).stdout.split('\n').filter(line => /^WARN mark: research\/gateway-limits\/index\.md/i.test(line)).length, 1)
   assert.doesNotMatch(run(['graph'], { cwd: root }).stdout, /^BROKEN /m)
+})
+
+test('research new refuses, before it writes anything, where the folder for researches is on the disk under another case of its letters, and says how to name it as the disk has it', () => {
+  const listed = tree(acme({}, { nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work', 'Research'] }))
+  const unlisted = tree(acme())
+  const nested = tree(acme({}, { researchDir: 'docs/research' }))
+  const above = tree(acme({}, { researchDir: 'docs/research' }))
+  mkdirSync(join(listed, 'Research'))
+  mkdirSync(join(unlisted, 'Research'))
+  mkdirSync(join(nested, 'docs', 'Research'), { recursive: true })
+  mkdirSync(join(above, 'Docs'))
+  const before = readdirSync(listed).sort()
+
+  assert.deepEqual(research(listed, 'new', NAME, '--title', TITLE), { code: 1, stdout: '', stderr: 'context-central research: research is on the disk as Research: name the folder as the disk has it, with "researchDir": "Research" in estate.json\n' })
+  assert.deepEqual(research(unlisted, 'new', NAME), { code: 1, stdout: '', stderr: 'context-central research: research is on the disk as Research: name the folder as the disk has it, with "researchDir": "Research" in estate.json\n' })
+  assert.deepEqual(research(nested, 'new', NAME), { code: 1, stdout: '', stderr: 'context-central research: docs/research is on the disk as docs/Research: name the folder as the disk has it, with "researchDir": "docs/Research" in estate.json\n' })
+  assert.deepEqual(research(above, 'new', NAME), { code: 1, stdout: '', stderr: 'context-central research: docs/research is on the disk as Docs/research: name the folder as the disk has it, with "researchDir": "Docs/research" in estate.json\n' })
+  assert.deepEqual(readdirSync(join(above, 'Docs')), [])
+  assert.deepEqual(readdirSync(listed).sort(), before)
+  assert.deepEqual(readdirSync(join(listed, 'Research')), [])
+})
+
+test('on a disk that tells the cases apart, a folder for researches that is there as written is taken though another case of it is there too', TELLS_CASES_APART, () => {
+  const root = tree(acme())
+  mkdirSync(join(root, 'Research'))
+  mkdirSync(join(root, 'research'))
+
+  assert.deepEqual(research(root, 'new', NAME), { code: 0, stdout: 'research/gateway-limits/index.md\n', stderr: '' })
+})
+
+test('with researchDir naming the folder as the disk has it, a research is made there, and lint, graph, resolve, research open and a hand-over read it once', () => {
+  const root = tree(acme({}, { researchDir: 'Research', nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work', 'Research'] }))
+  mkdirSync(join(root, 'Research'))
+
+  assert.deepEqual(research(root, 'new', NAME, '--title', TITLE), { code: 0, stdout: 'Research/gateway-limits/index.md\n', stderr: '' })
+  assert.deepEqual(readdirSync(root).filter(name => name.toLowerCase() === 'research'), ['Research'])
+  const graph = run(['graph'], { cwd: root })
+  assert.equal(graph.code, 0, graph.stdout)
+  assert.doesNotMatch(graph.stdout, /^BROKEN /m)
+  assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /gateway-limits/)
+  assert.doesNotMatch(run(['resolve', 'how the gateway limits a shop'], { cwd: root }).stdout, /gateway-limits/)
+  assert.equal(research(root, 'open', NAME).code, 0)
+  assert.equal(research(root, 'handover', NAME, join(tree(makeTree({})), 'handed')).code, 0)
 })
 
 test('a folder for researches below a folder nodeDirs lists joins no route by words, and lint does not read its reading as a note', () => {

@@ -468,6 +468,7 @@ test('a file of the research the copy would not take, such as a PDF among the sa
 test('a file of the research that the copy does not take does not stop the hand-over though it cannot be read: the reading with no --reading, a name in capitals and a source of a kind left out', BY_MODE, () => {
   const cases: [string, string[], TreeFiles][] = [
     [`${DIR}/reading.md`, [], {}],
+    [`${DIR}/reading.md`, ['--without', 'mail'], {}],
     [`${DIR}/sources/SCAN.MD`, [], { [`${DIR}/sources/SCAN.MD`]: '# S\n' }],
     [`${DIR}/sources/${MAIL}`, ['--without', 'mail'], {}],
     [`${DIR}/.notes.md`, [], { [`${DIR}/.notes.md`]: '# N\n' }],
@@ -482,6 +483,24 @@ test('a file of the research that the copy does not take does not stop the hand-
 
     assert.equal(result.code, 0, `${rel}: ${result.stderr}`)
   }
+})
+
+test("a saved source of a kind left out that cannot be read is counted by the sheet's own list: in the count, in the facts that rest only on sources left out, and as a kind the research holds", BY_MODE, () => {
+  const both = withResearch()
+  const one = withResearch({ [`${DIR}/index.md`]: sheet(IN_THE_MAP).replace(`- ${IN_THE_MAP.quota}: mail`, `- ${IN_THE_MAP.quota}: notes`) })
+  const outBoth = elsewhere()
+  const outOne = elsewhere()
+  for (const root of [both, one]) chmodSync(join(root, DIR, 'sources', MAIL), 0o000)
+
+  const twoLeft = handover(both, NAME, outBoth, '--without', 'mail', '--reading')
+  const oneLeft = handover(one, NAME, outOne, '--without', 'mail')
+  for (const root of [both, one]) chmodSync(join(root, DIR, 'sources', MAIL), 0o644)
+
+  const { [`sources/${MAIL}`]: mail, [`sources/${QUOTA}`]: quota, ...rest } = kept({ ...NO_MAIL, reading: IN_THE_MAP.reading })
+  assert.deepEqual(linesOf(twoLeft), [`handed over research gateway-limits to ${outBoth}: 7 files`, 'left out: 2 sources of kind mail', 'F1 and F4 rest only on sources left out'])
+  assert.deepEqual(copied(outBoth), { ...rest, 'reading.md': reading({ ...NO_MAIL, reading: IN_THE_MAP.reading }) })
+  assert.deepEqual(linesOf(oneLeft), [`handed over research gateway-limits to ${outOne}: 7 files`, 'left out: 1 source of kind mail', 'F1 rests only on sources left out'])
+  assert.equal(existsSync(join(outOne, 'sources', MAIL)), false)
 })
 
 test('the reading stops the hand-over where it cannot be read and --reading asks for it, and so does a folder of the research that cannot be opened', BY_MODE, () => {
