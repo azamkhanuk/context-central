@@ -30,7 +30,7 @@ The step is named in the closing answer and, with an item, in its state file's N
 Reply in this shape, where a line in angle brackets is a kind of point, given once for each there is and left out where there is none:
 
 ```
-<one line that answers the question>
+<one line that answers the question, and, where `context-central research open <name>` said at the start of this run that the day to check again by had passed, that it had, with that day and, where this run wrote a new one, the new day>
 
 **Needs a fix**
 - <something that is wrong or missing, and where> (<the facts it rests on, as F3 and F4>, <the mark>, <the one source that shows it best>)
