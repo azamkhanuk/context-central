@@ -40,6 +40,10 @@ The marketplace is the list of its author's plugins, kept in a repository of its
 
 **Releases.** [CHANGELOG.md](../CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page.
 
+## Research alone
+
+The research skill can be installed by itself, with no plugin, from a clone of the repository or with the package each release carries from 0.21.0. [Research taken alone](research.md#research-taken-alone) has the commands, and what it leaves out.
+
 ## What decides whether it loads
 
 There are three ways to have the plugin. They differ in when it loads, how a release reaches it and whether a [launcher](terminal.md) finds it.

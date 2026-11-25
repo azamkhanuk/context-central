@@ -13,6 +13,7 @@ It is for people whose work runs across several repositories, or across many ses
 - **Points Claude at the right notes.** Name a piece of work, a pull request or a repository in your prompt, and Claude gets a short list of the notes behind it.
 - **Keeps each piece of work in a small state file.** It says where the work stands, what is done and what is next.
 - **Saves long text in full.** Tickets, pull requests and threads are kept whole behind the short files, and read only on request.
+- **Keeps what research found.** A research is a folder of numbered facts, each with every source that says it saved beside it, which later runs add to, check against the code or a spec, and copy out for another planner. It can be left to run with nobody there, and the research skill installs by itself, with no plugin.
 - **Reaches the work wherever it is tracked.** Tickets, pull requests, meetings and chat are recorded as connections, each reached by its own command-line tool, by an MCP server your session holds, or by hand. None is required.
 
 ## How it helps
@@ -57,7 +58,7 @@ Two rules keep it honest:
 
 - **Two hooks.** Claude Code starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once, and at a session's start it asks `git` whether the proof of each item in flight is whole, for two seconds at most.
 - **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores, which commit a recorded check ran on, and whether a line a standards note cites still reads as it did. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
-- **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere.
+- **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere. Research reads a page on the web only through the host's own tools, in an agent that holds nothing else.
 
 [What it runs, what it writes and how to remove it](docs/what-it-runs.md) has all of it: each program it starts, each place it writes outside the map, and how to take every trace away.
 
@@ -91,14 +92,14 @@ On Windows it has been tried only on GitHub's Windows machines, not in a live Cl
 
 ## A piece of work, step by step
 
-A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
+A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, research in a folder of its own under `research/` that the item links, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
 
-![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](docs/step-by-step.png)
+![The five steps of a piece of work and what each writes: research writes a research folder of numbered facts with its saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](docs/step-by-step.png)
 
 | Step | You type | It starts from |
 |---|---|---|
 | [1. Research](docs/step-by-step.md#1-research) | `/context-central:research <question> [item]` | a question, and a ticket or an item where there is one |
-| [2. The spec](docs/step-by-step.md#2-the-spec) | `/context-central:prep <item>` | the item's ticket, read in full, and the research notes |
+| [2. The spec](docs/step-by-step.md#2-the-spec) | `/context-central:prep <item>` | the item's ticket, read in full, and its research |
 | [3. The design](docs/step-by-step.md#3-the-design) | `/context-central:design <item>` | `SPEC.md`, the repo's standards and its code. Optional |
 | [4. The build](docs/step-by-step.md#4-the-build) | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one |
 | [5. The checkpoint](docs/step-by-step.md#5-the-checkpoint) | `/context-central:checkpoint` | git, the files on disk and the session |
@@ -114,14 +115,15 @@ The README is the short version. Each part has a file of its own under `docs/`:
 | [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
 | [What it runs, what it writes and how to remove it](docs/what-it-runs.md) | Every program the plugin starts, every place it writes outside the map, and how to remove all of it |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
+| [Research](docs/research.md) | A research's folder of facts and sources, a run with its brief, rounds and stop, adding to a research, checking it and handing it over, leaving it to run, the settings an estate extends it by, and research taken alone with no plugin |
 | [The map](docs/map.md) | The two layouts, what each folder holds, an older item, the glossary, how a session in a git work tree reads and writes the map, the budget of each tier, and evidence |
 | [Connections](docs/connections.md) | How a connection is recorded, references, presets, the three ways a connection is read, and a pinned account |
 | [Standards and checks](docs/standards.md) | A repo's standards note, the files and the checks recorded beside it, what is done where none is recorded, how a note learns from review, and the proof of a build |
 | [What the hooks put in context](docs/hooks.md) | What is added at session start and when a prompt is submitted, the routes in order, and when the hooks stay silent |
-| [Commands, skills and agents](docs/commands.md) | Every command of `context-central` with its flags, what `doctor` checks, the seven skills and the three agents |
+| [Commands, skills and agents](docs/commands.md) | Every command of `context-central` with its flags, what `doctor` checks, the seven skills and the five agents |
 | [Working from a terminal](docs/terminal.md) | The launcher that runs the CLI outside a session, and what the checks have shown on Windows |
 | [What it does not do](docs/limits.md) | Every limit, with what is untested on Windows |
-| [The eval suite](docs/evals.md) | What its five cases measure with the plugin and without, how to run it, what a run costs, and what it cannot show |
+| [The eval suite](docs/evals.md) | What its nine cases measure with the plugin and without, how to run it, what a run costs, and what it cannot show |
 
 [CONTEXT.md](CONTEXT.md) defines the plugin's terms. [CHANGELOG.md](CHANGELOG.md) says what each release changed, and each one is on the repository's Releases page. [CONTRIBUTING.md](CONTRIBUTING.md) says how to send a change, and [SECURITY.md](SECURITY.md) how to report a security fault in private.
 
@@ -131,7 +133,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source, that the proof of what was built is whole and that a line a standards note cites still reads as it did. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
-- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
+- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code. The research skill alone is in the open skill format, and has been run only on Claude Code.
 
 The full list is in [What it does not do](docs/limits.md).
 

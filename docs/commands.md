@@ -1,6 +1,6 @@
 # Commands, skills and agents
 
-What the plugin adds besides its two hooks: the `context-central` command, seven skills and three agents. The hooks are in [What the hooks put in context](hooks.md).
+What the plugin adds besides its two hooks: the `context-central` command, seven skills and five agents. The hooks are in [What the hooks put in context](hooks.md).
 
 ## Commands
 
@@ -67,7 +67,7 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 |---|---|
 | `/context-central:onboard` | Detects the estate, asks what is unsettled, writes the map, proves each connection, runs `doctor` |
 | `/context-central:standards <repo>` | Drafts one repo's standards note and its checks from what the repo declares, asks what is unsettled, writes both on your yes. Run on a repo whose note is there, it refreshes the note: each citation is read again, one that moved is pointed at the line that shows its rule now, and a rule the code no longer shows is put to you |
-| `/context-central:research <question> [item]` | Researches from primary sources, sorts each claim into one of four groups and marks how it is known, writes a note laid out in them, links a note that has no item from the note of each repo it is about, and ends by naming the step that comes next. Writes no code |
+| `/context-central:research <question> [item]` | Answers a question from primary sources and keeps what it found as a research, a folder of its own in the map: a fact sheet of numbered facts, each marked and with every source that says it saved beside it, the brief, a log of its rounds, a set-aside list and a reading in the four groups. It writes the brief first, gathers in rounds and stops by a test it names, and with nobody there it asks nothing. Named first, a research is added to, answered from, checked against the code or against a spec, a design or a diff, or handed over. It links a research with no item from the note of each repo it is about, and with the plugin ends by naming the step that comes next. Writes no code. [Research](research.md) has the whole of it |
 | `/context-central:prep <item>` | Reads the item's ticket, then turns the conversation and research into the item's `SPEC.md` and a short tracker brief, or revises the spec that is there |
 | `/context-central:design <item>` | Reads the spec, the repo's standards and the code, and writes the item's `DESIGN.md`: the modules, their interfaces, each choice with its reason, the slices in order, the checks beyond this machine and what is cut if time is short. It gives `lint`'s warning for a repo's standards note as it is. Optional, and approved by starting the build |
 | `/context-central:implement <item>` | Builds from the state file, the spec and the design when there is one, one slice at a time, following the estate's settings for tests and review, the repo's standards and its recorded checks, and recording each run of a recorded check with `proof`. It keeps the review in the item's review note and offers what the rounds taught as lessons, and writes no rule itself. Stops and asks when a slice's checks have come back red three times, when the last review round allowed, the third unless set, still brings a finding to fix, or when a slice or a fix shows the spec or the design wrong |
@@ -79,4 +79,6 @@ Typed with the plugin prefix. All but the last run only when you invoke them; `c
 |---|---|
 | `context-central:reader` | Reads the paths it is given and returns short findings with `path:line` references. Does not load `CLAUDE.md` |
 | `context-central:fetcher` | Fetches one ticket, PR, thread or meeting through the connection it is given, saves the full text to `sources/` first, returns a digest and the path. Only reads from external systems, and does not load `CLAUDE.md` |
+| `context-central:sweeper` | Searches one connection for leads on the questions it is given and returns them one a line, with what it could not reach. Denied the tools that write a file, and does not load `CLAUDE.md` |
+| `context-central:web-reader` | Reads pages on the web for the questions it is given and returns what each says with its address. Holds the two tools that fetch and search the web and nothing else, and does not load `CLAUDE.md` |
 | `context-central:reviewer` | Reviews a diff against the spec, the estate's standing rules, and the design and the repo's standards files when it is given them; where the rules disagree it holds the diff to neither and reports the disagreement. A finding that rests on a written rule names it by its place. Never edits |

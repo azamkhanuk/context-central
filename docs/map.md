@@ -17,11 +17,12 @@ There are two layouts:
   repos/ areas/ concepts/ edges/ decisions/ docs/    nodes, one subject per file
   standards/<repo>.md  how one repo's code is designed, written, tested and reviewed
   log/2026-01.md       dated one-line notes
+  research/<name>/     a research: its fact sheet index.md, brief.md, log.md, set-aside.md, reading.md and sources/, under another folder where researchDir names one
   work/<item>/
     STATE.md           where the item stands and what is next
     SPEC.md            what is being built
     DESIGN.md          how it will be built, for work that needs it settled first, each slice marked built as it lands
-    notes/             research and working notes, and review.md: a build's review rounds and the lessons they taught
+    notes/             working notes, research notes written before 0.21.0, and review.md: a build's review rounds and the lessons they taught
     sources/           full text of tickets, PRs, threads: the deep tier
     evidence/          files that are not text: screenshots, recordings, exports
     proof.jsonl        the proof record: one line for each run of a recorded check, written by the plugin

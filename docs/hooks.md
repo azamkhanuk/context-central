@@ -48,6 +48,7 @@ The hook shows a notice to the person, not to the model. If Claude Code reports 
 - the working directory is inside a different map, unless it is a git work tree that a map answers for: the hooks then start from the work tree, and `CLAUDE_PROJECT_DIR` is not read there, so a work tree with a map of its own, kept in git, is answered from that map
 - the folder is outside the estate, under a `leftAlone` entry, or not a registered repo or node folder
 - the prompt matches nothing with confidence
+- the prompt names a research: `resolve` answers a research by its name for the command alone, and the hooks point at no file of one
 - the same answer was already delivered in this session
 - the prompt is the host's own text, a background task's notification or an agent's report, which begins `<task-notification>` or `<agent-message`: it gets no pointers and the session record is left as it was
 

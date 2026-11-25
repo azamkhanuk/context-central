@@ -1,6 +1,6 @@
 # Working on context-central
 
-A Claude Code plugin: a CLI in `lib/`, two hooks, seven skills and three agents. Terms are defined in `CONTEXT.md`; use them as written.
+A Claude Code plugin: a CLI in `lib/`, two hooks, seven skills and five agents. Research alone is also a skill in the open skill format for any host. Terms are defined in `CONTEXT.md`; use them as written.
 
 ## Checks
 
@@ -18,7 +18,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - Every tracked text file is LF, pinned in `.gitattributes`.
 - TypeScript in `.mts` files, checked in strict mode and run by Node as it is: nothing is compiled, and `tsc` only checks. So only syntax Node can strip: no `enum`, no `namespace`, no parameter properties, `import type` for a type, and imports that end in `.mts`.
 - No `any` and no `@ts-` comments. A cast only where data comes in from outside: parsed JSON, flags, a caught error, the environment. A type lives beside the code that makes the thing.
-- Node 22.18 or later, Node built-ins only. `bin/context-central` is the one JavaScript file: it has to run on a Node too old for the rest, to say so. Flags are parsed with `parseArgs` from `node:util`.
+- Node 22.18 or later, Node built-ins only. `bin/context-central` is the one JavaScript file in the repository: it has to run on a Node too old for the rest, to say so. The package that `scripts/pack.mts` makes at release has its `lib/` as JavaScript, made outside the repository and never tracked. Flags are parsed with `parseArgs` from `node:util`.
 - A command is `lib/commands/<name>.mts` exporting `summary` and `run(args, io)`. The router finds it by file name; nothing registers it.
 - `io` is `{ cwd, env, nodeVersion, out, err, readStdin }`. Commands never touch `process` directly.
 - Expected failures throw `PluginError` (exit 1) or `UsageError` (exit 2) from `lib/errors.mts`. Exit 0 means fine.

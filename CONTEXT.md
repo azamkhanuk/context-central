@@ -36,7 +36,7 @@ _Avoid_: ledger, review log, findings file
 **Closing answer**: What a skill says to the person when its run ends: one line that gives the outcome, then the groups that have a point, then one line saying where the detail is and, where there is one, the next step. A run that stops before its closing step gives none, and a list of questions put to the person is not one.
 _Avoid_:
 
-**Map-only rule**: What research keeps to from its start until the person types another skill: it reads, runs only what reads the estate as it is, and writes nothing but files of the map. It makes no fix, test, probe, stand-in or throwaway estate, and starts no other skill but the step skill a repo names for research; what only new code could show is left under Not known, naming the step that can show it.
+**Map-only rule**: What research keeps to from its start until the person types another skill: it reads, runs only what reads the estate as it is, and writes nothing but files of the map and the folder a hand-over is asked to copy a research into. It makes no fix, test, probe, stand-in or throwaway estate, and starts no other skill but one the estate names for research; what only new code could show is left under Not known, naming the step that can show it.
 _Avoid_: read-only mode, plan mode, no-code mode
 
 **Ruling**: The person's answer to a recommended answer or a choice, such as a yes to every recommendation. It is written where the choice was written and is no longer listed as waiting. After research it settles the step research names, and is never leave to build.
@@ -54,8 +54,56 @@ _Avoid_:
 **Fresh session**: A session that starts with nothing of the last one in its context: `/clear` in the terminal, **+ New session** in the desktop app. Each step from the spec onwards can start in one, and the state file carries the item across.
 _Avoid_:
 
-**Mark**: The word on a research claim that says how it is known: `verified`, read in a primary source, or `inferred`, reasoned from something else.
+**Mark**: The word on a fact of a research that says how it is known: `verified`, read in the source itself in that run, or `inferred`, reasoned from something else.
 _Avoid_:
+
+**Research**: One question's findings, kept as a folder of its own in the map under a short name: the fact sheet, the research brief, the log, the set-aside list, the reading and the saved sources. It is added to by rounds and never rewritten, and nothing in it names a step.
+_Avoid_: research note, report
+
+**Fact sheet**: The first file of a research, `index.md`, which a planner that knows nothing of the plugin can read: how to read the folder, the questions, the day after which it should be checked again, what was not reached, the numbered facts that stand and the list of sources.
+_Avoid_: summary, index
+
+**Fact**: One thing a research found, in one sentence, with its number, its mark and every source that says it. Two sources that say one thing are one fact. Its words never change and its number is never used again.
+_Avoid_: claim, finding
+
+**Disputed**: The state of a fact whose sources disagree. Both are shown and neither is dropped.
+_Avoid_:
+
+**Superseded**: The state of a fact that no longer stands. A newer fact takes its place on the fact sheet and names its number, the day and the reason. The superseded fact leaves the sheet and is kept in the research's log, word for word under its number.
+_Avoid_: outdated, replaced
+
+**Research brief**: The file of a research that is written before any gathering and agreed once: the questions, as questions about what is, the sources to cover, the depth, what is out of scope and the start line. A later round adds its questions to it. The brief prep writes for a ticket is another thing.
+_Avoid_: plan
+
+**Start line**: What a research run says before it gathers, to the person and into the research brief: the connections it goes with and how each is reached and searched, the session's tools that the map does not record, and each kind the question needs that nothing reaches.
+_Avoid_:
+
+**Research round**: One pass of a research run. It gathers, then writes one entry into the research's log before the next starts: what was answered, what is open, the new leads, the leads set aside and why, the gaps met, and for a run's last round the test that stopped it. A check of a research ends in one too.
+_Avoid_: iteration, pass
+
+**Depth**: How far a research run goes: quick, standard or deep, each a cap on rounds and on agents at once, kept under `budgets`. Standard is the default with the person waiting and deep with nobody there, and what the person types wins. A run left alone stops at the round that adds nothing, and its cap is kept as a valve.
+_Avoid_: effort, level
+
+**Sweep**: A search of one connection for leads on the research brief's questions, through the search its entry names or its server offers. It returns leads and writes nothing.
+_Avoid_:
+
+**Lead**: Something a sweep or a source points at that may bear on a question: a title, an address, a date and why. It is fetched in full or set aside with its reason, and never dropped.
+_Avoid_:
+
+**Gap**: Something a research wanted and could not reach, written down when it is met: what was wanted, what pointed at it and how to connect it.
+_Avoid_:
+
+**Set-aside list**: The file of a research that holds what the researcher judged beside the point, each entry with its source and one line of reason. The person moves an entry in or out, and a later round keeps to those marks.
+_Avoid_:
+
+**Reading**: The file of a research written for the person: the four groups, pointing at fact numbers, with the recommendations and their rulings, and a dated part for each run. It is laid out by a template the estate can name.
+_Avoid_:
+
+**Hand-over**: A copy of one research in a folder outside the map that stands by itself. The ticket and the pull request its item holds are copied in, the kinds of source the person names are left out, and no link in it leads outside it but a full address.
+_Avoid_: export, archive
+
+**Taken alone**: Research installed and run as a skill by itself, with no plugin loaded: it names no step at the end, and hands each kind of reading to a subagent of the host with the agent's brief.
+_Avoid_: standalone
 
 **Standards note**: The node under `standards/` named after one repo: how its code is designed, written, tested and reviewed, in four parts. A repo whose name cannot name a node takes the first file it lists in that folder that is not named after another repo. Every rule names its source, the file that shows it, the person who said it or the review it was learned from, and the note names the commit its lines were read at. A repo's own instruction files are listed under `standards` on its entry and never copied into it. The plugin ships none and knows no language.
 _Avoid_: style guide, coding guidelines, rulebook, skill
