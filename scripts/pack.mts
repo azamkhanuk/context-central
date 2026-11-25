@@ -1,4 +1,4 @@
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, cpSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,22 +32,58 @@ function pack(folder: string) {
   return tree
 }
 
-function entryAt(path: string, link = false) {
+const FAULTS: Record<string, string> = {
+  ELOOP: 'lies below a link that leads round in a loop',
+  ENAMETOOLONG: 'has a part longer than a disk holds',
+  ENOTDIR: 'lies under a file',
+  EACCES: 'lies in a folder this user may not open',
+}
+
+function looked(path: string, how: typeof statSync) {
   try {
-    return (link ? lstatSync : statSync)(path, { throwIfNoEntry: false })
-  } catch {
-    return undefined
+    return how(path, { throwIfNoEntry: false })
+  } catch (error) {
+    const { code } = error as NodeJS.ErrnoException
+    return FAULTS[code ?? ''] ?? `cannot be reached (${code})`
   }
+}
+
+function writable(path: string) {
+  try {
+    accessSync(path, constants.W_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function trouble(folder: string): string | null {
+  const own = looked(folder, lstatSync)
+  if (typeof own === 'string') return own
+  if (own === undefined) return troubleAbove(dirname(folder))
+  const followed = looked(folder, statSync)
+  if (typeof followed === 'string') return followed
+  if (followed === undefined) return 'is a link that leads nowhere'
+  if (!followed.isDirectory()) return 'is a file'
+  if (readdirSync(folder).length > 0) return 'is not empty'
+  return writable(folder) ? null : 'is a folder this user may not write'
+}
+
+function troubleAbove(above: string): string | null {
+  const own = looked(above, lstatSync)
+  if (typeof own === 'string') return own
+  if (own === undefined) return dirname(above) === above ? 'lies on no disk there is' : troubleAbove(dirname(above))
+  const followed = looked(above, statSync)
+  if (typeof followed === 'string') return followed
+  if (followed === undefined) return 'lies below a link that leads nowhere'
+  if (!followed.isDirectory()) return 'lies under a file'
+  return writable(above) ? null : 'lies in a folder this user may not write'
 }
 
 function refusal(folder: string | null) {
   if (folder === null) return 'pack: name an empty folder to write the package into'
-  const nearest = (path: string): string => (entryAt(path) || dirname(path) === path ? path : nearest(dirname(path)))
-  if (entryAt(folder, true) && !existsSync(folder)) return `pack: ${folder} is a link that leads nowhere, so nothing was written`
-  if (entryAt(folder)?.isFile()) return `pack: ${folder} is a file, so nothing was written`
-  if (!entryAt(nearest(folder))?.isDirectory()) return `pack: ${folder} lies under a file, so nothing was written`
-  if (existsSync(folder) && readdirSync(folder).length > 0) return `pack: ${folder} is not empty, so nothing was written`
-  return null
+  const why = trouble(folder)
+  return why === null ? null : `pack: ${folder} ${why}, so nothing was written`
 }
 
 const [given] = process.argv.slice(2)

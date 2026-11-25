@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { test } from 'node:test'
 import { REPO, acme, disposable, makeTree, notOnWindows, spawned } from './helpers.mts'
@@ -103,6 +103,29 @@ test('pack is refused, in one line and with nothing written, where the folder na
 
   assert.deepEqual(pack(join(room, 'gone')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'gone')} is a link that leads nowhere, so nothing was written\n` })
   assert.deepEqual(readdirSync(room), ['gone'])
+})
+
+test('pack is refused, in one line and with nothing written, where the folder named lies below a link that leads nowhere or round in a loop, in a folder nobody may write or open, or has a part longer than a disk holds', notOnWindows(LINKS_NEED_A_RIGHT), () => {
+  const room = tree(makeTree({}))
+  symlinkSync(join(room, 'nowhere'), join(room, 'gone'))
+  symlinkSync(join(room, 'back'), join(room, 'loop'))
+  symlinkSync(join(room, 'loop'), join(room, 'back'))
+  mkdirSync(join(room, 'shut'))
+  chmodSync(join(room, 'shut'), 0o555)
+  mkdirSync(join(room, 'closed'))
+  chmodSync(join(room, 'closed'), 0o000)
+  const long = join(room, 'z'.repeat(300))
+
+  assert.deepEqual(pack(join(room, 'gone', 'out')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'gone', 'out')} lies below a link that leads nowhere, so nothing was written\n` })
+  assert.deepEqual(pack(join(room, 'loop', 'out')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'loop', 'out')} lies below a link that leads round in a loop, so nothing was written\n` })
+  assert.deepEqual(pack(join(room, 'shut', 'out')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'shut', 'out')} lies in a folder this user may not write, so nothing was written\n` })
+  assert.deepEqual(pack(join(room, 'shut')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'shut')} is a folder this user may not write, so nothing was written\n` })
+  assert.deepEqual(pack(join(room, 'closed', 'out')), { code: 1, stdout: '', stderr: `pack: ${join(room, 'closed', 'out')} lies in a folder this user may not open, so nothing was written\n` })
+  assert.deepEqual(pack(long), { code: 1, stdout: '', stderr: `pack: ${long} has a part longer than a disk holds, so nothing was written\n` })
+  chmodSync(join(room, 'closed'), 0o755)
+  chmodSync(join(room, 'shut'), 0o755)
+  assert.deepEqual(readdirSync(room).sort(), ['back', 'closed', 'gone', 'loop', 'shut'])
+  assert.deepEqual([readdirSync(join(room, 'shut')), readdirSync(join(room, 'closed'))], [[], []])
 })
 
 test("the checkout's own command runs through a link under a node_modules folder, as npm's install of a clone makes one", notOnWindows(LINKS_NEED_A_RIGHT), () => {
