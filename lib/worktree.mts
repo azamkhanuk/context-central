@@ -86,8 +86,9 @@ export function foldsCase(dir: string) {
   return own !== null && own === idOf(join(dir, GIT.toUpperCase()))
 }
 
+// A person's safe.bareRepository can keep git from looking in a bare repository, and git honours the setting given here.
 export function inGitsOwnFolder(dir: string, env: Env) {
-  return asked(dir, ['rev-parse', '--is-inside-git-dir'], env).stdout?.trim() === 'true'
+  return asked(dir, ['-c', 'safe.bareRepository=all', 'rev-parse', '--is-inside-git-dir'], env).stdout?.trim() === 'true'
 }
 
 export function gitIgnores(dir: string, path: string, env: Env) {

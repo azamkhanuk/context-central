@@ -636,6 +636,16 @@ test('a hub in a repository that has no work tree is refused, as is a plain map 
   assert.equal(git({ env }, join(root, 'store.git'), 'rev-parse', '--is-bare-repository').stdout, 'true\n')
 })
 
+test("a hub in a repository that has no work tree is refused though the person's git settings keep git from looking in one", () => {
+  const root = tree(makeTree({ gitconfig: '[safe]\n\tbareRepository = explicit\n' }))
+  const env = { GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+  git({ env }, root, 'init', '-q', '--bare', 'store.git')
+  const config = read(root, 'store.git/config')
+
+  assert.deepEqual(plain({ env }, root, '--hub', 'store.git/config'), gitsOwn(join(root, 'store.git', 'config'), 'the hub cannot be written there'))
+  assert.equal(read(root, 'store.git/config'), config)
+})
+
 test('a hub that is a link out of the folder to a file no checkout holds is written through the link, and in a checkout the link is kept out of git', LINKS, () => {
   const made = fresh()
   const shared = tree(makeTree({ 'one.md': '# Mine\n', 'two.md': '# Mine too\n' }))
