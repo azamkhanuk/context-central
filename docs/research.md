@@ -14,7 +14,7 @@ research/gateway-limits/
   brief.md       the research brief: the questions, where the run looks, its depth, what is out of scope and the start line
   log.md         one entry for each round, and every fact that was superseded, word for word
   set-aside.md   what the run judged beside the point, each with its source and why
-  reading.md     the reading: the four groups, pointing at fact numbers, a dated part for each run
+  reading.md     the reading: the four groups, or the estate's template, pointing at fact numbers, a dated part for each run
   sources/       every source in full, saved before anything is drawn from it and never edited
 ```
 
@@ -43,10 +43,10 @@ No file of a research names a step of the plugin. A research note written before
 ## A run
 
 1. **The brief.** The run turns what you typed into questions about what is so, numbered `Q1` on, and writes the brief with them: where it will look, the depth, what is out of scope, and its start line. It shows you the brief once and waits for your yes, and that is the one thing it waits on. Your say over where it looks is the brief.
-2. **The start line** says what the run goes with: each connection and how this machine reaches and searches it, each tool of the session the map does not record, with how to record it, and each kind the question needs that nothing reaches.
-3. **Rounds.** Each round opens with `research open`, has every lead read in full or set aside with its reason, and is written to the folder and taken into the map before the next round starts. The first round sweeps for leads every connection the start line names that is searched through its server, by a command of the estate or by a skill of the estate's own, at every depth and however many there are, each by a sweeper of its own or by that skill, which alone searches that connection; only you strike one. A connection read by name only is not swept, and a later round sweeps only where an open lead calls for a search. A thing in a connection or on the web that a source names, such as a document a thread points to, is a lead of the next round: it is read in full there where a connection or the web reader can read it, is a gap where nothing can, and is never set aside unread. A gap is written when it is met: what was wanted, what pointed at it and how to connect it.
+2. **The start line** says what the run goes with: each connection and how this machine reaches and searches it, each tool of the session the map does not record, with how to record it, each kind the question needs that nothing reaches, each skill of the estate's own the run will start, and whether git keeps the folder or ignores it.
+3. **Rounds.** Once the brief is agreed, each skill the estate names for research is started, before the first round: it runs in the session, what it hands back is material and no reply to you, and the run goes straight on from it in the same turn. Each round opens with `research open`, has every lead read in full or set aside with its reason, and is written to the folder and taken into the map before the next round starts. The first round sweeps for leads every connection the start line names that is searched through its server, by a command of the estate or by a skill of the estate's own, at every depth and however many there are, each by a sweeper of its own or by that skill, which alone searches that connection; only you strike one. A connection read by name only is not swept, and a later round sweeps only where an open lead calls for a search. A thing in a connection or on the web that a source names, such as a document a thread points to, is a lead of the next round: it is read in full there where a connection or the web reader can read it, is a gap where nothing can, and is never set aside unread. A gap is written when it is met: what was wanted, what pointed at it and how to connect it.
 4. **The stop.** With you waiting, a run stops when every question is answered, when a round adds no fact and no lead, or at its depth's cap. It says which. Left alone, it does not stop at its answers: it follows the open leads until a round adds nothing, with the cap kept as a valve.
-5. **The answer.** The reading gets this run's part, laid out by the estate's template where `readingTemplate` names one, and the closing answer gives the four groups, with what was not reached under Not known.
+5. **The answer.** The reading gets this run's part, laid out by the estate's template where `readingTemplate` names one, and the closing answer gives the four groups, with what was not reached under Not known. Its first line answers the question, and says so where the day to check again by had passed. Its last line names the fact sheet and the next step: a step of the plugin, or taken alone the next things to do in plain words.
 
 **The depths** are quick, standard and deep, each a cap on rounds and on agents at once. Standard is the default with you waiting and deep with nobody there, and what you type wins.
 
@@ -60,17 +60,17 @@ No file of a research names a step of the plugin. A research note written before
 
 | Kind | Agent | What it may do |
 |---|---|---|
-| a sweep of one connection for leads | `context-central:sweeper` | search and save nothing; it is denied the tools that write a file, and still holds a shell and the server's tools |
+| a sweep of one connection for leads | `context-central:sweeper`, or the skill the estate names for that connection | search and save nothing; it is denied the tools that write a file, and still holds a shell and the server's tools |
 | many files, long files, saved sources | `context-central:reader` | read, with a shell for `slice` and git, and write no file |
 | a ticket or a pull request | `context-central fetch`, and the fetcher where fetch says a session reads the connection | save the full text where it is told; the fetcher holds every tool of the session, and only its brief keeps it to that |
 | anything else in a connection | `context-central:fetcher` | the same |
 | a page on the web | `context-central:web-reader` | fetch and search the web, and nothing else |
 
-Each agent is handed the brief's questions and never what you want built: the wish stays out of every prompt. What sits in a system nothing reaches is a gap. Where no agent holds what a kind needs, the session does that reading itself where it can, and otherwise it is a gap with what the host lacks as how to connect it.
+Each agent is handed the brief's questions and never what you want built: the wish stays out of every prompt. The plugin's agents are handed no brief and no path of the skill, since their own text holds it. What sits in a system nothing reaches is a gap. Where no agent holds what a kind needs, the session does that reading itself where it can, and otherwise it is a gap with what the host lacks as how to connect it.
 
 ## A research that is there
 
-A research is named by the first word you type: `/context-central:research gateway-limits <what next>`. What follows the name says what the run does:
+A research is named by the first word you type: `/context-central:research gateway-limits <what next>`. The run first says in one line that it is on that research, which kind of run it is, and, where the day to check again by has passed, that it has. What follows the name says what the run does:
 
 - **Nothing.** Where the research stands, and what can be asked of it. Nothing is gathered or written.
 - **More questions.** A round on it: the questions join the brief, new facts take the next numbers, a fact that no longer holds is superseded, and the log gets its entry.
@@ -98,7 +98,9 @@ claude -p "/context-central:research Nobody is here, so do not wait for me. How 
 - `acceptEdits` lets the run write its files, and `--allowedTools` lets it run the plugin's command and git, start a skill the estate names for research, read the web, and use each tool of a server by its name, `mcp__<server>__<tool>`. Name the tools that read and none that post.
 - The run goes with the connectors of the account that are signed in. One that waits for a sign-in gives no tool, so the start line names what it reaches as a gap.
 - `< /dev/null` closes its input, without which the run waits on it. `--disallowedTools ScheduleWakeup CronCreate` keeps a run that waits on an agent from setting itself a wake-up that starts it again after it has ended.
-- The record `run.jsonl` holds every message of the run and its agents. Where its agents work in the background it ends more than once, and the last `result` carries the whole run's cost.
+- The record `run.jsonl` holds every message of the run and its agents. Where its agents work in the background it ends more than once, since a run may end its turn to wait for an agent to come back, which is no stop, and the last `result` carries the whole run's cost.
+
+**What the runs of 0.21.0 showed** on Claude Code 2.1.332, left to run on throwaway estates with stand-in servers. A new question went on past the estate's own skill, searched the chat by its own skill, gave each sweeper one connection, read the document a thread named in a later round and asked nothing, in 3 of 3; but no run did all the text asks, and two of the three stopped after their second round with a lead open, each writing that its spending allowance had run short, a stop the text does not name. Checks of whether a research still holds or a diff agrees, and rounds of more questions, each put the passed day to check again by in the first line of the reply, 3 of 3, and a round wrote a gap for what it could not reach in 1 of 3. [The changelog](../CHANGELOG.md) of 0.21.0 has each run, the misses beside the passes.
 
 ## What an estate can set
 
@@ -130,5 +132,6 @@ Other hosts read the open skill format, and research has not been run on one. It
 - **A skill kept to the person.** Claude Code starts research only when you type it, as its head says. A host that reads `agents/openai.yaml` is told the same. A host that reads neither may start research of its own accord.
 - **An agent kept to reading.** With the plugin on Claude Code, the web reader holds two tools that fetch and nothing else. The sweeper is denied the tools that write a file and still holds a shell and every tool of its server, those that post among them, and the reader holds a shell: only their briefs keep them from writing through the shell or posting. The fetcher names no tools, so it holds every tool of the session, and only its brief keeps it to saving the one text at the one path it is given. Taken alone, the skill asks for a subagent denied the tools made to write or edit a file, a shell apart, where the host has one, as Claude Code's Explore is, for the reader, the sweeper and the web reader, and not for the fetcher, which writes what it saves. Where only subagents that can write hold what one of those three needs, it takes one of them, and its prompt says it writes nothing: only the brief's words then keep it from writing.
 - **A session that reads for itself.** Where no subagent holds what a kind of reading needs, the session reads it itself, so the raw text comes into its own context.
+- **What the runs taken alone showed.** On Claude Code with no plugin loaded, the three runs of 0.21.0 swept their one connection in 1 of 3, and the one that swept took a subagent that can write where Explore was on offer; the two that swept nothing read the item's ticket in the session, without its comments; and no prompt held a brief whole. So taken alone, research does less than the skill asks on this host. [The changelog](../CHANGELOG.md) of 0.21.0 has each run.
 
 Research never posts outside the map, and never records a tool of the session in the settings.
