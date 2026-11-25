@@ -1,7 +1,7 @@
 ---
 type: tool_used
 tool: Bash
-input_match: '"command"\s*:\s*"(?:(?!--dry-run)[^"])*\binit\b(?:(?!--dry-run)[^"])*--plain(?![\w-])(?:(?!--dry-run)[^"])*"'
+input_match: '"command"\s*:\s*"(?:(?:\\.|[^"\\])*?(?:&&|\|\||;|\||\\n))?(?:(?!--dry-run|&&|\|\||;|\||#|\\n)(?:\\.|[^"\\]))*?\bcontext-central\s+init\b(?:(?!--dry-run|&&|\|\||;|\||#|\\n)(?:\\.|[^"\\]))*?--plain(?![\w-])(?:(?!--dry-run|&&|\|\||;|\||#|\\n)(?:\\.|[^"\\]))*(?=&&|\|\||;|\||#|\\n|")'
 min: 0
 max: 0
 ---

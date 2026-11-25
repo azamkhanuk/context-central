@@ -116,10 +116,11 @@ export function researchTaken({ estateRoot, mapDir, config }: Estate): string | 
 
 export function withoutResearches<Held extends { rel: string }>(estate: Estate, files: Held[]): Held[] {
   const { nodeDirs, researchDir } = estate.config
-  const listsIt = nodeDirs.map(dir => dir.replace(/\/+$/, '')).some(dir => researchDir === dir || researchDir.startsWith(`${dir}/`))
+  const lower = researchDir.toLowerCase()
+  const listsIt = nodeDirs.map(dir => dir.replace(/\/+$/, '').toLowerCase()).some(dir => lower === dir || lower.startsWith(`${dir}/`))
   if (!listsIt) return files
-  const folders = listResearches(estate).map(research => `${research.dirRel}/`)
-  return files.filter(file => !folders.some(folder => file.rel.startsWith(folder)))
+  const folders = listResearches(estate).map(research => `${research.dirRel.toLowerCase()}/`)
+  return files.filter(file => !folders.some(folder => file.rel.toLowerCase().startsWith(folder)))
 }
 
 export function listResearches(estate: Estate): Research[] {

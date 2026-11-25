@@ -123,7 +123,7 @@ function holdsOneNameUnderBothCases(folder: string): boolean {
   return here !== undefined && there !== undefined && here.ino === there.ino && here.dev === there.dev
 }
 
-function unreadableUnder(folder: string, rel: string): string | undefined {
+function unreadableUnder(folder: string, rel: string): string[] {
   const entries = (() => {
     try {
       return readdirSync(folder, { withFileTypes: true })
@@ -131,14 +131,13 @@ function unreadableUnder(folder: string, rel: string): string | undefined {
       return null
     }
   })()
-  if (entries === null) return rel
-  for (const entry of entries.filter(one => !neverListed(one.name))) {
+  if (entries === null) return [rel]
+  return entries.filter(one => !neverListed(one.name)).flatMap(entry => {
     const path = join(folder, entry.name)
     const at = `${rel}/${entry.name}`
-    const found = entry.isDirectory() ? unreadableUnder(path, at) : entry.isFile() && entry.name.toLowerCase().endsWith('.md') && !canRead(path) ? at : undefined
-    if (found !== undefined) return found
-  }
-  return undefined
+    if (entry.isDirectory()) return unreadableUnder(path, at)
+    return entry.isFile() && entry.name.endsWith('.md') && !canRead(path) ? [at] : []
+  })
 }
 
 function canRead(path: string) {
@@ -152,18 +151,20 @@ function canRead(path: string) {
 
 function planned(estate: Estate, research: Research, { without, reading }: Asked): { copies: Copy[]; done: HandedOver } {
   const { dirRel } = research
-  const unread = unreadableUnder(join(estate.mapDir, dirRel), dirRel)
-  if (unread !== undefined) throw new PluginError(`${NOTHING}: ${unread} cannot be read`)
   const { stands, kinds } = readResearch(research)
   const readingRel = `${dirRel}/${READING_FILE}`
   const pages: Page[] = research.files.filter(file => reading || file.rel !== readingRel).map(file => ({ file, to: file.rel.slice(dirRel.length + 1), lines: readFileSync(file.path, 'utf8').split('\n') }))
   const linked = new Set(pages.flatMap(({ file, lines }) => linksIn(file.rel, lines).map(link => link.rel)))
   const sources = [...research.sources.map(source => ({ source, to: source.rel.slice(dirRel.length + 1) })), ...itemSources(estate, research).filter(({ source }) => linked.has(source.rel))]
   const left = leftOut(research, sources.map(({ source }) => source), kinds, without)
+  const unread = unreadableUnder(join(estate.mapDir, dirRel), dirRel)
+  const unreadLeft = unread.filter(rel => without.includes(kinds.get(rel) ?? ''))
+  const unreadTaken = unread.find(rel => !unreadLeft.includes(rel) && (reading || rel !== readingRel))
+  if (unreadTaken !== undefined) throw new PluginError(`${NOTHING}: ${unreadTaken} cannot be read`)
   const taken = sources.filter(({ source }) => !left.has(source.rel))
   const places: Places = {
     kept: new Map([...pages.map(({ file, to }) => [file.rel, to] as const), ...taken.map(({ source, to }) => [source.rel, to] as const)]),
-    gone: new Set([...left, ...(reading ? [] : [readingRel])]),
+    gone: new Set([...left, ...unreadLeft, ...(reading ? [] : [readingRel])]),
   }
   const texts = pages.map(page => ({ ...page, lines: rewritten(page.file.rel, page.lines, link => ledTo(estate, research, page, places, link)) }))
   for (const page of texts) refuseLinks(estate, research, page, new Set(places.kept.values()))

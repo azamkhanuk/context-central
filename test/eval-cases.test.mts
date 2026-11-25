@@ -949,12 +949,19 @@ test('research-with-no-map: it passes on the command that makes a plain map give
     'context-central init --plain',
     'context-central init --plain --hub AGENTS.md',
     'cd /tmp/e-x/home/cwd && context-central init --plain',
+    'context-central init --plain --dry-run && context-central init --plain',
+    'context-central init --plain # not --dry-run',
+    'context-central init --plain --dry-run; context-central init --plain',
+    'cd "/tmp/e x" && context-central init --plain',
   ].filter(command => !makes.test(ranInShell(command))), [])
   assert.deepEqual([
     'context-central init --plain --dry-run',
     'context-central init --dry-run --plain',
     'context-central resolve "How does the limiter decide" --absolute',
     'context-central init --help',
+    'context-central init --plain --dry-run && context-central resolve "x"',
+    'context-central resolve "init --plain" --absolute',
+    'context-central init # --plain',
   ].filter(command => makes.test(ranInShell(command))), [])
 })
 
@@ -973,6 +980,7 @@ test('two-sources-one-fact: its scaffold adds to acme primary sources that each 
 
 test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed, a fact with two sources that says nothing of how long, and the example the skill reads', () => {
   const one = named('two-sources-one-fact')
+  const TWO_SOURCES = '  - Source: `worker/src/clean.js:1-4` at `4b1c2d3`\n  - Source: `worker/src/keep.js:1-5` at `4b1c2d3`\n'
   const ONE_FACT = '- **F1** `verified` An export file is kept for seven days, then worker removes it.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [PROJ-22](../../work/export-csv/sources/01-2025-11-10-PROJ-22-full-text.md)\n'
   const graded = (trace: string) => patternOf(one, 'one-fact-two-sources').test(trace)
 
@@ -982,6 +990,8 @@ test('two-sources-one-fact: its grader passes a fact of how long a file is kept 
     traceOf(wrote('export-keeping/index.md', `# Export keeping\n\n## Facts\n\n${ONE_FACT}\n## Sources\n`)),
     traceOf(edited('export-keeping/index.md', `## Facts\n\n${ONE_FACT}`)),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` Worker removes an export file a week after it is built.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` An export file is retained for one week.\n${TWO_SOURCES}`)),
   ].filter(trace => !graded(trace)), [])
   assert.deepEqual([
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `verified` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n')),
@@ -990,6 +1000,10 @@ test('two-sources-one-fact: its grader passes a fact of how long a file is kept 
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `inferred` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
     traceOf(readBack('- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`')),
     traceOf(readBack(ONE_FACT)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The check of age is in keep.js and the cleaner in clean.js.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The limiter keeps a bucket of tokens for each shop.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The retry waits 7 seconds.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` A shop's bucket of calls refills after seven days.\n${TWO_SOURCES}`)),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Nothing in worker deletes an export file.\n  - Source: `worker/src/export.js:1-5` at `4b1c2d3`\n  - Source: `worker/src/retry.js:1-12` at `4b1c2d3`\n')),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` `disputed` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`: 7\n  - Source: [exports](../../concepts/exports.md): seven\n')),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`\n')),

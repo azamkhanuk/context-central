@@ -6,6 +6,13 @@ import { acme, checkout, disposable, git, hook, makeTree, notOnWindows, run, sol
 import type { Checkout, Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
+const ONE_NAME_UNDER_BOTH_CASES = (() => {
+  const probe = makeTree({ 'a.md': '' })
+  const one = existsSync(join(probe, 'A.md'))
+  rmSync(probe, { recursive: true, force: true })
+  return one
+})()
+const BLIND_TO_CASE = ONE_NAME_UNDER_BOTH_CASES ? {} : { skip: 'this disk tells the cases of letters apart' }
 
 const NAME = 'gateway-limits'
 const TITLE = 'How the gateway limits a shop'
@@ -334,6 +341,32 @@ test('where the settings list the folder for researches among nodeDirs, a resear
   assert.match(run(['resolve', 'market notes survey'], { cwd: root }).stdout, /research\/market-notes\.md/)
   assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /reading\.md/)
   assert.equal(run(['lint'], { cwd: root }).stdout.split('\n').filter(line => line.startsWith(`WARN mark: research/${NAME}/index.md`)).length, 1)
+})
+
+test('where nodeDirs lists the folder for researches under another case of its letters, on a disk that takes the two as one, a research joins no route by words and lint and graph read it once', BLIND_TO_CASE, () => {
+  const root = tree(acme({}, { nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work', 'Research'] }))
+  assert.equal(research(root, 'new', NAME, '--title', TITLE).code, 0)
+  writeFileSync(join(root, 'research', NAME, 'index.md'), read(root, 'research', NAME, 'index.md').replace('## Facts\n', '## Facts\n\n- **F1** `verified` The turnstile quota of a shop resets each minute.\n'))
+
+  assert.doesNotMatch(run(['resolve', 'how the gateway limits a shop'], { cwd: root }).stdout, /gateway-limits/)
+  assert.equal(run(['lint'], { cwd: root }).stdout.split('\n').filter(line => /^WARN mark: research\/gateway-limits\/index\.md/i.test(line)).length, 1)
+  assert.doesNotMatch(run(['graph'], { cwd: root }).stdout, /^BROKEN /m)
+})
+
+test('a folder for researches below a folder nodeDirs lists joins no route by words, and lint does not read its reading as a note', () => {
+  const root = tree(acme({}, { researchDir: 'docs/research' }))
+  assert.equal(research(root, 'new', NAME, '--title', TITLE).code, 0)
+  writeFileSync(join(root, 'docs', 'research', NAME, 'index.md'), read(root, 'docs', 'research', NAME, 'index.md').replace('## Facts\n', '## Facts\n\n## Zebra crossing quota\n\nThe zebra crossing quota is kept.\n'))
+  writeFileSync(join(root, 'docs', 'research', NAME, 'reading.md'), `${read(root, 'docs', 'research', NAME, 'reading.md')}\n- The quota holds (F1, \`verified\`).\n`)
+
+  assert.doesNotMatch(run(['resolve', 'zebra crossing quota'], { cwd: root }).stdout, /gateway-limits/)
+  assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /reading\.md/)
+})
+
+test('note --new makes a note under a folder named research that nodeDirs lists, as before, where the work folder or the deep tier holds that name and research names it taken', () => {
+  const root = tree(acme({}, { deepDirs: ['sources', 'research'], nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work', 'research'] }))
+
+  assert.deepEqual(run(['note', '--new', 'research/foo'], { cwd: root }), { code: 0, stdout: 'research/foo.md\n', stderr: '' })
 })
 
 test('a folder of the deep tier is not taken as the folder for researches, nor one below it, since nothing under it is read as a note', () => {
@@ -959,6 +992,15 @@ test('a title with no words in it is wrong usage, so no fact sheet is written wi
   const root = tree(acme())
 
   for (const title of ['', ' ', '\t ']) {
+    assert.deepEqual(research(root, 'new', NAME, '--title', title), { code: 2, stdout: '', stderr: 'context-central research: a title holds words: leave --title out and the name is the title\n' }, JSON.stringify(title))
+  }
+  assert.equal(existsSync(join(root, 'research')), false)
+})
+
+test('a title that holds no letter and no digit, or that the head of the sheet would read as empty, is wrong usage', () => {
+  const root = tree(acme())
+
+  for (const title of ['""', "''", '\u200b', '" "']) {
     assert.deepEqual(research(root, 'new', NAME, '--title', title), { code: 2, stdout: '', stderr: 'context-central research: a title holds words: leave --title out and the name is the title\n' }, JSON.stringify(title))
   }
   assert.equal(existsSync(join(root, 'research')), false)

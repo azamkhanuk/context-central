@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { posix, relative, sep } from 'node:path'
 import { hubPath, listFiles, listWorkItems, parseLinks, resolveLink } from './nodes.mts'
-import { listResearches } from './research.mts'
+import { listResearches, withoutResearches } from './research.mts'
 import type { Estate } from './estate.mts'
 
 export interface BrokenLink {
@@ -27,7 +27,7 @@ interface Source {
 export function graphEstate(estate: Estate): Graph {
   const researches = listResearches(estate)
   const listed = new Set<string>()
-  const files = [...listFiles(estate), ...researches.flatMap(research => [...research.files, ...research.sources])].filter(file => !listed.has(file.rel) && listed.add(file.rel))
+  const files = [...withoutResearches(estate, listFiles(estate)), ...researches.flatMap(research => [...research.files, ...research.sources])].filter(file => !listed.has(file.rel) && listed.add(file.rel))
   const nodes = files.filter(file => !file.deep).map(file => source(estate, file.rel, file.path))
   const hub = hubSource(estate)
   const sources = hub ? [hub, ...nodes.filter(node => node.path !== hub.path)] : nodes

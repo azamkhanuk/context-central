@@ -212,6 +212,45 @@ test('a hub found by its own name that is a link into a folder init lays down is
   assert.deepEqual(second.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
 })
 
+test('a hub found by its own name that is a link to a file init lays down, as the glossary, is written through as before, and a second run keeps everything', LINKS, () => {
+  const root = tree(makeTree({ 'glossary.md': '# Glossary of ours\n' }))
+  symlinkSync('glossary.md', join(root, 'CLAUDE.md'))
+
+  const first = plain({ env: {} }, root)
+  assert.equal(first.code, 0, first.stderr)
+  assert.deepEqual(first.stdout.split('\n').filter(line => /CLAUDE\.md|glossary\.md/.test(line)), ['updated CLAUDE.md', 'kept glossary.md'])
+  assert.ok(read(root, 'glossary.md').startsWith('# Glossary of ours\n'))
+  const second = plain({ env: {} }, root)
+  assert.equal(second.code, 0, second.stderr)
+  assert.deepEqual(second.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
+test('a second run that names with --hub the hub the map holds keeps everything, where that hub links into a folder init lays down', LINKS, () => {
+  const root = tree(makeTree({ 'docs/agents.md': '# Agents\n' }))
+  symlinkSync(join('docs', 'agents.md'), join(root, 'CLAUDE.md'))
+
+  assert.equal(plain({ env: {} }, root).code, 0)
+  const again = plain({ env: {} }, root, '--hub', 'CLAUDE.md')
+  assert.equal(again.code, 0, again.stderr)
+  assert.deepEqual(again.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
+test('a hub --hub names on a first run that is a link to a file init lays down is refused by the place it lands, before anything is written', LINKS, () => {
+  const root = tree(makeTree({ 'glossary.md': '# Glossary of ours\n' }))
+  symlinkSync('glossary.md', join(root, 'ours.md'))
+
+  assert.deepEqual(plain({ env: {} }, root, '--hub', 'ours.md'), { code: 1, stdout: '', stderr: 'context-central init: "ours.md" names a file or a folder that init lays down for the map itself, so it cannot be the hub\n' })
+  assert.deepEqual(readdirSync(root).sort(), ['glossary.md', 'ours.md'])
+})
+
+test('a hub --hub names on a first run through a link to the folder itself is refused by the file it would land under, before anything is written', LINKS, () => {
+  const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
+  symlinkSync('.', join(root, 'here'))
+
+  assert.deepEqual(plain({ env: {} }, root, '--hub', 'here/estate.json/hub.md'), { code: 1, stdout: '', stderr: 'context-central init: "here/estate.json/hub.md" lies under estate.json, which init lays down for the map itself, so it cannot be the hub\n' })
+  assert.deepEqual(readdirSync(root).sort(), ['here', 'notes.md'])
+})
+
 test('in a folder that holds no checkout a plain map registers no repo', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 

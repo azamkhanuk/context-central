@@ -465,6 +465,46 @@ test('a file of the research the copy would not take, such as a PDF among the sa
   assert.equal(existsSync(join(out, 'sources', 'scan.pdf')), false)
 })
 
+test('a file of the research that the copy does not take does not stop the hand-over though it cannot be read: the reading with no --reading, a name in capitals and a source of a kind left out', BY_MODE, () => {
+  const cases: [string, string[], TreeFiles][] = [
+    [`${DIR}/reading.md`, [], {}],
+    [`${DIR}/sources/SCAN.MD`, [], { [`${DIR}/sources/SCAN.MD`]: '# S\n' }],
+    [`${DIR}/sources/${MAIL}`, ['--without', 'mail'], {}],
+    [`${DIR}/.notes.md`, [], { [`${DIR}/.notes.md`]: '# N\n' }],
+  ]
+  for (const [rel, flags, more] of cases) {
+    const root = withResearch(more)
+    const out = elsewhere()
+    chmodSync(join(root, rel), 0o000)
+
+    const result = handover(root, NAME, out, ...flags)
+    chmodSync(join(root, rel), 0o644)
+
+    assert.equal(result.code, 0, `${rel}: ${result.stderr}`)
+  }
+})
+
+test('the reading stops the hand-over where it cannot be read and --reading asks for it, and so does a folder of the research that cannot be opened', BY_MODE, () => {
+  const root = withResearch()
+  chmodSync(join(root, DIR, 'reading.md'), 0o000)
+  const asked = handover(root, NAME, elsewhere(), '--reading')
+  chmodSync(join(root, DIR, 'reading.md'), 0o644)
+  assert.deepEqual(asked, refused(`nothing was handed over: ${DIR}/reading.md cannot be read`))
+
+  const shut = withResearch({ [`${DIR}/more/page.md`]: '# Page\n' })
+  chmodSync(join(shut, DIR, 'more'), 0o000)
+  const result = handover(shut, NAME, elsewhere())
+  chmodSync(join(shut, DIR, 'more'), 0o755)
+  assert.deepEqual(result, refused(`nothing was handed over: ${DIR}/more cannot be read`))
+})
+
+test('a link in the research that leads nowhere does not stop the hand-over', LINKS, () => {
+  const root = withResearch()
+  symlinkSync('gone.md', join(root, DIR, 'ghost.md'))
+
+  assert.equal(handover(root, NAME, elsewhere()).code, 0)
+})
+
 test('a hand-over changes nothing in the map', () => {
   const root = withResearch()
   const before = copied(join(root, 'research'))

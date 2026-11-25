@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, join, posix, relative, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, estateAt, findEstate, validateConfig } from '../estate.mts'
@@ -28,6 +28,7 @@ interface Plan {
   dir: string
   answers: Answers
   first: Step[]
+  fresh: boolean
 }
 
 export const summary = 'Write a new map from an answers file, or a plain one with --plain; or print the settings that enable the plugin'
@@ -53,9 +54,9 @@ export function run(args: string[], io: Io) {
   if (Boolean(values.plain) === Boolean(values.from)) throw new UsageError('expected --from <answers.json> or --plain, one and not both, or --print-settings')
   if (values.hub !== undefined && !values.plain) throw new UsageError('--hub names the hub of a plain map, so it goes with --plain')
   const given = resolve(io.cwd, positionals[0] ?? '.')
-  const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env, values.hub === undefined ? undefined : hubNamed(values.hub))
+  const { dir, answers, first, fresh } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [], fresh: false } : plain(given, io.env, values.hub === undefined ? undefined : hubNamed(values.hub))
   const planned = [...first, ...steps(dir, answers)]
-  refuseAHubTheMapLaysDown(planned, answers.layout, dir, Boolean(values.plain) && values.hub !== undefined)
+  refuseAHubTheMapLaysDown(planned, answers.layout, dir, Boolean(values.plain) && values.hub !== undefined && fresh)
   const done: string[] = values.plain ? [`plain map at ${dir}:`] : []
   const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
   try {
@@ -84,10 +85,10 @@ function plain(given: string, env: Env, asked: string | undefined): Plan {
   const hub = held ?? asked ?? hubFound(dir, around !== null)
   const landing = landingOf(dir, hub)
   if (!found) outOfGit(dir, landing, around !== null, env)
-  if (!around) return { dir, answers: { layout: 'root', config: { name, ...(hub === ROOT_HUB ? {} : { hub }), repos: checkoutsUnder(dir), connections: {} } }, first: [] }
+  if (!around) return { dir, answers: { layout: 'root', config: { name, ...(hub === ROOT_HUB ? {} : { hub }), repos: checkoutsUnder(dir), connections: {} } }, first: [], fresh: !found }
   const keptOutOfGit = [`${INNER_DIR}/`, ...lineFor(landing)]
   const keptOut = { rel: '.git/info/exclude', content: keptOutOfGit.map(line => `${line}\n`).join(''), lines: keptOutOfGit }
-  return { dir, answers: { layout: 'inner', config: { name, hub, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut] }
+  return { dir, answers: { layout: 'inner', config: { name, hub, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut], fresh: !found }
 }
 
 function hubNamed(asked: string) {
@@ -191,11 +192,14 @@ function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout, dir: string, 
   const hub = planned.find(step => step.append !== undefined)?.rel
   if (hub === undefined) return
   const theirs = planned.filter(step => step.append === undefined).map(step => step.rel)
-  const files = [...theirs.filter(rel => !rel.endsWith('/')), layout === 'inner' ? `${INNER_DIR}/${LOCK}` : LOCK]
-  const own = [...(layout === 'inner' ? [INNER_DIR] : []), ...theirs.map(rel => rel.replace(/\/+$/, '')), ...files]
+  const lock = layout === 'inner' ? `${INNER_DIR}/${LOCK}` : LOCK
+  const files = [...theirs.filter(rel => !rel.endsWith('/')), lock]
+  const folders = [...(layout === 'inner' ? [INNER_DIR] : []), ...theirs.filter(rel => rel.endsWith('/')).map(rel => rel.replace(/\/+$/, ''))]
+  // Only a hub --hub names on a first run is held to all of them; any other is refused only where 0.20.0 ended on a fault or wrote into the settings.
+  const own = named ? [...folders, ...files] : [...folders, lock, ...theirs.filter(rel => posix.basename(rel) === CONFIG_FILE)]
   const home = realPlace(dir) ?? dir
   const landed = realPlace(join(dir, hub))
-  const places = [hub, ...(landed !== null && landed !== home && holds(home, landed) ? [relative(home, landed).split(sep).join('/')] : [])].map(place => place.toLowerCase())
+  const places = [hub, ...(landed === null ? [] : [relative(home, landed).split(sep).join('/')])].map(place => place.toLowerCase())
   if (places.some(place => own.some(rel => rel.toLowerCase() === place))) throw new PluginError(`"${hub}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
   const above = files.find(rel => places.some(place => place.startsWith(`${rel.toLowerCase()}/`)))
   if (above !== undefined) throw new PluginError(`"${hub}" lies under ${above}, which init lays down for the map itself, so it cannot be the hub`)
