@@ -958,15 +958,17 @@ test('research-with-no-map: it passes on the command that makes a plain map give
   ].filter(command => makes.test(ranInShell(command))), [])
 })
 
-test('two-sources-one-fact: its scaffold adds to acme two primary sources that each give seven days, the code that keeps an export file and the saved ticket of the work that built it, which its state file names, beside the note of the map that says so too', A_SCAFFOLD, () => {
+test('two-sources-one-fact: its scaffold adds to acme primary sources that each give seven days, the code that keeps an export file, the cleaner that removes one a week after it is built and the saved ticket of the work that built it, which its state file names, beside the note of the map that says so too', A_SCAFFOLD, () => {
   const one = named('two-sources-one-fact')
   const root = estateOf(one)
 
   assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How long is an export file kept before worker removes it? Run it at the quick depth.')
   assert.match(read(root, 'worker/src/keep.js'), /^export const KEEP_DAYS = 7\n/)
+  assert.match(read(root, 'worker/src/clean.js'), /^const A_WEEK_MS = 7 \* 24 \* 60 \* 60 \* 1000\n/)
+  assert.doesNotMatch(read(root, 'worker/src/clean.js'), /keep\.js|KEEP_DAYS/)
   assert.match(read(root, `work/export-csv/sources/${PROJ_22}`), /\nThe file should stay available for 7 days after it is built, then be removed\.\n/)
   assert.match(read(root, 'work/export-csv/STATE.md'), new RegExp(`\\n- The ticket as filed: \`sources/${PROJ_22}\`\\.\\n`))
-  assert.deepEqual(holding(root, /\bseven days\b|\b7 days\b|\bKEEP_DAYS = 7\b/), ['concepts/exports.md', `work/export-csv/sources/${PROJ_22}`, 'worker/src/keep.js'])
+  assert.deepEqual(holding(root, /\bseven days\b|\b7 days\b|\bKEEP_DAYS = 7\b|\bA_WEEK_MS = 7\b/), ['concepts/exports.md', `work/export-csv/sources/${PROJ_22}`, 'worker/src/clean.js', 'worker/src/keep.js'])
 })
 
 test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed, a fact with two sources that says nothing of how long, and the example the skill reads', () => {

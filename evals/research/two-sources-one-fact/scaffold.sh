@@ -9,6 +9,14 @@ export function expired(file, now = Date.now()) {
 }
 CODE
 
+put worker/src/clean.js <<'CODE'
+const A_WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+export function clean(files, remove, now = Date.now()) {
+  for (const file of files) if (now - file.builtAt > A_WEEK_MS) remove(file)
+}
+CODE
+
 put work/export-csv/sources/01-2025-11-10-PROJ-22-full-text.md <<'TICKET'
 # PROJ-22 full text
 
