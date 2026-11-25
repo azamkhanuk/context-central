@@ -22,14 +22,14 @@ Each case is tied to one line of the [README](../README.md).
 
 `reviewer-names-the-rule` asks for the plugin's reviewer by name, and it is the one case that lets a session start an agent. The arm without the plugin has no reviewer to start, and the one session of that arm whose folder was kept said so and checked the diffs itself. So the case measures what the reviewer adds to such an answer: a finding that rests on a written rule names the rule by its place, the `path:line` of the rule in the file that holds it.
 
-The four cases of `research` type the research skill, which a person starts and Claude does not, each with nobody there and at the quick depth. Their case group grants the plugin's command, `Bash(context-central *)`, and the two tools that write a file, `Write` and `Edit`, since research writes its folder through them at the paths the command prints. The arm without the plugin has no such skill to start. `research-with-no-map` is the one case with no map. Each of the four rests on the plugin's own command in a run's shell, which no run of the host has started yet, as the checkpoint case below found: one trial run of one case comes before any other run of them, and a case whose run cannot start the command is dropped and its situation shown by headless runs of the skill instead.
+The four cases of `research` type the research skill, which a person starts and Claude does not, each with nobody there and at the quick depth. Their case group grants the plugin's command, `Bash(context-central *)`, and the two tools that write a file, `Write` and `Edit`, since research writes its folder through them at the paths the command prints. The arm without the plugin has no such skill to start. `research-with-no-map` is the one case with no map. Each of the four rests on the plugin's own command in a run's shell. The host puts no command of the plugin under test on a run's `PATH`: with the plugin's `bin` folder off it, a run's shell answered `command not found`. With that folder first on the `PATH` the host was started with, the command started in every run made on 2026-11-25, with Claude Code 2.1.331, so the four cases are kept. The command that runs the suite hands the host its own environment, so the group is run as `PATH="$PWD/bin:$PATH" npm run evals -- --group research`. [The figures of the research cases](#the-figures-of-the-research-cases) has each run.
 
 There is no case for a checkpoint. One was built and tried twice, and a run's shell did not start the plugin's own command either time. A checkpoint is written through that command, so the case could show nothing of the plugin, and it was dropped.
 
 - In the first trial the machine's `PATH` held an installed copy of the plugin, under the home folder. The session started the checkpoint skill, and each `context-central` command the skill ran was answered `operation not permitted`: a run's sandboxed shell cannot read the home folder.
 - In the second, with that copy off the `PATH`, each was answered `command not found`: the `bin` folder of the plugin under test was not on the `PATH` of the run's shell. The session then wrote the state file itself, with the tools it was granted, and the case's graders passed, since they read that file alone. So the case as built would also have scored a checkpoint the plugin's command took no part in.
 
-- In a third, made on 2026-11-14 with the checkout's own `bin` folder first on the `PATH` and the installed copy off it, the shell found the command and Node did not start: `node: OpenSSL configuration error`, `Operation not permitted`, on `/opt/homebrew/etc/openssl@4/openssl.cnf`. A run's settings deny its shell `/opt/homebrew/etc`, among the places where a credential may be kept, and the Node of that machine, from Homebrew, reads its OpenSSL configuration there as it starts. `git` did not start in that shell either: on macOS `/usr/bin/git` writes a cache in the temporary folder, which the shell is denied. So the `PATH` was the whole of the second trial's fault and not the whole of the matter, and no case here rests on the plugin's command in a run's shell.
+- In a third, made on 2026-11-14 with the checkout's own `bin` folder first on the `PATH` and the installed copy off it, the shell found the command and Node did not start: `node: OpenSSL configuration error`, `Operation not permitted`, on `/opt/homebrew/etc/openssl@4/openssl.cnf`. A run's settings deny its shell `/opt/homebrew/etc`, among the places where a credential may be kept, and the Node of that machine, from Homebrew, reads its OpenSSL configuration there as it starts. `git` did not start in that shell either: on macOS `/usr/bin/git` writes a cache in the temporary folder, which the shell is denied. So the `PATH` was the whole of the second trial's fault and not the whole of the matter. On 2026-11-25, with Claude Code 2.1.331 and the plugin's `bin` folder first on the `PATH`, Node and the command started in a run's shell, as the research cases above show; the checkpoint case was not built again.
 
 ## The estate of a case
 
@@ -241,6 +241,21 @@ What they say, as found:
 - The turns of the two arms are not to be compared. With the plugin the session starts the reviewer in the background, ends its turn, and writes its reply in one more turn when the reviewer reports. The host's figure is that last turn alone: in the trial's kept folder the session took six turns before it, and the reviewer's own turns are counted in neither.
 - A session with the plugin cost 0.037 USD more, the mean of three against the mean of three.
 - Three runs an arm is a small sample.
+
+## The figures of the research cases
+
+Run on 2026-11-25 on macOS, with Claude Code 2.1.331 and `claude-sonnet-5-5`, each run once with the plugin and no arm without it, from a copy of the plugin with its `bin` folder first on the `PATH`. The research text was that of release 0.21.0 in every run.
+
+| Case | Runs | Score | USD a run, by the host's estimate |
+|---|---|---|---|
+| `research-with-no-map` | 3 | 1.00 in each | 0.16 to 0.17 |
+| `two-sources-one-fact` | 1, on its third version | 1.00 | 0.33 |
+| `gap-said` | 1 | 1.00 | 0.33 |
+| `nobody-there-asks-nothing` | 1 | 1.00 | 0.37 |
+
+`two-sources-one-fact` took three versions. In the first, the second source was `concepts/exports.md`, a note of the map, which research rightly takes as a lead and not as a source: the run made its fact of the seven days from the code alone, and the grader passed on another fact of that run, of what deletes a file, which had three sources. The grader now looks for a fact of a file kept, or of seven days. In the second, the second source was the saved ticket of `export-csv`, which the run never reached, and it scored 0.50. In the third, the cleaner in `worker` gives the seven days beside `keep.js`, and the run wrote one fact with a line for each.
+
+A run of `two-sources-one-fact` with the plugin's `bin` off the `PATH` found `context-central` nowhere, then did the work by hand and scored 0.50.
 
 ## What it cannot show
 
