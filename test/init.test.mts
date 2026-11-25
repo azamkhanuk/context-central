@@ -38,6 +38,49 @@ test('a map at the estate root gets its config, node folders, hub and glossary',
   for (const dir of NODE_DIRS) assert.ok(existsSync(join(root, dir)))
 })
 
+test('a map from an answers file keeps its hub in a folder it lays down for the map where the answers put it there, as before', () => {
+  const root = answers({ config: { ...CONFIG, hub: 'docs/AGENTS.md' } })
+
+  assert.equal(init(root).code, 0)
+  assert.ok(existsSync(join(root, 'docs', 'AGENTS.md')))
+})
+
+test('a map from an answers file takes its hub at the glossary as before, and a plain run on it keeps everything', () => {
+  const root = answers({ config: { ...CONFIG, hub: 'glossary.md' } })
+
+  const made = init(root)
+  assert.equal(made.code, 0, made.stderr)
+  const again = run(['init', '--plain'], { cwd: root })
+  assert.equal(again.code, 0, again.stderr)
+  assert.deepEqual(again.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
+test('a plain run that names with --hub the hub an answers file put in a folder init lays down keeps everything', () => {
+  const root = answers({ config: { ...CONFIG, hub: 'docs/AGENTS.md' } })
+
+  assert.equal(init(root).code, 0)
+  const again = run(['init', '--plain', '--hub', 'docs/AGENTS.md'], { cwd: root })
+  assert.equal(again.code, 0, again.stderr)
+  assert.deepEqual(again.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
+test('a plain run in a checkout that names with --hub the hub an answers file put in a folder of the map keeps everything', () => {
+  const root = answers({ layout: 'inner', config: { ...CONFIG, hub: '.context-central/docs/AGENTS.md' } })
+  spawnSync('git', ['init', '-q', root], { env: { PATH: process.env.PATH, HOME: root, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } })
+
+  assert.equal(init(root).code, 0)
+  const again = run(['init', '--plain', '--hub', '.context-central/docs/AGENTS.md'], { cwd: root })
+  assert.equal(again.code, 0, again.stderr)
+  assert.deepEqual(again.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
+test('a map from an answers file whose hub is its own settings file is refused before anything is written, where 0.20.0 wrote the hub into the settings and left a map its lint could not read', () => {
+  const root = answers({ config: { ...CONFIG, hub: 'estate.json' } })
+
+  assert.deepEqual(init(root), { code: 1, stdout: '', stderr: 'context-central init: "estate.json" names a file or a folder that init lays down for the map itself, so it cannot be the hub\n' })
+  assert.equal(existsSync(join(root, 'estate.json')), false)
+})
+
 test('a new hub says what the standards folder holds', () => {
   const root = answers()
   init(root)

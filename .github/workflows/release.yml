@@ -38,3 +38,33 @@ jobs:
           git tag -a "$tag" -m "$title"
           git push origin "refs/tags/$tag"
           gh release create "$tag" --verify-tag --title "$title" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Attach the command as a package npm installs from the file, where the release lacks it and its tag names this commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(node scripts/release-notes.mts --tag)"
+          if ! attached="$(gh release view "$tag" --json assets --jq '.assets[].name' 2>&1)"; then
+            if [[ "$attached" == *"release not found"* ]]; then
+              echo "$tag has no release. Nothing to attach."
+              exit 0
+            fi
+            echo "$attached"
+            exit 1
+          fi
+          folder="$(node --no-warnings scripts/pack.mts "$RUNNER_TEMP/pack")"
+          file="$(npm pack "$folder" --pack-destination "$RUNNER_TEMP" --silent | tail -n 1)"
+          if [ -z "$file" ] || [ ! -f "$RUNNER_TEMP/$file" ]; then
+            echo "npm pack made no file in $RUNNER_TEMP."
+            exit 1
+          fi
+          if grep -Fqx "$file" <<< "$attached"; then
+            echo "$file is attached to $tag already. Nothing to attach."
+            exit 0
+          fi
+          tagged="$(git ls-remote --tags origin "refs/tags/$tag" "refs/tags/$tag^{}" | sort -k 2 | tail -n 1 | cut -f 1)"
+          if [ "$tagged" != "$(git rev-parse HEAD)" ]; then
+            echo "::warning::The release $tag lacks $file, and $tag names ${tagged:-no commit}, not the commit checked out, so nothing is attached. To attach it, check out $tag, run node --no-warnings scripts/pack.mts with an empty folder, npm pack the folder it prints, and gh release upload $tag with the file npm names."
+            exit 0
+          fi
+          gh release upload "$tag" "$RUNNER_TEMP/$file"

@@ -16,7 +16,7 @@ export function run(args: string[], io: Io) {
   const query = positionals.join(' ').trim()
   if (!query) throw new UsageError('expected a query: a work item, a link, a repo name or a few words')
   const estate = requireEstate(io)
-  const resolution = resolveQuery(estate, query, { max: maxOf(values.max, estate.config.budgets.resolveMax), itemWords: true })
+  const resolution = resolveQuery(estate, query, { max: maxOf(values.max, estate.config.budgets.resolveMax), itemWords: true, researches: true })
   const unanswered = unansweredIn(estate, query)
   if (values.json) return io.out(JSON.stringify(asJson(resolution, unanswered), null, 2))
   const lines = [...(resolution ? [formatPointers(resolution, { absolute: values.absolute })] : []), ...unanswered.map(formatUnanswered)]

@@ -4,6 +4,7 @@ import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, reference
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
 import { fileAt, findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
+import { findResearch, withoutResearches } from './research.mts'
 import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -20,7 +21,7 @@ export interface Counted {
   path: string
 }
 
-export type Route = 'item' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term' | 'code'
+export type Route = 'item' | 'research' | 'pr' | 'link' | 'repo' | 'text' | 'id' | 'name' | 'term' | 'code'
 
 export interface Resolution {
   by: Route
@@ -64,6 +65,12 @@ interface Scored {
 
 const KIND_RANK = ['concepts', 'edges', 'areas', 'repos', 'standards', 'decisions', 'docs']
 const STANDARDS_WHY = 'standards of the repo'
+const RESEARCH_WHY: [file: string, why: string][] = [
+  ['brief.md', 'brief: the questions and where the run looked'],
+  ['log.md', 'log: one entry a round, and the facts that were superseded'],
+  ['reading.md', "reading: one person's judgement of the facts"],
+  ['set-aside.md', 'set-aside list: what was judged beside the point'],
+]
 const MIN_ID_LENGTH = 5
 const MORE_MAX = 20
 const LABEL_CHARS = 80
@@ -100,7 +107,9 @@ const STOP_WORDS = new Set(
   their them then there these they this those too two use very want was way were what when where which who why will with would you your`.split(/\s+/),
 )
 
-export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false }: { max?: number; plainWords?: boolean; itemWords?: boolean } = {}): Resolution | null {
+export function resolveQuery(estate: Estate, query: string, { max = estate.config.budgets.resolveMax, plainWords = true, itemWords = false, researches = false }: { max?: number; plainWords?: boolean; itemWords?: boolean; researches?: boolean } = {}): Resolution | null {
+  const research = researches ? byResearch(estate, query) : null
+  if (research) return research
   if (numberAlone(estate, query)) return null
   const routes = [byWorkItem, ...(plainWords ? [byItemNameOrTitle] : []), byLink, byRepoName, ...(plainWords ? [byFreeText] : []), ...(itemWords ? [byItemWords] : []), ...(plainWords ? [byIdentifier, byNodeName, byGlossaryTerm, byOneWordIdentifier, byCodeName] : [])]
   for (const route of routes) {
@@ -170,6 +179,27 @@ function byWorkItem(estate: Estate, query: string, max: number) {
   return item && itemResolution(estate, item, 'item', max)
 }
 
+function byResearch(estate: Estate, query: string) {
+  const research = findResearch(estate, query.trim())
+  if (!research || isAnItemsNameOrTicket(estate, query.trim())) return null
+  const held = (file: string) => research.files.filter(found => found.rel === `${research.dirRel}/${file}`)
+  const pointers = [
+    pointer(estate, research.sheet.rel, 'fact sheet: the facts that stand, each with its sources'),
+    ...research.pages.map(file => pointer(estate, file.rel, 'facts of the research, a page by subject')),
+    ...RESEARCH_WHY.flatMap(([file, why]) => held(file).map(found => pointer(estate, found.rel, why))),
+  ]
+  const deep = research.sources.length === 0 ? null : savedIn(estate, research.sources)
+  return resolution({ by: 'research', key: `research:${research.name}`, name: research.name, label: `research ${research.name}`, pointers, more: 0, deep })
+}
+
+function isAnItemsNameOrTicket(estate: Estate, asked: string) {
+  if (findWorkItem(estate, asked)?.entry) return true
+  const tickets = holding(listed(estate.config.connections), TICKETS)
+  const reference = referenceOf(tickets, asked)
+  if (reference && answerer(estate, tickets, [])(reference) !== null) return true
+  return listWorkItems(estate).some(item => item.entry && item.ticket?.trim().toLowerCase() === asked.toLowerCase())
+}
+
 function byItemNameOrTitle(estate: Estate, query: string, max: number) {
   const asked = runsOf(query)
   const [first, ...others] = listWorkItems(estate)
@@ -226,7 +256,7 @@ function byRepoName(estate: Estate, query: string, max: number) {
 function byFreeText(estate: Estate, query: string, max: number) {
   const asked = countedWords(query)
   if (asked.length < MIN_WORDS) return null
-  const notes = listNodes(estate)
+  const notes = withoutResearches(estate, listNodes(estate))
     .filter(node => !node.rel.startsWith('log/'))
     .map(profile)
   const words = asked.filter(word => !common(notes, word))
@@ -371,7 +401,7 @@ function knownNodes(estate: Estate) {
 
 function routedNodes(estate: Estate) {
   const inWork = `${estate.config.workDir}/`
-  return listNodes(estate).filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
+  return withoutResearches(estate, listNodes(estate)).filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
 }
 
 function knownAs(node: Node): Known[] {
@@ -601,9 +631,12 @@ function pointer(estate: Estate, rel: string, why: string): Pointer {
 }
 
 function deepTier(estate: Estate, item: WorkItem): Counted | null {
-  if (item.deep.count === 0) return null
-  const rel = commonDir(item.deep.files.map(file => posix.dirname(file.rel)))
-  return { count: item.deep.count, bytes: item.deep.bytes, rel, path: join(estate.mapDir, rel) }
+  return item.deep.count === 0 ? null : savedIn(estate, item.deep.files)
+}
+
+function savedIn(estate: Estate, files: MapFile[]): Counted {
+  const rel = commonDir(files.map(file => posix.dirname(file.rel)))
+  return { count: files.length, bytes: files.reduce((sum, file) => sum + file.bytes, 0), rel, path: join(estate.mapDir, rel) }
 }
 
 function evidenceOf(estate: Estate, item: WorkItem): Counted | null {

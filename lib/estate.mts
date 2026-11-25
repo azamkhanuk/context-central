@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { isObject, list, patterns, strings, text } from './checks.mts'
+import { isObject, list, patterns, skillName, strings, text } from './checks.mts'
 import { connectionsOfOldMap, readConnections, unaskedOn } from './connections.mts'
 import { ConfigError, PluginError } from './errors.mts'
 import { withoutBom } from './text.mts'
@@ -31,6 +31,15 @@ const DEFAULT_BUDGETS = {
   hookTextChars: 600,
   resumeNoticeTokens: 100000,
   evidenceBytes: 1024 * 1024,
+  researchQuickRounds: 1,
+  researchQuickAgents: 2,
+  researchStandardRounds: 3,
+  researchStandardAgents: 3,
+  researchDeepRounds: 6,
+  researchDeepAgents: 5,
+  researchSheetBytes: 16000,
+  researchStableDays: 30,
+  researchMovingDays: 7,
 }
 
 export type Layout = 'root' | 'inner'
@@ -38,8 +47,6 @@ export type Layout = 'root' | 'inner'
 export const STEPS = ['research', 'prep', 'design', 'implement'] as const
 
 export type Step = (typeof STEPS)[number]
-
-const SKILL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$/
 
 export type Budgets = typeof DEFAULT_BUDGETS
 
@@ -73,6 +80,7 @@ export interface Settings {
   notNodes: string[]
   leftAlone: string[]
   workDir: string
+  researchDir: string
   deepDirs: string[]
   deepPatterns: string[]
   legacyHooks: string[]
@@ -84,6 +92,8 @@ export interface Settings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: string
+  researchSkill?: string
+  readingTemplate?: string
 }
 
 type WrittenRepo = Pick<Repo, 'name'> & Partial<Pick<Repo, 'path' | 'role'>> & { standards?: unknown; checks?: unknown; steps?: unknown }
@@ -97,6 +107,7 @@ interface WrittenSettings {
   notNodes?: unknown
   leftAlone?: unknown
   workDir?: unknown
+  researchDir?: unknown
   deepDirs?: unknown
   deepPatterns?: unknown
   legacyHooks?: unknown
@@ -109,6 +120,8 @@ interface WrittenSettings {
   codeHost?: unknown
   writeRules?: WriteRules
   glossary?: unknown
+  researchSkill?: unknown
+  readingTemplate?: unknown
 }
 
 export interface StandardsFile {
@@ -286,6 +299,8 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
   const tracker = raw.connections === undefined ? (raw.tracker ?? {}) : {}
   const keyPatterns = patterns(tracker.keyPatterns ?? [], 'tracker.keyPatterns', fail)
   const repos = list(raw.repos ?? [], 'repos', fail).map(repo => normaliseRepo(repo as string | WrittenRepo | null, fail))
+  const workDir = text(raw.workDir ?? 'work', 'workDir', fail)
+  const deepDirs = strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail)
   return {
     ...raw,
     title: text(raw.title ?? raw.name, 'title', fail),
@@ -293,8 +308,9 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     nodeDirs: strings(raw.nodeDirs ?? DEFAULT_NODE_DIRS, 'nodeDirs', fail),
     notNodes: strings(raw.notNodes ?? [], 'notNodes', fail).map(entry => entry.replace(/\/+$/, '')),
     leftAlone: strings(raw.leftAlone ?? [], 'leftAlone', fail),
-    workDir: text(raw.workDir ?? 'work', 'workDir', fail),
-    deepDirs: strings(raw.deepDirs ?? ['sources'], 'deepDirs', fail),
+    workDir,
+    researchDir: raw.researchDir === undefined ? 'research' : researchFolder(raw.researchDir, workDir, deepDirs, fail),
+    deepDirs,
     deepPatterns: strings(raw.deepPatterns ?? ['*-full-text.md'], 'deepPatterns', fail),
     legacyHooks: strings(raw.legacyHooks ?? [], 'legacyHooks', fail),
     repos,
@@ -303,7 +319,22 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     evidence: evidence(raw.evidence, fail),
     budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}) },
     glossary: raw.glossary === undefined ? undefined : pathsInEstate([text(raw.glossary, 'glossary', fail)], 'glossary', fail)[0],
+    researchSkill: raw.researchSkill === undefined ? undefined : skillName(raw.researchSkill, 'researchSkill', fail),
+    readingTemplate: raw.readingTemplate === undefined ? undefined : pathsInEstate([text(raw.readingTemplate, 'readingTemplate', fail)], 'readingTemplate', fail)[0],
   }
+}
+
+function researchFolder(value: unknown, workDir: string, deepDirs: string[], fail: Fail) {
+  const written = text(value, 'researchDir', fail)
+  const dir = written.replace(/\/+$/, '')
+  const parts = dir.split('/')
+  const lower = dir.toLowerCase()
+  const deep = deepDirs.find(kept => parts.some(part => part.toLowerCase() === kept.toLowerCase()))
+  if (/^([/\\]|[A-Za-z]:)/.test(written) || dir.includes('\\') || parts.some(part => part === '' || part === '.' || part === '..')) fail(`"researchDir" is "${written}"; it names a folder counted from the map's folder, with forward slashes and no ".."`)
+  if (parts.some(part => part.startsWith('.') || part === 'node_modules')) fail(`"researchDir" is "${written}"; the map never lists a folder whose name opens with a dot, nor node_modules`)
+  if ([workDir.replace(/\/+$/, '').toLowerCase(), 'log'].some(kept => lower === kept || lower.startsWith(`${kept}/`))) fail(`"researchDir" is "${written}"; research's folder is not the work folder or the log, nor a folder inside one of them`)
+  if (deep !== undefined) fail(`"researchDir" is "${written}"; the map keeps a folder named ${deep} for the deep tier, so nothing under it is read as a note`)
+  return dir
 }
 
 function normaliseRepo(repo: string | WrittenRepo | null, fail: Fail): Repo {
@@ -326,8 +357,7 @@ function stepSkills(value: unknown, fail: Fail): Partial<Record<Step, string>> {
   const named: Partial<Record<Step, string>> = {}
   for (const [key, skill] of Object.entries(value)) {
     if (!isStep(key)) fail(`"steps" names "${key}"; a step there is research, prep, design or implement`)
-    if (typeof skill !== 'string' || !SKILL_NAME.test(skill)) fail(`"steps.${key}" must name one skill, as "name" or "plugin:name"`)
-    named[key] = skill
+    named[key] = skillName(skill, `steps.${key}`, fail)
   }
   return named
 }

@@ -16,13 +16,14 @@ They are recorded under `connections` in `estate.json`, by name:
 
 | Key | What it says |
 |---|---|
-| `holds` | The kind of thing. `tickets` and `pull-requests` have a part in the skills; any other word is carried as written |
+| `holds` | The kind of thing. `tickets` and `pull-requests` have a part in every skill, and every kind has a part in research, which sweeps it for leads. Any other word is carried as written |
 | `references` | Regular expressions for how text names one thing in it. A part named `id` is the thing's own identifier, and a part named `repo` is its repository |
 | `preset` | One of the plugin's presets, with that preset's own parameters beside it |
 | `server` | The name you gave an MCP server or a connector. The session finds the tool when it needs it, so no tool name is recorded |
 | `commands` | Your own command for an action (`read`, `search`, `comment`, `transition`, `open`), as a list of words. A session runs it; the plugin never does |
 | `how` | Anything else, in words, for a connection reached by hand |
 | `route` | The way a session reads it, written as an object rather than in words. The oldest maps carry one for each of their sources; a new map writes `how` |
+| `researchSkill` | A skill of the estate's own, as `name` or `plugin:name`, that searches this connection for research in place of the sweeper |
 | `account` | The account its tool must run as. `fetch` reads only as it, `doctor` says whether it can, and neither switches the account that is active on the machine |
 | `repos` | For pull requests: the registered repos it serves, when more than one connection holds them |
 
@@ -35,6 +36,8 @@ They are recorded under `connections` in `estate.json`, by name:
 - **by fetch**: its preset has a read command and that program is on the `PATH`, so `fetch` saves the full text with no agent
 - **by a session**: through the server named, or with your own command, which the fetcher agent uses
 - **by hand**: the skill asks you to paste the text and saves it in full
+
+**How research searches one.** `context-central connections --json` gives each connection a `search`: by `skill` where its entry names a `researchSkill`, by `command` where its `commands` hold a `search`, by `server` where it names a server, and otherwise by `name`, where research reads from it only what a source or you name. A research run says it in its start line, and [Research](research.md) has the rest.
 
 `context-central connections --ticket "<reference>"` lists only the connection that ticket belongs to, `--pr "<reference>"` the one a pull request belongs to, and `--item <item>` the one a work item's own ticket belongs to. It is the connection `fetch ticket` and `fetch pr` read through: the one whose references claim it or, where none does, the only connection that holds the kind. Where two claim a link, the one that names its repository under `repos` has it, then one that names no repos, and otherwise the one written first. A link's repository is matched to a registered repo by its name. A reference that names no repository belongs to the first written of those that claim it. On a map made before connections the answer can be a preset that applies unasked, and its line says that the map does not record it. A skill never picks a connection for itself: it reads through `fetch`, which finds the connection or names it and says how a session reads it, and it asks this before it posts on a ticket.
 

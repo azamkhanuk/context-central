@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { posix, relative, sep } from 'node:path'
 import { hubPath, listFiles, listWorkItems, parseLinks, resolveLink } from './nodes.mts'
+import { listResearches, withoutResearches } from './research.mts'
 import type { Estate } from './estate.mts'
 
 export interface BrokenLink {
@@ -24,11 +25,14 @@ interface Source {
 }
 
 export function graphEstate(estate: Estate): Graph {
-  const files = listFiles(estate)
+  const researches = listResearches(estate)
+  const listed = new Set<string>()
+  const files = [...withoutResearches(estate, listFiles(estate)), ...researches.flatMap(research => [...research.files, ...research.sources])].filter(file => !listed.has(file.rel) && listed.add(file.rel))
   const nodes = files.filter(file => !file.deep).map(file => source(estate, file.rel, file.path))
   const hub = hubSource(estate)
   const sources = hub ? [hub, ...nodes.filter(node => node.path !== hub.path)] : nodes
-  const linked = new Set(sources.flatMap(from => from.links.filter(link => link.to && link.to !== from.rel).map(link => link.to)))
+  const ownSheet = (from: Source, to: string) => researches.some(research => to === research.sheet.rel && from.rel.startsWith(`${research.dirRel}/`))
+  const linked = new Set(sources.flatMap(from => from.links.filter(link => link.to && link.to !== from.rel && !ownSheet(from, link.to)).map(link => link.to)))
   const items = listWorkItems(estate)
   const exempt = new Set([hub?.path, ...items.flatMap(item => [item.entry, ...item.files].map(file => file?.path))])
   const isOrphan = (node: Source) => !linked.has(node.rel) && !exempt.has(node.path) && !node.rel.startsWith('log/')

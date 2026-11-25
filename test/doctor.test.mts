@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, acme, checkout, disposable, makeTree, onlyOnWindows, run, solo, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_SHOT, EXE_NAMES, NEEDS_STAND_IN, SOLO_CONFIG, SOLO_STATE, acme, checkout, disposable, makeTree, notOnWindows, onlyOnWindows, run, solo, spawned, workTree } from './helpers.mts'
 import type { Checkout, Env, Json, Result, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -115,6 +115,64 @@ test('an answer on committing evidence that is not true or false is the config f
 
   assert.equal(result.stdout, `ok   node\nFIX  config: ${join(root, 'estate.json')}: "evidence.commit" must be true or false\n`)
   assert.equal(result.code, 1)
+})
+
+test("a template for the reading that is not there, or is a folder, is the config fix, since every new research would be refused, and one that is there is fine", () => {
+  const missing: TreeFiles[] = [{}, { 'templates/reading.md/x.md': '# x\n' }]
+
+  for (const files of missing) {
+    const root = tree(acme(files, { readingTemplate: 'templates/reading.md' }))
+
+    const result = doctor(root)
+
+    assert.equal(result.stdout.split('\n')[1], `FIX  config: the reading's template templates/reading.md cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`)
+    assert.equal(result.code, 1)
+  }
+  assert.equal(doctor(tree(acme({ 'templates/reading.md': '# Ours\n' }, { readingTemplate: 'templates/reading.md' }))).stdout.split('\n')[1], 'ok   config')
+})
+
+const unreadable = (template: string) => `FIX  config: the reading's template ${template} cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`
+const LONG_TEMPLATE = `templates/${'y'.repeat(300)}.md`
+
+test('a template for the reading that is too long a name, and on a system that has them a link loop, one nobody may read or a named pipe, is the config fix, every check is still printed, and research new is refused for each', () => {
+  const odd: [template: string, made: (root: string) => void][] = [[LONG_TEMPLATE, () => undefined]]
+  if (process.platform !== 'win32') {
+    odd.push(['templates/loop.md', root => (symlinkSync('back.md', join(root, 'templates', 'loop.md')), symlinkSync('loop.md', join(root, 'templates', 'back.md')))])
+    odd.push(['templates/shut.md', root => (writeFileSync(join(root, 'templates', 'shut.md'), '# Shut\n'), chmodSync(join(root, 'templates', 'shut.md'), 0o000))])
+    odd.push(['templates/pipe.md', root => void spawned('mkfifo', [join(root, 'templates', 'pipe.md')])])
+  }
+
+  for (const [template, made] of odd) {
+    const root = tree(acme({ 'templates/.keep': '' }, { readingTemplate: template }))
+    made(root)
+
+    const result = run(['doctor'], { cwd: root, env: sandbox(), timeout: 10000 })
+    const refused = run(['research', 'new', 'probe'], { cwd: root, timeout: 10000 })
+
+    assert.equal(result.stdout.split('\n')[1], unreadable(template), template)
+    assert.match(result.stdout, /^note connections: /m, template)
+    assert.equal(result.code, 1, template)
+    assert.deepEqual(refused, { code: 1, stdout: '', stderr: `context-central research: the reading's template ${template} cannot be read\n` }, template)
+  }
+})
+
+test("in a map in its own folder of a checkout, the template for the reading is read from the estate root, not from the map's folder, by doctor and by research new", () => {
+  const made = checkout({ 'README.md': '# Solo\n' })
+  tree(made.base)
+  run(['init', '--plain'], { cwd: made.main, env: made.env })
+  const settings = join(made.main, '.context-central', 'estate.json')
+  writeFileSync(settings, JSON.stringify({ ...(JSON.parse(readFileSync(settings, 'utf8')) as Record<string, Json>), readingTemplate: 'templates/reading.md' }))
+  mkdirSync(join(made.main, '.context-central', 'templates'))
+  writeFileSync(join(made.main, '.context-central', 'templates', 'reading.md'), '# Not this one\n')
+  const env = { ...realGit(), GIT_CONFIG_GLOBAL: made.env.GIT_CONFIG_GLOBAL }
+
+  assert.equal(doctor(made.main, env).stdout.split('\n')[1], unreadable('templates/reading.md'))
+  assert.equal(run(['research', 'new', 'first'], { cwd: made.main, env }).code, 1)
+  mkdirSync(join(made.main, 'templates'))
+  writeFileSync(join(made.main, 'templates', 'reading.md'), '# Ours\n\n## For the board\n')
+  assert.equal(doctor(made.main, env).stdout.split('\n')[1], 'ok   config')
+  assert.equal(run(['research', 'new', 'first'], { cwd: made.main, env }).code, 0)
+  assert.equal(readFileSync(join(made.main, '.context-central', 'research', 'first', 'reading.md'), 'utf8'), '# Ours\n\n## For the board\n')
 })
 
 test('a folder with no map is told how to make one', () => {

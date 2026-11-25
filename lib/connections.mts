@@ -1,4 +1,4 @@
-import { isObject, patterns, strings } from './checks.mts'
+import { isObject, isSkillName, patterns, skillName, strings } from './checks.mts'
 import { accountsOf, isOnlyAScript, onPath, tokenOf } from './machine.mts'
 import { PRESETS, presetNamed } from './presets.mts'
 import type { Fail } from './checks.mts'
@@ -32,6 +32,8 @@ export interface Reach {
   fetch: string | null
   missing: string | null
 }
+
+export type Search = { by: 'skill'; skill: string } | { by: 'command' } | { by: 'server'; server: string } | { by: 'name' }
 
 export interface Reference {
   text: string
@@ -202,6 +204,18 @@ export function reachOf(connection: Connection, env: Env): Reach {
   }
 }
 
+export function searchOf({ entry: { researchSkill, commands, server } }: Connection): Search {
+  const words: unknown = commands?.search
+  if (isSkillName(researchSkill)) return { by: 'skill', skill: researchSkill }
+  if (Array.isArray(words) && words.length > 0 && words.every(word => typeof word === 'string' && word !== '')) return { by: 'command' }
+  return server ? { by: 'server', server } : { by: 'name' }
+}
+
+export function goneWith({ recorded, unasked }: Pick<Held, 'recorded' | 'unasked'>): Connection[] {
+  const isRecorded = ({ entry }: Connection) => recorded.some(held => held.entry.preset === entry.preset && held.entry.holds === entry.holds)
+  return [...recorded, ...unasked.filter(one => !isRecorded(one))]
+}
+
 export function whyNotStarted(preset: Preset, env: Env, { hint = true }: { hint?: boolean } = {}) {
   if (isOnlyAScript(preset.program, env)) return `${preset.program} is a .cmd or .bat file, which the plugin cannot start`
   return `${preset.program} is not on PATH${hint && preset.hint ? `; ${preset.hint}` : ''}`
@@ -269,6 +283,7 @@ function readEntry(name: string, entry: unknown, repos: string[], fail: Fail): C
     if (entry[key] !== undefined && (typeof entry[key] !== 'string' || !entry[key])) fail(`"${at}.${key}" must be text`)
   }
   if (entry.references !== undefined) patterns(entry.references, `${at}.references`, fail)
+  if (entry.researchSkill !== undefined) skillName(entry.researchSkill, `${at}.researchSkill`, fail)
   if (entry.commands !== undefined) checkCommands(entry.commands, `${at}.commands`, fail)
   if (entry.repos !== undefined) {
     const unknown = strings(entry.repos, `${at}.repos`, fail).find(repo => !repos.includes(repo))

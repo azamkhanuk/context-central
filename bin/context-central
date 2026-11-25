@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { existsSync } = require('fs')
 const { join } = require('path')
 const { pathToFileURL } = require('url')
 
@@ -18,7 +19,8 @@ if (major < NEEDS[0] || (major === NEEDS[0] && minor < NEEDS[1])) {
   const nodeModule = require('module')
   // Node 24 keeps the stripped TypeScript in its compile cache, so a start costs what plain JavaScript did.
   if (nodeModule.enableCompileCache) nodeModule.enableCompileCache()
-  import(pathToFileURL(join(__dirname, '..', 'lib', 'cli.mts')).href)
+  const lib = join(__dirname, '..', 'lib')
+  import(pathToFileURL(join(lib, existsSync(join(lib, 'cli.mts')) ? 'cli.mts' : 'cli.mjs')).href)
     .then(cli => cli.main(process.argv.slice(2)))
     .then(code => {
       process.exitCode = code

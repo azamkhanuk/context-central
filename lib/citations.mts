@@ -23,13 +23,25 @@ interface Named {
   line: number
 }
 
-interface Citation {
+export interface Cited {
   span: string
-  paths: string[]
+  path: string
   first: number | null
   last: number | null
   line: number
   commit: string | null
+}
+
+export type Judged = 'moved' | 'held' | 'no commit' | 'commit not held' | 'not behind the head' | 'no such file'
+
+interface Citation extends Cited {
+  paths: string[]
+}
+
+interface Answers {
+  held: Map<string, Held>
+  ids: Map<string, string>
+  behind: Set<string>
 }
 
 type Held = { type: string, id: string, lines: string[] }
@@ -63,14 +75,38 @@ function warningsOf(estate: Estate, repo: Repo, env: Env): NoteWarnings | null {
   const text = note && onPath('git', env) && folderAt(folder) ? textOf(note.path) : null
   if (!note || text === null) return null
   const { readAt, named, citations } = read(text, repo)
-  const commits = [...new Set(named.map(({ id }) => id))]
-  const held = heldBy(folder, [...new Set([...commits.map(asACommit), ...citations.flatMap(namesOf)])], env)
-  const ids = held && idsOf(commits, held)
-  const behind = ids && behindTheHead(folder, ids, env)
-  if (!held || !ids || !behind) return null
+  const answers = answersOf(folder, [...new Set(named.map(({ id }) => id))], citations, env)
+  if (!answers) return null
+  const { held, ids, behind } = answers
   const lost = named.filter(({ id }, index) => !ids.has(id) && named.findIndex(other => other.id === id) === index)
   const moved = citations.filter(citation => citation.commit !== null && behind.has(citation.commit) && hasMoved(citation, citation.commit, held))
   return { rel: note.rel, said: [...commitWords(note.rel, repo, readAt, lost), ...movedWords(note.rel, repo, moved)] }
+}
+
+export function citedIn(text: string, at: number): Cited[] {
+  return readIn(text, at).cited
+}
+
+export function judgedIn(folder: string, repo: Repo, cited: Cited[], env: Env): Judged[] | null {
+  const citations = cited.map(one => ({ ...one, paths: countedFrom(one.path, repo) }))
+  const answers = answersOf(folder, [...new Set(citations.flatMap(({ commit }) => commit ?? []))], citations, env)
+  return answers && citations.map(citation => judgedBy(citation, answers))
+}
+
+function judgedBy(citation: Citation, { held, ids, behind }: Answers): Judged {
+  const { commit, paths } = citation
+  if (commit === null) return 'no commit'
+  if (!ids.has(commit)) return 'commit not held'
+  if (!behind.has(commit)) return 'not behind the head'
+  if (!paths.some(path => held.get(at(commit, path))?.type === A_FILE)) return 'no such file'
+  return hasMoved(citation, commit, held) ? 'moved' : 'held'
+}
+
+function answersOf(folder: string, commits: string[], citations: Citation[], env: Env): Answers | null {
+  const held = heldBy(folder, [...new Set([...commits.map(asACommit), ...citations.flatMap(namesOf)])], env)
+  const ids = held && idsOf(commits, held)
+  const behind = ids && behindTheHead(folder, ids, env)
+  return held && ids && behind ? { held, ids, behind } : null
 }
 
 function textOf(path: string) {
@@ -106,16 +142,20 @@ function rulesIn(lines: string[]) {
 }
 
 function citationsOf({ at, text }: Rule, readAt: string | null, repo: Repo): { own: Named | null, citations: Citation[] } {
+  const { own, cited } = readIn(text, at)
+  return { own, citations: cited.map(one => ({ ...one, paths: countedFrom(one.path, repo), commit: one.commit ?? readAt })) }
+}
+
+function readIn(text: string, at: number): { own: Named | null, cited: Cited[] } {
   const spans = spansOf(text)
   const lineOf = (from: number) => at + text.slice(0, from).split('\n').length
   const commits = spans.filter((span, index) => index > 0 && A_COMMIT.test(span.text) && AT.test(text.slice(spans[index - 1].to, span.from)) && citedBy(spans[index - 1].text)?.first != null)
   const last = commits.at(-1)
-  const commit = last?.text ?? readAt
-  const citations = spans.filter(span => !commits.includes(span)).flatMap(span => {
-    const cited = citedBy(span.text)
-    return cited ? [{ ...cited, paths: countedFrom(cited.path, repo), span: span.text, line: lineOf(span.from), commit }] : []
+  const cited = spans.filter(span => !commits.includes(span)).flatMap(span => {
+    const read = citedBy(span.text)
+    return read ? [{ ...read, span: span.text, line: lineOf(span.from), commit: last?.text ?? null }] : []
   })
-  return { own: last ? { id: last.text, line: lineOf(last.from) } : null, citations }
+  return { own: last ? { id: last.text, line: lineOf(last.from) } : null, cited }
 }
 
 function citedBy(span: string) {

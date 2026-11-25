@@ -7,6 +7,7 @@ import { glossaryPath } from './glossary.mts'
 import { locked, readWhole, writeWhole } from './lock.mts'
 import { onPath } from './machine.mts'
 import { PROOF_FILE, folderAt, folderToSaveIn, hubPath, makeFolder } from './nodes.mts'
+import { listResearches } from './research.mts'
 import { CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE, LAUNCHER_FILE } from './templates.mts'
 import { localDate } from './text.mts'
 import { asked, holds, inTree } from './worktree.mts'
@@ -209,7 +210,8 @@ function headOf(folder: string, env: Env) {
 
 function mapsOwnFiles(estate: Estate, folder: string) {
   const { layout, mapDir, configPath, config, workTree } = estate
-  const own = layout === 'inner' ? [mapDir] : [...[...config.nodeDirs, config.workDir, LAUNCHER_FILE, CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE].map(rel => join(mapDir, rel)), configPath, glossaryPath(estate)]
+  const folders = () => [...config.nodeDirs, config.workDir, ...listResearches(estate).map(research => research.dirRel)]
+  const own = layout === 'inner' ? [mapDir] : [...[...folders(), LAUNCHER_FILE, CMD_LAUNCHER_FILE, LAUNCHER_ATTRIBUTES_FILE].map(rel => join(mapDir, rel)), configPath, glossaryPath(estate)]
   return [...own, hubPath(estate)]
     .map(path => (workTree ? inTree(workTree, path) : path))
     .filter(path => holds(folder, path) && relative(folder, path) !== '')

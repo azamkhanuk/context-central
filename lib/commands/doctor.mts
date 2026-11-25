@@ -13,6 +13,7 @@ import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, onPath } from '../machine.mts'
 import { folderAt, hubPath, inFlight, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
+import { readingTemplateOf } from '../research.mts'
 import { unproven } from '../proof.mts'
 import { PLUGIN, PLUGIN_ID, evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
@@ -63,7 +64,7 @@ export function run(args: string[], io: Io) {
 
 function checks(io: Io) {
   const { estate, fix } = load(io)
-  const first = [result('node', node(io.nodeVersion)), result('config', fix)]
+  const first = [result('node', node(io.nodeVersion)), result('config', fix ?? (estate && readingTemplate(estate)))]
   if (!estate) return first
   const unasked = onPath('git', io.env) ? [] : ASK_GIT
   return [...first, ...Object.entries(ESTATE_CHECKS).map(([name, check]) => result(name, unasked.includes(name) ? NO_GIT : check(estate, io)))]
@@ -93,6 +94,11 @@ function node(version: string) {
   const [major, minor] = version.split('.').map(Number)
   if (major > MIN_NODE[0] || (major === MIN_NODE[0] && minor >= MIN_NODE[1])) return null
   return `this is Node ${version}; install Node ${MIN_NODE.join('.')} or later`
+}
+
+function readingTemplate(estate: Estate) {
+  if (readingTemplateOf(estate) !== null) return null
+  return `the reading's template ${estate.config.readingTemplate} cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`
 }
 
 function hub(estate: Estate) {

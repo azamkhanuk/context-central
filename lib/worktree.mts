@@ -13,6 +13,7 @@ const GITDIR = /^gitdir:\s*(.+?)\s*$/m
 const GIT_TIMEOUT_MS = 5000
 const GIT_ANSWER_BYTES = 256 * 1024 * 1024
 const NOT_SO = 1
+const PATHSPEC_SETTINGS = ['GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS', 'GIT_NOGLOB_PATHSPECS', 'GIT_ICASE_PATHSPECS']
 
 export function linkedWorkTree(dir: string): WorkTree | null {
   const above = checkoutAbove(resolve(dir))
@@ -70,6 +71,26 @@ export function trackedUnder(dir: string, folder: string, env: Env) {
   return status === 0 ? stdout.split('\0').filter(path => path.startsWith(within)).map(path => path.slice(within.length)) : null
 }
 
+export function trackedThere(path: string, env: Env) {
+  const above = checkoutAbove(dirname(path))
+  if (!above) return { root: null, tracked: false }
+  const asWritten = withoutPathspecSettings(env)
+  const blind = foldsCase(above.dir) || asked(above.dir, ['config', '--bool', 'core.ignorecase'], asWritten).stdout?.trim() === 'true'
+  const name = asGitTakesIt(above.dir, path)
+  const { status, stdout } = asked(above.dir, ['ls-files', '-z', '--', `:(literal${blind ? ',icase' : ''})${name}`], asWritten)
+  return { root: above.dir, tracked: status === 0 ? stdout !== '' : null }
+}
+
+export function foldsCase(dir: string) {
+  const own = idOf(join(dir, GIT))
+  return own !== null && own === idOf(join(dir, GIT.toUpperCase()))
+}
+
+// A person's safe.bareRepository can keep git from looking in a bare repository, and git honours the setting given here.
+export function inGitsOwnFolder(dir: string, env: Env) {
+  return asked(dir, ['-c', 'safe.bareRepository=all', 'rev-parse', '--is-inside-git-dir'], env).stdout?.trim() === 'true'
+}
+
 export function gitIgnores(dir: string, path: string, env: Env) {
   return asked(dir, ['check-ignore', '-q', '--', asGitTakesIt(dir, path)], env).status === 0
 }
@@ -113,6 +134,20 @@ function spelledFrom(root: string, admin: string, main: string) {
   const ownGit = read(join(admin, 'gitdir'))
   const placed = ownGit && resolve(root, relative(dirname(resolve(admin, ownGit)), main))
   return placed && entryAt(join(placed, GIT))?.isDirectory() ? placed : main
+}
+
+// Each of these, set in the environment, makes git read a pathspec other than as the plugin writes it.
+function withoutPathspecSettings(env: Env): Env {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !PATHSPEC_SETTINGS.includes(key)))
+}
+
+function idOf(path: string) {
+  try {
+    const entry = statSync(path, { bigint: true, throwIfNoEntry: false })
+    return entry ? `${entry.dev}:${entry.ino}` : null
+  } catch {
+    return null
+  }
 }
 
 function entryAt(path: string) {

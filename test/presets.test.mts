@@ -169,10 +169,10 @@ test('as JSON a connection says whether fetch reads it here and which program is
   const entry = { holds: 'tickets', preset: 'acmedesk' }
 
   assert.deepEqual(JSON.parse(runIn(withDesk(), ['connections', '--json'], { cwd: root, env: deskOnPath() }).stdout) as unknown, [
-    { name: 'tracker', holds: 'tickets', by: 'fetch', fetch: 'context-central fetch ticket "<reference>" --item <item>', missing: null, entry },
+    { name: 'tracker', holds: 'tickets', by: 'fetch', fetch: 'context-central fetch ticket "<reference>" --item <item>', missing: null, search: { by: 'name' }, entry },
   ])
   assert.deepEqual(JSON.parse(runIn(withDesk(), ['connections', '--json'], { cwd: root, env: NOTHING_ON_PATH }).stdout) as unknown, [
-    { name: 'tracker', holds: 'tickets', by: 'hand', fetch: null, missing: 'acmedesk', entry },
+    { name: 'tracker', holds: 'tickets', by: 'hand', fetch: null, missing: 'acmedesk', search: { by: 'name' }, entry },
   ])
 })
 

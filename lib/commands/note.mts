@@ -5,6 +5,7 @@ import { PluginError, UsageError } from '../errors.mts'
 import { NODE_NAME, requireEstate } from '../estate.mts'
 import { locked, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { makeFolder, neverListed, underNotNodes } from '../nodes.mts'
+import { researchTaken } from '../research.mts'
 import { decisionTemplate, nodeTemplate } from '../templates.mts'
 import { localDate } from '../text.mts'
 import type { Io } from '../cli.mts'
@@ -62,7 +63,9 @@ function underDay(text: string, day: string, entry: string) {
 }
 
 function create(estate: Estate, target: string, title: string | undefined, io: Io) {
-  const kinds = estate.config.nodeDirs.filter(dir => dir !== estate.config.workDir && dir !== 'log')
+  const { nodeDirs, workDir } = estate.config
+  const research = keptForResearch(estate)
+  const kinds = nodeDirs.filter(dir => dir !== workDir && dir !== 'log' && dir.replace(/\/+$/, '') !== research)
   const expected = `expected --new <kind>/<name>, where the kind is one of: ${kinds.join(', ')}`
   const [kind, ...parts] = target.replace(/\.md$/, '').split('/')
   const name = parts.at(-1)
@@ -89,8 +92,14 @@ function brokenRule(estate: Estate, kind: string, parts: string[]) {
   if (unlisted !== undefined) return `"${unlisted}" is a folder the map never lists`
   if (parts.length > 1 && kind === 'decisions') return 'a decision takes no folder'
   if (parts.length > 1 && kind === 'standards') return 'a standards note takes no folder'
+  const research = keptForResearch(estate)
+  if (research !== null && `${[kind, ...parts.slice(0, -1)].join('/')}/`.startsWith(`${research}/`)) return `${research} is kept for researches, which research new makes`
   const deep = parts.slice(0, -1).find(part => estate.config.deepDirs.includes(part))
   return deep === undefined ? null : `"${deep}" is kept for the deep tier`
+}
+
+function keptForResearch(estate: Estate) {
+  return researchTaken(estate) ? null : estate.config.researchDir
 }
 
 function node(kind: string, name: string, title: string) {

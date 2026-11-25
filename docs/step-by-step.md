@@ -1,15 +1,15 @@
 # A piece of work, step by step
 
-A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
+A piece of work goes through five steps, and each step is a skill. Each step leaves files in the work item's folder under `work/<item>/`, research in a folder of its own under `research/` that the item links, and the next step starts from those files. That is the hand-over: from the spec onwards each step can begin in a fresh session, and should, so that a build starts with its context small.
 
 A fresh session is `/clear` in the terminal, or **+ New session** in the desktop app (Cmd+N on macOS, Ctrl+N on Windows). Either starts with nothing of the last session in its context, and the state file carries the item across. The skills say "in a fresh session" and leave the way to you.
 
-![The five steps of a piece of work and what each writes: research writes a research note and the saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](step-by-step.png)
+![The five steps of a piece of work and what each writes: research writes a research folder of numbered facts with its saved sources, prep writes the spec and a code map, design writes the design, implement writes commits, the proof record and evidence, and checkpoint rewrites the state file and adds to the log](step-by-step.png)
 
 | Step | You type | It starts from |
 |---|---|---|
 | [1. Research](#1-research) | `/context-central:research <question> [item]` | a question, and a ticket or an item where there is one |
-| [2. The spec](#2-the-spec) | `/context-central:prep <item>` | the item's ticket, read in full, and the research notes |
+| [2. The spec](#2-the-spec) | `/context-central:prep <item>` | the item's ticket, read in full, and its research |
 | [3. The design](#3-the-design) | `/context-central:design <item>` | `SPEC.md`, the repo's standards and its code. Optional |
 | [4. The build](#4-the-build) | `/context-central:implement <item>` | `SPEC.md`, and `DESIGN.md` where there is one |
 | [5. The checkpoint](#5-the-checkpoint) | `/context-central:checkpoint` | git, the files on disk and the session |
@@ -29,32 +29,33 @@ A fresh session is `/clear` in the terminal, or **+ New session** in the desktop
 /context-central:research <question> [item]
 ```
 
-![Research in five steps: place the question on a work item, gather from primary sources, save the full text before any summary, mark every claim and sort it into four groups, then write the note, answer in those groups and name the step that comes next](research.png)
+![Research in six steps: place the question on its work item where it has one, write the brief and wait for one yes, gather in rounds each written before the next, save the full text before any summary, mark every fact and sort it into four groups, then write the research's folder, answer and name the step that comes next. The first round sweeps every connection it can search, what a source names is read in the round after, and taken alone research names no step](research.png)
 
 A primary source is the thing itself: the code at a commit, the ticket, the pull request, the vendor's own documentation, the meeting record. A summary, a recollection or a note already in the map is a lead to check against its source, never the source.
 
-- **Where the question goes.** With an item, the state file is read first. A ticket that no work item answers to gets its item first, `work new <item> --ticket "<reference>"`, so that its full text has somewhere to go. With no item at all, the note goes in `concepts/` and is linked from the note of each repo it is about, which is made where the map has none yet, so that prep finds it.
-- **It writes only the map.** From its start until you type another skill, research reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files. It makes no fix, test, probe or stand-in, and starts no other skill but the step skill a repo names for research. What only new code could show is left under Not known, naming the step that can show it.
+- **What it keeps.** A research is a folder of its own in the map, `research/<name>/`: a fact sheet of numbered facts, each with its mark and every source that says it, the research brief, a log of its rounds, a set-aside list, the reading and every source saved in full. [Research](research.md) has the whole of it: the folder, a run, adding to it, checking it, handing it over, leaving it to run and taking it alone.
+- **Where the question goes.** With an item, the state file is read first and links the fact sheet. A ticket that no work item answers to gets its item first, `work new <item> --ticket '<reference>'`, so that its full text has somewhere to go. With no item at all, the fact sheet is linked from the note of each repo it is about, which is made where the map has none yet, so that prep finds it.
+- **It writes only the map.** From its start until you type another skill, research reads, runs only what reads the estate as it is, such as the plugin's commands, git and code that is already there, and writes nothing but the map's files and a hand-over's folder. It makes no fix, test, probe or stand-in, and starts no other skill but one the estate names for research. What only new code could show is left under Not known, naming the step that can show it.
 - **A request to build** is researched as what the build has to fit and what the ask leaves open. Its next step is prep, and research makes no item for it, unless the request names a ticket new to the map, which gets its item first.
 - **Work already in progress is read both ways.** For a branch, an open pull request or a half-finished ticket, the diff against the repo's base branch shows what was done, and the ticket what was asked.
-- **How it gathers.** Long files go to the reader agent. A ticket or a pull request is read with `fetch`, which finds the connection the reference belongs to, saves the full text in the item's `sources/` and prints a digest. What `fetch` says a session reads goes to the fetcher agent. What nothing reaches, you paste, and it is saved in full before anything else.
-- **The marks.** `verified` carries its source as `path:line` at a commit, a link or the saved file. `inferred` says what it was reasoned from. Each claim is also put in one of the four groups, and a choice that is yours or a thing that is not known carries no mark.
-- **The note** is `work/<item>/notes/<YYYY-MM-DD>-research-<slug>.md`, added to "Where the detail lives" in the state file. It holds the question, the answer in a few lines, then the claims under the four groups, with their marks and their sources. Each claim has a line of its own, its recommendation where it has one on the line under it, then its evidence. An empty group says `none`.
-- **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question, then each claim that something is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, each claim that was checked and holds under Fine as it is, and what could not be checked under Not known, then the note's path and the next step. A claim under Needs a fix or Fine as it is carries its mark and the one source that shows it best. For a note with no item it also says which repo notes link it, or that none does.
+- **The brief comes first.** The run writes its questions, where it will look, its depth and what is out of scope, with a start line that says what it goes with, and waits once for your yes. Then it gathers in rounds, each written to the folder before the next, until it stops by a test it names.
+- **How it gathers.** The first round sweeps each connection it can search, by a sweeper agent of its own or by the skill the estate names for that connection, and what a source names is read in the round after. Long files go to the reader agent, a ticket or a pull request to `fetch`, which saves the full text in the item's `sources/` or with `--research` in the research's own, what `fetch` says a session reads to the fetcher agent, and a page on the web to the web reader. What nothing reaches is a gap, written down with how to connect it. What you paste is saved in full before anything else.
+- **The marks.** `verified` carries every source that says it: a `path:line` at a commit, a full address or the saved file. `inferred` says what it was reasoned from. Two sources that say one thing are one fact.
+- **The answer** is a [closing answer](#how-every-step-ends): one line that answers the question and says where the day to check the research again by had passed, then what is wrong or missing under Needs a fix, each choice that is yours under Yours to decide, what was checked and holds under Fine as it is, and what could not be checked or reached under Not known, each pointing at the facts it rests on, then the fact sheet's place and the next step. The same groups are written in the research's reading, and no file of the research names a step.
 
-Run it once for each question. Each run writes its own note and ends by naming the next step, the earliest that any of its claims needs:
+Each run ends by naming the next step, the earliest that any of its facts calls for:
 
 | Next step | When |
 |---|---|
-| `/context-central:prep <item>`, here or in a fresh session | there is something to build and no spec, or a claim changes what is built. With no item, research gives a short name for prep to make the item under, or the name of the item the finding fits |
-| `/context-central:design <item>`, in a fresh session | a spec is there, and a claim changes only how it is built or shows the design wrong |
-| `/context-central:implement <item>`, in a fresh session | a claim is a fault in what is built that the spec and the design already rule out |
+| `/context-central:prep <item>`, here or in a fresh session | there is something to build and no spec, or a fact changes what is built. With no item, research gives a short name for prep to make the item under, or the name of the item the finding fits |
+| `/context-central:design <item>`, in a fresh session | a spec is there, and a fact changes only how it is built or shows the design wrong |
+| `/context-central:implement <item>`, in a fresh session | a fact is a fault in what is built that the spec and the design already rule out |
 | the step the state file names | the item's files already hold what was found |
-| none | no claim needs a step: the line gives the next things you could do |
+| none | no fact calls for a step: the line gives the next things you could do |
 
-The note ends on the same step. With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the note, since design and implement read the state file and no research note. With no item, the step is prep or none for the same reason. Prep reads the notes behind the item: those its state file lists, and research kept with no item where it bears on the item or you name it.
+With an item, the step also goes at the top of the state file's Next, with what calls for it and a link to the fact sheet, since design and implement read the state file and no research. With no item, the step is prep or none for the same reason. Prep reads the research behind the item: what its state file lists, and research kept with no item where it bears on the item or you name it. Research taken alone, with no plugin, names no step and gives the next things to do in plain words.
 
-A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the note, writes to no other item, and names the step again, then any recommendation that is yours to carry out, such as a link from the hub. Nothing is built until you type that step.
+A yes to its recommendations, or asking it for the fix, the spec or the build, is your ruling for the next step. Research writes it into the reading, writes to no other item, and names the step again, then any recommendation that is yours to carry out, such as a link from the hub. Nothing is built until you type that step.
 
 ## 2. The spec
 
@@ -213,7 +214,6 @@ For the invented estate, a ticket `PROJ-12` that went through all five steps:
 work/PROJ-12/
   STATE.md                                            made at research, as the ticket was new; rewritten at each checkpoint
   sources/01-2026-01-12-ticket-PROJ-12-full-text.md   the ticket in full, saved by fetch at research
-  notes/2026-01-12-research-rate-limits.md            research: one note for each question
   SPEC.md                                             prep: what is built and why
   notes/2026-01-13-code-map.md                        prep: where in the code, at a commit
   DESIGN.md                                           design: how it is built, at a commit, each slice marked built as it lands
@@ -222,4 +222,4 @@ work/PROJ-12/
   notes/2026-01-14-evidence.md                        checkpoint: what each evidence file shows
 ```
 
-Outside the folder, prep and checkpoint add terms to the estate's glossary, checkpoint adds a line to `log/<YYYY-MM>.md`, and one for each rule of a standards note it changed, a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`, and research with no item leaves its note in `concepts/` with a line in `repos/<repo>.md`.
+Outside the folder, prep and checkpoint add terms to the estate's glossary, checkpoint adds a line to `log/<YYYY-MM>.md`, and one for each rule of a standards note it changed, a lesson may land in `repos/<repo>.md`, a concept note or `standards/<repo>.md`, and research keeps its folder under `research/<name>/`, linked from the state file, or with no item from a line in `repos/<repo>.md`.

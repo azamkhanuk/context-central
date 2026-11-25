@@ -3,7 +3,7 @@ import { chmodSync, copyFileSync, existsSync, readdirSync, readFileSync } from '
 import { delimiter, join } from 'node:path'
 import { test } from 'node:test'
 import { EXE_NAMES, NEEDS_STAND_IN, acme, disposable, leftByAWrite, makeTree, run, staleLock } from './helpers.mts'
-import type { Env } from './helpers.mts'
+import type { Env, Json, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
 
@@ -317,6 +317,101 @@ test('a fetch is refused in plain words when a file stands where the sources fol
   const result = fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-13'])
 
   assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: work/PROJ-13/sources is a file, not a folder, so nothing can be written under it\n' })
+})
+
+const SHEET = '---\nresearch: gateway-limits\n---\n# How the gateway limits a shop\n'
+const withResearch = (files: TreeFiles = {}, settings: { [key: string]: Json } = {}) => tree(acme({ 'research/gateway-limits/index.md': SHEET, ...files }, settings))
+const opened = (root: string, label: string) => run(['research', 'open', 'gateway-limits'], { cwd: root, env: { TZ: 'UTC' } }).stdout.split('\n').find(line => line.startsWith(`${label}:`))
+
+test('a pull request fetched for a research with no item is saved in full in the sources of the research, and research open then gives the next number', NEEDS_STAND_IN, () => {
+  const root = withResearch()
+
+  const result = fetch(root, stubGh(), ['pr', '88', '--research', 'gateway-limits'])
+
+  assert.deepEqual(result, { code: 0, stdout: 'PR #88: Limit the gateway [OPEN] feat/limit -> main, 4 files, 3 comments\nsaved: research/gateway-limits/sources/01-2026-01-15-pr-88-full-text.md (771 B)\n', stderr: '' })
+  assert.equal(read(root, 'research/gateway-limits/sources/01-2026-01-15-pr-88-full-text.md'), PR_FULL_TEXT)
+  assert.equal(opened(root, 'sources'), 'sources: 1 saved; the next is 02')
+  assert.deepEqual(sources(root), ['01-2026-01-09-PROJ-12-full-text.md'])
+})
+
+test('a second fetch for a research takes the next number, and a ticket is saved as a pull request is', NEEDS_STAND_IN, () => {
+  const root = withResearch({ 'research/gateway-limits/sources/04-2026-01-14-chat-retries-full-text.md': '# Retries\n' })
+
+  const result = fetch(root, stubGh(), ['issue', '41', '--research', 'Gateway-Limits'])
+
+  assert.deepEqual(result, { code: 0, stdout: 'Issue #41: Gateway drops calls [CLOSED] 1 comment\nsaved: research/gateway-limits/sources/05-2026-01-15-issue-41-full-text.md (286 B)\n', stderr: '' })
+  assert.equal(read(root, 'research/gateway-limits/sources/05-2026-01-15-issue-41-full-text.md'), ISSUE_FULL_TEXT)
+  assert.equal(opened(root, 'sources'), 'sources: 2 saved; the next is 06')
+})
+
+test("a fetch for a research saves under the folder the estate names for its researches", NEEDS_STAND_IN, () => {
+  const root = tree(acme({ 'findings/gateway-limits/index.md': SHEET }, { researchDir: 'findings' }))
+
+  const result = fetch(root, stubGh(), ['pr', '88', '--research', 'gateway-limits'])
+
+  assert.equal(result.stdout.split('\n')[1], 'saved: findings/gateway-limits/sources/01-2026-01-15-pr-88-full-text.md (771 B)')
+  assert.equal(read(root, 'findings/gateway-limits/sources/01-2026-01-15-pr-88-full-text.md'), PR_FULL_TEXT)
+})
+
+test('the hundredth source is numbered 100, for a research and for an item', NEEDS_STAND_IN, () => {
+  const root = withResearch({ 'research/gateway-limits/sources/99-2026-01-14-chat-full-text.md': '# Chat\n', 'work/PROJ-12/sources/99-2026-01-12-thread-full-text.md': '# A thread\n' })
+
+  assert.equal(fetch(root, stubGh(), ['pr', '88', '--research', 'gateway-limits']).stdout.split('\n')[1], 'saved: research/gateway-limits/sources/100-2026-01-15-pr-88-full-text.md (771 B)')
+  assert.equal(fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-12']).stdout.split('\n')[1], 'saved: work/PROJ-12/sources/100-2026-01-15-pr-88-full-text.md (771 B)')
+  assert.equal(fetch(root, stubGh(), ['issue', '41', '--item', 'PROJ-12']).stdout.split('\n')[1], 'saved: work/PROJ-12/sources/101-2026-01-15-issue-41-full-text.md (286 B)')
+})
+
+test('a folder whose sources reach 999 takes no more, for a research and for an item, and nothing is saved', NEEDS_STAND_IN, () => {
+  const root = withResearch({ 'research/gateway-limits/sources/999-2026-01-14-chat-full-text.md': '# Chat\n', 'work/PROJ-12/sources/999-2026-01-12-thread-full-text.md': '# A thread\n' })
+
+  assert.deepEqual(fetch(root, stubGh(), ['pr', '88', '--research', 'gateway-limits']), { code: 1, stdout: '', stderr: 'context-central fetch: research/gateway-limits/sources holds 999 numbered sources, and no number is left\n' })
+  assert.deepEqual(fetch(root, stubGh(), ['pr', '88', '--item', 'PROJ-12']), { code: 1, stdout: '', stderr: 'context-central fetch: work/PROJ-12/sources holds 999 numbered sources, and no number is left\n' })
+  assert.deepEqual(readdirSync(join(root, 'research/gateway-limits/sources')), ['999-2026-01-14-chat-full-text.md'])
+  assert.deepEqual(sources(root), ['01-2026-01-09-PROJ-12-full-text.md', '999-2026-01-12-thread-full-text.md'])
+  assert.deepEqual(leftByAWrite(root), [])
+})
+
+test('fetching for a research that is not there is refused before gh is asked, with the researches the map holds', () => {
+  const root = withResearch()
+  const gh = stubGh()
+
+  const result = fetch(root, gh, ['pr', '88', '--research', 'retries'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: no research "retries" in this map. Its researches: gateway-limits.\n' })
+  assert.equal(existsSync(join(gh, 'args')), false)
+  assert.equal(existsSync(join(root, 'research/retries')), false)
+})
+
+test('fetching for a research that has a work item is refused before gh is asked, since its ticket or pull request is saved with the item', () => {
+  const root = withResearch({ 'research/gateway-limits/index.md': SHEET.replace('---\n#', 'item: PROJ-12\n---\n#') })
+  const gh = stubGh()
+
+  const result = fetch(root, gh, ['pr', '88', '--research', 'gateway-limits'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: research gateway-limits belongs to work item PROJ-12: its ticket or pull request is saved with --item PROJ-12\n' })
+  assert.equal(existsSync(join(gh, 'args')), false)
+  assert.equal(existsSync(join(root, 'research/gateway-limits/sources')), false)
+})
+
+test("fetching for a research is refused where research's folder is not the plugin's to use", () => {
+  const root = tree(acme({ 'scratch/research/gateway-limits/index.md': SHEET }, { researchDir: 'scratch/research' }))
+  const gh = stubGh()
+
+  const result = fetch(root, gh, ['pr', '88', '--research', 'gateway-limits'])
+
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: 'context-central fetch: scratch/research is under a leftAlone entry, so it holds no research: name another folder with "researchDir" in estate.json\n' })
+  assert.equal(existsSync(join(gh, 'args')), false)
+})
+
+test('a fetch takes one of an item, a research and a check, and for a research it needs a reference', () => {
+  const root = withResearch()
+  const gh = stubGh()
+  const usage = 'context-central fetch: expected: fetch ticket|pr <reference> --item <item> [--connection <name>] [--repo <repo>], or --research <name> in place of --item to save into a research that has no item, or --check to try the connection and save nothing\n'
+
+  for (const args of [['pr', '88', '--item', 'PROJ-12', '--research', 'gateway-limits'], ['pr', '88', '--research', 'gateway-limits', '--check'], ['pr', '88', '--item', 'PROJ-12', '--check'], ['ticket', '--research', 'gateway-limits'], ['pr', '88']]) {
+    assert.deepEqual(fetch(root, gh, args), { code: 2, stdout: '', stderr: usage }, args.join(' '))
+  }
+  assert.equal(existsSync(join(gh, 'args')), false)
 })
 
 const GH_WITH_ACCOUNTS = `#!/bin/sh

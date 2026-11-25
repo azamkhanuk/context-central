@@ -25,6 +25,8 @@ const THE_PROVEN_COMMIT = '15d9165fec5e71e4a057469699a1e313e767cdcc'
 const THE_HEAD = 'e60a54547451023f01ca21ac6a5d4013e683dc65'
 const MAIN = '8386c750415caf4a58f235b5204c3b9397f30684'
 const WHAT_LINT_SAYS_OF: Record<string, string> = { 'ready-to-merge': 'WARN proof: refund-window in api: "./check.sh" last ran on code older than the head of work/refund-window' }
+const WITH_NO_MAP = ['research-with-no-map']
+const NOTHING_SAID = { code: 0, stdout: '', stderr: '' }
 
 const tree = disposable()
 
@@ -75,7 +77,9 @@ const asSaid = (text: string) => text.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').re
 const holding = (root: string, pattern: RegExp) => filesOf(root).filter(file => pattern.test(asSaid(read(root, file))))
 const context = (result: Result) => (JSON.parse(result.stdout) as HookOutput).hookSpecificOutput.additionalContext
 const fire = (event: string, input: object) => hook(event, input, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } })
-const indexOf = (root: string) => context(fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' }))
+const started = (root: string) => fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
+const indexOf = (root: string) => context(started(root))
+const noMapFrom = (root: string) => `no context map found from ${root}. "context-central init --plain --dry-run" lists what a plain map would write here, and /context-central:onboard sets a map up.`
 const asked = (root: string, prompt: string) => fire('user-prompt-submit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt })
 const lengthened = (path: string, to: number): string => (path.length >= to ? path : lengthened(join(path, 'a'.repeat(Math.min(A_FOLDER_NAME_AT_MOST, Math.max(1, to - path.length - 1)))), to))
 const row = (root: string, item: string, title: string) => `- ${item} | ${title} | ${join(root, 'work', item, 'STATE.md')}`
@@ -136,9 +140,11 @@ test('a case has at least one grader, and each is of a kind that calls no judge'
   assert.deepEqual(CASES.flatMap(one => graders(one).filter(grader => !FREE_KINDS.includes(grader.fields.type)).map(grader => `${caseLabel(one)}: ${grader.name}`)), [])
 })
 
-test('a case shows that the plugin spoke with a grader that is not scored, a pattern over the trace for the index', () => {
+test('a case shows that the plugin spoke with a grader that is not scored, a pattern over the trace for the index, and a case with no map carries none, since the hook prints nothing there', () => {
   for (const one of CASES) {
-    assert.deepEqual(graders(one).find(grader => grader.name === 'plugin-spoke')?.fields, { type: 'regex', target: 'trace', pattern: "'Work in flight \\('", arm: 'with-only' }, caseLabel(one))
+    const spoke = graders(one).find(grader => grader.name === 'plugin-spoke')?.fields
+
+    assert.deepEqual(spoke, WITH_NO_MAP.includes(one.name) ? undefined : { type: 'regex', target: 'trace', pattern: "'Work in flight \\('", arm: 'with-only' }, caseLabel(one))
   }
 })
 
@@ -153,8 +159,9 @@ test('the files of a case keep to one key and its value a line, so they are read
   assert.deepEqual(written.filter(({ line }) => !ONE_KEY_A_LINE.test(line)).map(({ file, line }) => `${file}: ${line}`), [])
 })
 
-test('a scaffold makes an estate whose session start is given the live index', A_SCAFFOLD, () => {
-  for (const one of CASES) {
+test('a scaffold makes an estate whose session start is given the live index, and for a case with no map one where the hook prints nothing', A_SCAFFOLD, () => {
+  for (const one of CASES.filter(one => WITH_NO_MAP.includes(one.name))) assert.deepEqual(started(estateOf(one)), NOTHING_SAID, caseLabel(one))
+  for (const one of CASES.filter(one => !WITH_NO_MAP.includes(one.name))) {
     const index = indexOf(estateOf(one))
 
     assert.match(index, /^Context map "/, caseLabel(one))
@@ -162,8 +169,14 @@ test('a scaffold makes an estate whose session start is given the live index', A
   }
 })
 
-test("a scaffold makes an estate the map's own checks find no fault in, but for what a case is there to show", A_SCAFFOLD, () => {
-  for (const one of CASES) {
+test("a scaffold makes an estate the map's own checks find no fault in, but for what a case is there to show, and for a case with no map one where they find no map", A_SCAFFOLD, () => {
+  for (const one of CASES.filter(one => WITH_NO_MAP.includes(one.name))) {
+    const root = estateOf(one)
+
+    assert.deepEqual(run(['lint', '--strict'], { cwd: root }), { code: 1, stdout: '', stderr: `context-central lint: ${noMapFrom(root)}\n` }, caseLabel(one))
+    assert.deepEqual(run(['graph', '--strict'], { cwd: root }), { code: 1, stdout: '', stderr: `context-central graph: ${noMapFrom(root)}\n` }, caseLabel(one))
+  }
+  for (const one of CASES.filter(one => !WITH_NO_MAP.includes(one.name))) {
     const root = estateOf(one)
     const said = WHAT_LINT_SAYS_OF[one.name]
 
@@ -880,4 +893,167 @@ test('reviewer-names-the-rule: each reply the page on the suite gives as scored 
   assert.deepEqual(passedBy(one, 'rule-named', placeInWords), [])
   assert.deepEqual(passedBy(one, 'clean-diff-clean', aLineThatWasChecked), [])
   assert.deepEqual(failedBy(one, 'clean-diff-clean', noLineOfTheFile), [])
+})
+
+const RESEARCH_CASES = ['gap-said', 'nobody-there-asks-nothing', 'research-with-no-map', 'two-sources-one-fact']
+const PROJ_22 = '01-2025-11-10-PROJ-22-full-text.md'
+const LEFT_TO_RUN = /^\/context-central:research Nobody is here, so do not wait for me\. \S[^\n]*\? Run it at the quick depth\.$/
+const fieldsIn = (one: Case, name: string) => graders(one).find(grader => grader.name === name)?.fields ?? {}
+const inputPattern = (one: Case, name: string) => new RegExp(unquoted(fieldsIn(one, name).input_match))
+const traceOf = (...messages: object[]) => messages.map(message => JSON.stringify(message)).join('\n')
+const wrote = (file: string, content: string) => ({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Write', input: { file_path: `/tmp/e-x/home/cwd/research/${file}`, content } }] } })
+const edited = (file: string, newString: string) => ({ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't2', name: 'Edit', input: { file_path: `/tmp/e-x/home/cwd/research/${file}`, old_string: '## Facts\n', new_string: newString } }] } })
+const readBack = (text: string) => ({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't3', content: text.split('\n').map((line, at) => `${String(at + 38).padStart(6)}\t${line}`).join('\n') }] } })
+const ranInShell = (command: string) => JSON.stringify({ command, description: 'Run it' })
+
+test('research: its group grants the plugin command and the two tools that write a file, and each of its four cases types the research skill with nobody there, at the quick depth', () => {
+  const ofTheGroup = CASES.filter(one => one.group === 'research')
+
+  assert.deepEqual(JSON.parse(read(EVALS, 'research', 'group.json')), { allowTools: ['Bash(context-central *)', 'Write', 'Edit'] })
+  assert.deepEqual(ofTheGroup.map(one => one.name), RESEARCH_CASES)
+  assert.deepEqual(failing(ofTheGroup, one => LEFT_TO_RUN.test(promptOf(one)), caseLabel), [])
+  assert.deepEqual(WITH_NO_MAP.filter(name => !RESEARCH_CASES.includes(name)), [])
+})
+
+test('research-with-no-map: its scaffold leaves the notes and the code of acme and takes the settings file away, so no map covers the folder and every command says so', A_SCAFFOLD, () => {
+  const one = named('research-with-no-map')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How does the limiter in api decide when to refuse a call? Run it at the quick depth.')
+  assert.equal(existsSync(join(root, 'estate.json')), false)
+  assert.deepEqual(['CLAUDE.md', 'repos/api.md', 'api/src/limit.js'].filter(file => !existsSync(join(root, file))), [])
+  assert.deepEqual(run(['resolve', 'How does the limiter decide', '--absolute'], { cwd: root }), { code: 1, stdout: '', stderr: `context-central resolve: ${noMapFrom(root)}\n` })
+  assert.deepEqual(asked(root, promptOf(one)), NOTHING_SAID)
+})
+
+test('research-with-no-map: it passes on the command that makes a plain map given in the reply, and on no map made and no file written or edited, in both arms', () => {
+  const one = named('research-with-no-map')
+  const makes = inputPattern(one, 'makes-no-map')
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['edits-no-file', 'gives-the-command', 'makes-no-map', 'writes-no-file'])
+  assert.deepEqual(fieldsIn(one, 'edits-no-file'), { type: 'tool_used', tool: 'Edit', min: '0', max: '0' })
+  assert.deepEqual(fieldsIn(one, 'writes-no-file'), { type: 'tool_used', tool: 'Write', min: '0', max: '0' })
+  assert.deepEqual({ ...fieldsIn(one, 'makes-no-map'), input_match: '' }, { type: 'tool_used', tool: 'Bash', input_match: '', min: '0', max: '0' })
+  assert.deepEqual(failedBy(one, 'gives-the-command', [
+    'No map covers this folder, so nothing was written.\n\n```\nplain map at /tmp/e-x/home/cwd:\nwould create estate.json\n```\n\n`context-central init --plain` makes it.',
+    'Run context-central init --plain to make the map, then ask again.',
+    'context-central init --plain --dry-run printed what it would write; context-central init --plain writes it.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'gives-the-command', [
+    'No map covers this folder. `context-central init --plain --dry-run` lists what a plain map would write.',
+    'The limiter keeps a bucket of tokens for each shop and refuses a call once the bucket is empty.',
+    'Run /context-central:onboard to set a map up.',
+    'context-central init --plain-text',
+  ]), [])
+  assert.deepEqual([
+    'context-central init --plain',
+    'context-central init --plain --hub AGENTS.md',
+    'cd /tmp/e-x/home/cwd && context-central init --plain',
+    'context-central init --plain --dry-run && context-central init --plain',
+    'context-central init --plain # not --dry-run',
+    'context-central init --plain --dry-run; context-central init --plain',
+    'cd "/tmp/e x" && context-central init --plain',
+  ].filter(command => !makes.test(ranInShell(command))), [])
+  assert.deepEqual([
+    'context-central init --plain --dry-run',
+    'context-central init --dry-run --plain',
+    'context-central resolve "How does the limiter decide" --absolute',
+    'context-central init --help',
+    'context-central init --plain --dry-run && context-central resolve "x"',
+    'context-central resolve "init --plain" --absolute',
+    'context-central init # --plain',
+  ].filter(command => makes.test(ranInShell(command))), [])
+})
+
+test('two-sources-one-fact: its scaffold adds to acme primary sources that each give seven days, the code that keeps an export file, the cleaner that removes one a week after it is built and the saved ticket of the work that built it, which its state file names, beside the note of the map that says so too', A_SCAFFOLD, () => {
+  const one = named('two-sources-one-fact')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How long is an export file kept before worker removes it? Run it at the quick depth.')
+  assert.match(read(root, 'worker/src/keep.js'), /^export const KEEP_DAYS = 7\n/)
+  assert.match(read(root, 'worker/src/clean.js'), /^const A_WEEK_MS = 7 \* 24 \* 60 \* 60 \* 1000\n/)
+  assert.doesNotMatch(read(root, 'worker/src/clean.js'), /keep\.js|KEEP_DAYS/)
+  assert.match(read(root, `work/export-csv/sources/${PROJ_22}`), /\nThe file should stay available for 7 days after it is built, then be removed\.\n/)
+  assert.match(read(root, 'work/export-csv/STATE.md'), new RegExp(`\\n- The ticket as filed: \`sources/${PROJ_22}\`\\.\\n`))
+  assert.deepEqual(holding(root, /\bseven days\b|\b7 days\b|\bKEEP_DAYS = 7\b|\bA_WEEK_MS = 7\b/), ['concepts/exports.md', `work/export-csv/sources/${PROJ_22}`, 'worker/src/clean.js', 'worker/src/keep.js'])
+})
+
+test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed, a fact with two sources that says nothing of how long, and the example the skill reads', () => {
+  const one = named('two-sources-one-fact')
+  const TWO_SOURCES = '  - Source: `worker/src/clean.js:1-4` at `4b1c2d3`\n  - Source: `worker/src/keep.js:1-5` at `4b1c2d3`\n'
+  const ONE_FACT = '- **F1** `verified` An export file is kept for seven days, then worker removes it.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [PROJ-22](../../work/export-csv/sources/01-2025-11-10-PROJ-22-full-text.md)\n'
+  const graded = (trace: string) => patternOf(one, 'one-fact-two-sources').test(trace)
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['one-fact-two-sources', 'plugin-spoke'])
+  assert.deepEqual({ ...fieldsIn(one, 'one-fact-two-sources'), pattern: '' }, { type: 'regex', target: 'trace', pattern: '' })
+  assert.deepEqual([
+    traceOf(wrote('export-keeping/index.md', `# Export keeping\n\n## Facts\n\n${ONE_FACT}\n## Sources\n`)),
+    traceOf(edited('export-keeping/index.md', `## Facts\n\n${ONE_FACT}`)),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` Worker removes an export file a week after it is built.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` An export file is retained for one week.\n${TWO_SOURCES}`)),
+  ].filter(trace => !graded(trace)), [])
+  assert.deepEqual([
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `verified` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `verified` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n- **F2** `verified` The note on exports says a file is kept for seven days.\n  - Source: [exports](../../concepts/exports.md)\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `inferred` An export file is kept for seven days.\n  - From: `worker/src/keep.js:1` at `4b1c2d3`\n  - From: [exports](../../concepts/exports.md)\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `inferred` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
+    traceOf(readBack('- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`')),
+    traceOf(readBack(ONE_FACT)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The check of age is in keep.js and the cleaner in clean.js.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The limiter keeps a bucket of tokens for each shop.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` The retry waits 7 seconds.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', `## Facts\n\n- **F1** \`verified\` A shop's bucket of calls refills after seven days.\n${TWO_SOURCES}`)),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Nothing in worker deletes an export file.\n  - Source: `worker/src/export.js:1-5` at `4b1c2d3`\n  - Source: `worker/src/retry.js:1-12` at `4b1c2d3`\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` `disputed` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`: 7\n  - Source: [exports](../../concepts/exports.md): seven\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`\n')),
+  ].filter(graded), [])
+})
+
+test('gap-said: its scaffold has the state file of the gateway limit say that its number was agreed in a chat thread, which no connection of acme reaches and no file holds', A_SCAFFOLD, () => {
+  const one = named('gap-said')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How many calls a minute was each shop to be allowed at the gateway, and who agreed that number? Run it at the quick depth.')
+  assert.deepEqual(holding(root, /\bT-377\b/), ['work/rate-limit-gateway/STATE.md'])
+  assert.match(read(root, 'work/rate-limit-gateway/STATE.md'), /\n- The number of calls a minute for each shop was agreed in the team chat, in the thread T-377, and is written down nowhere else\.\n/)
+  assert.deepEqual(holding(root, /\b\d+ calls a minute\b|\bcalls a minute (?:is|was|of) \d+\b/i), [])
+  assert.deepEqual(run(['connections'], { cwd: root }).stdout, 'tracker | tickets | by hand\n')
+})
+
+test('gap-said: its grader passes a reply whose last group names the chat thread as not reached, and fails one that names it elsewhere or says nothing was left out', () => {
+  const one = named('gap-said')
+
+  assert.deepEqual(graders(one).map(grader => grader.name), ['gap-named', 'plugin-spoke'])
+  assert.deepEqual(failedBy(one, 'gap-named', [
+    'The number is not in any file here.\n\n**Not known**\n- The number itself: it was agreed in the team chat, thread T-377, which no connection reaches. Connect the chat to read it.',
+    'Not in the code yet.\n\n**Fine as it is**\n- The limit is counted for each shop (F1).\n\n**Not known**\n- Who agreed it and what it is: the chat nothing reaches.',
+    '**Not known**\n\n- What the number is (F2): agreed in a Chat thread that this map has no connection for.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'gap-named', [
+    'It was agreed in the chat, thread T-377.\n\n**Not known**\n- none',
+    'The chat thread T-377 holds it.\n\n**Fine as it is**\n- The spec gives the limit for each shop (F1).',
+    'The number is 120 calls a minute.',
+    'Who agreed it is not known.\n\n**Fine as it is**\n- The limit is counted for each shop, as the chat thread T-377 has it.',
+  ]), [])
+})
+
+test('nobody-there-asks-nothing: its graders pass a run that asks nothing and ends on what is still open, the length of an outage of the file store, which no file of acme gives', A_SCAFFOLD, () => {
+  const one = named('nobody-there-asks-nothing')
+  const root = estateOf(one)
+
+  assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How long does worker wait before its last try at a failed export, and is that long enough to get past an outage of the file store? Run it at the quick depth.')
+  assert.deepEqual(listed(promptFields(one).allowed_tools), ['Read', 'Glob', 'Grep', 'Agent', 'AskUserQuestion'])
+  assert.deepEqual(holding(root, /\boutages? (?:of the file store )?(?:lasts?|lasted|takes?|of \d)/i), [])
+  assert.deepEqual(graders(one).map(grader => grader.name), ['asks-nothing', 'ends-on-what-is-open', 'plugin-spoke'])
+  assert.deepEqual(fieldsIn(one, 'asks-nothing'), { type: 'tool_used', tool: 'AskUserQuestion', min: '0', max: '0' })
+  assert.deepEqual(failedBy(one, 'ends-on-what-is-open', [
+    'About 30 seconds after the first failure.\n\n**Not known**\n- Whether that gets past an outage of the file store: nothing here says how long one lasts.',
+    '**Fine as it is**\n- Five tries, waits doubling from two seconds (F1).\n\n**Not known**\n\n- How long the file store is down in an Outage.',
+  ]), [])
+  assert.deepEqual(passedBy(one, 'ends-on-what-is-open', [
+    'Thirty seconds, which will not get past an outage.\n\n**Not known**\n- none',
+    'About thirty seconds. Whether that is long enough is not known.',
+    'Whether that is long enough is not known.\n\n**Fine as it is**\n- The waits double from two seconds, which the spec says is enough for a short outage (F1).',
+  ]), [])
 })

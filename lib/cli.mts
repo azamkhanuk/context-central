@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PluginError, UsageError, messageOf } from './errors.mts'
 import { manifestPath } from './manifest.mts'
@@ -24,7 +24,9 @@ export interface Command {
 
 type Row = [name: string, summary: string | undefined]
 
-const COMMANDS_DIR = join(dirname(fileURLToPath(import.meta.url)), 'commands')
+const HERE = fileURLToPath(import.meta.url)
+const COMMANDS_DIR = join(dirname(HERE), 'commands')
+const ENDING = extname(HERE)
 const COMMAND_NAME = /^[a-z][a-z-]*$/
 const HELP_FLAGS = ['--help', '-h']
 const VERSION_FLAG = '--version'
@@ -83,14 +85,14 @@ async function readStdin() {
 
 async function loadCommand(name: string): Promise<Command | null> {
   if (!COMMAND_NAME.test(name)) return null
-  const file = join(COMMANDS_DIR, `${name}.mts`)
+  const file = join(COMMANDS_DIR, `${name}${ENDING}`)
   return existsSync(file) ? (import(pathToFileURL(file).href) as Promise<Command>) : null
 }
 
 async function help(io: Io) {
   const names = readdirSync(COMMANDS_DIR)
-    .filter(file => file.endsWith('.mts'))
-    .map(file => file.slice(0, -4))
+    .filter(file => file.endsWith(ENDING))
+    .map(file => file.slice(0, -ENDING.length))
     .sort()
   const commands = await Promise.all(names.map(async (name): Promise<Row> => [name, (await loadCommand(name))!.summary]))
   return usage(io, [...commands, [VERSION_FLAG, 'Print the release, the Node it runs on and the system']])

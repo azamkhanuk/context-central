@@ -58,9 +58,80 @@ test('the same facts are given as JSON', () => {
   const root = withConnections({ tracker: { holds: 'tickets', server: 'issues', references: ['PROJ-\\d+'] }, code: { holds: 'pull-requests', account: 'acme-bot' } })
 
   assert.deepEqual(JSON.parse(connections(root, '--json').stdout) as unknown, [
-    { name: 'tracker', holds: 'tickets', by: 'server', fetch: null, missing: null, entry: { holds: 'tickets', server: 'issues', references: ['PROJ-\\d+'] } },
-    { name: 'code', holds: 'pull-requests', by: 'hand', fetch: null, missing: null, entry: { holds: 'pull-requests', account: 'acme-bot' } },
+    { name: 'tracker', holds: 'tickets', by: 'server', fetch: null, missing: null, search: { by: 'server', server: 'issues' }, entry: { holds: 'tickets', server: 'issues', references: ['PROJ-\\d+'] } },
+    { name: 'code', holds: 'pull-requests', by: 'hand', fetch: null, missing: null, search: { by: 'name' }, entry: { holds: 'pull-requests', account: 'acme-bot' } },
   ])
+})
+
+const SEARCHED = {
+  wiki: { holds: 'documents', researchSkill: 'wiki-search', commands: { search: ['wiki', 'find', '{query}'] }, server: 'pages' },
+  desk: { holds: 'tickets', commands: { search: ['desk', 'find'], read: ['desk', 'show', '{id}'] }, server: 'issues' },
+  talk: { holds: 'chat', server: 'threads' },
+  post: { holds: 'mail', how: 'Ask the office.' },
+  builds: { holds: 'builds', commands: { read: ['ci', 'show', '{id}'] } },
+}
+const searched = (root: string, ...args: string[]) => (JSON.parse(connections(root, ...args, '--json').stdout) as { name: string, search: unknown }[]).map(({ name, search }) => [name, search])
+
+test("the JSON says how each connection is searched, by the first of these its entry has: a skill of the estate's own, the estate's own search command, its server, and otherwise by name alone", () => {
+  assert.deepEqual(searched(withConnections(SEARCHED)), [
+    ['wiki', { by: 'skill', skill: 'wiki-search' }],
+    ['desk', { by: 'command' }],
+    ['talk', { by: 'server', server: 'threads' }],
+    ['post', { by: 'name' }],
+    ['builds', { by: 'name' }],
+  ])
+})
+
+test('a search command of no words is passed over for what the entry has next', () => {
+  const root = withConnections({
+    wiki: { holds: 'documents', commands: { search: [] }, server: 'pages' },
+    post: { holds: 'mail', commands: { search: [] } },
+  })
+
+  assert.deepEqual(searched(root), [['wiki', { by: 'server', server: 'pages' }], ['post', { by: 'name' }]])
+})
+
+test("the JSON names a connection's skill for searching as it is written, with the plugin's name before it too", () => {
+  const root = withConnections({ wiki: { holds: 'documents', researchSkill: 'acme-kit:wiki-search' }, desk: { holds: 'tickets', researchSkill: 'desk.search_2' } })
+
+  assert.deepEqual(searched(root), [['wiki', { by: 'skill', skill: 'acme-kit:wiki-search' }], ['desk', { by: 'skill', skill: 'desk.search_2' }]])
+})
+
+test("a connection's skill for searching that is no skill's name stops every command when the settings are read", () => {
+  for (const odd of [7, null, '', ['wiki-search'], 'wiki search', 'acme:kit:wiki', ':wiki', 'wiki:', '-wiki', 'acme:-wiki', 'acme:.wiki', 'wiki/search']) {
+    const result = connections(withConnections({ wiki: { holds: 'documents', researchSkill: odd, server: 'pages' } }))
+
+    assert.equal(result.code, 1, JSON.stringify(odd))
+    assert.equal(result.stdout, '', JSON.stringify(odd))
+    assert.ok(result.stderr.endsWith('estate.json: "connections.wiki.researchSkill" must name one skill, as "name" or "plugin:name"\n'), JSON.stringify(odd))
+  }
+})
+
+test('how a connection is searched is in the JSON alone: the lines connections prints are as they were', () => {
+  assert.equal(
+    connections(withConnections(SEARCHED)).stdout,
+    "wiki | documents | by a session, through the server pages\ndesk | tickets | by a session, through the server issues\ntalk | chat | by a session, through the server threads\npost | mail | by hand: Ask the office.\nbuilds | builds | by a session, with the estate's own command\n",
+  )
+})
+
+const recorded = (root: string) => (JSON.parse(connections(root, '--json').stdout) as { name: string, search: unknown, unasked?: boolean }[]).filter(one => !one.unasked).map(({ name, search }) => [name, search])
+const olderTracker = (more: { [key: string]: Json }) => estate({ tracker: { type: 'desk', keyPatterns: ['DESK-\\d+'], ...more } })
+
+test('on a map made before connections a tracker with no way of its own is searched by name alone, and so is one whose command is words and no map of actions', () => {
+  assert.deepEqual(recorded(olderTracker({})), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: 'by hand' })), [['desk', { by: 'name' }]])
+})
+
+test('on such a map a search command that is no list of words is passed over, since nothing has refused it there, and one that is such a list is the way the tracker is searched', () => {
+  assert.deepEqual(recorded(olderTracker({ commands: { search: [7, null] } })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', ''] } })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ commands: { search: ['desk', 'find'] } })), [['desk', { by: 'command' }]])
+})
+
+test("on such a map a tracker's skill for searching that is no skill's name is passed over, since nothing has refused it there, and one that is a skill's name is the way the tracker is searched", () => {
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 'desk search', commands: { search: ['desk', 'find'] } })), [['desk', { by: 'command' }]])
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 7 })), [['desk', { by: 'name' }]])
+  assert.deepEqual(recorded(olderTracker({ researchSkill: 'acme-kit:desk-search' })), [['desk', { by: 'skill', skill: 'acme-kit:desk-search' }]])
 })
 
 test('with no connection the JSON is an empty list', () => {
@@ -161,7 +232,7 @@ test('the connection of a ticket is given as JSON too', () => {
   const root = withConnections(TWO_TRACKERS)
 
   assert.deepEqual(JSON.parse(connections(root, '--ticket', 'DESK-7', '--json').stdout) as unknown, [
-    { name: 'desk', holds: 'tickets', by: 'server', fetch: null, missing: null, entry: TWO_TRACKERS.desk },
+    { name: 'desk', holds: 'tickets', by: 'server', fetch: null, missing: null, search: { by: 'server', server: 'acme-desk' }, entry: TWO_TRACKERS.desk },
   ])
 })
 

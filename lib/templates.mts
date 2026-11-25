@@ -105,6 +105,74 @@ ${detail}- Spec: \`SPEC.md\` beside this file, once written.
 `
 }
 
+export interface NewResearch {
+  name: string
+  title: string
+  item: string | null
+  reading?: string
+}
+
+export function researchTemplates({ name, title, item, reading }: NewResearch): Record<string, string> {
+  return {
+    'index.md': `---
+research: ${name}
+title: ${title}
+${item ? `item: ${item}\n` : ''}---
+# ${title}
+
+This folder is one research: what was found on the questions below, with every source kept beside it. It can be read with nothing else to hand.
+
+- This file is the fact sheet. Each fact is one sentence with a number that is never used again, a mark, and every source that says it.
+- The mark says how a fact is known: \`verified\` was read in the source itself, and \`inferred\` was reasoned from what its \`From\` line names.
+- A fact marked \`disputed\` has sources that disagree, and both are shown.
+- A fact that no longer holds leaves this sheet for [the log](log.md), under its number. The fact in its place says which number it supersedes, when and why.
+- [The brief](brief.md) holds the questions and where the run looked. [The log](log.md) holds one entry a round. [The set-aside list](set-aside.md) holds what was judged beside the point. [The reading](reading.md) is one person's judgement of the facts. \`sources/\` holds each source in full, never edited.
+
+## Questions
+
+## Check again by
+
+## Not reached
+
+## Facts
+
+## Sources
+`,
+    'brief.md': `# ${title}: the brief
+
+What this research was asked and where it looked. A question asks what is so, never what is wanted.
+
+## Questions
+
+## Sources to cover
+
+## Depth
+
+## Out of scope
+
+## Start line
+`,
+    'log.md': `# ${title}: the log
+
+One entry a round, in the order the rounds were run. A fact that no longer holds is kept here word for word, under its number, in the entry of the round that superseded it.
+`,
+    'set-aside.md': `# ${title}: the set-aside list
+
+What was judged beside the point, each with its source and one line of reason. A line moved under Bring in is fetched by the next round, and no round uses what is under Set aside.
+
+## Set aside
+
+## Bring in
+`,
+    'reading.md':
+      reading ??
+      `# ${title}: the reading
+
+One person's judgement of the facts on [the fact sheet](index.md), which it names by their numbers. Each run adds a part under its date.
+`,
+  }
+}
+
 function link(path: string) {
   const target = path.replace(/[\s()#%]/g, char => (char === '(' || char === ')' ? `%${char.charCodeAt(0).toString(16)}` : encodeURIComponent(char)))
   return `[${path.replace(/^(\.\.\/)+/, '')}](${target})`
