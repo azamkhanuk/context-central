@@ -244,16 +244,16 @@ What they say, as found:
 
 ## The figures of the research cases
 
-Run on 2026-11-25 on macOS, with Claude Code 2.1.332 and `claude-sonnet-5-5`, each run once with the plugin and no arm without it, from a copy of the plugin with its `bin` folder first on the `PATH`. The research text was that of release 0.21.0 in every run.
+Run on 2026-11-25 on macOS, with Claude Code 2.1.332 and `claude-sonnet-5-5`, each run once with the plugin and no arm without it, from a copy of the plugin with its `bin` folder first on the `PATH`, on the research text of release 0.21.0 as it ships.
 
 | Case | Runs | Score | USD a run, by the host's estimate |
 |---|---|---|---|
-| `research-with-no-map` | 4, the last on its mended grader | 1.00 in each | 0.16 to 0.17 |
-| `two-sources-one-fact` | 2 on its third version, the second on its mended grader | 1.00 in each | 0.30 to 0.33 |
-| `gap-said` | 1 | 1.00 | 0.33 |
-| `nobody-there-asks-nothing` | 1 | 1.00 | 0.37 |
+| `research-with-no-map` | 1 | 1.00 | 0.16 |
+| `two-sources-one-fact` | 1 | 1.00 | 0.35 |
+| `gap-said` | 1 | 1.00 | 0.32 |
+| `nobody-there-asks-nothing` | 1 | 1.00 | 0.36 |
 
-`two-sources-one-fact` took three versions. In the first, the second source was `concepts/exports.md`, a note of the map, which research rightly takes as a lead and not as a source: the run made its fact of the seven days from the code alone, and the grader passed on another fact of that run, of what deletes a file, which had three sources. The grader then looked for a fact of a file kept or of seven days, and a check of the build found that it passed "The limiter keeps a bucket of tokens for each shop." and failed "Worker removes an export file a week after it is built.", each with two `Source` lines. It now looks for seven days or a week said in a fact that names an export file, with a line for each of two sources: of the runs before, it fails the first version's and passes the third's. The grader `makes-no-map` passed a run that made the map where one shell line held a dry run and the real one, as `context-central init --plain --dry-run && context-central init --plain`, or a comment that held `--dry-run`. It now counts each command of a line by itself and stops at a comment, and the runs before it still pass. In the second, the second source was the saved ticket of `export-csv`, which the run never reached, and it scored 0.50. In the third, the cleaner in `worker` gives the seven days beside `keep.js`, and the run wrote one fact with a line for each.
+Earlier runs, on the research text before its last change, scored `research-with-no-map` 1.00 in 4 of 4, the last on its mended grader, and the third version of `two-sources-one-fact` 1.00 in 2 of 2, and showed what follows. `two-sources-one-fact` took three versions. In the first, the second source was `concepts/exports.md`, a note of the map, which research rightly takes as a lead and not as a source: the run made its fact of the seven days from the code alone, and the grader passed on another fact of that run, of what deletes a file, which had three sources. The grader then looked for a fact of a file kept or of seven days, and a check of the build found that it passed "The limiter keeps a bucket of tokens for each shop." and failed "Worker removes an export file a week after it is built.", each with two `Source` lines. It now looks for seven days or a week said in a fact that names an export file, with a line for each of two sources: of the runs before, it fails the first version's and passes the third's. The grader `makes-no-map` passed a run that made the map where one shell line held a dry run and the real one, as `context-central init --plain --dry-run && context-central init --plain`, or a comment that held `--dry-run`. It now counts each command of a line by itself and stops at a comment, and the runs before it still pass. In the second, the second source was the saved ticket of `export-csv`, which the run never reached, and it scored 0.50. In the third, the cleaner in `worker` gives the seven days beside `keep.js`, and the run wrote one fact with a line for each.
 
 A run of `two-sources-one-fact` with the plugin's `bin` off the `PATH` found `context-central` nowhere, then did the work by hand and scored 0.50.
 
