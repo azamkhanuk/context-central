@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: research-with-no-map
+context:
+  scaffold_script: scaffold.sh
