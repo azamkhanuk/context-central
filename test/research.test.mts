@@ -322,6 +322,20 @@ test('a map whose work folder or a folder of its deep tier is named research, wi
   }
 })
 
+test('where the settings list the folder for researches among nodeDirs, a research joins no route by words, at the prompt hook or with resolve, and lint reads its sheet once, while a note of the estate\'s own in that folder is found as before', () => {
+  const root = tree(acme({ 'research/market-notes.md': '# Market notes\n\nWhat the shops said of exports in the survey.\n' }, { nodeDirs: ['repos', 'areas', 'concepts', 'edges', 'decisions', 'docs', 'standards', 'log', 'work', 'research'] }))
+  assert.equal(research(root, 'new', NAME, '--title', TITLE).code, 0)
+  writeFileSync(join(root, 'research', NAME, 'index.md'), read(root, 'research', NAME, 'index.md').replace('## Facts\n', '## Facts\n\n- **F1** `verified` The turnstile quota of a shop resets each minute.\n\n## Zebra crossing quota\n\nThe zebra crossing quota is kept.\n'))
+  writeFileSync(join(root, 'research', NAME, 'reading.md'), `${read(root, 'research', NAME, 'reading.md')}\n- The quota holds (F1, \`verified\`).\n`)
+
+  assert.doesNotMatch(run(['resolve', 'how the gateway limits a shop'], { cwd: root }).stdout, /gateway-limits/)
+  assert.doesNotMatch(hook('user-prompt-submit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'how the gateway limits a shop' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } }).stdout, /gateway-limits/)
+  assert.doesNotMatch(run(['resolve', 'zebra crossing quota'], { cwd: root }).stdout, /gateway-limits/)
+  assert.match(run(['resolve', 'market notes survey'], { cwd: root }).stdout, /research\/market-notes\.md/)
+  assert.doesNotMatch(run(['lint'], { cwd: root }).stdout, /reading\.md/)
+  assert.equal(run(['lint'], { cwd: root }).stdout.split('\n').filter(line => line.startsWith(`WARN mark: research/${NAME}/index.md`)).length, 1)
+})
+
 test('a folder of the deep tier is not taken as the folder for researches, nor one below it, since nothing under it is read as a note', () => {
   const deep: [string, string, { [key: string]: Json }][] = [['sources', 'sources', {}], ['Sources', 'sources', {}], ['research/sources', 'sources', {}], ['notes/sources/research', 'sources', {}], ['raw/research', 'raw', { deepDirs: ['sources', 'raw'] }]]
 

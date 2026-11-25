@@ -114,6 +114,14 @@ export function researchTaken({ estateRoot, mapDir, config }: Estate): string | 
   return leftAlone ? 'is under a leftAlone entry' : null
 }
 
+export function withoutResearches<Held extends { rel: string }>(estate: Estate, files: Held[]): Held[] {
+  const { nodeDirs, researchDir } = estate.config
+  const listsIt = nodeDirs.map(dir => dir.replace(/\/+$/, '')).some(dir => researchDir === dir || researchDir.startsWith(`${dir}/`))
+  if (!listsIt) return files
+  const folders = listResearches(estate).map(research => `${research.dirRel}/`)
+  return files.filter(file => !folders.some(folder => file.rel.startsWith(folder)))
+}
+
 export function listResearches(estate: Estate): Research[] {
   if (researchTaken(estate)) return []
   const { researchDir } = estate.config

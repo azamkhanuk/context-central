@@ -36,7 +36,7 @@ research/gateway-limits/
 
 **Where it is linked from.** With an item, the item's state file lists the fact sheet under where the detail lives. With none, the note of each repo it is about links it, `repos/<repo>.md`, made where the map has none. A research about no repo the map registers is linked from nothing, and the closing answer says so.
 
-`lint` holds every research to its layout: a number used once across the sheet and the log, a superseded fact in the log and the fact in its place naming it with the day and the reason, a fact marked verified naming its source, each saved source named by some file, and no link out of the folder but a full address and, with an item, a link to that item's saved ticket or pull request. `graph` reads the folder too. Neither says anything of a cited line that has moved or a day to check again by that has passed: `research moved` and `research open` say those.
+`lint` holds every research to its layout: a number used once across the sheet and the log, a superseded fact in the log and the fact in its place naming it with the day and the reason, a fact marked verified naming its source, and no link out of the folder but a full address and, with an item, a link to that item's saved ticket or pull request. `graph` reads the folder too, and names a saved source no file names and a fact sheet nothing links. Neither says anything of a cited line that has moved or a day to check again by that has passed: `research moved` and `research open` say those.
 
 No file of a research names a step of the plugin. A research note written before this release stays where it is and reads as before.
 
@@ -60,7 +60,7 @@ No file of a research names a step of the plugin. A research note written before
 
 | Kind | Agent | What it may do |
 |---|---|---|
-| a sweep of one connection for leads | `context-central:sweeper` | search; it is denied the tools that write a file and saves nothing |
+| a sweep of one connection for leads | `context-central:sweeper` | search and save nothing; it is denied the tools that write a file, and still holds a shell and the server's tools |
 | many files, long files, saved sources | `context-central:reader` | read, with a shell for `slice` and git, and write no file |
 | a ticket or a pull request | `context-central fetch`, and the fetcher where fetch says a session reads the connection | save the full text where it is told, and nothing else |
 | anything else in a connection | `context-central:fetcher` | the same |
@@ -128,7 +128,7 @@ Other hosts read the open skill format, and research has not been run on one. It
 ## Where a host cannot hold it
 
 - **A skill kept to the person.** Claude Code starts research only when you type it, as its head says. A host that reads `agents/openai.yaml` is told the same. A host that reads neither may start research of its own accord.
-- **An agent kept to reading.** With the plugin on Claude Code, the sweeper is denied the tools that write a file and the web reader holds two tools that fetch and nothing else. Taken alone, a subagent is chosen that is denied those tools where the host has one, as Claude Code's Explore is. Where a host has none, only the brief's words keep an agent from writing.
+- **An agent kept to reading.** With the plugin on Claude Code, the web reader holds two tools that fetch and nothing else. The sweeper is denied the tools that write a file and still holds a shell and every tool of its server, those that post among them, and the reader holds a shell: only their briefs keep them from writing through the shell or posting. Taken alone, a subagent is chosen that is denied those tools where the host has one, as Claude Code's Explore is. Where a host has none, only the brief's words keep an agent from writing.
 - **A session that reads for itself.** Where no subagent holds what a kind of reading needs, the session reads it itself, so the raw text comes into its own context.
 
 Research never posts outside the map, and never records a tool of the session in the settings.

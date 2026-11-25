@@ -7,7 +7,7 @@ import { buildIndex } from './index-text.mts'
 import { describeFile, expandImports } from './instructions.mts'
 import { EVIDENCE_DIR, hubPath, inFlight, leftOut, listNodes, listWorkItems, passedOver, savedSourceNames, strayFiles } from './nodes.mts'
 import { saidOf, unproven } from './proof.mts'
-import { LOG_FILE, layoutFindings, listResearches } from './research.mts'
+import { LOG_FILE, layoutFindings, listResearches, withoutResearches } from './research.mts'
 import { fenced, formatBytes, plural, unquoted } from './text.mts'
 import type { Env } from './cli.mts'
 import type { Estate, Repo } from './estate.mts'
@@ -35,7 +35,7 @@ const NAMES_A_SOURCE = [/[\w.-]*\w\.[A-Za-z]\w*:\d+/, /https?:\/\/\S+/, /\]\([^)
 export function lintEstate(estate: Estate, env: Env): Finding[] {
   const items = listWorkItems(estate)
   const itemsInFlight = items.filter(inFlight)
-  const nodes = listNodes(estate)
+  const nodes = withoutResearches(estate, listNodes(estate))
   const researches = listResearches(estate)
   const logs = new Set(researches.map(research => `${research.dirRel}/${LOG_FILE}`))
   return [

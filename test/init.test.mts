@@ -38,6 +38,13 @@ test('a map at the estate root gets its config, node folders, hub and glossary',
   for (const dir of NODE_DIRS) assert.ok(existsSync(join(root, dir)))
 })
 
+test('a map from an answers file keeps its hub in a folder it lays down for the map where the answers put it there, as before', () => {
+  const root = answers({ config: { ...CONFIG, hub: 'docs/AGENTS.md' } })
+
+  assert.equal(init(root).code, 0)
+  assert.ok(existsSync(join(root, 'docs', 'AGENTS.md')))
+})
+
 test('a new hub says what the standards folder holds', () => {
   const root = answers()
   init(root)

@@ -1,9 +1,9 @@
-import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, posix } from 'node:path'
 import { citedIn } from './citations.mts'
 import { draftsDir, mapFiles } from './drafts.mts'
 import { PluginError } from './errors.mts'
-import { filesUnder, findWorkItem, parseLinks } from './nodes.mts'
+import { filesUnder, findWorkItem, neverListed, parseLinks } from './nodes.mts'
 import { readResearch, relOf } from './research.mts'
 import { fenced, plural } from './text.mts'
 import { holds } from './worktree.mts'
@@ -123,8 +123,37 @@ function holdsOneNameUnderBothCases(folder: string): boolean {
   return here !== undefined && there !== undefined && here.ino === there.ino && here.dev === there.dev
 }
 
+function unreadableUnder(folder: string, rel: string): string | undefined {
+  const entries = (() => {
+    try {
+      return readdirSync(folder, { withFileTypes: true })
+    } catch {
+      return null
+    }
+  })()
+  if (entries === null) return rel
+  for (const entry of entries.filter(one => !neverListed(one.name))) {
+    const path = join(folder, entry.name)
+    const at = `${rel}/${entry.name}`
+    const found = entry.isDirectory() ? unreadableUnder(path, at) : entry.isFile() && !canRead(path) ? at : undefined
+    if (found !== undefined) return found
+  }
+  return undefined
+}
+
+function canRead(path: string) {
+  try {
+    accessSync(path, constants.R_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function planned(estate: Estate, research: Research, { without, reading }: Asked): { copies: Copy[]; done: HandedOver } {
   const { dirRel } = research
+  const unread = unreadableUnder(join(estate.mapDir, dirRel), dirRel)
+  if (unread !== undefined) throw new PluginError(`${NOTHING}: ${unread} cannot be read`)
   const { stands, kinds } = readResearch(research)
   const readingRel = `${dirRel}/${READING_FILE}`
   const pages: Page[] = research.files.filter(file => reading || file.rel !== readingRel).map(file => ({ file, to: file.rel.slice(dirRel.length + 1), lines: readFileSync(file.path, 'utf8').split('\n') }))

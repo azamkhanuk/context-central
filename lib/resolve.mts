@@ -4,7 +4,7 @@ import { PULL_REQUESTS, TICKETS, holding, isLink, listed, referenceOf, reference
 import { standardsFiles } from './estate.mts'
 import { glossaryPath, glossaryTerms } from './glossary.mts'
 import { fileAt, findWorkItem, hubPath, isDeep, listNodes, listWorkItems, readNode, workItemIds } from './nodes.mts'
-import { findResearch } from './research.mts'
+import { findResearch, withoutResearches } from './research.mts'
 import { firstHeading, formatBytes, parseFrontmatter, plural } from './text.mts'
 import type { Connection, Reference } from './connections.mts'
 import type { Estate } from './estate.mts'
@@ -256,7 +256,7 @@ function byRepoName(estate: Estate, query: string, max: number) {
 function byFreeText(estate: Estate, query: string, max: number) {
   const asked = countedWords(query)
   if (asked.length < MIN_WORDS) return null
-  const notes = listNodes(estate)
+  const notes = withoutResearches(estate, listNodes(estate))
     .filter(node => !node.rel.startsWith('log/'))
     .map(profile)
   const words = asked.filter(word => !common(notes, word))
@@ -401,7 +401,7 @@ function knownNodes(estate: Estate) {
 
 function routedNodes(estate: Estate) {
   const inWork = `${estate.config.workDir}/`
-  return listNodes(estate).filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
+  return withoutResearches(estate, listNodes(estate)).filter(node => !node.rel.startsWith('log/') && !node.rel.startsWith(inWork))
 }
 
 function knownAs(node: Node): Known[] {

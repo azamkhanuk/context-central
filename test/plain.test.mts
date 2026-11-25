@@ -190,6 +190,15 @@ test('a hub inside a folder init lays down for the map is refused before anythin
   assert.equal(existsSync(join(made.main, MAP)), false)
 })
 
+test('a hub given through a link that leads into a folder init lays down is refused by the place it lands, before anything is written', LINKS, () => {
+  const root = tree(makeTree({ 'docs/old.md': '# Old\n' }))
+  symlinkSync(join(root, 'docs'), join(root, 'notes'))
+
+  assert.deepEqual(plain({ env: {} }, root, '--hub', 'notes/hub.md'), { code: 1, stdout: '', stderr: 'context-central init: "notes/hub.md" lies in docs/, which init lays down for the map itself, so it cannot be the hub\n' })
+  assert.deepEqual(readdirSync(root).sort(), ['docs', 'notes'])
+  assert.deepEqual(readdirSync(join(root, 'docs')), ['old.md'])
+})
+
 test('in a folder that holds no checkout a plain map registers no repo', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 

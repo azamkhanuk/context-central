@@ -439,6 +439,20 @@ test('a saved source that cannot be read stops the hand-over before anything is 
   assert.ok(!existsSync(out))
 })
 
+test('a file of the research that no file links, and that cannot be read, stops the hand-over before anything is written', BY_MODE, () => {
+  for (const rel of [`${DIR}/extra.md`, `${DIR}/sources/09-2026-01-14-unlinked-full-text.md`]) {
+    const root = withResearch({ [rel]: '# Extra\n' })
+    const out = elsewhere()
+    chmodSync(join(root, rel), 0o000)
+
+    const result = handover(root, NAME, out)
+    chmodSync(join(root, rel), 0o644)
+
+    assert.deepEqual(result, refused(`nothing was handed over: ${rel} cannot be read`), rel)
+    assert.ok(!existsSync(out), rel)
+  }
+})
+
 test('a hand-over changes nothing in the map', () => {
   const root = withResearch()
   const before = copied(join(root, 'research'))
