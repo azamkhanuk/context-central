@@ -13,6 +13,7 @@ import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, onPath } from '../machine.mts'
 import { folderAt, hubPath, inFlight, listWorkItems } from '../nodes.mts'
 import { presetNamed } from '../presets.mts'
+import { readingTemplateOf } from '../research.mts'
 import { unproven } from '../proof.mts'
 import { PLUGIN, PLUGIN_ID, evidenceIgnoreRule } from '../templates.mts'
 import { plural } from '../text.mts'
@@ -95,10 +96,9 @@ function node(version: string) {
   return `this is Node ${version}; install Node ${MIN_NODE.join('.')} or later`
 }
 
-function readingTemplate({ estateRoot, config }: Estate) {
-  const rel = config.readingTemplate
-  if (rel === undefined || statSync(join(estateRoot, rel), { throwIfNoEntry: false })?.isFile()) return null
-  return `the reading's template ${rel} cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`
+function readingTemplate(estate: Estate) {
+  if (readingTemplateOf(estate) !== null) return null
+  return `the reading's template ${estate.config.readingTemplate} cannot be read, so research new is refused; write that file, or take "readingTemplate" out of estate.json`
 }
 
 function hub(estate: Estate) {

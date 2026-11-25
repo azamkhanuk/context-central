@@ -86,6 +86,16 @@ const ONCE = 'a number is used once across the sheet and the log'
 const LEAVES = 'a superseded fact leaves the sheet for the log'
 const LINKS_ITS_OWN = "a research links its own files, a full address and its item's saved ticket or pull request"
 
+export function readingTemplateOf({ estateRoot, config }: Estate) {
+  if (config.readingTemplate === undefined) return undefined
+  const path = join(estateRoot, config.readingTemplate)
+  try {
+    return statSync(path).isFile() ? readFileSync(path, 'utf8') : null
+  } catch {
+    return null
+  }
+}
+
 export function researchTaken({ estateRoot, mapDir, config }: Estate): string | null {
   const folder = join(mapDir, config.researchDir)
   if (isAFile(folder)) return 'is a file, not a folder'

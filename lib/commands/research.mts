@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { citedIn, judgedIn } from '../citations.mts'
@@ -8,7 +8,7 @@ import { handOver } from '../handover.mts'
 import { locked, writeWhole } from '../lock.mts'
 import { onPath } from '../machine.mts'
 import { EVIDENCE_DIR, findWorkItem, makeFolder, nextSourceNumber } from '../nodes.mts'
-import { NAME_ANOTHER, SHEET_FILE, readResearch, requireResearch, researchTaken } from '../research.mts'
+import { NAME_ANOTHER, SHEET_FILE, readResearch, readingTemplateOf, requireResearch, researchTaken } from '../research.mts'
 import { researchTemplates } from '../templates.mts'
 import { formatBytes, localDate, plural } from '../text.mts'
 import { asked, gitTracks } from '../worktree.mts'
@@ -93,7 +93,8 @@ function create(estate: Estate, name: string, { title, item: asked }: { title?: 
     if (namesIn(join(estate.mapDir, researchDir)).some(held => held.toLowerCase() === name.toLowerCase())) throw new PluginError(`${dirRel} is there already`)
     const item = asked === undefined ? null : findWorkItem(estate, asked)
     if (asked !== undefined && !item) throw new PluginError(`no work item "${asked}"`)
-    const reading = readingTemplate === undefined ? undefined : templateAt(estate, readingTemplate)
+    const reading = readingTemplateOf(estate)
+    if (reading === null) throw new PluginError(`the reading's template ${readingTemplate} cannot be read`)
     written(dirRel, () => {
       makeFolder(estate.mapDir, `${dirRel}/sources`)
       for (const [file, text] of Object.entries(researchTemplates({ name, title: title ?? name, item: item?.id ?? null, reading }))) writeWhole(join(estate.mapDir, dirRel, file), text)
@@ -109,14 +110,6 @@ function written(dirRel: string, write: () => void) {
     const { code } = error as NodeJS.ErrnoException
     if (error instanceof PluginError || !code) throw error
     throw new PluginError(`${dirRel} could not be made (${code})`)
-  }
-}
-
-function templateAt({ estateRoot }: Estate, rel: string) {
-  try {
-    return readFileSync(join(estateRoot, rel), 'utf8')
-  } catch {
-    throw new PluginError(`the reading's template ${rel} cannot be read`)
   }
 }
 
