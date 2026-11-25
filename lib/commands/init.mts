@@ -55,7 +55,7 @@ export function run(args: string[], io: Io) {
   const given = resolve(io.cwd, positionals[0] ?? '.')
   const { dir, answers, first } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [] } : plain(given, io.env, values.hub === undefined ? undefined : hubNamed(values.hub))
   const planned = [...first, ...steps(dir, answers)]
-  refuseAHubTheMapLaysDown(planned, answers.layout, dir, Boolean(values.plain))
+  refuseAHubTheMapLaysDown(planned, answers.layout, dir, Boolean(values.plain) && values.hub !== undefined)
   const done: string[] = values.plain ? [`plain map at ${dir}:`] : []
   const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
   try {
@@ -187,20 +187,20 @@ function entryAt(path: string, link = false) {
   }
 }
 
-function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout, dir: string, plainMap: boolean) {
-  const named = planned.find(step => step.append !== undefined)?.rel
-  if (named === undefined) return
+function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout, dir: string, named: boolean) {
+  const hub = planned.find(step => step.append !== undefined)?.rel
+  if (hub === undefined) return
   const theirs = planned.filter(step => step.append === undefined).map(step => step.rel)
   const files = [...theirs.filter(rel => !rel.endsWith('/')), layout === 'inner' ? `${INNER_DIR}/${LOCK}` : LOCK]
   const own = [...(layout === 'inner' ? [INNER_DIR] : []), ...theirs.map(rel => rel.replace(/\/+$/, '')), ...files]
   const home = realPlace(dir) ?? dir
-  const landed = realPlace(join(dir, named))
-  const hubs = [named, ...(landed !== null && landed !== home && holds(home, landed) ? [relative(home, landed).split(sep).join('/')] : [])].map(hub => hub.toLowerCase())
-  if (hubs.some(hub => own.some(rel => rel.toLowerCase() === hub))) throw new PluginError(`"${named}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
-  const above = files.find(rel => hubs.some(hub => hub.startsWith(`${rel.toLowerCase()}/`)))
-  if (above !== undefined) throw new PluginError(`"${named}" lies under ${above}, which init lays down for the map itself, so it cannot be the hub`)
-  const folder = plainMap ? theirs.filter(rel => rel.endsWith('/')).find(rel => hubs.some(hub => hub.startsWith(rel.toLowerCase()))) : undefined
-  if (folder !== undefined) throw new PluginError(`"${named}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub`)
+  const landed = realPlace(join(dir, hub))
+  const places = [hub, ...(landed !== null && landed !== home && holds(home, landed) ? [relative(home, landed).split(sep).join('/')] : [])].map(place => place.toLowerCase())
+  if (places.some(place => own.some(rel => rel.toLowerCase() === place))) throw new PluginError(`"${hub}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
+  const above = files.find(rel => places.some(place => place.startsWith(`${rel.toLowerCase()}/`)))
+  if (above !== undefined) throw new PluginError(`"${hub}" lies under ${above}, which init lays down for the map itself, so it cannot be the hub`)
+  const folder = named ? theirs.filter(rel => rel.endsWith('/')).find(rel => places.some(place => place.startsWith(rel.toLowerCase()))) : undefined
+  if (folder !== undefined) throw new PluginError(`"${hub}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub`)
 }
 
 function hubFound(dir: string, inCheckout: boolean) {

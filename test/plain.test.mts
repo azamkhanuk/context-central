@@ -199,6 +199,19 @@ test('a hub given through a link that leads into a folder init lays down is refu
   assert.deepEqual(readdirSync(join(root, 'docs')), ['old.md'])
 })
 
+test('a hub found by its own name that is a link into a folder init lays down is written through as before, and a second run keeps everything', LINKS, () => {
+  const root = tree(makeTree({ 'docs/agents.md': '# Agents\n' }))
+  symlinkSync(join('docs', 'agents.md'), join(root, 'CLAUDE.md'))
+
+  const first = plain({ env: {} }, root)
+  assert.equal(first.code, 0, first.stderr)
+  assert.ok(first.stdout.split('\n').includes('updated CLAUDE.md'), first.stdout)
+  assert.ok(read(root, 'docs/agents.md').startsWith('# Agents\n'))
+  const second = plain({ env: {} }, root)
+  assert.equal(second.code, 0, second.stderr)
+  assert.deepEqual(second.stdout.split('\n').slice(1).filter(line => line !== '' && !line.startsWith('kept ')), [])
+})
+
 test('in a folder that holds no checkout a plain map registers no repo', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 

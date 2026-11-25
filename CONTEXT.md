@@ -99,7 +99,7 @@ _Avoid_:
 **Reading**: The file of a research written for the person: the four groups, pointing at fact numbers, with the recommendations and their rulings, and a dated part for each run. It is laid out by a template the estate can name.
 _Avoid_:
 
-**Hand-over**: A copy of one research in a folder outside the map that stands by itself. The ticket and the pull request its item holds are copied in, the kinds of source the person names are left out, and no link in it leads outside it but a full address.
+**Hand-over**: A copy of one research in a folder outside the map that stands by itself. Each file of its item's saved sources that the research links is copied in, the kinds of source the person names are left out, and no link in it leads outside it but a full address.
 _Avoid_: export, archive
 
 **Taken alone**: Research installed and run as a skill by itself, with no plugin loaded: it names no step at the end, and hands each kind of reading to a subagent of the host with the agent's brief.

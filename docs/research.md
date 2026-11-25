@@ -107,7 +107,7 @@ An estate extends research through its settings and its own skills, with no chan
 - **Where it looks**: its connections. Every kind a connection holds has a part in research, and onboard asks for chat, mail, documents and designs beside tickets, pull requests and meetings. [Connections](connections.md) has how each is recorded.
 - **How it looks there**: a skill of the estate's own for research, named by a repo's `steps.research`, by `researchSkill` for the estate as a whole, or by `researchSkill` on one connection, which then is that connection's sweep. The start line names each, and you can strike one in the brief.
 - **How far it goes**: the depths, as the six keys under `budgets` above.
-- **How the result is laid out**: `readingTemplate`, a file at the estate root whose headings lay out each run's part of the reading. The fact sheet's layout is fixed.
+- **How the result is laid out**: `readingTemplate`, a file counted from the estate root, such as `templates/reading.md`, whose headings lay out each run's part of the reading. The fact sheet's layout is fixed.
 - **Where it lives**: `researchDir`, a folder counted from the map's folder, `research` unless set.
 
 ## Research taken alone

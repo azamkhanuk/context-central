@@ -135,7 +135,7 @@ function unreadableUnder(folder: string, rel: string): string | undefined {
   for (const entry of entries.filter(one => !neverListed(one.name))) {
     const path = join(folder, entry.name)
     const at = `${rel}/${entry.name}`
-    const found = entry.isDirectory() ? unreadableUnder(path, at) : entry.isFile() && !canRead(path) ? at : undefined
+    const found = entry.isDirectory() ? unreadableUnder(path, at) : entry.isFile() && entry.name.toLowerCase().endsWith('.md') && !canRead(path) ? at : undefined
     if (found !== undefined) return found
   }
   return undefined

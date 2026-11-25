@@ -453,6 +453,18 @@ test('a file of the research that no file links, and that cannot be read, stops 
   }
 })
 
+test('a file of the research the copy would not take, such as a PDF among the saved sources, does not stop the hand-over though it cannot be read', BY_MODE, () => {
+  const root = withResearch({ [`${DIR}/sources/scan.pdf`]: '%PDF-1.4\n' })
+  const out = elsewhere()
+  chmodSync(join(root, DIR, 'sources', 'scan.pdf'), 0o000)
+
+  const result = handover(root, NAME, out)
+  chmodSync(join(root, DIR, 'sources', 'scan.pdf'), 0o644)
+
+  assert.equal(result.code, 0, result.stderr)
+  assert.equal(existsSync(join(out, 'sources', 'scan.pdf')), false)
+})
+
 test('a hand-over changes nothing in the map', () => {
   const root = withResearch()
   const before = copied(join(root, 'research'))
