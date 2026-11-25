@@ -13,8 +13,8 @@ export type Json = string | number | boolean | null | Json[] | { [key: string]: 
 export type TreeFiles = Record<string, Json>
 export type Env = Record<string, string | undefined>
 export type Result = { code: number | null, stdout: string, stderr: string }
-export type SpawnOptions = { cwd?: string, env?: Env, input?: string }
-export type RunOptions = { cwd?: string, env?: Env, stdin?: string }
+export type SpawnOptions = { cwd?: string, env?: Env, input?: string, timeout?: number }
+export type RunOptions = { cwd?: string, env?: Env, stdin?: string, timeout?: number }
 export type Skip = { skip?: string }
 
 export const WINDOWS = process.platform === 'win32'
@@ -49,13 +49,13 @@ export function disposable() {
 
 const withDefaults = (env: Env) => ({ PATH: process.env.PATH, HOME: process.env.HOME, CONTEXT_CENTRAL_NOW: '2026-01-15T12:00:00Z', ...env })
 
-export function spawned(command: string, args: string[], { cwd = undefined, env = {}, input = undefined }: SpawnOptions = {}): Result {
-  const result = spawnSync(command, args, { cwd, input, encoding: 'utf8', env: withDefaults(env) })
+export function spawned(command: string, args: string[], { cwd = undefined, env = {}, input = undefined, timeout = undefined }: SpawnOptions = {}): Result {
+  const result = spawnSync(command, args, { cwd, input, timeout, encoding: 'utf8', env: withDefaults(env) })
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
-export function run(args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions = {}): Result {
-  return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env })
+export function run(args: string[], { cwd = undefined, env = {}, stdin = '', timeout = undefined }: RunOptions = {}): Result {
+  return spawned(process.execPath, [BIN, ...args], { cwd, input: stdin, env, timeout })
 }
 
 export function together(runs: { args: string[], options?: RunOptions }[]): Promise<Result[]> {

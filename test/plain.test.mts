@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { NEEDS_STAND_IN, acme, checkout, disposable, git, leftByAWrite, makeTree, notOnWindows, run, standIns, workTree } from './helpers.mts'
+import { LOCK, NEEDS_STAND_IN, acme, checkout, disposable, git, leftByAWrite, makeTree, notOnWindows, run, spawned, standIns, workTree } from './helpers.mts'
 import type { Checkout, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -36,11 +36,17 @@ const ONE_NAME_UNDER_BOTH_CASES = (() => {
   return one
 })()
 const BLIND_TO_CASE = ONE_NAME_UNDER_BOTH_CASES ? {} : { skip: 'this disk tells the cases of letters apart' }
+const TELLS_CASES_APART = ONE_NAME_UNDER_BOTH_CASES ? { skip: 'this disk takes a name under both cases of its letters as one' } : {}
 const ONBOARD = 'set the map up with /context-central:onboard'
 const refusedAs = (line: string) => ({ code: 1, stdout: '', stderr: `context-central init: ${line}\n` })
 const tracked = (path: string) => refusedAs(`${path} is tracked by git, so a plain map there could not be kept out of git; ${ONBOARD}`)
 const trackedAs = (path: string, landing: string) => refusedAs(`${path} would be written as ${landing}, which git tracks, so a plain map there could not be kept out of git; ${ONBOARD}`)
 const laidDown = (hub: string) => refusedAs(`"${hub}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
+const laidUnder = (hub: string, own: string) => refusedAs(`"${hub}" lies under ${own}, which init lays down for the map itself, so it cannot be the hub`)
+const gitsOwn = (path: string, what: string) => refusedAs(`${path} lies in a folder git keeps for itself, so ${what}`)
+const caseUnset = (made: Checkout) => git(made, made.main, 'config', '--unset', 'core.ignorecase')
+const renamed = (dir: string, from: string, to: string) => (renameSync(join(dir, from), join(dir, `${to}.moving`)), renameSync(join(dir, `${to}.moving`), join(dir, to)))
+const ANY_DISK = 'a hub\'s name holds none of < > : " | ? * and no sign below a space, no part of it ends in a space or a dot or is longer than 255 bytes, and none is a name Windows keeps for a device, such as NUL or con.md, so that every disk can hold it'
 const wrongName = (asked: string) => ({ code: 2, stdout: '', stderr: `context-central init: --hub "${asked}": a hub is a file counted from the estate root, with forward slashes, and no part that is empty, "." or ".."\n` })
 
 test('in a fresh checkout a dry run of a plain map lists every file it would write or change, and writes nothing', () => {
@@ -372,16 +378,21 @@ test('a hub that git tracks under another letter case is refused where the write
   assert.equal(shownByGit(made), '')
 })
 
-test('a hub that is a link is asked of git where the link leads, and one that leads to a file git tracks, or out of the folder, is refused with nothing written', LINKS, () => {
+test('a hub that is a link is asked of git where the link leads, and one that leads to a file git tracks, or into another checkout, is refused with nothing written', LINKS, () => {
   const made = fresh()
-  const away = tree(makeTree({ 'theirs.md': '# Theirs\n' }))
+  const away = checkout({ 'theirs.md': '# Theirs\n' }, 'away')
+  tree(away.base)
+  writeFileSync(join(away.main, 'new.md'), '# Not yet theirs\n')
   symlinkSync('README.md', join(made.main, 'LINK.md'))
-  symlinkSync(join(away, 'theirs.md'), join(made.main, 'AWAY.md'))
+  symlinkSync(join(away.main, 'theirs.md'), join(made.main, 'AWAY.md'))
+  symlinkSync(join(away.main, 'new.md'), join(made.main, 'NEW.md'))
 
   assert.deepEqual(plain(made, made.main, '--hub', 'LINK.md'), trackedAs(join(made.main, 'LINK.md'), join(made.main, 'README.md')))
-  assert.deepEqual(plain(made, made.main, '--hub', 'AWAY.md'), refusedAs(`${join(made.main, 'AWAY.md')} leads to ${join(away, 'theirs.md')}, outside ${made.main}, so the hub cannot be written there`))
+  assert.deepEqual(plain(made, made.main, '--hub', 'AWAY.md'), trackedAs(join(made.main, 'AWAY.md'), join(away.main, 'theirs.md')))
+  assert.deepEqual(plain(made, made.main, '--hub', 'NEW.md'), refusedAs(`${join(made.main, 'NEW.md')} lies in the checkout ${away.main}, where git would show it, so a plain map there could not be kept out of git; ${ONBOARD}`))
   assert.equal(read(made.main, 'README.md'), '# Solo\n')
-  assert.equal(read(away, 'theirs.md'), '# Theirs\n')
+  assert.equal(read(away.main, 'theirs.md'), '# Theirs\n')
+  assert.equal(read(away.main, 'new.md'), '# Not yet theirs\n')
   assert.equal(existsSync(join(made.main, MAP)), false)
 })
 
@@ -448,12 +459,13 @@ test('the line the exclude file gains for a hub names that one file at the root 
   }
 })
 
-test('a hub whose name holds a sign a disk of Windows refuses, or has a part that ends in a space or a dot, is wrong usage on every system, and nothing is written', () => {
+test('a hub whose name a disk of Windows cannot hold, by a sign, a part that ends in a space or a dot, the name of a device or a part over 255 bytes, is wrong usage on every system, and nothing is written', () => {
   const made = fresh()
 
-  for (const odd of ['h*b.md', 'h?b.md', 'a<b.md', 'a>b.md', 'notes/a:b.md', 'a"b.md', 'a|b.md', 'hub.md ', 'hub.md.', 'notes /MAP.md', 'notes./MAP.md']) {
-    assert.deepEqual(plain(made, made.main, '--hub', odd), { code: 2, stdout: '', stderr: `context-central init: --hub "${odd}": a hub's name holds none of < > : " | ? * and no part of it ends in a space or a dot, so that every disk can hold it\n` }, odd)
+  for (const odd of ['h*b.md', 'h?b.md', 'a<b.md', 'a>b.md', 'notes/a:b.md', 'a"b.md', 'a|b.md', 'hub.md ', 'hub.md.', 'notes /MAP.md', 'notes./MAP.md', 'a\tb.md', 'NUL', 'con.md', 'aux/hub.md', 'notes/Com1.txt', 'lpt9', `${'x'.repeat(253)}.md`]) {
+    assert.deepEqual(plain(made, made.main, '--hub', odd), { code: 2, stdout: '', stderr: `context-central init: --hub "${odd}": ${ANY_DISK}\n` }, odd)
   }
+  assert.deepEqual(plain(made, made.main, '--hub', 'a\nb.md'), { code: 2, stdout: '', stderr: `context-central init: --hub "a b.md": ${ANY_DISK}\n` })
   assert.equal(existsSync(join(made.main, MAP)), false)
   assert.equal(read(made.main, EXCLUDE), EXCLUDED)
 })
@@ -475,6 +487,230 @@ test('a second plain map with another --hub is refused, naming the hub the map h
   assert.equal(plain(made, made.main, '--hub', 'MAP.md').code, 0)
   assert.equal(existsSync(join(made.main, 'OTHER.md')), false)
   assert.equal((JSON.parse(read(made.main, `${MAP}/estate.json`)) as { hub: unknown }).hub, 'MAP.md')
+})
+
+test('a hub git tracks is refused where core.ignorecase is not set, by the name it was given, and the tracked file is left as it was', () => {
+  const made = fresh()
+  caseUnset(made)
+  renamed(made.main, 'README.md', 'readme.md')
+
+  const result = plain(made, made.main, '--hub', 'README.md')
+
+  assert.deepEqual(result, ONE_NAME_UNDER_BOTH_CASES ? trackedAs(join(made.main, 'README.md'), join(made.main, 'readme.md')) : tracked(join(made.main, 'README.md')))
+  assert.equal(read(made.main, 'readme.md'), '# Solo\n')
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('on a disk that takes a name under both cases as one, a hub git tracks under another case is refused where core.ignorecase is not set, there or with its folder gone', BLIND_TO_CASE, () => {
+  const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n', 'notes/MAP.md': '# Shared on purpose\n' })
+  caseUnset(made)
+  renamed(made.main, 'CLAUDE.local.md', 'claude.local.md')
+  rmSync(join(made.main, 'notes'), { recursive: true })
+
+  assert.deepEqual(plain(made, made.main), trackedAs(join(made.main, 'CLAUDE.local.md'), join(made.main, 'claude.local.md')))
+  assert.deepEqual(plain(made, made.main, '--hub', 'NOTES/map.md'), tracked(join(made.main, 'NOTES', 'map.md')))
+  assert.equal(read(made.main, 'claude.local.md'), '# Shared on purpose\n')
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('on a disk that tells the cases apart, a hub under another case than a file git tracks is another file, and is written and kept out of git', TELLS_CASES_APART, () => {
+  const made = fresh({ 'notes/MAP.md': '# Shared on purpose\n' })
+
+  const result = plain(made, made.main, '--hub', 'NOTES/map.md')
+
+  assert.equal(result.code, 0, result.stderr)
+  assert.equal(read(made.main, 'notes/MAP.md'), '# Shared on purpose\n')
+  assert.equal(shownByGit(made), '')
+})
+
+test('a hub git tracks is refused though GIT_LITERAL_PATHSPECS is set, and nothing is written', () => {
+  const made = fresh({ 'CLAUDE.local.md': '# Shared on purpose\n' })
+
+  for (const setting of ['GIT_LITERAL_PATHSPECS', 'GIT_GLOB_PATHSPECS', 'GIT_NOGLOB_PATHSPECS', 'GIT_ICASE_PATHSPECS']) {
+    assert.deepEqual(plain({ env: { ...made.env, [setting]: '1' } }, made.main), tracked(join(made.main, 'CLAUDE.local.md')), setting)
+  }
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('a hub that is a link git tracks is refused by its name, though the file it leads to is not tracked, in the checkout or out of it', LINKS, () => {
+  const made = fresh()
+  const shared = tree(makeTree({ 'one.md': '# Mine\n' }))
+  writeFileSync(join(made.main, 'draft.md'), '# Draft\n')
+  symlinkSync('draft.md', join(made.main, 'LINK.md'))
+  symlinkSync(join(shared, 'one.md'), join(made.main, 'OUT.md'))
+  git(made, made.main, 'add', 'LINK.md', 'OUT.md')
+  git(made, made.main, 'commit', '-q', '-m', 'links')
+
+  assert.deepEqual(plain(made, made.main, '--hub', 'LINK.md'), tracked(join(made.main, 'LINK.md')))
+  assert.deepEqual(plain(made, made.main, '--hub', 'OUT.md'), tracked(join(made.main, 'OUT.md')))
+  assert.equal(read(made.main, 'draft.md'), '# Draft\n')
+  assert.equal(read(shared, 'one.md'), '# Mine\n')
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('a hub reached through a link git tracks is kept out of git by the line of the place it lands, and git shows nothing new', LINKS, () => {
+  const made = fresh({ 'docs/a.md': '# Docs\n' })
+  symlinkSync('docs', join(made.main, 'd'), 'dir')
+  git(made, made.main, 'add', 'd')
+  git(made, made.main, 'commit', '-q', '-m', 'a link')
+
+  assert.equal(plain(made, made.main, '--hub', 'd/NEW.md').code, 0)
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\n/docs/NEW.md\n`)
+  assert.ok(read(made.main, 'docs/NEW.md').includes(BLOCK))
+  assert.equal(shownByGit(made), '')
+})
+
+test('on a disk that takes a name under both cases as one, a hub given under another case than its folder is kept out of git by the folder as the disk spells it', BLIND_TO_CASE, () => {
+  const made = fresh({ 'docs/a.md': '# Docs\n' })
+  caseUnset(made)
+
+  assert.equal(plain(made, made.main, '--hub', 'DOCS/new.md').code, 0)
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\n/docs/new.md\n`)
+  assert.equal(shownByGit(made), '')
+})
+
+test("a hub given under another case than the map's folder gains no line where the disk takes the two as one, and a line of its own where it tells them apart, and git shows nothing new", () => {
+  const made = fresh()
+  caseUnset(made)
+
+  assert.equal(plain(made, made.main, '--hub', '.Context-Central/hub.md').code, 0)
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\n${ONE_NAME_UNDER_BOTH_CASES ? '' : '/.Context-Central/hub.md\n'}`)
+  assert.equal(shownByGit(made), '')
+})
+
+test('a hub under a file init lays down for the map, or at or under the lock it takes, is refused before anything is written, in a dry run as well', () => {
+  const made = fresh()
+  const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
+  const inner: [hub: string, own: string | null][] = [
+    [`${MAP}/estate.json/hub.md`, `${MAP}/estate.json`],
+    [`${MAP}/ESTATE.json/hub.md`, `${MAP}/estate.json`],
+    [`${MAP}/glossary.md/hub.md`, `${MAP}/glossary.md`],
+    [`${MAP}/${LOCK}`, null],
+    [`${MAP}/${LOCK}/hub.md`, `${MAP}/${LOCK}`],
+  ]
+  const folder: [hub: string, own: string | null][] = [['estate.json/hub.md', 'estate.json'], ['glossary.md/x/hub.md', 'glossary.md'], [LOCK, null], [`${LOCK}/hub.md`, LOCK]]
+
+  for (const dryRun of [[], ['--dry-run']]) {
+    for (const [hub, own] of inner) assert.deepEqual(plain(made, made.main, '--hub', hub, ...dryRun), own ? laidUnder(hub, own) : laidDown(hub), hub)
+    for (const [hub, own] of folder) assert.deepEqual(plain({ env: {} }, root, '--hub', hub, ...dryRun), own ? laidUnder(hub, own) : laidDown(hub), hub)
+  }
+  assert.equal(existsSync(join(made.main, MAP)), false)
+  assert.equal(read(made.main, EXCLUDE), EXCLUDED)
+  assert.deepEqual(readdirSync(root), ['notes.md'])
+})
+
+test('a hub that is there and is no plain file, such as a named pipe, is refused before anything is written, in a dry run as well', notOnWindows('Windows has no named pipe in a folder'), () => {
+  const made = fresh()
+  spawned('mkfifo', [join(made.main, 'PIPE.md')])
+
+  for (const dryRun of [[], ['--dry-run']]) {
+    const result = run(['init', '--plain', '--hub', 'PIPE.md', ...dryRun], { cwd: made.main, env: made.env, timeout: 10000 })
+
+    assert.deepEqual(result, refusedAs(`${join(made.main, 'PIPE.md')} is no plain file, so the hub cannot be written there`))
+  }
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('a hub longer than this system lets a path be is refused before anything is written', notOnWindows('Windows lets a path be longer than the hub this test names'), () => {
+  const root = tree(makeTree({}))
+  const hub = Array.from({ length: 20 }, (_, at) => `${at}${'x'.repeat(240)}`).join('/')
+
+  assert.deepEqual(plain({ env: {} }, root, '--hub', hub), refusedAs(`${join(root, hub)} is longer than this system lets a path be, so the hub cannot be written there`))
+  assert.deepEqual(readdirSync(root), [])
+})
+
+test('a hub in a repository that has no work tree is refused, as is a plain map made inside one, in a dry run as well, and git can still read the repository', () => {
+  const root = tree(makeTree({}))
+  const env = { GIT_CONFIG_GLOBAL: join(root, 'gitconfig'), GIT_CONFIG_NOSYSTEM: '1' }
+  writeFileSync(join(root, 'gitconfig'), '')
+  git({ env }, root, 'init', '-q', '--bare', 'store.git')
+  const config = read(root, 'store.git/config')
+
+  for (const dryRun of [[], ['--dry-run']]) {
+    assert.deepEqual(plain({ env }, root, '--hub', 'store.git/config', ...dryRun), gitsOwn(join(root, 'store.git', 'config'), 'the hub cannot be written there'))
+    assert.deepEqual(plain({ env }, root, '--hub', 'store.git/refs/hub.md', ...dryRun), gitsOwn(join(root, 'store.git', 'refs', 'hub.md'), 'the hub cannot be written there'))
+    assert.deepEqual(plain({ env }, join(root, 'store.git'), ...dryRun), gitsOwn(join(root, 'store.git'), 'a plain map cannot be made there'))
+  }
+  assert.equal(read(root, 'store.git/config'), config)
+  assert.deepEqual(readdirSync(root).sort(), ['gitconfig', 'store.git'])
+  assert.equal(git({ env }, join(root, 'store.git'), 'rev-parse', '--is-bare-repository').stdout, 'true\n')
+})
+
+test('a hub that is a link out of the folder to a file no checkout holds is written through the link, and in a checkout the link is kept out of git', LINKS, () => {
+  const made = fresh()
+  const shared = tree(makeTree({ 'one.md': '# Mine\n', 'two.md': '# Mine too\n' }))
+  const root = tree(makeTree({}))
+  symlinkSync(join(shared, 'one.md'), join(made.main, 'CLAUDE.local.md'))
+  symlinkSync(join(shared, 'two.md'), join(root, 'CLAUDE.md'))
+
+  assert.equal(plain(made, made.main).code, 0)
+  assert.equal(plain({ env: {} }, root).code, 0)
+  assert.ok(read(shared, 'one.md').startsWith('# Mine\n') && read(shared, 'one.md').includes(BLOCK))
+  assert.ok(read(shared, 'two.md').startsWith('# Mine too\n') && read(shared, 'two.md').includes(BLOCK))
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\nCLAUDE.local.md\n`)
+  assert.equal(shownByGit(made), '')
+})
+
+test('on a disk that takes a name under both cases as one, a hub that is a link out of the folder is kept out of git by the link as the disk spells it, though given under another case', { ...BLIND_TO_CASE, ...LINKS }, () => {
+  const made = fresh()
+  const shared = tree(makeTree({ 'one.md': '# Mine\n', 'kit/two.md': '# Mine too\n' }))
+  caseUnset(made)
+  symlinkSync(join(shared, 'one.md'), join(made.main, 'CLAUDE.local.md'))
+  symlinkSync(join(shared, 'kit'), join(made.main, 'Kit'), 'dir')
+
+  assert.equal(plain(made, made.main, '--hub', 'claude.local.md').code, 0)
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\nCLAUDE.local.md\n`)
+  assert.equal(shownByGit(made), '?? Kit\n')
+})
+
+test('a hub that is a link into a folder out of the checkout is kept out of git by that link', LINKS, () => {
+  const made = fresh()
+  const shared = tree(makeTree({ 'kit/two.md': '# Mine too\n' }))
+  symlinkSync(join(shared, 'kit'), join(made.main, 'kit'), 'dir')
+
+  assert.equal(plain(made, made.main, '--hub', 'kit/two.md').code, 0)
+  assert.equal(read(made.main, EXCLUDE), `${EXCLUDED}\n${MAP}/\n/kit\n`)
+  assert.equal(shownByGit(made), '')
+})
+
+test('a hub that is a link to a file whose name holds a sign of a pattern is kept out of git by that one name, and git hides nothing else', notOnWindows('a disk of Windows cannot hold these names'), () => {
+  for (const name of ['h*b.md', 'h?b.md', 'h\\b.md', 'hub.md ']) {
+    const made = fresh()
+    writeFileSync(join(made.main, name), '# Mine\n')
+    writeFileSync(join(made.main, 'hab.md'), '# Not the hub\n')
+    symlinkSync(name, join(made.main, 'LINK.md'))
+
+    assert.equal(plain(made, made.main, '--hub', 'LINK.md').code, 0, name)
+    assert.equal(shownByGit(made), '?? LINK.md\n?? hab.md\n', name)
+  }
+})
+
+test('a hub that is a link to a file whose name holds a line break is refused, since no line of the exclude file can name it', notOnWindows('a disk of Windows cannot hold this name'), () => {
+  const made = fresh()
+  writeFileSync(join(made.main, 'a\nb.md'), '# Mine\n')
+  symlinkSync('a\nb.md', join(made.main, 'LINK.md'))
+
+  assert.deepEqual(plain(made, made.main, '--hub', 'LINK.md'), refusedAs(`${join(made.main, 'LINK.md')} would be written as ${join(made.main, 'a b.md')}, a name no line of git's exclude file can hold, so a plain map there could not be kept out of git; ${ONBOARD}`))
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
+test('a second run on a map whose hub is a link out of the folder keeps everything, in a dry run as well', LINKS, () => {
+  const made = fresh()
+  const shared = tree(makeTree({ 'one.md': '# Mine\n' }))
+  symlinkSync(join(shared, 'one.md'), join(made.main, 'CLAUDE.local.md'))
+  plain(made, made.main)
+
+  assert.deepEqual(plain(made, made.main, '--dry-run'), { code: 0, stdout: said(made.main, 'kept', INNER_FILES), stderr: '' })
+  assert.deepEqual(plain(made, made.main), { code: 0, stdout: said(made.main, 'kept', INNER_FILES), stderr: '' })
+})
+
+test('a second run on a plain map whose hub was committed since keeps everything, as a map that is there is not asked of git again', () => {
+  const made = fresh()
+  plain(made, made.main)
+  git(made, made.main, 'add', '-f', 'CLAUDE.local.md')
+  git(made, made.main, 'commit', '-q', '-m', 'the hub')
+
+  assert.deepEqual(plain(made, made.main), { code: 0, stdout: said(made.main, 'kept', INNER_FILES), stderr: '' })
 })
 
 const NO_ANSWER_FROM_GIT: [when: string, standIn: string | null][] = [

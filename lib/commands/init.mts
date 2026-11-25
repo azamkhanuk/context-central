@@ -1,12 +1,12 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, join, relative, resolve } from 'node:path'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, estateAt, findEstate, validateConfig } from '../estate.mts'
-import { locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
+import { LOCK, locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
-import { checkoutAround, checkoutsUnder, holds, trackedThere } from '../worktree.mts'
+import { checkoutAround, checkoutsUnder, foldsCase, holds, inGitsOwnFolder, trackedThere } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Layout, Settings } from '../estate.mts'
 import type { InMap } from '../templates.mts'
@@ -39,6 +39,9 @@ const ANOTHER_HOSTS_HUB = 'AGENTS.md'
 const CLAUDES_OWN = [ROOT_HUB, OWN_HUB, '.claude']
 const GITS_OWN = '.git'
 const KEPT_OUT = 'so a plain map there could not be kept out of git; set the map up with /context-central:onboard'
+const ANY_DISK = 'a hub\'s name holds none of < > : " | ? * and no sign below a space, no part of it ends in a space or a dot or is longer than 255 bytes, and none is a name Windows keeps for a device, such as NUL or con.md, so that every disk can hold it'
+const DEVICE = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i
+const LONGEST_PART_BYTES = 255
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({
@@ -82,7 +85,7 @@ function plain(given: string, env: Env, asked: string | undefined): Plan {
   const landing = landingOf(dir, hub)
   if (!found) outOfGit(dir, landing, around !== null, env)
   if (!around) return { dir, answers: { layout: 'root', config: { name, ...(hub === ROOT_HUB ? {} : { hub }), repos: checkoutsUnder(dir), connections: {} } }, first: [] }
-  const keptOutOfGit = [`${INNER_DIR}/`, ...(hub.toLowerCase().startsWith(`${INNER_DIR}/`) ? [] : [excludeLine(hub)])]
+  const keptOutOfGit = [`${INNER_DIR}/`, ...lineFor(landing)]
   const keptOut = { rel: '.git/info/exclude', content: keptOutOfGit.map(line => `${line}\n`).join(''), lines: keptOutOfGit }
   return { dir, answers: { layout: 'inner', config: { name, hub, repos: [{ name, path: '.' }], connections: {} } }, first: found ? [] : [keptOut] }
 }
@@ -91,33 +94,75 @@ function hubNamed(asked: string) {
   const parts = asked.split('/')
   if (/^([/\\]|[A-Za-z]:)/.test(asked) || asked.includes('\\') || parts.some(part => part === '' || part === '.' || part === '..')) throw new UsageError(`--hub "${asked}": a hub is a file counted from the estate root, with forward slashes, and no part that is empty, "." or ".."`)
   if (parts.some(part => part.toLowerCase() === GITS_OWN)) throw new UsageError(`--hub "${asked}": a hub cannot lie in a folder named .git, which is git's own`)
-  if (/[<>:"|?*\x00-\x1f]/.test(asked) || parts.some(part => /[ .]$/.test(part))) throw new UsageError(`--hub "${asked}": a hub's name holds none of < > : " | ? * and no part of it ends in a space or a dot, so that every disk can hold it`)
+  if (/[<>:"|?*\x00-\x1f]/.test(asked) || parts.some(part => /[ .]$/.test(part) || DEVICE.test(part) || Buffer.byteLength(part) > LONGEST_PART_BYTES)) throw new UsageError(`--hub "${asked}": ${ANY_DISK}`)
   return asked
 }
 
 interface Landing {
+  hub: string
   path: string
   landing: string
+  home: string
   spelled: string
   shown: (place: string) => string
 }
 
 function landingOf(dir: string, hub: string): Landing {
   const path = join(dir, hub)
+  if (faultAt(path) === 'ENAMETOOLONG') throw new PluginError(`${path} is longer than this system lets a path be, so the hub cannot be written there`)
   const landing = realPlace(path)
   if (landing === null) throw new PluginError(`${path} is a link that leads nowhere, so the hub cannot be written there`)
   if (!nearestThere(landing).isDirectory()) throw new PluginError(`${path} lies under a file, so the hub cannot be written there`)
-  if (entryAt(landing)?.isDirectory()) throw new PluginError(`${path} is a folder, so the hub cannot be written there`)
+  const entry = entryAt(landing)
+  if (entry?.isDirectory()) throw new PluginError(`${path} is a folder, so the hub cannot be written there`)
+  if (entry && !entry.isFile()) throw new PluginError(`${path} is no plain file, so the hub cannot be written there`)
   const home = realpathSync.native(dir)
-  if (!holds(home, landing)) throw new PluginError(`${path} leads to ${landing}, outside ${dir}, so the hub cannot be written there`)
   const shown = (place: string) => (holds(home, place) ? join(dir, relative(home, place)) : place)
-  return { path, landing, spelled: join(home, hub), shown }
+  return { hub, path, landing, home, spelled: join(home, hub), shown }
 }
 
-function outOfGit(dir: string, { path, landing, spelled, shown }: Landing, inCheckout: boolean, env: Env) {
+function outOfGit(dir: string, { path, landing, home, spelled, shown }: Landing, inCheckout: boolean, env: Env) {
+  if (inGitsOwnFolder(dir, env)) throw new PluginError(`${dir} lies in a folder git keeps for itself, so a plain map cannot be made there`)
+  const nearest = nearestFolder(landing)
+  if (nearest !== home && inGitsOwnFolder(nearest, env)) throw new PluginError(`${path} lies in a folder git keeps for itself, so the hub cannot be written there`)
   const { root, tracked } = trackedThere(landing, env)
   if (tracked === true) throw new PluginError(landing === spelled ? `${path} is tracked by git, ${KEPT_OUT}` : `${path} would be written as ${shown(landing)}, which git tracks, ${KEPT_OUT}`)
+  if (landing !== spelled && trackedThere(spelled, env).tracked === true) throw new PluginError(`${path} is tracked by git, ${KEPT_OUT}`)
   if (root !== null && (!inCheckout || root !== realpathSync.native(dir))) throw new PluginError(`${path} lies in the checkout ${shown(root)}, where git would show it, ${KEPT_OUT}`)
+}
+
+function lineFor({ hub, path, landing, home, shown }: Landing) {
+  const rel = holds(home, landing) ? asGitShowsIt(home, landing) : firstLinkOf(home, hub)
+  if ((foldsCase(home) ? rel.toLowerCase() : rel).startsWith(`${INNER_DIR}/`)) return []
+  if (/[\x00-\x1f]/.test(rel)) throw new PluginError(`${path} would be written as ${shown(landing)}, a name no line of git's exclude file can hold, ${KEPT_OUT}`)
+  return [rel === OWN_HUB ? rel : `/${rel.replace(/[[\\*?]/g, '\\$&').replace(/ $/, '\\ ')}`]
+}
+
+function firstLinkOf(home: string, hub: string) {
+  const parts = hub.split('/')
+  const at = parts.findIndex((_, index) => entryAt(join(home, ...parts.slice(0, index + 1)), true)?.isSymbolicLink())
+  if (at === -1) return hub
+  const above = realpathSync.native(join(home, ...parts.slice(0, at)))
+  const names = readdirSync(above)
+  const name = names.find(one => one === parts[at]) ?? names.find(one => one.toLowerCase() === parts[at].toLowerCase()) ?? parts[at]
+  return asGitShowsIt(home, join(above, name))
+}
+
+function asGitShowsIt(home: string, place: string) {
+  return relative(home, place).split(sep).join('/')
+}
+
+function faultAt(path: string) {
+  try {
+    lstatSync(path)
+    return null
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code
+  }
+}
+
+function nearestFolder(path: string): string {
+  return entryAt(path)?.isDirectory() || dirname(path) === path ? path : nearestFolder(dirname(path))
 }
 
 function realPlace(path: string): string | null {
@@ -142,14 +187,16 @@ function entryAt(path: string, link = false) {
   }
 }
 
-function excludeLine(hub: string) {
-  return hub === OWN_HUB ? hub : `/${hub.replaceAll('[', '\\[')}`
-}
-
 function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout) {
-  const hub = planned.find(step => step.append !== undefined)?.rel
-  const own = [...(layout === 'inner' ? [INNER_DIR] : []), ...planned.filter(step => step.append === undefined).map(step => step.rel.replace(/\/+$/, ''))]
-  if (hub !== undefined && own.some(rel => rel.toLowerCase() === hub.toLowerCase())) throw new PluginError(`"${hub}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
+  const hub = planned.find(step => step.append !== undefined)?.rel.toLowerCase()
+  if (hub === undefined) return
+  const theirs = planned.filter(step => step.append === undefined).map(step => step.rel)
+  const files = [...theirs.filter(rel => !rel.endsWith('/')), layout === 'inner' ? `${INNER_DIR}/${LOCK}` : LOCK]
+  const own = [...(layout === 'inner' ? [INNER_DIR] : []), ...theirs.map(rel => rel.replace(/\/+$/, '')), ...files]
+  const named = planned.find(step => step.append !== undefined)?.rel ?? hub
+  if (own.some(rel => rel.toLowerCase() === hub)) throw new PluginError(`"${named}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
+  const above = files.find(rel => hub.startsWith(`${rel.toLowerCase()}/`))
+  if (above !== undefined) throw new PluginError(`"${named}" lies under ${above}, which init lays down for the map itself, so it cannot be the hub`)
 }
 
 function hubFound(dir: string, inCheckout: boolean) {

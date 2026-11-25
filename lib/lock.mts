@@ -3,7 +3,7 @@ import { accessSync, chmodSync, constants, copyFileSync, lstatSync, mkdirSync, r
 import { dirname, join, resolve } from 'node:path'
 import { PluginError } from './errors.mts'
 
-const LOCK = '.context-central.lock'
+export const LOCK = '.context-central.lock'
 const WAIT_MS = 5000
 const STALE_MS = 30000
 const PAUSE_MS = 20
