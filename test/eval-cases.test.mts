@@ -896,6 +896,7 @@ test('reviewer-names-the-rule: each reply the page on the suite gives as scored 
 })
 
 const RESEARCH_CASES = ['gap-said', 'nobody-there-asks-nothing', 'research-with-no-map', 'two-sources-one-fact']
+const PROJ_22 = '01-2025-11-10-PROJ-22-full-text.md'
 const LEFT_TO_RUN = /^\/context-central:research Nobody is here, so do not wait for me\. \S[^\n]*\? Run it at the quick depth\.$/
 const fieldsIn = (one: Case, name: string) => graders(one).find(grader => grader.name === name)?.fields ?? {}
 const inputPattern = (one: Case, name: string) => new RegExp(unquoted(fieldsIn(one, name).input_match))
@@ -957,19 +958,20 @@ test('research-with-no-map: it passes on the command that makes a plain map give
   ].filter(command => makes.test(ranInShell(command))), [])
 })
 
-test('two-sources-one-fact: its scaffold adds to acme the code that keeps an export file seven days, which a note of the map says too, and nothing else gives how long a file is kept', A_SCAFFOLD, () => {
+test('two-sources-one-fact: its scaffold adds to acme two primary sources that each give seven days, the code that keeps an export file and the saved ticket of the work that built it, which its state file names, beside the note of the map that says so too', A_SCAFFOLD, () => {
   const one = named('two-sources-one-fact')
   const root = estateOf(one)
 
   assert.equal(promptOf(one), '/context-central:research Nobody is here, so do not wait for me. How long is an export file kept before worker removes it? Run it at the quick depth.')
   assert.match(read(root, 'worker/src/keep.js'), /^export const KEEP_DAYS = 7\n/)
-  assert.match(read(root, 'concepts/exports.md'), /worker builds the file and keeps it for seven days/)
-  assert.deepEqual(holding(root, /\bseven days\b|\bKEEP_DAYS = 7\b/), ['concepts/exports.md', 'worker/src/keep.js'])
+  assert.match(read(root, `work/export-csv/sources/${PROJ_22}`), /\nThe file should stay available for 7 days after it is built, then be removed\.\n/)
+  assert.match(read(root, 'work/export-csv/STATE.md'), new RegExp(`\\n- The ticket as filed: \`sources/${PROJ_22}\`\\.\\n`))
+  assert.deepEqual(holding(root, /\bseven days\b|\b7 days\b|\bKEEP_DAYS = 7\b/), ['concepts/exports.md', `work/export-csv/sources/${PROJ_22}`, 'worker/src/keep.js'])
 })
 
-test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed and the example the skill reads', () => {
+test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed, a fact with two sources that says nothing of how long, and the example the skill reads', () => {
   const one = named('two-sources-one-fact')
-  const ONE_FACT = '- **F1** `verified` An export file is kept for seven days, then worker removes it.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n'
+  const ONE_FACT = '- **F1** `verified` An export file is kept for seven days, then worker removes it.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [PROJ-22](../../work/export-csv/sources/01-2025-11-10-PROJ-22-full-text.md)\n'
   const graded = (trace: string) => patternOf(one, 'one-fact-two-sources').test(trace)
 
   assert.deepEqual(graders(one).map(grader => grader.name), ['one-fact-two-sources', 'plugin-spoke'])
@@ -986,6 +988,7 @@ test('two-sources-one-fact: its grader passes a fact of how long a file is kept 
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `inferred` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
     traceOf(readBack('- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`')),
     traceOf(readBack(ONE_FACT)),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Nothing in worker deletes an export file.\n  - Source: `worker/src/export.js:1-5` at `4b1c2d3`\n  - Source: `worker/src/retry.js:1-12` at `4b1c2d3`\n')),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` `disputed` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`: 7\n  - Source: [exports](../../concepts/exports.md): seven\n')),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`\n')),
   ].filter(graded), [])
