@@ -90,12 +90,12 @@ On Claude Code a run can be started with no terminal, from the folder the map co
 ```sh
 claude -p "/context-central:research Nobody is here, so do not wait for me. How does the gateway limit a shop's calls? Run it at the quick depth." \
   --permission-mode acceptEdits \
-  --allowedTools "Bash(context-central *)" "Bash(git *)" "WebFetch" "WebSearch" "mcp__<server>__<tool>" \
+  --allowedTools "Bash(context-central *)" "Bash(git *)" "Skill" "WebFetch" "WebSearch" "mcp__<server>__<tool>" \
   --disallowedTools ScheduleWakeup CronCreate \
   --output-format stream-json --verbose < /dev/null > run.jsonl
 ```
 
-- `acceptEdits` lets the run write its files, and `--allowedTools` lets it run the plugin's command and git, read the web, and use each tool of a server by its name, `mcp__<server>__<tool>`. Name the tools that read and none that post.
+- `acceptEdits` lets the run write its files, and `--allowedTools` lets it run the plugin's command and git, start a skill the estate names for research, read the web, and use each tool of a server by its name, `mcp__<server>__<tool>`. Name the tools that read and none that post.
 - The run goes with the connectors of the account that are signed in. One that waits for a sign-in gives no tool, so the start line names what it reaches as a gap.
 - `< /dev/null` closes its input, without which the run waits on it. `--disallowedTools ScheduleWakeup CronCreate` keeps a run that waits on an agent from setting itself a wake-up that starts it again after it has ended.
 - The record `run.jsonl` holds every message of the run and its agents. Where its agents work in the background it ends more than once, and the last `result` carries the whole run's cost.

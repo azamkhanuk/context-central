@@ -72,6 +72,7 @@ export function run(args: string[], io: Io) {
   if (action === 'handover') return handover(requireEstate(io), name, more[0], values, io)
   if (!A_NAME.test(name)) throw new UsageError('a research name is letters, digits, dots, dashes and underscores, opens with a letter or a digit and does not end in a dot, for example gateway-limits')
   if (values.title !== undefined && A_LINE_BREAK.test(values.title)) throw new UsageError('a title is one line')
+  if (values.title?.trim() === '') throw new UsageError('a title holds words: leave --title out and the name is the title')
   const estate = requireEstate(io)
   const dirRel = create(estate, name, values)
   const sheet = `${dirRel}/${SHEET_FILE}`

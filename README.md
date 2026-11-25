@@ -58,7 +58,7 @@ Two rules keep it honest:
 
 - **Two hooks.** Claude Code starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once, and at a session's start it asks `git` whether the proof of each item in flight is whole, for two seconds at most.
 - **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores, which commit a recorded check ran on, and whether a line a standards note cites still reads as it did. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
-- **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere. Research reads a page on the web only through the host's own tools, in an agent that holds nothing else.
+- **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere. Research reads a page on the web through the host's own tools for the web.
 
 [What it runs, what it writes and how to remove it](docs/what-it-runs.md) has all of it: each program it starts, each place it writes outside the map, and how to take every trace away.
 

@@ -967,7 +967,7 @@ test('two-sources-one-fact: its scaffold adds to acme the code that keeps an exp
   assert.deepEqual(holding(root, /\bseven days\b|\bKEEP_DAYS = 7\b/), ['concepts/exports.md', 'worker/src/keep.js'])
 })
 
-test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts and the example the skill reads', () => {
+test('two-sources-one-fact: its grader passes a fact of how long a file is kept written with a line for each of two sources, and fails one source a fact, two facts, a fact marked disputed and the example the skill reads', () => {
   const one = named('two-sources-one-fact')
   const ONE_FACT = '- **F1** `verified` An export file is kept for seven days, then worker removes it.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n'
   const graded = (trace: string) => patternOf(one, 'one-fact-two-sources').test(trace)
@@ -977,7 +977,7 @@ test('two-sources-one-fact: its grader passes a fact of how long a file is kept 
   assert.deepEqual([
     traceOf(wrote('export-keeping/index.md', `# Export keeping\n\n## Facts\n\n${ONE_FACT}\n## Sources\n`)),
     traceOf(edited('export-keeping/index.md', `## Facts\n\n${ONE_FACT}`)),
-    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` `disputed` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`: 7\n  - Source: [exports](../../concepts/exports.md): seven\n')),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
   ].filter(trace => !graded(trace)), [])
   assert.deepEqual([
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `verified` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n')),
@@ -986,6 +986,7 @@ test('two-sources-one-fact: its grader passes a fact of how long a file is kept 
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F1** `inferred` An export file is kept for seven days.\n  - Source: `worker/src/keep.js:1` at `4b1c2d3`\n  - Source: [exports](../../concepts/exports.md)\n')),
     traceOf(readBack('- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`')),
     traceOf(readBack(ONE_FACT)),
+    traceOf(wrote('keep/index.md', '## Facts\n\n- **F2** `verified` `disputed` Worker removes an export file 7 days after it is built.\n  - Source: `worker/src/keep.js:3` at `4b1c2d3`: 7\n  - Source: [exports](../../concepts/exports.md): seven\n')),
     traceOf(wrote('keep/index.md', '## Facts\n\n- **F7** `verified` The gateway retries a failed call three times.\n  - Source: [03-2026-11-22-chat-retries-full-text.md](sources/03-2026-11-22-chat-retries-full-text.md)\n  - Source: `api/src/gateway.js:41-58` at `3f2a9c1`\n')),
   ].filter(graded), [])
 })

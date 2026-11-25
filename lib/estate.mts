@@ -309,7 +309,7 @@ function normalise(raw: WrittenSettings | null, fail: Fail): Settings {
     notNodes: strings(raw.notNodes ?? [], 'notNodes', fail).map(entry => entry.replace(/\/+$/, '')),
     leftAlone: strings(raw.leftAlone ?? [], 'leftAlone', fail),
     workDir,
-    researchDir: researchFolder(raw.researchDir ?? 'research', workDir, deepDirs, fail),
+    researchDir: raw.researchDir === undefined ? 'research' : researchFolder(raw.researchDir, workDir, deepDirs, fail),
     deepDirs,
     deepPatterns: strings(raw.deepPatterns ?? ['*-full-text.md'], 'deepPatterns', fail),
     legacyHooks: strings(raw.legacyHooks ?? [], 'legacyHooks', fail),

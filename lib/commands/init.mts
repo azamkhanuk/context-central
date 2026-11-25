@@ -116,7 +116,7 @@ function landingOf(dir: string, hub: string): Landing {
   const entry = entryAt(landing)
   if (entry?.isDirectory()) throw new PluginError(`${path} is a folder, so the hub cannot be written there`)
   if (entry && !entry.isFile()) throw new PluginError(`${path} is no plain file, so the hub cannot be written there`)
-  const home = realpathSync.native(dir)
+  const home = realPlace(dir) ?? dir
   const shown = (place: string) => (holds(home, place) ? join(dir, relative(home, place)) : place)
   return { hub, path, landing, home, spelled: join(home, hub), shown }
 }
@@ -128,7 +128,7 @@ function outOfGit(dir: string, { path, landing, home, spelled, shown }: Landing,
   const { root, tracked } = trackedThere(landing, env)
   if (tracked === true) throw new PluginError(landing === spelled ? `${path} is tracked by git, ${KEPT_OUT}` : `${path} would be written as ${shown(landing)}, which git tracks, ${KEPT_OUT}`)
   if (landing !== spelled && trackedThere(spelled, env).tracked === true) throw new PluginError(`${path} is tracked by git, ${KEPT_OUT}`)
-  if (root !== null && (!inCheckout || root !== realpathSync.native(dir))) throw new PluginError(`${path} lies in the checkout ${shown(root)}, where git would show it, ${KEPT_OUT}`)
+  if (root !== null && (!inCheckout || root !== home)) throw new PluginError(`${path} lies in the checkout ${shown(root)}, where git would show it, ${KEPT_OUT}`)
 }
 
 function lineFor({ hub, path, landing, home, shown }: Landing) {
@@ -197,6 +197,8 @@ function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout) {
   if (own.some(rel => rel.toLowerCase() === hub)) throw new PluginError(`"${named}" names a file or a folder that init lays down for the map itself, so it cannot be the hub`)
   const above = files.find(rel => hub.startsWith(`${rel.toLowerCase()}/`))
   if (above !== undefined) throw new PluginError(`"${named}" lies under ${above}, which init lays down for the map itself, so it cannot be the hub`)
+  const folder = theirs.filter(rel => rel.endsWith('/')).find(rel => hub.startsWith(rel.toLowerCase()))
+  if (folder !== undefined) throw new PluginError(`"${named}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub`)
 }
 
 function hubFound(dir: string, inCheckout: boolean) {

@@ -165,6 +165,31 @@ test('in a folder that holds two checkouts a plain map is the root layout with b
   assert.deepEqual(json(made, made.base, 'config', '--get', 'repos'), [{ path: 'api', name: 'api' }, { path: 'web', name: 'web' }])
 })
 
+test('a plain map is made in a folder that is not there yet, with the folders above it, and a dry run lists it there and writes nothing', () => {
+  const base = tree(makeTree({}))
+  const dir = join(base, 'new', 'sub')
+
+  const dry = plain({ env: {} }, base, dir, '--dry-run')
+  assert.equal(dry.code, 0, dry.stderr)
+  assert.ok(dry.stdout.startsWith(`plain map at ${dir}:\nwould create estate.json\n`), dry.stdout)
+  assert.deepEqual(readdirSync(base), [])
+  const made = plain({ env: {} }, base, dir)
+  assert.equal(made.code, 0, made.stderr)
+  assert.ok(existsSync(join(dir, 'estate.json')) && existsSync(join(dir, 'CLAUDE.md')))
+})
+
+test('a hub inside a folder init lays down for the map is refused before anything is written, so it is never read as a work item, a note or a month of the log', () => {
+  for (const [hub, folder] of [['work/hub.md', 'work/'], ['docs/hub.md', 'docs/'], ['log/2026-01.md', 'log/'], ['Work/Notes/Hub.md', 'work/']]) {
+    const root = tree(makeTree({}))
+
+    assert.deepEqual(plain({ env: {} }, root, '--hub', hub), { code: 1, stdout: '', stderr: `context-central init: "${hub}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub\n` }, hub)
+    assert.deepEqual(readdirSync(root), [], hub)
+  }
+  const made = fresh()
+  assert.deepEqual(plain(made, made.main, '--hub', `${MAP}/work/hub.md`), { code: 1, stdout: '', stderr: `context-central init: "${MAP}/work/hub.md" lies in ${MAP}/work/, which init lays down for the map itself, so it cannot be the hub\n` })
+  assert.equal(existsSync(join(made.main, MAP)), false)
+})
+
 test('in a folder that holds no checkout a plain map registers no repo', () => {
   const root = tree(makeTree({ 'notes.md': '# Notes\n' }))
 

@@ -308,6 +308,20 @@ test('the work folder and the log are not taken as the folder for researches, wh
   assert.equal(run(['config', '--get', 'researchDir'], { cwd: tree(acme({}, { researchDir: 'workshop/logbook' })) }).stdout, 'workshop/logbook\n')
 })
 
+test('a map whose work folder or a folder of its deep tier is named research, with no researchDir, is read as before, and research says the folder is taken until the settings name another', () => {
+  const older: [{ [key: string]: Json }, string][] = [[{ workDir: 'research' }, 'is the work folder'], [{ workDir: 'Research/' }, 'is the work folder'], [{ deepDirs: ['sources', 'research'] }, 'is a folder of the deep tier'], [{ deepDirs: ['sources', 'RESEARCH'] }, 'is a folder of the deep tier']]
+
+  for (const [settings, why] of older) {
+    const root = tree(acme({}, settings))
+
+    assert.deepEqual(run(['where'], { cwd: root }).code, 0, JSON.stringify(settings))
+    assert.deepEqual(research(root, 'new', NAME), { code: 1, stdout: '', stderr: `context-central research: research ${why}, so no research is made there: name another folder with "researchDir" in estate.json\n` }, JSON.stringify(settings))
+    assert.deepEqual(research(root, 'open', NAME), { code: 1, stdout: '', stderr: `context-central research: research ${why}, so it holds no research: name another folder with "researchDir" in estate.json\n` }, JSON.stringify(settings))
+    assert.match(hook('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } }).stdout, /Context map \\"Acme estate\\"/, JSON.stringify(settings))
+    assert.equal(research(tree(acme({}, { ...settings, researchDir: 'findings' })), 'new', NAME).code, 0, JSON.stringify(settings))
+  }
+})
+
 test('a folder of the deep tier is not taken as the folder for researches, nor one below it, since nothing under it is read as a note', () => {
   const deep: [string, string, { [key: string]: Json }][] = [['sources', 'sources', {}], ['Sources', 'sources', {}], ['research/sources', 'sources', {}], ['notes/sources/research', 'sources', {}], ['raw/research', 'raw', { deepDirs: ['sources', 'raw'] }]]
 
@@ -925,6 +939,15 @@ test('a research does not take a name the map reads as something else: a folder 
   assert.equal(research(root, 'new', 'sources-of-truth').code, 0)
   assert.deepEqual(readdirSync(join(root, 'research')).sort(), ['raw', 'sources-of-truth'])
   assert.equal(existsSync(join(own, 'research')), false)
+})
+
+test('a title with no words in it is wrong usage, so no fact sheet is written with an empty title', () => {
+  const root = tree(acme())
+
+  for (const title of ['', ' ', '\t ']) {
+    assert.deepEqual(research(root, 'new', NAME, '--title', title), { code: 2, stdout: '', stderr: 'context-central research: a title holds words: leave --title out and the name is the title\n' }, JSON.stringify(title))
+  }
+  assert.equal(existsSync(join(root, 'research')), false)
 })
 
 test('a title that holds a line break is wrong usage, so no line of it is written into the head of the fact sheet', () => {

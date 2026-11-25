@@ -97,6 +97,9 @@ export function readingTemplateOf({ estateRoot, config }: Estate) {
 }
 
 export function researchTaken({ estateRoot, mapDir, config }: Estate): string | null {
+  const lower = config.researchDir.toLowerCase()
+  if (lower === config.workDir.replace(/\/+$/, '').toLowerCase()) return 'is the work folder'
+  if (config.deepDirs.some(deep => deep.toLowerCase() === lower)) return 'is a folder of the deep tier'
   const folder = join(mapDir, config.researchDir)
   if (isAFile(folder)) return 'is a file, not a folder'
   if (existsSync(join(folder, '.git'))) return 'holds a .git of its own'

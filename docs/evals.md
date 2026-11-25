@@ -64,7 +64,7 @@ A pattern is a blunt measure of a reply. Where a fact has no one word of its own
 | `clean-diff-clean` of `reviewer-names-the-rule` | A reply that nowhere gives a line of `plans.js`, the file the other diff adds, as `plans.js:` and a number |
 | `gives-the-command` of `research-with-no-map` | `context-central init --plain`, with no `--dry-run` after it |
 | `makes-no-map`, `writes-no-file` and `edits-no-file` of `research-with-no-map` | No call to the shell whose command holds `init` and `--plain` and no `--dry-run`, and no call to `Write` or to `Edit` |
-| `one-fact-two-sources` of `two-sources-one-fact` | A pattern over the trace: a fact marked verified whose sentence names an export, keeping, removing or seven days, with two `Source` lines straight under it, as `Write` or `Edit` writes the sheet. The host's `Read` numbers each line it gives back, so a sheet read back does not pass, and the example of a fact the skill's own files give names none of those words |
+| `one-fact-two-sources` of `two-sources-one-fact` | A pattern over the trace: a fact marked verified and not disputed, whose sentence names an export, keeping, removing or seven days, with two `Source` lines straight under it, as `Write` or `Edit` writes the sheet. The host's `Read` numbers each line it gives back, so a sheet read back does not pass, and the example of a fact the skill's own files give names none of those words |
 | `gap-named` of `gap-said` | The words "Not known", then the chat or the thread T-377 before the heading of another group |
 | `asks-nothing` and `ends-on-what-is-open` of `nobody-there-asks-nothing` | No call to `AskUserQuestion`; and the words "Not known", then an outage before the heading of another group |
 
