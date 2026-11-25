@@ -60,7 +60,7 @@ _Avoid_:
 **Research**: One question's findings, kept as a folder of its own in the map under a short name: the fact sheet, the research brief, the log, the set-aside list, the reading and the saved sources. It is added to by rounds and never rewritten, and nothing in it names a step.
 _Avoid_: research note, report
 
-**Fact sheet**: The first file of a research, `index.md`, which a planner that knows nothing of the plugin can read: how to read the folder, the questions, the day after which it should be checked again, what was not reached, the numbered facts that stand and the list of sources.
+**Fact sheet**: The first file of a research, `index.md`, which a planner that knows nothing of the plugin can read: how to read the folder, the questions, the day to check it again by, what was not reached, the numbered facts that stand and the list of sources.
 _Avoid_: summary, index
 
 **Fact**: One thing a research found, in one sentence, with its number, its mark and every source that says it. Two sources that say one thing are one fact. Its words never change and its number is never used again.

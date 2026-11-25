@@ -6,7 +6,7 @@
 
 ## The folder
 
-Every research is a folder under `research/` in the map, named in small letters, digits and dashes, such as `research/gateway-limits/`, with an item or without. An estate that keeps something else under that name gives research another folder with `researchDir`. `context-central research new <name>` makes the folder, and `context-central research open <name>` says where one stands.
+Every research is a folder under `research/` in the map, such as `research/gateway-limits/`, with an item or without. The command takes a name of letters, digits, dots, dashes and underscores that opens with a letter or a digit and does not end in a dot; the skill gives a new research a name in small letters, digits and dashes. An estate that keeps something else under that name gives research another folder with `researchDir`. `context-central research new <name>` makes the folder, and `context-central research open <name>` says where one stands.
 
 ```
 research/gateway-limits/
@@ -62,7 +62,7 @@ No file of a research names a step of the plugin. A research note written before
 |---|---|---|
 | a sweep of one connection for leads | `context-central:sweeper` | search and save nothing; it is denied the tools that write a file, and still holds a shell and the server's tools |
 | many files, long files, saved sources | `context-central:reader` | read, with a shell for `slice` and git, and write no file |
-| a ticket or a pull request | `context-central fetch`, and the fetcher where fetch says a session reads the connection | save the full text where it is told, and nothing else |
+| a ticket or a pull request | `context-central fetch`, and the fetcher where fetch says a session reads the connection | save the full text where it is told; the fetcher holds every tool of the session, and only its brief keeps it to that |
 | anything else in a connection | `context-central:fetcher` | the same |
 | a page on the web | `context-central:web-reader` | fetch and search the web, and nothing else |
 
@@ -128,7 +128,7 @@ Other hosts read the open skill format, and research has not been run on one. It
 ## Where a host cannot hold it
 
 - **A skill kept to the person.** Claude Code starts research only when you type it, as its head says. A host that reads `agents/openai.yaml` is told the same. A host that reads neither may start research of its own accord.
-- **An agent kept to reading.** With the plugin on Claude Code, the web reader holds two tools that fetch and nothing else. The sweeper is denied the tools that write a file and still holds a shell and every tool of its server, those that post among them, and the reader holds a shell: only their briefs keep them from writing through the shell or posting. Taken alone, a subagent is chosen that is denied those tools where the host has one, as Claude Code's Explore is. Where a host has none, only the brief's words keep an agent from writing.
+- **An agent kept to reading.** With the plugin on Claude Code, the web reader holds two tools that fetch and nothing else. The sweeper is denied the tools that write a file and still holds a shell and every tool of its server, those that post among them, and the reader holds a shell: only their briefs keep them from writing through the shell or posting. The fetcher names no tools, so it holds every tool of the session, and only its brief keeps it to saving the one text at the one path it is given. Taken alone, a subagent is chosen that is denied those tools where the host has one, as Claude Code's Explore is. Where a host has none, only the brief's words keep an agent from writing.
 - **A session that reads for itself.** Where no subagent holds what a kind of reading needs, the session reads it itself, so the raw text comes into its own context.
 
 Research never posts outside the map, and never records a tool of the session in the settings.

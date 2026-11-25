@@ -19,7 +19,7 @@ It is for people whose work runs across several repositories, or across many ses
 ## How it helps
 
 - **A new session picks up where the last one stopped.** The state file says where the work stands, so you do not explain it again.
-- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The plugin's own skills and agents add about 550 tokens to a session by Claude Code's count, which `claude plugin details context-central@azamkhanuk` prints, and `context-central budget` shows what a folder loads at the start. The rest is read when it is named or asked for.
+- **Context stays small.** Two small things load every time: one file that routes each task, and the index of work in flight. The plugin's own skills and agents add about 560 tokens to a session by Claude Code's count, which `claude plugin details context-central@azamkhanuk` prints, and `context-central budget` shows what a folder loads at the start. The rest is read when it is named or asked for.
 - **What is written stays written.** Long text is kept in full, and each short note names the full text behind it. Two sessions that write the map at the same moment cannot undo each other's lines: a command holds the map's lock while it writes, and one that cannot get it says so and writes nothing.
 - **You know where to look.** Every skill ends on an answer of one shape: one line that gives the outcome, then what needs a fix, what is yours to decide, what is fine as it is and what is not known, then where the detail is.
 - **A build leaves proof.** Each run of a repo's recorded checks is written down with the commit it ran on. The index, `lint`, `doctor` and `work done` then say when that proof is older than the head of the branch, when a check is red there, or when none was run. They say so and stop nothing.
@@ -129,7 +129,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 ## What it does not do
 
-- Its own commands never post to a tracker or a code host, and the fetcher only reads. A skill may post through a connection only where your write rules allow it and you approve the exact text.
+- Its own commands never post to a tracker or a code host. The fetcher holds every tool of the session, and only its brief keeps it to reading. A skill may post through a connection only where your write rules allow it and you approve the exact text.
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source, that the proof of what was built is whole and that a line a standards note cites still reads as it did. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
