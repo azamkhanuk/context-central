@@ -6,7 +6,7 @@ import { buildIndex } from '../index-text.mts'
 import { findWorkItem, hubPath } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
-import { truncate } from '../text.mts'
+import { truncate, withoutBom } from '../text.mts'
 import { holds, linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
@@ -40,7 +40,7 @@ const PROOF_MS = 2000
 
 export async function run(args: string[], io: Io) {
   try {
-    const answer = respond(args[0], JSON.parse(await io.readStdin()) as HookInput, io.env)
+    const answer = respond(args[0], JSON.parse(withoutBom(await io.readStdin())) as HookInput, io.env)
     if (answer) io.out(JSON.stringify(answer))
   } catch (error) {
     if (io.env.CONTEXT_CENTRAL_DEBUG) io.err(`context-central hook: ${(error as Error).stack ?? error}`)
