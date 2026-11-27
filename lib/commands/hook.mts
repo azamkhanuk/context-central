@@ -1,8 +1,9 @@
 import { readFileSync, realpathSync } from 'node:fs'
 import { ConfigError, messageOf } from '../errors.mts'
 import { coverage, estateAt, findEstate } from '../estate.mts'
+import { hostOf, loadsHub } from '../host.mts'
 import { buildIndex } from '../index-text.mts'
-import { findWorkItem } from '../nodes.mts'
+import { findWorkItem, hubPath } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate } from '../text.mts'
@@ -88,7 +89,22 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
   const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
-  return { ...withContext('SessionStart', truncate(text, CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
+  return { ...withContext('SessionStart', truncate(text + hubNotLoaded(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
+}
+
+function hubNotLoaded(estate: Estate, env: Env, startDir: string) {
+  if (loadsHub(hostOf(env), estate, startDir)) return ''
+  const hub = hubPath(estate)
+  const text = written(hub).trimEnd()
+  return text.trim() ? `\n\nHub (${hub}), which this host does not load by itself:\n${text}` : ''
+}
+
+function written(path: string) {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return ''
+  }
 }
 
 function withState(estate: Estate, index: string, active: string | null) {
