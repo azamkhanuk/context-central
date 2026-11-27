@@ -95,7 +95,7 @@ copilot plugin marketplace add azamkhanuk/claude-plugins
 copilot plugin install context-central@azamkhanuk
 ```
 
-Then, once, add to `~/.copilot/settings.json`, so that a release reaches you by itself:
+The first command writes the marketplace into `~/.copilot/settings.json`. Give that entry `"autoUpdate": true`, once, so that it reads as below and a release reaches you by itself:
 
 ```json
 {
@@ -105,7 +105,7 @@ Then, once, add to `~/.copilot/settings.json`, so that a release reaches you by 
 }
 ```
 
-Less has been shown there than on Claude Code. On Copilot 1.0.116 the install, both hooks, the command, the loading of a skill and all five agents were each run, the sessions against a stand-in model, and no skill has been run there with one of GitHub's models. [On the Copilot command line](docs/install.md#on-the-copilot-command-line) says what Copilot asks you to allow, what works only in a session with you in it, and what each run showed.
+Less has been shown there than on Claude Code. On Copilot 1.0.116 the install, an update by itself, both hooks, the command, the loading of a skill and all five agents were each run, the sessions against a stand-in model, and no skill has been run there with one of GitHub's models. [On the Copilot command line](docs/install.md#on-the-copilot-command-line) says what Copilot asks you to allow, what works only in a session with you in it, and what each run showed.
 
 [Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, on the Copilot command line, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 

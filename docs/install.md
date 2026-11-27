@@ -59,7 +59,7 @@ copilot plugin install context-central@azamkhanuk
 
 Copilot keeps the copy in `~/.copilot/installed-plugins/azamkhanuk/context-central/`, or under `COPILOT_HOME` where that is set. A [launcher](terminal.md) finds it there where Claude Code has no copy on record.
 
-**Updating.** Copilot updates a plugin from a marketplace you added yourself only where your own settings turn that on. Add this once to `~/.copilot/settings.json`:
+**Updating.** Copilot updates a plugin from a marketplace you added yourself only where your own settings turn that on. The first command above wrote the marketplace into `~/.copilot/settings.json`. Give that entry `"autoUpdate": true`, once, so that it reads:
 
 ```json
 {
@@ -69,7 +69,7 @@ Copilot keeps the copy in `~/.copilot/installed-plugins/azamkhanuk/context-centr
 }
 ```
 
-Without it, `copilot plugin update context-central@azamkhanuk` fetches a release by hand. Copilot takes any change of a plugin's files as an update, whatever its version, so the marketplace names the plugin's `release` branch, which only a release moves: a merge that is not a release reaches nobody.
+Copilot then updates the plugin as a session starts in a folder you have trusted, and in a folder nobody has trusted it updates nothing. Without the entry, `copilot plugin update context-central@azamkhanuk` fetches a release by hand. Copilot takes any change of a plugin's files as an update, whatever its version, so the marketplace names the plugin's `release` branch, which only a release moves: a merge that is not a release reaches nobody.
 
 **What Copilot asks you to allow.** Copilot does not put a plugin's command on the `PATH`, so there a skill runs `node` with the file `bin/context-central` of the plugin's folder. Copilot asks before it runs a shell command it does not know as read-only, and before it uses a path outside the working folder, and a skill's `allowed-tools` grants neither there. Answer its prompt, which offers to stop asking for that command in the repository, or start Copilot with both allowed:
 
@@ -94,7 +94,8 @@ That rule allows every `node` command for the run. With the command on your own 
 | What | Shown |
 |---|---|
 | The marketplace added and the plugin installed from it, as 0.21.0, in a Copilot home of its own | yes |
-| A marketplace entry pinned to a branch: an install takes that branch, and an update moves when it moves and not when `main` does | yes, with a throwaway plugin |
+| A marketplace entry pinned to a branch: an install takes that branch, on Copilot and on Claude Code, and an update moves when it moves and not when `main` does | yes: the install with this plugin from a branch of its own repository, the update with a throwaway plugin |
+| With `autoUpdate` on the marketplace's entry, a session that starts in a trusted folder updates the plugin by itself | yes, with a throwaway plugin |
 | Both hooks start, and the live index is before the model at a start and the pointers at a prompt, each once | yes |
 | The hub's text after the index, in a plain map | yes |
 | A skill loads with its folder named, and the command answers when run by its file | yes, for `checkpoint`, with the plugin's folder added |
