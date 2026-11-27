@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync } from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
 import { ConfigError, messageOf } from '../errors.mts'
 import { coverage, estateAt, findEstate } from '../estate.mts'
 import { hostOf, loadsHub } from '../host.mts'
@@ -7,7 +7,7 @@ import { findWorkItem, hubPath } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate } from '../text.mts'
-import { linkedWorkTree } from '../worktree.mts'
+import { holds, linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
 
@@ -95,13 +95,22 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
 function hubNotLoaded(estate: Estate, env: Env, startDir: string) {
   if (loadsHub(hostOf(env), estate, startDir)) return ''
   const hub = hubPath(estate)
-  const text = written(hub).trimEnd()
+  const text = startOf(estate, hub).trimEnd()
   return text.trim() ? `\n\nHub (${hub}), which this host does not load by itself:\n${text}` : ''
 }
 
-function written(path: string) {
+// Only a file that lies inside the estate once links are followed is read, and no further than the hook's limit can show.
+function startOf(estate: Estate, hub: string) {
   try {
-    return readFileSync(path, 'utf8')
+    const place = realpathSync(hub)
+    if (!holds(realpathSync(estate.estateRoot), place) || !statSync(place).isFile()) return ''
+    const file = openSync(place, 'r')
+    try {
+      const bytes = Buffer.alloc(CONTEXT_CHARS * 4)
+      return bytes.toString('utf8', 0, readSync(file, bytes, 0, bytes.length, 0))
+    } finally {
+      closeSync(file)
+    }
   } catch {
     return ''
   }

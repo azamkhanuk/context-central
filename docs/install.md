@@ -71,21 +71,21 @@ Copilot keeps the copy in `~/.copilot/installed-plugins/azamkhanuk/context-centr
 
 Copilot then updates the plugin as a session starts in a folder you have trusted, and in a folder nobody has trusted it updates nothing. Without the entry, `copilot plugin update context-central@azamkhanuk` fetches a release by hand. Copilot takes any change of a plugin's files as an update, whatever its version, so the marketplace names the plugin's `release` branch, which only a release moves: a merge that is not a release reaches nobody.
 
-**What Copilot asks you to allow.** Copilot does not put a plugin's command on the `PATH`, so there a skill runs `node` with the file `bin/context-central` of the plugin's folder. Copilot asks before it runs a shell command it does not know as read-only, and before it uses a path outside the working folder, and a skill's `allowed-tools` grants neither there. Answer its prompt, which offers to stop asking for that command in the repository, or start Copilot with both allowed:
+**What Copilot asks you to allow.** Copilot does not put a plugin's command on the `PATH`, so there a skill runs `node` with the file `bin/context-central` of the plugin's folder. Copilot asks before it runs a shell command it does not know as read-only, and before it uses a path outside the working folder, and a skill's `allowed-tools` grants neither there. Answer its prompt, which by Copilot's own help offers to stop asking for that command in the repository, or start Copilot with both allowed:
 
 ```sh
 copilot --add-dir ~/.copilot/installed-plugins/azamkhanuk/context-central --allow-tool='shell(node:*)'
 ```
 
-That rule allows every `node` command for the run. With the command on your own `PATH`, as [the package each release carries](research.md#research-taken-alone) puts it, a skill finds it by its bare name and `--allow-tool='shell(context-central:*)'` is rule enough.
+That rule allows every `node` command for the run. With the command on your own `PATH`, as [the package each release carries](research.md#research-taken-alone) puts it, a skill finds it by its bare name, and the rule to give is `--allow-tool='shell(context-central:*)'`. That way was not run.
 
-**Trust.** A plugin's hooks run only in a folder you have trusted. In a session with you in it Copilot asks at the start. A run with nobody there, `copilot -p`, runs no hook in a folder nobody has trusted, and `--trust-folder` trusts it for that run.
+**Trust.** A plugin's hooks run only in a folder you have trusted. By Copilot's own help, a session with you in it asks at its start whether to trust the folder. A run with nobody there, `copilot -p`, runs no hook in a folder nobody has trusted, and `--trust-folder` trusts it for that run.
 
-**The skills.** In a session with you in it, a skill is typed as `/context-central:<skill>` with your words after it. In a `-p` run the six skills you type cannot be started: Copilot hands the slash name to the model as typed, and refuses the model a skill that is kept to the person. `checkpoint`, which the model may start, loads there.
+**The skills.** In a session with you in it, a skill is typed as `/context-central:<skill>` with your words after it: Copilot's help says so, and its log showed the slash name taken. No skill was run to its end there with any model, and of the seven only `checkpoint` was loaded. In a `-p` run the six skills you type cannot be started: Copilot hands the slash name to the model as typed, and refuses the model a skill that is kept to the person. `checkpoint`, which the model may start, loads there.
 
-**The agents.** Each starts under its name, `context-central:<agent>`. Copilot reads the tool names in an agent's head and holds the reader and the reviewer to them, so neither can write a file. It does not read `disallowedTools`, so the sweeper holds every tool there and only its brief keeps it from writing, as the fetcher's does on both hosts.
+**The agents.** Each starts under its name, `context-central:<agent>`. Copilot reads the tool names in an agent's head and holds the reader and the reviewer to them: neither is given a tool that writes a file, and each holds a shell, as on Claude Code. It does not read `disallowedTools`, so the sweeper holds every tool there, and only its brief keeps it from writing.
 
-**The hub.** Copilot loads `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` from the folder a session starts in and from the root of its repository, and no `CLAUDE.local.md`. Where it does not load the hub, the session-start hook gives the hub's text after the live index.
+**The hub.** By its own help Copilot loads `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` and the rules under `.claude/rules/` and `.github/instructions/`, from the folder a session starts in and from the root of its repository, and no `CLAUDE.local.md`. Where it does not load the hub, the session-start hook gives the hub's text after the live index, for a hub that lies inside the estate. A hub kept under `.github/` is the one case it gets wrong: Copilot loads it and the hook gives it as well, since the plugin's code names no code host's folder.
 
 **Turning it off.** `copilot plugin disable context-central@azamkhanuk` turns it off and `copilot plugin enable context-central@azamkhanuk` turns it on again. `copilot plugin uninstall context-central@azamkhanuk` removes the copy, and `copilot plugin marketplace remove azamkhanuk` the marketplace.
 

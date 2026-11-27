@@ -78,6 +78,33 @@ test('in a checkout that does not hold the tagged commit, as a shallow one of a 
   assert.equal(onOrigin(made, 'refs/heads/release'), tagged)
 })
 
+test('in a shallow checkout, as the release job has one, a release branch that sits at the release before is moved to the tag', () => {
+  const made = repository()
+  git(made, made.main, 'push', '-q', 'origin', 'HEAD:refs/heads/release')
+  commit(made, '# The plugin, with work for the next release\n')
+  const tagged = tagHere(made)
+  const shallow = join(made.base, 'shallow')
+  git(made, made.base, 'clone', '-q', '--depth', '1', '--no-tags', pathToFileURL(made.origin).href, shallow)
+
+  const result = spawned(process.execPath, [SCRIPT], { cwd: shallow, env: made.env })
+
+  assert.deepEqual(result, { code: 0, stdout: `release moved to ${TAG}, ${tagged.slice(0, 7)}\n`, stderr: '' })
+  assert.equal(onOrigin(made, 'refs/heads/release'), tagged)
+})
+
+test('a tag that names no commit is not pushed to the branch, and the script exits 1', () => {
+  const made = repository()
+  const blob = git(made, made.main, 'hash-object', '-w', 'README.md').stdout.trim()
+  git(made, made.main, 'tag', TAG, blob)
+  git(made, made.main, 'push', '-q', 'origin', `refs/tags/${TAG}`)
+
+  const result = move(made)
+
+  assert.equal(result.code, 1)
+  assert.match(result.stderr, /^release could not be moved to context-central--v0\.3\.0: /)
+  assert.equal(onOrigin(made, 'refs/heads/release'), '')
+})
+
 test('a release branch that is at the tag already is left, and one line says so', () => {
   const made = repository()
   tagHere(made)

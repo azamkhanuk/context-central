@@ -227,7 +227,7 @@ if [ -z "$cli" ]; then
       ${CHOOSE_INSTALL}
       console.log(choose(process.argv[1], process.argv[2]))
     ' "$installed" "$0" 2>/dev/null)
-    if [ -n "$root" ]; then cli="$root/bin/${PLUGIN}"; fi
+    if [ -n "$root" ] && [ -f "$root/bin/${PLUGIN}" ]; then cli="$root/bin/${PLUGIN}"; fi
   fi
 fi
 if [ -z "$cli" ]; then
@@ -269,7 +269,7 @@ const CHOOSE_INSTALL = [
 // The other host keeps one copy for the person, on a record that opens with comment lines. The text obeys the rule above.
 const CHOOSE_OTHER_HOST = [
   'const chooseOtherHost = record => { const fs = require(`fs`)',
-  'const read = () => { try { const installs = JSON.parse(fs.readFileSync(record, `utf8`).split(`\\n`).filter(line => !line.trim().startsWith(`//`)).join(`\\n`)).installedPlugins; return Array.isArray(installs) ? installs : [] } catch (error) { return [] } }',
+  'const read = () => { try { const text = fs.readFileSync(record, `utf8`); const installs = JSON.parse((text.charCodeAt(0) === 65279 ? text.slice(1) : text).split(`\\n`).filter(line => !line.trim().startsWith(`//`)).join(`\\n`)).installedPlugins; return Array.isArray(installs) ? installs : [] } catch (error) { return [] } }',
   `const ours = read().filter(install => install && install.name === \`${PLUGIN}\` && install.enabled !== false && typeof install.cache_path === \`string\`).sort((a, b) => Number(b.marketplace === \`${MARKETPLACE}\`) - Number(a.marketplace === \`${MARKETPLACE}\`))`,
   'return ours.length ? ours[0].cache_path : `` }',
 ].join('; ')
@@ -280,8 +280,9 @@ const RUN_BIN_SCRIPT = [
   CHOOSE_INSTALL,
   CHOOSE_OTHER_HOST,
   "const otherHost = () => require('path').join(process.env.COPILOT_HOME || require('path').join(require('os').homedir(), '.copilot'), 'config.json')",
-  `const installed = () => { const root = choose(record, launcher) || chooseOtherHost(otherHost()); return root ? require('path').join(root, 'bin', '${PLUGIN}') : '' }`,
   'const isFile = file => { try { return fs.statSync(file).isFile() } catch { return false } }',
+  `const binOf = root => (root ? require('path').join(root, 'bin', '${PLUGIN}') : '')`,
+  "const installed = () => [binOf(choose(record, launcher)), binOf(chooseOtherHost(otherHost()))].find(isFile) || ''",
   'const cli = process.env.CONTEXT_CENTRAL_CLI || installed()',
   "if (cli && isFile(cli)) process.exit(require('child_process').spawnSync(process.execPath, [cli, ...args], { stdio: 'inherit' }).status ?? 1)",
   `process.stderr.write('${NO_PLUGIN.map(line => `${line}\\r\\n`).join('')}')`,

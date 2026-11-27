@@ -245,14 +245,12 @@ function copies(estate: Estate, io: Io) {
 }
 
 function copiesOnCopilot(io: Io) {
-  const loading = copilotInstalls(io.env)
-    .filter(({ id, enabled }) => id.startsWith(`${PLUGIN}@`) && enabled)
-    .sort((a, b) => Number(b.id === PLUGIN_ID) - Number(a.id === PLUGIN_ID) || a.id.localeCompare(b.id))
-  if (loading.length < 2) return null
-  const [kept, ...others] = loading
-  const ids = loading.map(({ id }) => id)
-  const uninstall = others.map(({ id }) => `copilot plugin uninstall ${id}`)
-  return `the plugin loads on Copilot as ${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}, so each hook runs ${loading.length === 2 ? 'twice' : `${loading.length} times`} there; keep the copy you use and uninstall the ${others.length === 1 ? 'other' : 'others'}, so to keep ${kept.id}: ${uninstall.join(', then ')}`
+  const on = copilotInstalls(io.env).filter(({ id, enabled }) => (id === PLUGIN || id.startsWith(`${PLUGIN}@`)) && enabled)
+  const ids = [...new Set(on.map(({ id }) => id))].sort((a, b) => Number(b === PLUGIN_ID) - Number(a === PLUGIN_ID) || a.localeCompare(b))
+  if (ids.length < 2) return null
+  const [kept, ...others] = ids
+  const uninstall = others.map(id => `copilot plugin uninstall ${id}`)
+  return `the plugin loads on Copilot as ${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}, so each hook runs ${ids.length === 2 ? 'twice' : `${ids.length} times`} there; keep the copy you use and uninstall the ${others.length === 1 ? 'other' : 'others'}, so to keep ${kept}: ${uninstall.join(', then ')}`
 }
 
 function copiesOnClaudeCode(estate: Estate, io: Io) {

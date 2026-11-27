@@ -6,7 +6,7 @@ Everything the plugin starts on your machine, every place it writes outside the 
 
 The plugin is a command, `context-central`, which Node runs as it is. Nothing is compiled, nothing is installed beside it, and it has no dependencies to download.
 
-**The two hooks.** Claude Code starts each as `node <plugin folder>/bin/context-central hook <event>`, with no shell. The Copilot command line runs the same file through a shell line, `bash` on macOS and Linux and `powershell` on Windows, and there the session start is a new or a resumed session alone.
+**The two hooks.** Claude Code starts each as `node <plugin folder>/bin/context-central hook <event>`, with no shell. The Copilot command line runs the same file through a shell line, `bash` on macOS and Linux and `powershell` on Windows, and there the session start is a new or a resumed session alone. By its changelog Copilot reads the two limits below as its own, and no run timed one out.
 
 - At every session start, resume, clear, compaction and fork, with a limit of 15 seconds.
 - At every prompt you submit, with a limit of 10 seconds.

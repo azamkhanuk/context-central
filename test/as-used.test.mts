@@ -134,6 +134,16 @@ test('the powershell line of each hook, run as a host that runs a shell line run
   assert.deepEqual(prompted, { code: 0, stderr: '', context: acmePointers(root) })
 })
 
+test('the powershell line of a hook finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII', POWERSHELL_LINE, () => {
+  const root = tree(acme())
+  const linked = join(tree(makeTree({})), 'plug in! é')
+  symlinkSync(REPO, linked, 'junction')
+
+  const started = asShellLine('powershell', 'SessionStart', { session_id: 's1', cwd: root, source: 'new' }, linked)
+
+  assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
+})
+
 test('the session-start hook, started as the manifest declares it, answers with the live index', () => {
   const root = tree(acme())
 

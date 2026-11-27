@@ -486,6 +486,32 @@ test("a record of Copilot's that is not JSON, holds no list, or lists a copy wit
   }
 })
 
+test("a copy on Copilot's record that does not say whether it is on counts as on", () => {
+  const unsaid = (id: string) => ({ name: id.split('@')[0], marketplace: id.split('@')[1], cache_path: `/plugins/${id}` })
+
+  assert.equal(copiesLine(doctor(tree(acme()), onOtherHost([unsaid(OLDER), unsaid(CURRENT)]))), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+})
+
+test('one copy that Copilot recorded twice is one copy, and no fix', () => {
+  assert.equal(copiesLine(doctor(tree(acme()), onOtherHost([otherHostCopy(CURRENT), otherHostCopy(CURRENT)]))), 'ok   copies')
+})
+
+test("a copy on Copilot's record under no marketplace counts beside one from a marketplace, and is dropped by its bare name", () => {
+  const bare = { name: 'context-central', cache_path: '/plugins/direct', enabled: true }
+
+  assert.equal(
+    copiesLine(doctor(tree(acme()), onOtherHost([bare, otherHostCopy(CURRENT)]))),
+    `FIX  copies: the plugin loads on Copilot as ${CURRENT} and context-central, so each hook runs twice there; keep the copy you use and uninstall the other, so to keep ${CURRENT}: copilot plugin uninstall context-central`,
+  )
+})
+
+test("a marketplace's name that holds a line break is no part of a copy's id, so the row for copies stays one line", () => {
+  const result = doctor(tree(acme()), onOtherHost([otherHostCopy(CURRENT, { marketplace: 'two\nlines' }), otherHostCopy(CURRENT)]))
+
+  assert.equal(result.stdout.split('\n').filter(line => line.includes('lines')).length, 0)
+  assert.equal(copiesLine(result), `FIX  copies: the plugin loads on Copilot as ${CURRENT} and context-central, so each hook runs twice there; keep the copy you use and uninstall the other, so to keep ${CURRENT}: copilot plugin uninstall context-central`)
+})
+
 test('three copies on Copilot are each named, with how often each hook runs and an uninstall for every copy but the kept one', () => {
   const FORK = 'context-central@globex'
 

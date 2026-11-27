@@ -332,6 +332,27 @@ test("of two copies the other host holds, the launcher runs the one from its aut
   assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
+test("a copy on the other host's record that does not say whether it is on is taken, and so is one on a record that opens with a byte-order mark", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [{ name: 'context-central', marketplace: 'azamkhanuk', cache_path: join(root, 'installed/context-central') }])
+  const marked = machine()
+  installOnOtherHost(join(marked, 'home/.copilot'), [fromAuthor(marked)], '\uFEFF')
+
+  assert.deepEqual(JSON.parse(launch(root, ['index'], {}).stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(launch(marked, ['index'], {}).stdout) as unknown, { cli: join(marked, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test('where the record for Claude Code names a folder that is gone, the copy the other host installed is run', () => {
+  const root = machine()
+  install(root, join(root, 'home/.claude'), join(root, 'gone'))
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root)])
+
+  const result = launch(root, ['index'], {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
 test('a copy the other host has turned off is passed over, and one whose folder is gone counts as nothing installed', () => {
   const root = machine()
   installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, { enabled: false }), fromAuthor(root, { marketplace: 'context-central', cache_path: join(root, 'elsewhere') })])
@@ -573,6 +594,17 @@ test('the cmd launcher runs the copy another host installed where Claude Code ha
   assert.equal(result.stderr, '')
   assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
   assert.deepEqual(JSON.parse(fromNamed.stdout) as unknown, { cli: join(named, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test('where the record for Claude Code names a folder that is gone, the cmd launcher runs the copy the other host installed', CMD, () => {
+  const root = cmdMachine()
+  install(root, join(root, 'home/.claude'), join(root, 'gone'))
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root)])
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
 test('the cmd launcher counts an install record it cannot use as nothing installed', CMD, () => {

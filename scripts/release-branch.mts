@@ -28,8 +28,10 @@ try {
   } else if (branch === tagged) {
     console.log(`${BRANCH} is at ${tag} already`)
   } else {
-    git('fetch', '-q', '--no-tags', 'origin', `+refs/tags/${tag}:refs/tags/${tag}`)
-    git('push', '-q', 'origin', `${tagged}:refs/heads/${BRANCH}`)
+    const whole = git('rev-parse', '--is-shallow-repository').trim() === 'true' ? ['--unshallow'] : []
+    const there = branch ? [`+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}`] : []
+    git('fetch', '-q', '--no-tags', ...whole, 'origin', `+refs/tags/${tag}:refs/tags/${tag}`, ...there)
+    git('push', '-q', 'origin', `${tagged}^{commit}:refs/heads/${BRANCH}`)
     console.log(`${BRANCH} moved to ${tag}, ${tagged.slice(0, 7)}`)
   }
 } catch (error) {
