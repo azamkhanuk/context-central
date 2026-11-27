@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, symlinkSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, notOnWindows, onlyOnWindows, spawned } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, notOnWindows, onlyOnWindows, spawned } from './helpers.mts'
 
 const tree = disposable()
 
@@ -123,6 +123,23 @@ test('the bash line of a hook finds the plugin in a folder whose name holds a sp
 
   assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
 })
+
+function estateUnder(folder: string) {
+  const files = Object.fromEntries(Object.entries({ ...ACME_FILES, 'estate.json': ACME_CONFIG }).map(([path, content]) => [`${folder}/${path}`, content]))
+  return join(tree(makeTree(files)), folder)
+}
+
+for (const [shell, where] of [['bash', BASH_LINE], ['powershell', POWERSHELL_LINE]] as const) {
+  test(`the ${shell} line of each hook hands on an input that holds a letter outside ASCII as it was written, in a folder's name and in a prompt`, where, () => {
+    const root = estateUnder('Zoë')
+
+    const started = asShellLine(shell, 'SessionStart', { session_id: 's1', cwd: root, source: 'new' })
+    const prompted = asShellLine(shell, 'UserPromptSubmit', { session_id: 's1', cwd: root, prompt: 'pick up PROJ-12 for Zoë' })
+
+    assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
+    assert.deepEqual(prompted, { code: 0, stderr: '', context: acmePointers(root) })
+  })
+}
 
 test('the powershell line of each hook, run as a host that runs a shell line runs it on Windows, answers as the program with its arguments does', POWERSHELL_LINE, () => {
   const root = tree(acme())

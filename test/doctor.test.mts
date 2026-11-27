@@ -479,7 +479,7 @@ test("Copilot's record is read from the folder its own variable names when one i
 
 test("a record of Copilot's that is not JSON, holds no list, or lists a copy with no name or no folder holds no copy", () => {
   const root = tree(acme())
-  const nameless: Json[] = [{ marketplace: 'azamkhanuk', cache_path: '/plugins/a', enabled: true }, { name: 'context-central', marketplace: 'azamkhanuk' }, null, 7, otherHostCopy(CURRENT)]
+  const nameless: Json[] = [{ marketplace: 'elsewhere', cache_path: '/plugins/a', enabled: true }, { name: 'context-central', marketplace: 'elsewhere' }, { name: 'context-central', marketplace: 'another', cache_path: '' }, null, 7, otherHostCopy(CURRENT)]
 
   for (const record of ['{ not json', '{}\n', otherHostRecord('context-central'), otherHostRecord(nameless)]) {
     assert.equal(copiesLine(doctor(root, sandbox({}, { '.copilot/config.json': record }))), 'ok   copies', record)
@@ -490,6 +490,12 @@ test("a copy on Copilot's record that does not say whether it is on counts as on
   const unsaid = (id: string) => ({ name: id.split('@')[0], marketplace: id.split('@')[1], cache_path: `/plugins/${id}` })
 
   assert.equal(copiesLine(doctor(tree(acme()), onOtherHost([unsaid(OLDER), unsaid(CURRENT)]))), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+})
+
+test("a record of Copilot's that opens with a byte-order mark is read as if it had none", () => {
+  const record = `\uFEFF${JSON.stringify({ installedPlugins: [otherHostCopy(OLDER), otherHostCopy(CURRENT)] })}\n`
+
+  assert.equal(copiesLine(doctor(tree(acme()), sandbox({}, { '.copilot/config.json': record }))), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
 })
 
 test('one copy that Copilot recorded twice is one copy, and no fix', () => {

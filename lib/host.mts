@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join, posix, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { hubPath } from './nodes.mts'
 import { withoutBom } from './text.mts'
 import { inTree } from './worktree.mts'
@@ -40,17 +40,16 @@ export function copilotInstalls(env: Env): CopilotInstall[] {
 
 export function loadsHub(host: Host, estate: Estate, startDir: string) {
   if (host !== 'copilot') return true
-  const named = posix.normalize(estate.config.hub)
-  if (!COPILOT_LOADS_AT_A_ROOT.includes(named) && !COPILOT_LOADS_UNDER.some(pattern => pattern.test(named))) return false
   const start = real(resolve(startDir))
-  const roots = [start, repositoryRoot(start)]
+  const roots = [start, repositoryRoot(start)].filter(root => root !== null)
   const hub = hubPath(estate)
-  const copies = estate.workTree ? [hub, inTree(estate.workTree, hub)] : [hub]
-  return copies.filter(copy => existsSync(copy)).some(copy => roots.includes(real(rootOf(copy, named))))
+  const copies = (estate.workTree ? [hub, inTree(estate.workTree, hub)] : [hub]).filter(copy => existsSync(copy))
+  return copies.some(copy => roots.some(root => loadedAs(relative(root, join(real(dirname(copy)), basename(copy))))))
 }
 
-function rootOf(file: string, named: string) {
-  return named.split('/').reduce(folder => dirname(folder), file)
+function loadedAs(fromRoot: string) {
+  const named = fromRoot.split(sep).join('/')
+  return COPILOT_LOADS_AT_A_ROOT.includes(named) || COPILOT_LOADS_UNDER.some(pattern => pattern.test(named))
 }
 
 function oneWord(value: unknown): value is string {

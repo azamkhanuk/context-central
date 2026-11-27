@@ -53,7 +53,7 @@ function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
   if (!Object.hasOwn(EVENTS, event ?? '')) throw new Error(`unknown hook event "${event}"`)
   const handler = EVENTS[event]
   const fromTree = input.cwd && linkedWorkTree(input.cwd) ? findEstate(input.cwd, env) : null
-  const startDir = fromTree ? input.cwd : env.CLAUDE_PROJECT_DIR || input.cwd
+  const startDir = fromTree ? input.cwd : sessionFolder(input, env)
   if (!startDir) return null
   const found = fromTree ?? findEstate(startDir, env)
   if (!found || (!fromTree && inAnotherMap(found, input.cwd, env))) return null
@@ -64,6 +64,11 @@ function respond(event: string, input: HookInput, env: Env): HookAnswer | null {
     if (!(error instanceof ConfigError)) throw error
     return { systemMessage: `context-central: ${error.message}` }
   }
+}
+
+// Copilot names the repository's root as the project folder, where Claude Code names the folder the session started in.
+function sessionFolder(input: HookInput, env: Env) {
+  return hostOf(env) === 'copilot' ? input.cwd : env.CLAUDE_PROJECT_DIR || input.cwd
 }
 
 function inAnotherMap(found: MapLocation, cwd: string | undefined, env: Env) {

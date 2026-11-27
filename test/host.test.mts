@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { symlinkSync } from 'node:fs'
+import { symlinkSync, truncateSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { ACME_CONFIG, ACME_FILES, acme, acmeIndex, disposable, hook, makeTree, notOnWindows, solo, spawned, workTree } from './helpers.mts'
@@ -136,6 +136,56 @@ test('a hub that is a named pipe is passed over without waiting on it, and the i
   assert.equal(result.code, 0)
   assert.equal(context(result).includes('\n\nHub ('), false)
   assert.equal(context(result).split('\n')[0], `Context map "Acme estate": ${root}`)
+})
+
+test('a hub in a folder below the estate root, which the host loads where the session starts in that folder, is not given a second time', () => {
+  const root = tree(acme({ 'web/AGENTS.md': HUB }, { hub: 'web/AGENTS.md' }))
+
+  assert.equal(context(start(join(root, 'web'), COPILOT)).includes('\n\nHub ('), false)
+  assert.equal(context(start(root, COPILOT)).endsWith(hubGiven(root, join('web', 'AGENTS.md'), HUB)), true)
+})
+
+test('a hub of a name the host loads that is a link to another file of the estate is loaded by the host, and not given a second time', LINKS, () => {
+  const root = tree(acme({ 'docs/hub.md': HUB }, { hub: 'AGENTS.md' }))
+  symlinkSync(join(root, 'docs', 'hub.md'), join(root, 'AGENTS.md'))
+
+  assert.equal(context(start(root, COPILOT)).includes('\n\nHub ('), false)
+})
+
+test('a hub of an estate that is reached through a link is given, since the estate holds it once the link is followed', LINKS, () => {
+  const root = withLocalHub(HUB)
+  const linked = join(tree(makeTree({})), 'estate')
+  symlinkSync(root, linked)
+
+  const text = context(start(linked, COPILOT))
+
+  assert.equal(text.slice(text.indexOf('\n\nHub (')).split('\n').slice(3).join('\n'), HUB.trimEnd())
+})
+
+test('a hub too large to be read whole is still given as far as the limit shows', notOnWindows('a file of that size is only quick to make where the disk leaves its empty part unwritten'), () => {
+  const root = withLocalHub(`# Acme estate\n\n${'A line of routing.\n'.repeat(1000)}`)
+  truncateSync(join(root, 'CLAUDE.local.md'), 3 * 1024 ** 3)
+
+  const text = context(start(root, COPILOT))
+
+  assert.ok(text.startsWith(`${indexNaming(root, 'CLAUDE.local.md')}\n\nHub (`))
+  assert.ok(text.endsWith('A line of routing.\n[cut here; the file holds the rest]'))
+})
+
+test('on Copilot a session is placed by the folder it started in, so a map below the root of its repository is found though Copilot names that root as the project folder', () => {
+  const below = Object.fromEntries(Object.entries({ ...ACME_FILES, 'estate.json': ACME_CONFIG }).map(([path, content]) => [`pkg/a/${path}`, content]))
+  const repository = tree(makeTree({ ...GIT_FOLDER, ...below }))
+  const root = join(repository, 'pkg', 'a')
+
+  assert.equal(context(start(root, { ...COPILOT, CLAUDE_PROJECT_DIR: repository })), acmeIndex(root))
+})
+
+test('on Copilot a session that starts in a folder the map leaves alone is told nothing, though the root of its repository is covered', () => {
+  const root = tree(acme(GIT_FOLDER))
+
+  const result = start(join(root, 'scratch'), { ...COPILOT, CLAUDE_PROJECT_DIR: root })
+
+  assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
 })
 
 test('a prompt on a host that does not load the hub is given its pointers and no hub', () => {

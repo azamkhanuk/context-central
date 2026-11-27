@@ -100,8 +100,7 @@ test('a tag that names no commit is not pushed to the branch, and the script exi
 
   const result = move(made)
 
-  assert.equal(result.code, 1)
-  assert.match(result.stderr, /^release could not be moved to context-central--v0\.3\.0: /)
+  assert.deepEqual(result, { code: 1, stdout: '', stderr: `release could not be moved to ${TAG}: ${TAG} names a blob, not a commit\n` })
   assert.equal(onOrigin(made, 'refs/heads/release'), '')
 })
 

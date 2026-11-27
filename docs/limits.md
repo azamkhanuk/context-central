@@ -39,7 +39,7 @@
   - The six skills you type cannot be started in a run with nobody there: `copilot -p` hands a slash name to the model as typed, and refuses the model a skill kept to the person.
   - The command is not on the `PATH` there, a skill's `allowed-tools` grants nothing, and the plugin's folder is outside what Copilot lets a session use by itself, so Copilot asks, or is told at its start.
   - A hook runs only in a folder you have trusted, and in a `-p` run of a folder nobody trusted none runs.
-  - A hub kept as `.github/copilot-instructions.md` or under `.github/instructions/` is given twice at a session's start, once by Copilot and once by the hook.
+  - A hub kept as `.github/copilot-instructions.md` or under `.github/instructions/` is given twice at a session's start, once by Copilot and once by the hook, and so is one in a folder that `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` names.
   - After a compaction the live index is not given again: by a report measured on Copilot 1.0.99 and 1.0.100, it starts no session-start hook then. No notice is given on a resumed session, since Copilot does not tell a hook what the notice rests on.
   - The sweeper is not kept from writing by Copilot, which does not read `disallowedTools`. Four agents ask for their model by the name `sonnet`, which has not been tried on GitHub's models, and the web reader's tools were not seen there.
   - It has been run there on macOS alone. The `powershell` line of each hook is held by a test on GitHub's Windows machines, which starts Windows PowerShell with the line and the hook's input. How Copilot starts PowerShell was not seen, and the line has not run under Copilot.
