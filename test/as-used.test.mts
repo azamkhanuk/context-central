@@ -144,6 +144,31 @@ test('the powershell line of a hook finds the plugin in a folder whose name hold
   assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
 })
 
+test('a probe of how Windows PowerShell hands a line its input, kept for one run of the checks', POWERSHELL_LINE, () => {
+  const root = tree(acme())
+  const node = "node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook session-start"
+  const lines: Record<string, string> = {
+    console: `$payload = [Console]::In.ReadToEnd(); $payload | ${node}`,
+    inherit: node,
+    input: `@($input) -join [Environment]::NewLine | ${node}`,
+    piped: `$input | ${node}`,
+    stream: `$reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8); $payload = $reader.ReadToEnd(); $payload | ${node}`,
+    lengths: "$fromConsole = [Console]::In.ReadToEnd(); $fromInput = @($input); Write-Output ('console ' + $fromConsole.Length + ' input ' + $fromInput.Count + ' first ' + $fromInput[0])",
+    encoding: "Write-Output ('out ' + $OutputEncoding.WebName + ' in ' + [Console]::InputEncoding.WebName + ' ps ' + $PSVersionTable.PSVersion)",
+  }
+  const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH'))
+  const seen = Object.fromEntries(Object.entries(lines).map(([name, line]) => {
+    const result = spawned(WINDOWS_POWERSHELL, ['-NoProfile', '-NonInteractive', '-Command', line], {
+      input: JSON.stringify({ session_id: 's1', cwd: root, source: 'new' }),
+      timeout: 60000,
+      env: { ...inherited, PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), CLAUDE_PLUGIN_ROOT: REPO, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) },
+    })
+    return [name, `code ${result.code} | out ${result.stdout.slice(0, 260)} | err ${result.stderr.slice(0, 200)}`]
+  }))
+
+  assert.deepEqual(seen, {})
+})
+
 test('the session-start hook, started as the manifest declares it, answers with the live index', () => {
   const root = tree(acme())
 
