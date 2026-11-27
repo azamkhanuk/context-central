@@ -236,3 +236,18 @@ _Avoid_: score, gate, verified status
 
 **Try**: One run of a slice's checks, made once the slice's code is written, in which one comes back red. A slice has three, and after the third the build makes no further fix and stops as it does after the last review round. A run that only shows a new test failing is not one.
 _Avoid_: attempt, retry, loop
+
+**Author's marketplace**: The repository that lists the author's plugins and that a host installs the plugin from, `azamkhanuk/claude-plugins`, named `azamkhanuk`. The plugin's own repository is a marketplace too, for a clone, and that one is never called this.
+_Avoid_: the store, the registry, the plugin's marketplace
+
+**Pin**: What a marketplace's entry names so that a host takes the plugin at a release and not at the head of `main`. In the author's marketplace it is the release branch.
+_Avoid_: lock, freeze, version constraint
+
+**Release branch**: The branch of the plugin's repository, `release`, that the release job alone moves, so that it always sits at the last release. Nobody works on it: a work branch comes from `main` and goes back to it.
+_Avoid_: stable branch, integration branch, next
+
+**Proving run**: A live session of a host with the plugin loaded, started with nobody there on a throwaway estate, that shows one part of the plugin on that host. One made against a stand-in model shows what the host does with the plugin, and nothing of how a model of that host follows a skill. It is not a case of the eval suite.
+_Avoid_: smoke test, end-to-end test, eval
+
+**Supported host**: A host the pages name as one the plugin works on. A host is named so only for the parts a proving run has shown there, with the version it was shown on.
+_Avoid_: compatible, works with, any agent

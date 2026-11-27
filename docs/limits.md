@@ -33,7 +33,15 @@
   - PowerShell 7 has not been tried, and no argument with a space or a special character has been sent through either PowerShell.
   - The cmd launcher's choice of an install by project folder has run there only against a record of a copy installed for the person.
 - It does not support a Windows session that has only the PowerShell tool. The skills call `context-central` from the Bash tool, which needs Git for Windows.
-- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code.
+- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code and, from 0.22.0, for the GitHub Copilot command line. VS Code is not covered.
+- On the Copilot command line less has been shown, and some things are not there. [On the Copilot command line](install.md#on-the-copilot-command-line) has what was run and how.
+  - No skill has been run there with one of GitHub's models. What was run, on Copilot 1.0.116, ran against a stand-in model, which shows what Copilot does with the plugin and nothing of how a model there follows a skill.
+  - The six skills you type cannot be started in a run with nobody there: `copilot -p` hands a slash name to the model as typed, and refuses the model a skill kept to the person.
+  - The command is not on the `PATH` there, a skill's `allowed-tools` grants nothing, and the plugin's folder is outside what Copilot lets a session use by itself, so Copilot asks, or is told at its start.
+  - A hook runs only in a folder you have trusted, and in a `-p` run of a folder nobody trusted none runs.
+  - After a compaction the live index is not given again, since Copilot starts no session-start hook then, and no notice is given on a resumed session.
+  - The sweeper is not kept from writing by Copilot, which does not read `disallowedTools`. Four agents ask for their model by the name `sonnet`, which has not been tried on GitHub's models, and the web reader's tools were not seen there.
+  - It has been run there on macOS alone. The `powershell` line of each hook is held by a test on GitHub's Windows machines and has not run under Copilot.
 - The research skill alone is in the open skill format, which other hosts read, and has been run only on Claude Code. A host that reads neither its head nor `agents/openai.yaml` may start research of its own accord, and where a host has no subagent kept from writing a file, only the brief's words keep an agent to reading. On Claude Code the sweeper and the reader hold a shell, the sweeper every tool of its server and the fetcher every tool of the session, so there too their briefs alone keep them from writing through the shell or posting. [Where a host cannot hold it](research.md#where-a-host-cannot-hold-it) has the rest.
 - The package of the command is attached to each release on GitHub from 0.21.0 and published to no registry. The step that attaches it runs only on GitHub after a merge that raises the version.
 - Research does not judge whether a fact is true, or that two facts say one thing: the session does, and `lint` holds the folder to its layout alone. `research moved` compares the text of each cited line and does not read whether the fact still holds.

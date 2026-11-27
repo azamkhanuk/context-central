@@ -44,6 +44,64 @@ The marketplace is the list of its author's plugins, kept in a repository of its
 
 The research skill can be installed by itself, with no plugin, from a clone of the repository or with the package each release carries from 0.21.0. [Research taken alone](research.md#research-taken-alone) has the commands, and what it leaves out.
 
+## On the Copilot command line
+
+From 0.22.0 the plugin installs on the GitHub Copilot command line as it is. Copilot reads the plugin's manifest and the marketplace's file as Claude Code does, and nothing is written for it but two lines in each hook.
+
+**What it needs.** The Copilot command line 1.0.116 or later, the version everything below was shown on, and Node 22.18 or later as `node` on the `PATH` Copilot starts with. It has been run there on macOS alone.
+
+**Install.** From a shell:
+
+```sh
+copilot plugin marketplace add azamkhanuk/claude-plugins
+copilot plugin install context-central@azamkhanuk
+```
+
+Copilot keeps the copy in `~/.copilot/installed-plugins/azamkhanuk/context-central/`, or under `COPILOT_HOME` where that is set. A [launcher](terminal.md) finds it there where Claude Code has no copy on record.
+
+**Updating.** Copilot updates a plugin from a marketplace you added yourself only where your own settings turn that on. Add this once to `~/.copilot/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "azamkhanuk": { "source": { "source": "github", "repo": "azamkhanuk/claude-plugins" }, "autoUpdate": true }
+  }
+}
+```
+
+Without it, `copilot plugin update context-central@azamkhanuk` fetches a release by hand. Copilot takes any change of a plugin's files as an update, whatever its version, so the marketplace names the plugin's `release` branch, which only a release moves: a merge that is not a release reaches nobody.
+
+**What Copilot asks you to allow.** Copilot does not put a plugin's command on the `PATH`, so there a skill runs `node` with the file `bin/context-central` of the plugin's folder. Copilot asks before it runs a shell command it does not know as read-only, and before it uses a path outside the working folder, and a skill's `allowed-tools` grants neither there. Answer its prompt, which offers to stop asking for that command in the repository, or start Copilot with both allowed:
+
+```sh
+copilot --add-dir ~/.copilot/installed-plugins/azamkhanuk/context-central --allow-tool='shell(node:*)'
+```
+
+That rule allows every `node` command for the run. With the command on your own `PATH`, as [the package each release carries](research.md#research-taken-alone) puts it, a skill finds it by its bare name and `--allow-tool='shell(context-central:*)'` is rule enough.
+
+**Trust.** A plugin's hooks run only in a folder you have trusted. In a session with you in it Copilot asks at the start. A run with nobody there, `copilot -p`, runs no hook in a folder nobody has trusted, and `--trust-folder` trusts it for that run.
+
+**The skills.** In a session with you in it, a skill is typed as `/context-central:<skill>` with your words after it. In a `-p` run the six skills you type cannot be started: Copilot hands the slash name to the model as typed, and refuses the model a skill that is kept to the person. `checkpoint`, which the model may start, loads there.
+
+**The agents.** Each starts under its name, `context-central:<agent>`. Copilot reads the tool names in an agent's head and holds the reader and the reviewer to them, so neither can write a file. It does not read `disallowedTools`, so the sweeper holds every tool there and only its brief keeps it from writing, as the fetcher's does on both hosts.
+
+**The hub.** Copilot loads `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` from the folder a session starts in and from the root of its repository, and no `CLAUDE.local.md`. Where it does not load the hub, the session-start hook gives the hub's text after the live index.
+
+**Turning it off.** `copilot plugin disable context-central@azamkhanuk` turns it off and `copilot plugin enable context-central@azamkhanuk` turns it on again. `copilot plugin uninstall context-central@azamkhanuk` removes the copy, and `copilot plugin marketplace remove azamkhanuk` the marketplace.
+
+**What was shown, and how.** The monthly quota of the account these runs were made on was spent, so each session below ran on Copilot 1.0.116 against a stand-in model: a small server on the same machine that answers from a script and writes down what Copilot sends it. That shows what Copilot does with the plugin. It shows nothing of how one of GitHub's models follows a skill.
+
+| What | Shown |
+|---|---|
+| The marketplace added and the plugin installed from it, as 0.21.0, in a Copilot home of its own | yes |
+| A marketplace entry pinned to a branch: an install takes that branch, and an update moves when it moves and not when `main` does | yes, with a throwaway plugin |
+| Both hooks start, and the live index is before the model at a start and the pointers at a prompt, each once | yes |
+| The hub's text after the index, in a plain map | yes |
+| A skill loads with its folder named, and the command answers when run by its file | yes, for `checkpoint`, with the plugin's folder added |
+| Each of the five agents starts, and the tools each holds | yes, but for the web reader's tools, the network being off |
+| A launcher finds the copy Copilot installed | yes |
+| Any skill run with one of GitHub's models, a skill typed with words after it in a session with a person in it, the `powershell` line of a hook, Linux, Windows, VS Code | no |
+
 ## What decides whether it loads
 
 There are three ways to have the plugin. They differ in when it loads, how a release reaches it and whether a [launcher](terminal.md) finds it.

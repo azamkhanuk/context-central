@@ -6,7 +6,7 @@ Everything the plugin starts on your machine, every place it writes outside the 
 
 The plugin is a command, `context-central`, which Node runs as it is. Nothing is compiled, nothing is installed beside it, and it has no dependencies to download.
 
-**The two hooks.** Claude Code starts each as `node <plugin folder>/bin/context-central hook <event>`, with no shell.
+**The two hooks.** Claude Code starts each as `node <plugin folder>/bin/context-central hook <event>`, with no shell. The Copilot command line runs the same file through a shell line, `bash` on macOS and Linux and `powershell` on Windows, and there the session start is a new or a resumed session alone.
 
 - At every session start, resume, clear, compaction and fork, with a limit of 15 seconds.
 - At every prompt you submit, with a limit of 10 seconds.
@@ -41,7 +41,7 @@ The map is where the plugin writes: `.context-central/` inside a repository, or 
 | `.gitignore` and `.gitattributes` at the estate root | Only where they are not there yet | `init`, where the answers say the map is kept in git |
 | `.claude/settings.json` or `.claude/settings.local.json`, and `.mcp.json` | The marketplace, the enabled plugin and one permission; the allow rules for the read tools onboard used; and the rules and server names you pick from your repos' own settings | Onboard, each only on your yes |
 | `<work tree>/.context-central/` | Drafts: files on their way to the map from a git work tree | `draft`, until `take` |
-| The plugin's data folder under `~/.claude/plugins/data/`, in its `sessions` folder | One small record a session, of what it has been given | The prompt hook |
+| The plugin's data folder under `~/.claude/plugins/data/`, or on Copilot under `plugin-data` in Copilot's own folder, in its `sessions` folder | One small record a session, of what it has been given | The prompt hook |
 | `context-central-<your user id>` under the system's temporary folder | The same record, where Claude Code names no data folder | The prompt hook |
 | The folder you name to `research handover` | A copy of one research that stands by itself, written only where that folder is not there or is empty | `research handover` |
 | Node's own compile cache under the temporary folder | What Node keeps so that the next start is quicker | Every start |
@@ -64,4 +64,4 @@ A session's record is removed once no session has used it for fourteen days, the
 6. Delete the folders named `context-central` and `context-central-<your user id>` under the system's temporary folder.
 7. Keep the map or delete it. It is plain Markdown and stays readable without the plugin: `.context-central/` inside a repository, or with the root layout the node folders, `estate.json`, `glossary.md` and `bin/` at the estate root.
 
-To turn the plugin off and keep everything, see [Turning it off](install.md#turning-it-off).
+To turn the plugin off and keep everything, see [Turning it off](install.md#turning-it-off). On the Copilot command line the plugin writes the session record alone, and [On the Copilot command line](install.md#on-the-copilot-command-line) has the commands that remove the copy and the marketplace there.

@@ -13,7 +13,7 @@ Outside a session the CLI is not on your `PATH`, so the map can hold a small lau
 - `context-central.cmd`, the cmd launcher: the same for cmd and Windows PowerShell
 - `.gitattributes`, which keeps the first at LF and the second at CRLF when the map is kept in git, whatever a machine's line-ending setting
 
-**Using it.** Each launcher finds the installed plugin through Claude Code's install record and passes the arguments it is given and the exit code through:
+**Using it.** Each launcher finds the installed plugin through Claude Code's install record, or where that holds no copy through the Copilot command line's, and passes the arguments it is given and the exit code through:
 
 ```sh
 ./bin/context-central work list
@@ -23,7 +23,8 @@ Outside a session the CLI is not on your `PATH`, so the map can hold a small lau
 **Worth knowing:**
 
 - A plugin has an install record for each install: one for each project it was installed for, and one for you. A launcher takes the record of the project its own file sits in, or of the nearest folder above it that has one. With none it takes yours, and it never starts a copy that belongs to another project.
-- Where it finds neither, it says the plugin was not found. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
+- Where Claude Code has no copy on record, a launcher takes the copy Copilot installed for you, from `config.json` in `COPILOT_HOME` or in `.copilot` under your home folder: the one from the author's marketplace first, and never one that is turned off.
+- Where it finds none, it says the plugin was not found, and how to install it on either host. Set `CONTEXT_CENTRAL_CLI` to the path of the plugin's `bin/context-central` file and either launcher uses that.
 - A launcher saved by an earlier release keeps that release's rule. `wrapper --write` says when a saved launcher differs from the one it would write: delete it and run the command again to renew it.
 - With the map's `bin/` folder on your `PATH`, the name `context-central` alone runs the cmd launcher in cmd and Windows PowerShell, and the launcher in Git Bash.
 - PowerShell quotes arguments again in its own way before the cmd launcher is given them; what arrives then has not been tried.

@@ -1,6 +1,6 @@
 # Working on context-central
 
-A Claude Code plugin: a CLI in `lib/`, two hooks, seven skills and five agents. Research alone is also a skill in the open skill format for any host. Terms are defined in `CONTEXT.md`; use them as written.
+A Claude Code plugin: a CLI in `lib/`, two hooks, seven skills and five agents. From 0.22.0 the same folder installs on the GitHub Copilot command line, and `lib/host.mts` holds what differs there. Research alone is also a skill in the open skill format for any host. Terms are defined in `CONTEXT.md`; use them as written.
 
 ## Checks
 
@@ -26,17 +26,17 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`. The map lock alone reads the system's clock, since a lock folder's age is the file system's own time, which `CONTEXT_CENTRAL_NOW` cannot move.
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub, a repo's standards).
 - The plugin holds no rule for any language, framework or build tool, in `lib/`, a skill or an agent. How a repo's code is written and checked comes from its own files, its standards note and its recorded checks.
-- Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.
+- Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions, but for the hub's own text on a host that does not load the hub. Each is wired in two forms in one file, a program with its arguments for Claude Code and a shell line for Copilot, and answers in the shape each host reads.
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
 - A skill has a file of the map read and written at the path `context-central draft` prints, and put into the map by `context-central take`, never at a path it works out for itself: in a git work tree a host may keep a session's tools to the work tree.
-- `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release.
+- `plugin.json` carries the `version` and the marketplace entry carries none. People stay on a release until the version changes, so a change reaches them only through a release. On Copilot any change of the plugin's files is an update, so the author's marketplace pins the plugin to the branch `release`, which only the release job moves. Nobody works on that branch: a work branch comes from `main` and goes back to it.
 - The plugin installs from its author's marketplace, a repository of its own that lists it. `lib/templates.mts` holds that marketplace's name and address, and a test holds the README and the install doc to them. The repository's own marketplace, named after the plugin, is for installing from a clone and for the copies installed from it before 0.14.0.
 - No lockfile is committed. With a `package.json` and a lockfile at the plugin root, Claude Code runs an npm install in every user's plugin cache, and the plugin has no runtime dependencies.
 
 ## Releases
 
 - A release is one pull request that raises `version` in `.claude-plugin/plugin.json` and adds that version's section, dated, at the top of `CHANGELOG.md`. A test holds the two together.
-- Once it is merged and the checks pass on `main`, `.github/workflows/release.yml` tags that commit `context-central--v<version>` and publishes the GitHub release, with that section of the changelog as its notes. `scripts/release-notes.mts` prints the tag, the title and the notes. A merge that does not raise the version publishes nothing.
+- Once it is merged and the checks pass on `main`, `.github/workflows/release.yml` tags that commit `context-central--v<version>` and publishes the GitHub release, with that section of the changelog as its notes, and its last step runs `scripts/release-branch.mts`, which moves the branch `release` to the tagged commit and exits 1 where it cannot. `scripts/release-notes.mts` prints the tag, the title and the notes. A merge that does not raise the version publishes nothing.
 - By hand, the same is `claude plugin tag --push` on `main`, then `gh release create <tag> --verify-tag`.
 
 ## Tests

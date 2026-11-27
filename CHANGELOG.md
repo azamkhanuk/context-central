@@ -2,6 +2,32 @@
 
 Each release of context-central, newest first. The version is the one in `.claude-plugin/plugin.json`. An installed copy stays on its release until `claude plugin update` finds a newer one under the id it was installed as, `context-central@azamkhanuk` or, for a copy installed before 0.14.0, `context-central@context-central`, or until auto-update does where that is on.
 
+## 0.22.0 - 2026-11-27
+
+The plugin installs on the GitHub Copilot command line, from the same marketplace and the same folder. On Claude Code nothing a person does changes.
+
+- **On Copilot.** `copilot plugin marketplace add azamkhanuk/claude-plugins`, then `copilot plugin install context-central@azamkhanuk`, and one entry in your own Copilot settings so that a release reaches you by itself. `docs/install.md` has a part for it: what it needs, what Copilot asks you to allow, and what works only in a session with you in it.
+- **Each hook is wired in two forms.** `hooks/hooks.json` keeps the program with its arguments, which Claude Code starts with no shell, and gains a `bash` and a `powershell` line beside it, which Copilot runs. From the first form alone Copilot starts `node` with nothing after it.
+- **A hook's answer carries its context twice**, at the top and under the event's name. Claude Code reads the second and Copilot the first, each once.
+- **A start the host calls `new`** is taken as a cleared session is.
+- **The hub's text on a host that does not load the hub.** Copilot loads `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` from the folder a session starts in and from the root of its repository. Anywhere else, as with a plain map's `CLAUDE.local.md`, the session-start hook gives the hub's text after the live index, under the hook's limit.
+- **The launcher and the cmd launcher find Copilot's copy** where Claude Code has none on record, from `config.json` in `COPILOT_HOME` or in `.copilot` under the home folder. Their second line, where neither host holds a copy, says how to install on Copilot.
+- **`doctor` reads Copilot's record** in its check of copies: two copies that are on there are a `FIX`, with `copilot plugin uninstall` for the one to drop.
+- **Every skill says where the command is** on a host that does not put it on the `PATH`: the file `bin/context-central` of the plugin's folder, run with `node`. Six skills also say what their words were where the host filled in no placeholder, as research did.
+- **Research takes the plugin as loaded where the session can start `context-central:reader`**, as well as where the host filled in the plugin's folder.
+- **A release branch.** The release job's last step runs `scripts/release-branch.mts`, which moves the branch `release` to the commit the release's tag names and exits 1 where it cannot. The author's marketplace pins the plugin to that branch, since on Copilot any change of a plugin's files is an update whatever its version.
+- **The docs say the same:** the README, the pages on install, limits, what the plugin runs, the launcher and research, and five terms in `CONTEXT.md`.
+
+What was shown on Copilot is in `docs/install.md`. The account's monthly quota was spent, so every session ran on Copilot 1.0.116 against a stand-in model on the same machine, which shows what Copilot does with the plugin and nothing of how one of GitHub's models follows a skill. No skill has been run there with a model of GitHub's, the `powershell` lines have not run under Copilot, it ran on macOS alone, and VS Code is not covered. On Claude Code 2.1.332 one run showed both hooks starting in their new form and each context arriving once.
+
+For a map that already exists:
+
+- A launcher saved by an earlier release does not look for Copilot's copy. `wrapper --write` says that it differs from the one this release writes: delete it and run the command again to renew it.
+- Where no copy is found, the launcher's second line now reads `On Copilot the same two commands start with copilot. Or set CONTEXT_CENTRAL_CLI to the path of its bin/context-central file.`
+- A hook's answer has one more key, `additionalContext`, at its top. A script of your own that reads the answer under `hookSpecificOutput` reads it as before.
+- `doctor` says `FIX` on its row for copies where the Copilot command line holds two copies of the plugin that are on.
+- Nothing else changes: no file of the map is rewritten, and no setting is new.
+
 ## 0.21.0 - 2026-11-25
 
 Research stands alone. What it finds is kept as a research, a folder of its own in the map of numbered facts with every source saved beside them, which later runs add to, check against the code and against a spec, a design or a diff, and copy out for another planner. A run writes its brief first, gathers in rounds through agents that only read, but for the fetcher, which writes the text it saves, and stops by a test it names, and it can be left to run with nobody there. An estate extends it through its settings, and the research skill installs by itself, with no plugin, from a clone or with a package each release carries. `docs/research.md` has the whole of it.

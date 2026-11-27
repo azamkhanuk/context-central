@@ -86,7 +86,28 @@ Then start a session in the folder that holds your checkouts and run:
 
 Start a fresh session afterwards so the hub loads: `/clear` in the terminal, or **+ New session** in the desktop app.
 
-[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
+### On the GitHub Copilot command line
+
+From 0.22.0 the same plugin installs on the Copilot command line, from the same marketplace:
+
+```sh
+copilot plugin marketplace add azamkhanuk/claude-plugins
+copilot plugin install context-central@azamkhanuk
+```
+
+Then, once, add to `~/.copilot/settings.json`, so that a release reaches you by itself:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "azamkhanuk": { "source": { "source": "github", "repo": "azamkhanuk/claude-plugins" }, "autoUpdate": true }
+  }
+}
+```
+
+Less has been shown there than on Claude Code. On Copilot 1.0.116 the install, both hooks, the command, the loading of a skill and all five agents were each run, the sessions against a stand-in model, and no skill has been run there with one of GitHub's models. [On the Copilot command line](docs/install.md#on-the-copilot-command-line) says what Copilot asks you to allow, what works only in a session with you in it, and what each run showed.
+
+[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, on the Copilot command line, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 
 On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [On Windows](docs/terminal.md#on-windows) lists what was shown there, and [What it does not do](docs/limits.md) lists what was not.
 
@@ -112,7 +133,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 | Part | What its file covers |
 |---|---|
-| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
+| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, the Copilot command line, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
 | [What it runs, what it writes and how to remove it](docs/what-it-runs.md) | Every program the plugin starts, every place it writes outside the map, and how to remove all of it |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [Research](docs/research.md) | A research's folder of facts and sources, a run with its brief, rounds, stop and closing answer, adding to a research, checking it and handing it over, leaving it to run, the settings an estate extends it by, research taken alone with no plugin, where a host cannot hold it, and what the runs of 0.21.0 showed |
@@ -133,7 +154,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source, that the proof of what was built is whole and that a line a standards note cites still reads as it did. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
-- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code. The research skill alone is in the open skill format, and has been run only on Claude Code, where taken alone it named no step but swept its connection in one run of three and gave no subagent its brief whole, as [the changelog](CHANGELOG.md) has it.
+- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code, and from 0.22.0 for the Copilot command line, where no skill has yet been run with one of GitHub's models and the six skills you type cannot be started in a run with nobody there. VS Code is not covered. The research skill alone is in the open skill format, and has been run only on Claude Code, where taken alone it named no step but swept its connection in one run of three and gave no subagent its brief whole, as [the changelog](CHANGELOG.md) has it.
 
 The full list is in [What it does not do](docs/limits.md).
 
