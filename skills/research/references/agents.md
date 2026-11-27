@@ -4,7 +4,7 @@ Each kind of reading in a run goes to an agent: the plugin's own where the plugi
 
 ## Which agent
 
-The plugin is loaded where the line "The plugin's folder" of `SKILL.md` ends in a path, the test step 3 of `SKILL.md` makes too. Then the session holds the plugin's four agents by their names: `context-central:reader`, `context-central:fetcher`, `context-central:sweeper` and `context-central:web-reader`, and each kind of reading goes to its agent. Where that line ends at its colon or shows a placeholder, this skill was taken alone, and the session holds none of the four, whatever else its host offers.
+The plugin is loaded where the line "The plugin's folder" of `SKILL.md` ends in a path, or where the session can start an agent named `context-central:reader`, as on a host that fills in no path: the test step 3 of `SKILL.md` makes too. Then the session holds the plugin's four agents by their names: `context-central:reader`, `context-central:fetcher`, `context-central:sweeper` and `context-central:web-reader`, and each kind of reading goes to its agent. Where neither is so, this skill was taken alone, and the session holds none of the four, whatever else its host offers.
 
 Taken alone, each kind goes to a subagent of the host that holds what its work needs:
 

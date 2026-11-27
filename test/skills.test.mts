@@ -69,6 +69,20 @@ function frontmatter(text: string) {
 const skill = (name: string) => frontmatter(skillFile(name))
 const agent = (name: string) => frontmatter(agentText(name))
 
+test('every skill names the bin script by its place in the plugin, two folders above the skill, for a host that does not put the command on the PATH', () => {
+  for (const name of SKILLS) {
+    assert.ok(skillFile(name).includes('the file `bin/context-central` of the plugin\'s folder'), `${name} says where the command is`)
+    assert.equal(existsSync(join(REPO, 'skills', name, '..', '..', 'bin', 'context-central')), true, `${name} is two folders below the bin script's folder`)
+  }
+})
+
+test('research tells that the plugin is loaded by an agent of the plugin, named as its file names it, in each of the three places that say when it was taken alone', () => {
+  assert.equal(agent('reader').name, 'reader')
+  for (const text of [skillFile('research'), referenceText('research', 'references/agents.md'), referenceText('research', 'references/answer.md')]) {
+    assert.ok(text.includes('an agent named `context-central:reader`'))
+  }
+})
+
 test('every skill is named after its folder and says what it does', () => {
   for (const name of SKILLS) {
     assert.equal(skill(name).name, name)

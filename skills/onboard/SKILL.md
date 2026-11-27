@@ -7,11 +7,11 @@ allowed-tools: Bash(context-central *)
 
 Set up the map in the directory named here, or the working directory when none is named: $ARGUMENTS
 
-Names only throughout: tokens and the content of env files are never read, shown or written.
+Where that line still shows a placeholder, the directory is the one the person typed after this skill's name, or the working directory when they typed none. Names only throughout: tokens and the content of env files are never read, shown or written.
 
 ## 1. Detect
 
-Run `context-central detect --json` (add the directory when one was named).
+The plugin's command is `context-central`. Where a shell answers that it is not found, the host has not put it on the PATH: run the file `bin/context-central` of the plugin's folder with `node` in its place, with the same words after it. The plugin's folder is two folders above this skill's own, which the host names when it loads the skill. Run `context-central detect --json` (add the directory when one was named).
 
 If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
 
