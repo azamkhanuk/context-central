@@ -9,6 +9,7 @@ import { draftsOf, waitingIn } from '../drafts.mts'
 import { PluginError } from '../errors.mts'
 import { CONFIG_FILE, loadEstate } from '../estate.mts'
 import { graphEstate } from '../graph.mts'
+import { copilotInstalls } from '../host.mts'
 import { lintEstate } from '../lint.mts'
 import { claudeConfigDir, onPath } from '../machine.mts'
 import { folderAt, hubPath, inFlight, listWorkItems } from '../nodes.mts'
@@ -239,6 +240,22 @@ function hooks(estate: Estate, io: Io) {
 }
 
 function copies(estate: Estate, io: Io) {
+  const said = [copiesOnClaudeCode(estate, io), copiesOnCopilot(io)].filter(found => found !== null)
+  return said.length > 0 ? said.join('. And ') : null
+}
+
+function copiesOnCopilot(io: Io) {
+  const loading = copilotInstalls(io.env)
+    .filter(({ id, enabled }) => id.startsWith(`${PLUGIN}@`) && enabled)
+    .sort((a, b) => Number(b.id === PLUGIN_ID) - Number(a.id === PLUGIN_ID) || a.id.localeCompare(b.id))
+  if (loading.length < 2) return null
+  const [kept, ...others] = loading
+  const ids = loading.map(({ id }) => id)
+  const uninstall = others.map(({ id }) => `copilot plugin uninstall ${id}`)
+  return `the plugin loads on Copilot as ${ids.slice(0, -1).join(', ')} and ${ids.at(-1)}, so each hook runs ${loading.length === 2 ? 'twice' : `${loading.length} times`} there; keep the copy you use and uninstall the ${others.length === 1 ? 'other' : 'others'}, so to keep ${kept.id}: ${uninstall.join(', then ')}`
+}
+
+function copiesOnClaudeCode(estate: Estate, io: Io) {
   const configDir = claudeConfigDir(io.env)
   const root = real(estate.estateRoot)
   const settings = [join(root, '.claude', 'settings.local.json'), join(root, '.claude', 'settings.json'), join(configDir, 'settings.json')].map(enabledIn)
