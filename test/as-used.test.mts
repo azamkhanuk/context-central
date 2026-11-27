@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, symlinkSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, notOnWindows, spawned } from './helpers.mts'
+import { ACME_CONFIG, REPO, acme, acmeIndex, acmePointers, disposable, makeTree, notOnWindows, onlyOnWindows, spawned } from './helpers.mts'
 
 const tree = disposable()
 
-type HooksManifest = { hooks: Record<string, { hooks: { command: string, args: string[] }[] }[]> }
+type HooksManifest = { hooks: Record<string, { hooks: { command: string, args: string[], bash: string, powershell: string }[] }[]> }
 
 const { contextCentral, ...ACME_ANSWERS } = ACME_CONFIG
 const PATH = [join(REPO, 'bin'), dirname(process.execPath), process.env.PATH].join(delimiter)
@@ -77,6 +77,49 @@ function declared(event: string, input: unknown) {
     { input: JSON.stringify(input), env: { PATH, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) } },
   )
 }
+
+function asShellLine(shell: 'bash' | 'powershell', event: string, input: unknown, pluginRoot = REPO) {
+  const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as HooksManifest
+  const line = hooks[event][0].hooks[0][shell]
+  const started = shell === 'bash' ? ['bash', '-c', line] : ['powershell', '-NoProfile', '-NonInteractive', '-Command', line]
+  return spawned(started[0], started.slice(1), {
+    input: JSON.stringify(input),
+    env: { PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), CLAUDE_PLUGIN_ROOT: pluginRoot, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})), SystemRoot: process.env.SystemRoot },
+  })
+}
+
+const BASH_LINE = notOnWindows('a host runs the bash line of a hook on macOS and Linux, and the powershell line on Windows')
+const POWERSHELL_LINE = onlyOnWindows('a host runs the powershell line of a hook on Windows alone')
+
+test('the bash line of each hook, run as a host that runs a shell line runs it, answers as the program with its arguments does', BASH_LINE, () => {
+  const root = tree(acme())
+
+  const started = asShellLine('bash', 'SessionStart', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'new' })
+  const prompted = asShellLine('bash', 'UserPromptSubmit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
+
+  assert.deepEqual({ code: started.code, stderr: started.stderr, context: (JSON.parse(started.stdout) as { additionalContext: string }).additionalContext }, { code: 0, stderr: '', context: acmeIndex(root) })
+  assert.deepEqual({ code: prompted.code, stderr: prompted.stderr, context: (JSON.parse(prompted.stdout) as { additionalContext: string }).additionalContext }, { code: 0, stderr: '', context: acmePointers(root) })
+})
+
+test('the bash line of a hook finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII', BASH_LINE, () => {
+  const root = tree(acme())
+  const linked = join(tree(makeTree({})), 'plug in! é')
+  symlinkSync(REPO, linked)
+
+  const started = asShellLine('bash', 'SessionStart', { session_id: 's1', cwd: root, source: 'new' }, linked)
+
+  assert.deepEqual({ code: started.code, stderr: started.stderr, context: (JSON.parse(started.stdout) as { additionalContext: string }).additionalContext }, { code: 0, stderr: '', context: acmeIndex(root) })
+})
+
+test('the powershell line of each hook, run as a host that runs a shell line runs it on Windows, answers as the program with its arguments does', POWERSHELL_LINE, () => {
+  const root = tree(acme())
+
+  const started = asShellLine('powershell', 'SessionStart', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'new' })
+  const prompted = asShellLine('powershell', 'UserPromptSubmit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
+
+  assert.deepEqual({ code: started.code, stderr: started.stderr, context: (JSON.parse(started.stdout) as { additionalContext: string }).additionalContext }, { code: 0, stderr: '', context: acmeIndex(root) })
+  assert.deepEqual({ code: prompted.code, stderr: prompted.stderr, context: (JSON.parse(prompted.stdout) as { additionalContext: string }).additionalContext }, { code: 0, stderr: '', context: acmePointers(root) })
+})
 
 test('the session-start hook, started as the manifest declares it, answers with the live index', () => {
   const root = tree(acme())

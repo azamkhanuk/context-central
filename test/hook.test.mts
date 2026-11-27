@@ -389,18 +389,19 @@ test('the estate sets the size that earns the notice, and zero turns it off', ()
   assert.equal('systemMessage' in quiet, false)
 })
 
-test('the plugin wires both events to the hook command without a shell, session start with a limit of 15 seconds and a prompt with 10', () => {
+test('the plugin wires both events to the hook command, as a program with its arguments for a host that starts one without a shell and as a shell line for a host that runs one, session start with a limit of 15 seconds and a prompt with 10', () => {
   const { hooks } = JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as { hooks: { SessionStart: unknown, UserPromptSubmit: unknown } }
+  const wired = (event: string, timeout: number) => ({
+    type: 'command',
+    command: 'node',
+    args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', event],
+    bash: `node "$CLAUDE_PLUGIN_ROOT/bin/context-central" hook ${event}`,
+    powershell: `$payload = [Console]::In.ReadToEnd(); $payload | node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook ${event}; exit $LASTEXITCODE`,
+    timeout,
+  })
 
-  assert.deepEqual(hooks.SessionStart, [
-    {
-      matcher: 'startup|resume|clear|compact|fork',
-      hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'session-start'], timeout: 15 }],
-    },
-  ])
-  assert.deepEqual(hooks.UserPromptSubmit, [
-    { hooks: [{ type: 'command', command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', 'user-prompt-submit'], timeout: 10 }] },
-  ])
+  assert.deepEqual(hooks.SessionStart, [{ matcher: 'startup|resume|clear|compact|fork', hooks: [wired('session-start', 15)] }])
+  assert.deepEqual(hooks.UserPromptSubmit, [{ hooks: [wired('user-prompt-submit', 10)] }])
   assert.equal(existsSync(join(REPO, 'bin', 'context-central')), true)
 })
 
