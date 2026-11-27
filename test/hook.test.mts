@@ -22,7 +22,7 @@ test('a new session is given the index with absolute paths', () => {
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { additionalContext: acmeIndex(root), hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
 
 test('a forked session is given the index', () => {
@@ -183,7 +183,7 @@ test('a prompt that names a work item is given its pointers with absolute paths'
 
   assert.equal(result.code, 0)
   assert.equal(result.stderr, '')
-  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: acmePointers(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { additionalContext: acmePointers(root), hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: acmePointers(root) } })
 })
 
 test('a prompt that names an item with evidence is told where it is, by absolute path', () => {
@@ -274,6 +274,18 @@ test('after a clear the session starts from nothing', () => {
   const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
 
   assert.equal(context(cleared), acmeIndex(root))
+  assert.equal(context(again), acmePointers(root))
+})
+
+test('a start the host calls new starts from nothing, as one after a clear does', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  const started = fire('session-start', { session_id: 's1', cwd: root, source: 'new' }, env)
+  const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  assert.equal(context(started), acmeIndex(root))
   assert.equal(context(again), acmePointers(root))
 })
 
@@ -461,7 +473,7 @@ test('a config with a byte-order mark gives the index and no message about its J
 
   const result = fire('session-start', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'startup' })
 
-  assert.deepEqual(JSON.parse(result.stdout) as unknown, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { additionalContext: acmeIndex(root), hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: acmeIndex(root) } })
 })
 
 const DESK_API_NOTE = '# api\n\nThe back end.\n'

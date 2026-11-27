@@ -20,6 +20,7 @@ interface HookInput {
 }
 
 interface HookAnswer {
+  additionalContext?: string
   hookSpecificOutput?: { hookEventName: string; additionalContext: string }
   systemMessage?: string
 }
@@ -29,6 +30,7 @@ type Handler = (estate: Estate, input: HookInput, env: Env, startDir: string) =>
 export const summary = 'Answer a Claude Code hook: session-start or user-prompt-submit'
 
 const EVENTS: Record<string, Handler> = { 'session-start': sessionStart, 'user-prompt-submit': userPromptSubmit }
+const STARTS_FROM_NOTHING: (string | undefined)[] = ['clear', 'new']
 const CARRIES_STATE: (string | undefined)[] = ['compact', 'resume']
 const CONTEXT_CHARS = 9500
 const CUT = '\n[cut here; the file holds the rest]'
@@ -76,12 +78,17 @@ function real(path: string) {
   }
 }
 
+// One host reads the context under the event's name and another at the top, and each takes it once.
+function withContext(hookEventName: string, additionalContext: string): HookAnswer {
+  return { additionalContext, hookSpecificOutput: { hookEventName, additionalContext } }
+}
+
 function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: string): HookAnswer {
-  if (input.source === 'clear') resetSession(env, input.session_id)
+  if (STARTS_FROM_NOTHING.includes(input.source)) resetSession(env, input.session_id)
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
   const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
-  return { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: truncate(text, CONTEXT_CHARS, CUT) }, ...resumeNotice(estate, input) }
+  return { ...withContext('SessionStart', truncate(text, CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
 }
 
 function withState(estate: Estate, index: string, active: string | null) {
@@ -111,7 +118,7 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   if (resolution.length + unanswered.length === 0) return null
   saveSession(env, input.session_id, { delivered: [...session.delivered, ...resolution.flatMap(deliveredAs), ...unanswered.map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
   const lines = [...resolution.map(given => formatPointers(given, { absolute: true })), ...unanswered.map(formatUnanswered)]
-  return { hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lines.join('\n') } }
+  return withContext('UserPromptSubmit', lines.join('\n'))
 }
 
 // Claude Code queues a background task's notification and an agent's report as prompts no person typed.

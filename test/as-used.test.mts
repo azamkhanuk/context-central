@@ -86,6 +86,7 @@ test('the session-start hook, started as the manifest declares it, answers with 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
+    additionalContext: acmeIndex(root),
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
       additionalContext: acmeIndex(root),
@@ -101,6 +102,7 @@ test('the prompt hook, started as the manifest declares it, answers a prompt nam
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
+    additionalContext: acmePointers(root),
     hookSpecificOutput: {
       hookEventName: 'UserPromptSubmit',
       additionalContext: acmePointers(root),
