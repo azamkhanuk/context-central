@@ -114,7 +114,7 @@ _Avoid_: reference, link, anchor
 **Refresh**: What the standards skill does to a standards note that exists: it reads each citation again, points one that moved at the line that shows its rule now, puts to the person each rule the code no longer shows, and sets the note's commit and date again.
 _Avoid_: sync, regenerate, rebuild
 
-**Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. A repo's are listed under `standards` on its entry, never copied into its standards note.
+**Instruction files**: The files the host loads as standing instructions: `CLAUDE.md` and `CLAUDE.local.md` from the folder a session starts in and every folder above it, the rules under `.claude/rules/`, and the same files in a folder below once a file there is read or edited. An `AGENTS.md` is read only where no `CLAUDE.md` sits in the start folder or above it. That is Claude Code's list: the Copilot command line loads its own, `.github/copilot-instructions.md` among them, from the folder a session starts in and the root of its repository, and `budget` counts the list of the host it runs under. A repo's are listed under `standards` on its entry, never copied into its standards note.
 _Avoid_: memory files, context files, agent instructions
 
 **Recorded checks**: The commands on a repo's entry in the settings whose exit codes say whether its code passes. They run from the repo's folder, which in a work tree of the repo is the work tree, and work is verified only when every one exits 0 at the head of its branch, with nothing uncommitted. The session runs them and the plugin never does: it records what each exited with in the item's proof record.
@@ -248,6 +248,12 @@ _Avoid_: stable branch, integration branch, next
 
 **Proving run**: A live session of a host with the plugin loaded, started with nobody there on a throwaway estate, that shows one part of the plugin on that host. One made against a stand-in model shows what the host does with the plugin, and nothing of how a model of that host follows a skill. It is not a case of the eval suite.
 _Avoid_: smoke test, end-to-end test, eval
+
+**Side**: The part of the plugin's folder that one host alone loads: its manifest, its hooks file and its agents. Claude Code's is `.claude-plugin/`, `hooks/` and `agents/`, and Copilot's is `plugin.json` at the root and `com.github.copilot/`.
+_Avoid_:
+
+**Core**: What both hosts share: the command in `bin/` and `lib/`, and the seven skills. A skill is one text for both hosts and names no host's file.
+_Avoid_:
 
 **Supported host**: A host the pages name as one the plugin works on. A host is named so only for the parts a proving run has shown there, with the version it was shown on.
 _Avoid_: compatible, works with, any agent
