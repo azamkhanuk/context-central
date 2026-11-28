@@ -68,8 +68,16 @@ export function closedReader(args: string[], options: RunOptions = {}): Promise<
   return ended(child)
 }
 
-function started(args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions) {
-  const child = spawn(process.execPath, [BIN, ...args], { cwd, env: withDefaults(env) })
+export function writtenTo(command: string, args: string[], { cwd = undefined, env = {}, input = '' }: SpawnOptions = {}): Promise<Result> {
+  return ended(startedAs(command, args, { cwd, env, stdin: input }))
+}
+
+function started(args: string[], options: RunOptions) {
+  return startedAs(process.execPath, [BIN, ...args], options)
+}
+
+function startedAs(command: string, args: string[], { cwd = undefined, env = {}, stdin = '' }: RunOptions) {
+  const child = spawn(command, args, { cwd, env: withDefaults(env) })
   child.stdin.on('error', () => {})
   child.stdin.end(stdin)
   return child

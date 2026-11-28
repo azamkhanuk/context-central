@@ -404,7 +404,7 @@ test('the plugin wires both events to the hook command, as a program with its ar
     command: 'node',
     args: ['${CLAUDE_PLUGIN_ROOT}/bin/context-central', 'hook', event],
     bash: `node "$CLAUDE_PLUGIN_ROOT/bin/context-central" hook ${event}`,
-    powershell: `$payload = [Console]::In.ReadToEnd(); if ($payload) { $OutputEncoding = New-Object System.Text.UTF8Encoding $false; $payload | node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook ${event} } else { node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook ${event} }; exit $LASTEXITCODE`,
+    powershell: `node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook ${event}; exit $LASTEXITCODE`,
     timeout,
   })
 

@@ -26,7 +26,7 @@ This repository is public-safe. Nothing in it, and no commit message, may name a
 - The clock is `localDate(io.env)`; tests fix it with `CONTEXT_CENTRAL_NOW`. The map lock alone reads the system's clock, since a lock folder's age is the file system's own time, which `CONTEXT_CENTRAL_NOW` cannot move.
 - Config paths are POSIX, relative to the map directory (nodes) or the estate root (repos, hub, a repo's standards).
 - The plugin holds no rule for any language, framework or build tool, in `lib/`, a skill or an agent. How a repo's code is written and checked comes from its own files, its standards note and its recorded checks.
-- Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions.
+- Hooks always exit 0 and print nothing when they have nothing to say. What they add is facts, never instructions, with one exception: where the host does not load the hub by itself, the session-start hook gives the hub's own text after the live index.
 - Each hook is wired in two forms in one file, a program with its arguments for Claude Code and a shell line for Copilot, and answers in the shape each host reads.
 - Skills set neither `model` nor `effort`; estate facts come from `context-central config --get`, never from skill text.
 - A skill has a file of the map read and written at the path `context-central draft` prints, and put into the map by `context-central take`, never at a path it works out for itself: in a git work tree a host may keep a session's tools to the work tree.

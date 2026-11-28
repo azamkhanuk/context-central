@@ -479,7 +479,7 @@ test("Copilot's record is read from the folder its own variable names when one i
 
 test("a record of Copilot's that is not JSON, holds no list, or lists a copy with no name or no folder holds no copy", () => {
   const root = tree(acme())
-  const nameless: Json[] = [{ marketplace: 'elsewhere', cache_path: '/plugins/a', enabled: true }, { name: 'context-central', marketplace: 'elsewhere' }, { name: 'context-central', marketplace: 'another', cache_path: '' }, null, 7, otherHostCopy(CURRENT)]
+  const nameless: Json[] = [{ marketplace: 'elsewhere', cache_path: '/plugins/a', enabled: true }, { cache_path: '/plugins/b', enabled: true }, { name: 'context-central', marketplace: 'elsewhere' }, { name: 'context-central', marketplace: 'another', cache_path: '' }, null, 7, otherHostCopy(CURRENT)]
 
   for (const record of ['{ not json', '{}\n', otherHostRecord('context-central'), otherHostRecord(nameless)]) {
     assert.equal(copiesLine(doctor(root, sandbox({}, { '.copilot/config.json': record }))), 'ok   copies', record)

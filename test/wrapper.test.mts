@@ -342,6 +342,28 @@ test("a copy on the other host's record that does not say whether it is on is ta
   assert.deepEqual(JSON.parse(launch(marked, ['index'], {}).stdout) as unknown, { cli: join(marked, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
+test("another plugin of the same marketplace, recorded first on the other host's record, is not taken for this one", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [{ name: 'other-plugin', marketplace: 'azamkhanuk', cache_path: join(root, 'installed/other-plugin'), enabled: true }, fromAuthor(root)])
+
+  const result = launch(root, ['index'], {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("a copy recorded first on the other host's record with no folder, or with a folder that is not text, is passed over for the copy that has one", () => {
+  for (const broken of [{ cache_path: undefined }, { cache_path: 7 }]) {
+    const root = machine()
+    installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, broken), fromAuthor(root)])
+
+    const result = launch(root, ['index'], {})
+
+    assert.equal(result.stderr, '')
+    assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  }
+})
+
 test('where the record for Claude Code names a folder that is gone, the copy the other host installed is run', () => {
   const root = machine()
   install(root, join(root, 'home/.claude'), join(root, 'gone'))

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { hubPath } from './nodes.mts'
 import { withoutBom } from './text.mts'
 import { inTree } from './worktree.mts'
@@ -43,8 +43,13 @@ export function loadsHub(host: Host, estate: Estate, startDir: string) {
   const start = real(resolve(startDir))
   const roots = [start, repositoryRoot(start)].filter(root => root !== null)
   const hub = hubPath(estate)
-  const copies = (estate.workTree ? [hub, inTree(estate.workTree, hub)] : [hub]).filter(copy => existsSync(copy))
-  return copies.some(copy => roots.some(root => loadedAs(relative(root, join(real(dirname(copy)), basename(copy))))))
+  const copies = [[estate.estateRoot, hub], ...(estate.workTree ? [[estate.workTree.root, inTree(estate.workTree, hub)]] : [])].filter(([, copy]) => existsSync(copy))
+  return copies.flatMap(places).some(place => roots.some(root => loadedAs(relative(root, place))))
+}
+
+// The host loads a file by the name it is kept under, and a file a link of another name leads to by that file's own name.
+function places([base, copy]: string[]) {
+  return [join(real(base), relative(base, copy)), real(copy)]
 }
 
 function loadedAs(fromRoot: string) {

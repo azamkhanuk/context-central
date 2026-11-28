@@ -1,10 +1,10 @@
 {
   "hooks": {
     "SessionStart": [
-      { "matcher": "startup|resume|clear|compact|fork", "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "session-start"], "bash": "node \"$CLAUDE_PLUGIN_ROOT/bin/context-central\" hook session-start", "powershell": "$payload = [Console]::In.ReadToEnd(); if ($payload) { $OutputEncoding = New-Object System.Text.UTF8Encoding $false; $payload | node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook session-start } else { node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook session-start }; exit $LASTEXITCODE", "timeout": 15 }] }
+      { "matcher": "startup|resume|clear|compact|fork", "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "session-start"], "bash": "node \"$CLAUDE_PLUGIN_ROOT/bin/context-central\" hook session-start", "powershell": "node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook session-start; exit $LASTEXITCODE", "timeout": 15 }] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "user-prompt-submit"], "bash": "node \"$CLAUDE_PLUGIN_ROOT/bin/context-central\" hook user-prompt-submit", "powershell": "$payload = [Console]::In.ReadToEnd(); if ($payload) { $OutputEncoding = New-Object System.Text.UTF8Encoding $false; $payload | node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook user-prompt-submit } else { node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook user-prompt-submit }; exit $LASTEXITCODE", "timeout": 10 }] }
+      { "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/context-central", "hook", "user-prompt-submit"], "bash": "node \"$CLAUDE_PLUGIN_ROOT/bin/context-central\" hook user-prompt-submit", "powershell": "node (Join-Path $env:CLAUDE_PLUGIN_ROOT 'bin/context-central') hook user-prompt-submit; exit $LASTEXITCODE", "timeout": 10 }] }
     ]
   }
 }

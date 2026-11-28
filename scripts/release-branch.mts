@@ -33,7 +33,7 @@ try {
     git('fetch', '-q', '--no-tags', ...whole, 'origin', `+refs/tags/${tag}:refs/tags/${tag}`, ...there)
     const kind = git('cat-file', '-t', tagged).trim()
     if (kind !== 'commit') throw new Error(`${tag} names a ${kind}, not a commit`)
-    git('push', '-q', 'origin', `${tagged}:refs/heads/${BRANCH}`)
+    git('push', '-q', 'origin', `${tagged}^{commit}:refs/heads/${BRANCH}`)
     console.log(`${BRANCH} moved to ${tag}, ${tagged.slice(0, 7)}`)
   }
 } catch (error) {

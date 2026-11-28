@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { symlinkSync, truncateSync } from 'node:fs'
-import { join } from 'node:path'
+import { mkdirSync, symlinkSync, truncateSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, acme, acmeIndex, disposable, hook, makeTree, notOnWindows, solo, spawned, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, SOLO_FILES, acme, acmeIndex, checkout, disposable, hook, makeTree, notOnWindows, solo, spawned, workTree } from './helpers.mts'
 import type { Env, Result } from './helpers.mts'
 
 const tree = disposable()
@@ -11,6 +11,7 @@ const HUB = '# Acme estate\n\nA task about a screen goes to `web`.\n'
 const COPILOT = { COPILOT_PLUGIN_ROOT: '/plugins/context-central' }
 const GIT_FOLDER = { '.git/HEAD': 'ref: refs/heads/main\n' }
 const LINKS = notOnWindows('making a link needs a right that a Windows account may not have')
+const STATE = 'work/PROJ-12/STATE.md'
 
 const start = (cwd: string, env: Env = {}) => hook('session-start', { session_id: 's1', cwd, source: 'new' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})), ...env }, timeout: 20000 })
 const context = (result: Result) => (JSON.parse(result.stdout) as { additionalContext: string }).additionalContext
@@ -76,6 +77,16 @@ test('in a work tree that holds its own copy of a hub the host loads, the hub is
 
   assert.equal(text.includes('Context map'), true)
   assert.equal(text.includes('\n\nHub ('), false)
+})
+
+test('in a work tree that holds no copy of a hub the host loads by its name, the hub is given from the main checkout', () => {
+  const made = checkout({ ...SOLO_FILES, '.gitignore': '.context-central/\nCLAUDE.md\n' })
+  tree(made.base)
+  const inTree = workTree(made, join(made.base, 'tree'))
+
+  const text = context(start(inTree, { ...made.env, ...COPILOT }))
+
+  assert.equal(text.slice(text.indexOf('\n\nHub (')), hubGiven(made.main, 'CLAUDE.md', SOLO_FILES['CLAUDE.md']))
 })
 
 test("the hub's text is cut where the index and the hub together pass the hook's limit", () => {
@@ -152,6 +163,23 @@ test('a hub of a name the host loads that is a link to another file of the estat
   assert.equal(context(start(root, COPILOT)).includes('\n\nHub ('), false)
 })
 
+for (const [hub, link, folder] of [['.claude/CLAUDE.md', '.claude', 'conf'], ['.claude/rules/estate.md', '.claude/rules', 'conf']]) {
+  test(`a hub named ${hub}, which the host loads by that name, is not given a second time where the folder ${link} is a link to another folder of the estate`, LINKS, () => {
+    const root = tree(acme({ [`${folder}/${hub.split('/').at(-1)}`]: HUB }, { hub }))
+    mkdirSync(dirname(join(root, link)), { recursive: true })
+    symlinkSync(join(root, folder), join(root, link))
+
+    assert.equal(context(start(root, COPILOT)), indexNaming(root, hub))
+  })
+}
+
+test('a hub of a name the host does not load that is a link to a file the host loads is loaded by the host, and not given a second time', LINKS, () => {
+  const root = tree(acme({ 'AGENTS.md': HUB }, { hub: 'CLAUDE.local.md' }))
+  symlinkSync(join(root, 'AGENTS.md'), join(root, 'CLAUDE.local.md'))
+
+  assert.equal(context(start(root, COPILOT)), indexNaming(root, 'CLAUDE.local.md'))
+})
+
 test('a hub of an estate that is reached through a link is given, since the estate holds it once the link is followed', LINKS, () => {
   const root = withLocalHub(HUB)
   const linked = join(tree(makeTree({})), 'estate')
@@ -186,6 +214,16 @@ test('on Copilot a session that starts in a folder the map leaves alone is told 
   const result = start(join(root, 'scratch'), { ...COPILOT, CLAUDE_PROJECT_DIR: root })
 
   assert.deepEqual(result, { code: 0, stdout: '', stderr: '' })
+})
+
+test("a resumed session on a host that does not load the hub is given the state of its active item before the hub's text", () => {
+  const root = withLocalHub(HUB)
+  const env = { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})), ...COPILOT }
+  hook('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, { env })
+
+  const resumed = hook('session-start', { session_id: 's1', cwd: root, source: 'resume' }, { env, timeout: 20000 })
+
+  assert.equal(context(resumed), `${indexNaming(root, 'CLAUDE.local.md')}\n\nState of PROJ-12 (${join(root, STATE)}):\n${ACME_FILES[STATE].trimEnd()}${hubGiven(root, 'CLAUDE.local.md', HUB)}`)
 })
 
 test('a prompt on a host that does not load the hub is given its pointers and no hub', () => {

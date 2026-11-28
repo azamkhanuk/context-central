@@ -92,6 +92,20 @@ test('in a shallow checkout, as the release job has one, a release branch that s
   assert.equal(onOrigin(made, 'refs/heads/release'), tagged)
 })
 
+for (const kind of ['heads', 'tags']) {
+  test(`a ref of the checkout under refs/${kind} that is named as the tagged commit's id and sits at a later commit is not pushed in the tagged commit's place`, () => {
+    const made = repository()
+    const tagged = tagHere(made)
+    const later = commit(made, '# The plugin, with work after the release\n')
+    git(made, made.main, 'update-ref', `refs/${kind}/${tagged}`, later)
+
+    const result = move(made)
+
+    assert.equal(result.code, 0, result.stderr)
+    assert.equal(onOrigin(made, 'refs/heads/release'), tagged)
+  })
+}
+
 test('a tag that names no commit is not pushed to the branch, and the script exits 1', () => {
   const made = repository()
   const blob = git(made, made.main, 'hash-object', '-w', 'README.md').stdout.trim()
