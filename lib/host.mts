@@ -1,15 +1,16 @@
 import { existsSync, realpathSync } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import { CLAUDE_CODE } from './hosts/claude-code.mts'
-import { COPILOT, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot } from './hosts/copilot.mts'
+import { closeSync, openSync, readSync, statSync } from 'node:fs'
+import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, repositoryRoot } from './hosts/copilot.mts'
 import { pluginRoot } from './manifest.mts'
 import { hubPath } from './nodes.mts'
-import { inTree } from './worktree.mts'
+import { holds, inTree } from './worktree.mts'
 import type { Env } from './cli.mts'
 import type { Estate } from './estate.mts'
 
-export { copilotHome, copilotInstalls } from './hosts/copilot.mts'
-export type { CopilotInstall } from './hosts/copilot.mts'
+export { COPILOTS_OWN_INSTRUCTIONS, COPILOTS_OWN_SERVERS, copilotHome, copilotInstalls, copilotLoadsIn } from './hosts/copilot.mts'
+export type { CopilotInstall, CopilotLoads } from './hosts/copilot.mts'
 
 export type Host = 'claude-code' | 'copilot'
 
@@ -58,9 +59,33 @@ function counted(from: string, place: string) {
   return relative(from, place).split(sep).join('/')
 }
 
-function repositoryRoot(dir: string): string | null {
-  if (existsSync(join(dir, '.git'))) return dir
-  return dirname(dir) === dir ? null : repositoryRoot(dirname(dir))
+// The hub's text for a host that does not load the hub by itself: only a file that lies inside the estate once links are followed, read no further than the limit can show.
+export function hubNotLoaded(host: Host, estate: Estate, startDir: string, env: Env, limitChars: number) {
+  if (loadsHub(host, estate, startDir, env)) return null
+  const hub = hubPath(estate)
+  const text = startOf(estate, hub, limitChars).trimEnd()
+  return text.trim() ? { hub, text } : null
+}
+
+function startOf(estate: Estate, hub: string, limitChars: number) {
+  try {
+    const place = realpathSync(hub)
+    if (!holds(realpathSync(estate.estateRoot), place) || !statSync(place).isFile()) return ''
+    const file = openSync(place, 'r')
+    try {
+      const bytes = Buffer.alloc(limitChars * 4)
+      return bytes.toString('utf8', 0, readSync(file, bytes, 0, bytes.length, 0))
+    } finally {
+      closeSync(file)
+    }
+  } catch {
+    return ''
+  }
+}
+
+// A new map on Copilot is given the file Copilot's own init writes, where the folder holds no hub of either host.
+export function hubAtARootOn(host: Host) {
+  return host === 'copilot' ? COPILOTS_OWN_INSTRUCTIONS : null
 }
 
 function real(path: string) {

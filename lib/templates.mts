@@ -1,5 +1,6 @@
 import { EVIDENCE_DIR } from './nodes.mts'
 import type { Repo, Settings, WriteRules } from './estate.mts'
+import type { Host } from './host.mts'
 
 export type InMap = (rel: string) => string
 
@@ -193,8 +194,10 @@ export function glossaryTemplate() {
 }
 
 export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings) {
-  const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
-  return ['/*', ...allowed.map(path => `!/${path}`), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
+  // Git does not take back a file whose folder it ignores, so the folder a hub lies in is kept with it.
+  const hubsFolder = hub.includes('/') ? [`${hub.split('/')[0]}/`] : []
+  const allowed = ['estate.json', ...hubsFolder, hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
+  return ['/*', ...[...new Set(allowed)].map(path => `!/${path}`), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
 }
 
 export function evidenceIgnoreRule(workDir: string) {
@@ -205,9 +208,12 @@ export function gitattributesTemplate() {
   return 'log/*.md merge=union\n'
 }
 
-export function settingsTemplate() {
+// Copilot takes a marketplace's auto-update from a person's own settings alone, and a rule that allows a command from no settings file.
+export function settingsTemplate(host: Host) {
+  const marketplace = { source: { source: 'github', repo: MARKETPLACE_REPO } }
+  if (host === 'copilot') return { extraKnownMarketplaces: { [MARKETPLACE]: marketplace }, enabledPlugins: { [PLUGIN_ID]: true } }
   return {
-    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo: MARKETPLACE_REPO }, autoUpdate: true } },
+    extraKnownMarketplaces: { [MARKETPLACE]: { ...marketplace, autoUpdate: true } },
     enabledPlugins: { [PLUGIN_ID]: true },
     permissions: { allow: [`Bash(${PLUGIN} *)`] },
   }

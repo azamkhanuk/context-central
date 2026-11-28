@@ -1,6 +1,6 @@
-import { closeSync, openSync, readFileSync, readSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { withoutBom } from '../text.mts'
 import type { Env } from '../cli.mts'
 
@@ -10,8 +10,12 @@ export interface CopilotInstall {
   enabled: boolean
 }
 
-const OWN_INSTRUCTIONS = '.github/copilot-instructions.md'
-const LOADS_AT_A_ROOT = ['CLAUDE.md', '.claude/CLAUDE.md', 'AGENTS.md', 'GEMINI.md', OWN_INSTRUCTIONS]
+export const COPILOTS_OWN_INSTRUCTIONS = '.github/copilot-instructions.md'
+export const COPILOTS_OWN_SERVERS = '.github/mcp.json'
+const BRINGS_FILES_IN = [COPILOTS_OWN_INSTRUCTIONS, 'AGENTS.md', 'CLAUDE.md']
+const LOADS_AT_A_ROOT = [...BRINGS_FILES_IN, '.claude/CLAUDE.md', 'GEMINI.md']
+const RULES = ['.claude', 'rules']
+const INSTRUCTIONS = ['.github', 'instructions']
 const LOADS_UNDER = [/^\.claude\/rules\/.+\.md$/]
 const SCOPED_AT_A_ROOT = [/^\.github\/instructions\/.+\.instructions\.md$/]
 const SCOPED_IN_AN_ADDED_FOLDER = [/^[^/]+\.instructions\.md$/, ...SCOPED_AT_A_ROOT]
@@ -50,6 +54,68 @@ export function foldersAddedToCopilot(env: Env) {
 
 export function copilotLoadsFromAnAddedFolder(fromFolder: string, file: string) {
   return SCOPED_IN_AN_ADDED_FOLDER.some(pattern => pattern.test(fromFolder)) && appliesToEveryFile(file)
+}
+
+export interface CopilotLoads {
+  files: { path: string; source: string; bringsFilesIn: boolean }[]
+  scoped: number
+}
+
+// Named files are looked for in the repository's root, the folder a session starts in and each folder between, and rules and instructions files in the first two.
+export function copilotLoadsIn(dir: string, env: Env): CopilotLoads {
+  const home = copilotHome(env)
+  const root = repositoryRoot(dir)
+  const folders = root === null ? [dir] : between(root, dir)
+  const where = (folder: string) => (folder === root ? 'repository' : 'folder')
+  const own = everyFileOrScoped(markdownUnder(join(home, 'instructions'), '.instructions.md'))
+  const inFolders = folders.map(folder => ({
+    named: LOADS_AT_A_ROOT.map(name => ({ path: join(folder, ...name.split('/')), source: where(folder), bringsFilesIn: BRINGS_FILES_IN.includes(name) })).filter(file => isFile(file.path)),
+    rules: folder === root || folder === dir ? markdownUnder(join(folder, ...RULES), '.md') : [],
+    instructions: everyFileOrScoped(folder === root || folder === dir ? markdownUnder(join(folder, ...INSTRUCTIONS), '.instructions.md') : []),
+    where: where(folder),
+  }))
+  const plain = (path: string, source: string) => ({ path, source, bringsFilesIn: false })
+  return {
+    files: [
+      ...[join(home, 'copilot-instructions.md')].filter(isFile).map(path => plain(path, 'user')),
+      ...own.everyFile.map(path => plain(path, 'user instructions')),
+      ...inFolders.flatMap(found => [...found.named, ...found.rules.map(path => plain(path, `${found.where} rule`)), ...found.instructions.everyFile.map(path => plain(path, `${found.where} instructions`))]),
+    ],
+    scoped: own.scoped + inFolders.reduce((sum, found) => sum + found.instructions.scoped, 0),
+  }
+}
+
+export function repositoryRoot(dir: string): string | null {
+  if (existsSync(join(dir, '.git'))) return dir
+  return dirname(dir) === dir ? null : repositoryRoot(dirname(dir))
+}
+
+function between(root: string, dir: string): string[] {
+  return dir === root || dirname(dir) === dir ? [dir] : [...between(root, dirname(dir)), dir]
+}
+
+function everyFileOrScoped(paths: string[]) {
+  const everyFile = paths.filter(appliesToEveryFile)
+  return { everyFile, scoped: paths.length - everyFile.length }
+}
+
+function markdownUnder(dir: string, ending: string): string[] {
+  if (!isFolder(dir)) return []
+  return readdirSync(dir)
+    .sort()
+    .flatMap(name => {
+      const path = join(dir, name)
+      if (isFolder(path)) return markdownUnder(path, ending)
+      return isFile(path) && name.endsWith(ending) ? [path] : []
+    })
+}
+
+function isFolder(path: string) {
+  return existsSync(path) && statSync(path).isDirectory()
+}
+
+function isFile(path: string) {
+  return existsSync(path) && statSync(path).isFile()
 }
 
 // An instructions file that names the files it applies to is put before the model only once one of them is worked on.

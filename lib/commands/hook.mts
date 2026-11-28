@@ -1,13 +1,13 @@
-import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { ConfigError, messageOf } from '../errors.mts'
 import { coverage, estateAt, findEstate } from '../estate.mts'
-import { hostOf, loadsHub } from '../host.mts'
+import { hostOf, hubNotLoaded } from '../host.mts'
 import { buildIndex } from '../index-text.mts'
-import { findWorkItem, hubPath } from '../nodes.mts'
+import { findWorkItem } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
 import { truncate, withoutBom } from '../text.mts'
-import { holds, linkedWorkTree } from '../worktree.mts'
+import { linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
 
@@ -102,31 +102,12 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
   const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
-  return { ...withContext(env, 'SessionStart', truncate(text + hubNotLoaded(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
+  return { ...withContext(env, 'SessionStart', truncate(text + hubAfterIndex(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
 }
 
-function hubNotLoaded(estate: Estate, env: Env, startDir: string) {
-  if (loadsHub(hostOf(env), estate, startDir, env)) return ''
-  const hub = hubPath(estate)
-  const text = startOf(estate, hub).trimEnd()
-  return text.trim() ? `\n\nHub (${hub}), which this host does not load by itself:\n${text}` : ''
-}
-
-// Only a file that lies inside the estate once links are followed is read, and no further than the hook's limit can show.
-function startOf(estate: Estate, hub: string) {
-  try {
-    const place = realpathSync(hub)
-    if (!holds(realpathSync(estate.estateRoot), place) || !statSync(place).isFile()) return ''
-    const file = openSync(place, 'r')
-    try {
-      const bytes = Buffer.alloc(CONTEXT_CHARS * 4)
-      return bytes.toString('utf8', 0, readSync(file, bytes, 0, bytes.length, 0))
-    } finally {
-      closeSync(file)
-    }
-  } catch {
-    return ''
-  }
+function hubAfterIndex(estate: Estate, env: Env, startDir: string) {
+  const given = hubNotLoaded(hostOf(env), estate, startDir, env, CONTEXT_CHARS)
+  return given ? `\n\nHub (${given.hub}), which this host does not load by itself:\n${given.text}` : ''
 }
 
 function withState(estate: Estate, index: string, active: string | null) {
