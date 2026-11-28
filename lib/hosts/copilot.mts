@@ -187,7 +187,7 @@ export const COPILOTS_STEPS: Step[] = [
   {
     heading: 'Allowing a tool',
     paragraphs: [
-      "Copilot keeps no file of rules for a person to write, so write none. Say the two ways it stops asking before one of the read tools just used runs. The first is to answer its prompt with \"Yes, and don't ask again\", which it saves for this repository in the person's own Copilot folder. The second is to start it with `--allow-tool`, once for each rule: a server's tool is written `<server>(<tool>)`, and a command `shell(<command>:*)`. For the plugin's own command the rule is `shell(context-central:*)` where the command is on the PATH, and where a skill runs it by its file, `shell(node:*)` with `--add-dir` and the plugin's folder.",
+      "Copilot keeps no file of rules for a person to write, so write none. Say the two ways it stops asking before one of the read tools just used runs. The first is to answer its prompt with \"Yes, and don't ask again\", which it saves for this folder in the person's own Copilot folder. The second is to start it with `--allow-tool`, once for each rule: a server's tool is written `<server>(<tool>)`, and a command `shell(<command>:*)`. For the plugin's own command the rule is `shell(context-central:*)` where the command is on the PATH, and where a skill runs it by its file, `shell(node:*)` with `--add-dir` and the plugin's folder. Say too that its prompt offers the first answer for a command run by its name and not for one run through `node`: where the plugin's command is not on the PATH, each of its commands asks, and a launcher, which `context-central wrapper --write` saves, with its folder on the PATH lets one answer cover them all.",
     ],
   },
   {
