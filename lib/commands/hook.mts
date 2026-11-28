@@ -106,7 +106,7 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
 }
 
 function hubNotLoaded(estate: Estate, env: Env, startDir: string) {
-  if (loadsHub(hostOf(env), estate, startDir)) return ''
+  if (loadsHub(hostOf(env), estate, startDir, env)) return ''
   const hub = hubPath(estate)
   const text = startOf(estate, hub).trimEnd()
   return text.trim() ? `\n\nHub (${hub}), which this host does not load by itself:\n${text}` : ''

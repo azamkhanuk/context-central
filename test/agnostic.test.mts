@@ -8,6 +8,7 @@ const tree = disposable()
 
 const PRESETS_FOLDER = ['lib', 'presets'].join('/')
 const OWN_MARKETPLACE_ADDRESS = ['lib/templates.mts']
+const ONE_HOSTS_OWN_FILES = ['lib/hosts/copilot.mts']
 
 function filesUnder(folder: string): string[] {
   return readdirSync(join(REPO, folder), { withFileTypes: true }).flatMap(entry => {
@@ -27,14 +28,14 @@ function presets() {
 
 const named = (word: string, text: string) => new RegExp(`(?<![A-Za-z0-9])${word}(?![A-Za-z0-9])`, 'i').test(text)
 
-test("no code outside the presets folder names a vendor or the program one starts, but for the plugin's own marketplace address", () => {
+test("no code outside the presets folder names a vendor or the program one starts, but for the plugin's own marketplace address and the folder that one host keeps its own files in, named in that host's file alone", () => {
   const words = presets().flatMap(({ name, program }) => [name, ...name.split('-'), program])
   const found = ['bin', 'hooks', 'lib']
     .flatMap(filesUnder)
     .flatMap(file => words.filter(word => named(word, readFileSync(join(REPO, file), 'utf8'))).map(word => `${file}: ${word}`))
 
   assert.ok(words.length >= 3)
-  assert.deepEqual(found.filter(hit => !OWN_MARKETPLACE_ADDRESS.some(file => hit === `${file}: github`)), [])
+  assert.deepEqual(found.filter(hit => ![...OWN_MARKETPLACE_ADDRESS, ...ONE_HOSTS_OWN_FILES].some(file => hit === `${file}: github`)), [])
 })
 
 test('every preset is a file in the presets folder, named for it', () => {

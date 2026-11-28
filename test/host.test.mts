@@ -43,13 +43,45 @@ test('a hub the host loads from the folder the session starts in is not given a 
   assert.equal(context(start(root, COPILOT)), acmeIndex(root))
 })
 
-for (const hub of ['AGENTS.md', 'GEMINI.md', '.claude/CLAUDE.md', '.claude/rules/estate.md']) {
+for (const hub of ['AGENTS.md', 'GEMINI.md', '.claude/CLAUDE.md', '.claude/rules/estate.md', '.github/copilot-instructions.md', '.github/instructions/estate.instructions.md', '.github/instructions/deep/estate.instructions.md']) {
   test(`a hub named ${hub}, which the host loads from the folder a session starts in, is not given a second time`, () => {
     const root = tree(acme({ [hub]: HUB }, { hub }))
 
     assert.equal(context(start(root, COPILOT)).includes('\n\nHub ('), false)
   })
 }
+
+test("a hub in the folder Copilot keeps its instructions in, of a name Copilot does not load from there, is given", () => {
+  for (const hub of ['.github/instructions/estate.md', '.github/hub.md']) {
+    const root = tree(acme({ [hub]: HUB }, { hub }))
+
+    assert.equal(context(start(root, COPILOT)), indexNaming(root, hub) + hubGiven(root, hub, HUB), hub)
+  }
+})
+
+test('a hub kept as an instructions file that names the files it applies to is given, since Copilot loads such a file only once one of them is worked on, and one that applies to every file is not', () => {
+  const scoped = (applyTo: string) => {
+    const hub = '.github/instructions/estate.instructions.md'
+    const root = tree(acme({ [hub]: `---\napplyTo: ${applyTo}\n---\n${HUB}` }, { hub }))
+    return context(start(root, COPILOT)).includes('\n\nHub (')
+  }
+
+  assert.equal(scoped('"**/*.ts"'), true)
+  assert.equal(scoped('"**"'), false)
+  assert.equal(scoped("'**/*'"), false)
+})
+
+test('a hub in a folder that the person has named to Copilot as one more to load instructions from is not given a second time, where it is of a name Copilot loads from such a folder', () => {
+  const named = (hub: string) => {
+    const root = tree(acme({ [`shared/${hub}`]: HUB }, { hub: `shared/${hub}` }))
+    return context(start(root, { ...COPILOT, COPILOT_CUSTOM_INSTRUCTIONS_DIRS: `/nowhere, ${join(root, 'shared')}` })).includes('\n\nHub (')
+  }
+
+  assert.equal(named('estate.instructions.md'), false)
+  assert.equal(named('.github/instructions/estate.instructions.md'), false)
+  assert.equal(named('AGENTS.md'), true)
+  assert.equal(named('CLAUDE.md'), true)
+})
 
 test('a hub written with a leading dot and slash is the same file the host loads, and is not given a second time', () => {
   const root = tree(acme({}, { hub: './CLAUDE.md' }))
