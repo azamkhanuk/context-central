@@ -3,7 +3,7 @@ import { basename, dirname, join, posix, relative, resolve, sep } from 'node:pat
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, estateAt, findEstate, validateConfig } from '../estate.mts'
-import { hostFor, hubAtARootOn } from '../host.mts'
+import { hostFor, hubAtARootOn, sharedSettingsOn } from '../host.mts'
 import { LOCK, locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
@@ -57,7 +57,7 @@ export function run(args: string[], io: Io) {
   if (values.hub !== undefined && !values.plain) throw new UsageError('--hub names the hub of a plain map, so it goes with --plain')
   const given = resolve(io.cwd, positionals[0] ?? '.')
   const { dir, answers, first, fresh } = values.from ? { dir: given, answers: readAnswers(resolve(io.cwd, values.from)), first: [], fresh: false } : plain(given, io.env, values.hub === undefined ? undefined : hubNamed(values.hub))
-  const planned = [...first, ...steps(dir, answers)]
+  const planned = [...first, ...steps(dir, answers, hostFor(io.env))]
   refuseAHubTheMapLaysDown(planned, answers.layout, dir, Boolean(values.plain) && values.hub !== undefined && fresh)
   const done: string[] = values.plain ? [`plain map at ${dir}:`] : []
   const carryAll = (dryRun: boolean) => planned.forEach(step => done.push(carryOut(dir, step, dryRun)))
@@ -240,7 +240,7 @@ function readJson(path: string, what: string): unknown {
   }
 }
 
-function steps(dir: string, { layout, git, config: answered }: Answers): Step[] {
+function steps(dir: string, { layout, git, config: answered }: Answers, host: Host): Step[] {
   const inMap: InMap = rel => (layout === 'inner' ? `${INNER_DIR}/${rel}` : rel)
   const configRel = inMap(CONFIG_FILE)
   const written = Object.assign({ contextCentral: 1 }, answered, { contextCentral: 1 })
@@ -250,7 +250,7 @@ function steps(dir: string, { layout, git, config: answered }: Answers): Step[] 
     ...config.nodeDirs.map(nodeDir => ({ rel: `${inMap(nodeDir)}/` })),
     { rel: config.hub, content: hubTemplate(config, inMap), append: mapBlock(config, inMap) },
     ...(config.glossary ? [] : [{ rel: inMap('glossary.md'), content: glossaryTemplate() }]),
-    ...(git ? (layout === 'root' ? gitSteps(config) : innerGitSteps(config, inMap)) : []),
+    ...(git ? (layout === 'root' ? gitSteps(config, dir, host) : innerGitSteps(config, inMap)) : []),
   ]
 }
 
@@ -261,9 +261,10 @@ function existingConfig(dir: string, configRel: string) {
   return validateConfig(readJson(path, 'config'), configRel)
 }
 
-function gitSteps(config: Settings): Step[] {
+function gitSteps(config: Settings, dir: string, host: Host): Step[] {
+  const holdsACheckout = (folder: string) => existsSync(join(dir, ...folder.split('/'), GITS_OWN))
   return [
-    { rel: '.gitignore', content: gitignoreTemplate(config) },
+    { rel: '.gitignore', content: gitignoreTemplate(config, { holdsACheckout, hostsOwn: sharedSettingsOn(host) }) },
     { rel: '.gitattributes', content: gitattributesTemplate() },
   ]
 }

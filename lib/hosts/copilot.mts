@@ -1,6 +1,6 @@
 import { closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { withoutBom } from '../text.mts'
 import type { Env } from '../cli.mts'
 import type { Step } from './claude-code.mts'
@@ -13,6 +13,7 @@ export interface CopilotInstall {
 
 export const COPILOTS_OWN_INSTRUCTIONS = '.github/copilot-instructions.md'
 export const COPILOTS_OWN_SERVERS = '.github/mcp.json'
+export const COPILOTS_SHARED_SETTINGS = '.github/copilot/settings.json'
 const BRINGS_FILES_IN = [COPILOTS_OWN_INSTRUCTIONS, 'AGENTS.md', 'CLAUDE.md']
 const LOADS_AT_A_ROOT = [...BRINGS_FILES_IN, '.claude/CLAUDE.md', 'GEMINI.md']
 const RULES = ['.claude', 'rules']
@@ -44,7 +45,7 @@ export function copilotInstalls(env: Env): CopilotInstall[] {
   })
 }
 
-// A file is counted from its folder with forward slashes. A folder between the repository's root and the start folder gives its named files alone.
+// A run showed a folder between the repository's root and the start folder giving its named files and no rule.
 export function copilotLoadsAtAStart(fromFolder: string, file: string, between: boolean) {
   if (LOADS_AT_A_ROOT.includes(fromFolder)) return true
   return !between && (LOADS_UNDER.some(pattern => pattern.test(fromFolder)) || (SCOPED_AT_A_ROOT.some(pattern => pattern.test(fromFolder)) && appliesToEveryFile(file)))
@@ -68,24 +69,23 @@ export function copilotLoadsIn(dir: string, env: Env): CopilotLoads {
   const root = repositoryRoot(dir)
   const folders = foldersToTheStart(dir)
   const where = (folder: string) => (folder === root ? 'repository' : 'folder')
-  const own = everyFileOrScoped(markdownUnder(join(home, 'instructions'), '.instructions.md'))
-  const inFolders = folders.map(folder => ({
-    named: LOADS_AT_A_ROOT.map(name => ({ path: join(folder, ...name.split('/')), source: where(folder), bringsFilesIn: BRINGS_FILES_IN.includes(name) })).filter(file => isFile(file.path)),
-    rules: folder === root || folder === dir ? markdownUnder(join(folder, ...RULES), '.md') : [],
-    instructions: everyFileOrScoped(folder === root || folder === dir ? markdownUnder(join(folder, ...INSTRUCTIONS), '.instructions.md') : []),
-    where: where(folder),
-  }))
-  const added = everyFileOrScoped(foldersAddedToCopilot(env).flatMap(folder => [...instructionsIn(folder), ...markdownUnder(join(folder, ...INSTRUCTIONS), '.instructions.md')]))
-  const plain = (path: string, source: string) => ({ path, source, bringsFilesIn: false })
-  return {
-    files: [
-      ...[join(home, 'copilot-instructions.md')].filter(isFile).map(path => plain(path, 'user')),
-      ...own.everyFile.map(path => plain(path, 'user instructions')),
-      ...inFolders.flatMap(found => [...found.named, ...found.rules.map(path => plain(path, `${found.where} rule`)), ...found.instructions.everyFile.map(path => plain(path, `${found.where} instructions`))]),
-      ...added.everyFile.map(path => plain(path, 'added folder instructions')),
-    ],
-    scoped: own.scoped + added.scoped + inFolders.reduce((sum, found) => sum + found.instructions.scoped, 0),
-  }
+  const plain = (source: string, mayBeScoped = false) => (path: string) => ({ path, source, bringsFilesIn: false, mayBeScoped })
+  const found = [
+    plain('user')(join(home, 'copilot-instructions.md')),
+    ...markdownUnder(join(home, 'instructions'), '.instructions.md').map(plain('user instructions', true)),
+    ...folders.flatMap(folder => [
+      ...LOADS_AT_A_ROOT.map(name => ({ path: join(folder, ...name.split('/')), source: where(folder), bringsFilesIn: BRINGS_FILES_IN.includes(name), mayBeScoped: false })),
+      ...(folder === root || folder === dir ? markdownUnder(join(folder, ...RULES), '.md').map(plain(`${where(folder)} rule`)) : []),
+      ...(folder === root || folder === dir ? markdownUnder(join(folder, ...INSTRUCTIONS), '.instructions.md').map(plain(`${where(folder)} instructions`, true)) : []),
+    ]),
+    ...foldersAddedToCopilot(env)
+      .map(folder => resolve(dir, folder))
+      .flatMap(folder => [...instructionsIn(folder), ...markdownUnder(join(folder, ...INSTRUCTIONS), '.instructions.md')])
+      .map(plain('added folder instructions', true)),
+  ].filter(file => isFile(file.path))
+  const once = found.filter((file, index) => found.findIndex(other => resolve(other.path) === resolve(file.path)) === index)
+  const scoped = once.filter(file => file.mayBeScoped && !appliesToEveryFile(file.path))
+  return { files: once.filter(file => !scoped.includes(file)).map(({ path, source, bringsFilesIn }) => ({ path, source, bringsFilesIn })), scoped: scoped.length }
 }
 
 export function repositoryRoot(dir: string): string | null {
@@ -105,11 +105,6 @@ function between(root: string, dir: string): string[] {
 function instructionsIn(folder: string) {
   if (!isFolder(folder)) return []
   return readdirSync(folder).sort().filter(name => name.endsWith('.instructions.md')).map(name => join(folder, name)).filter(isFile)
-}
-
-function everyFileOrScoped(paths: string[]) {
-  const everyFile = paths.filter(appliesToEveryFile)
-  return { everyFile, scoped: paths.length - everyFile.length }
 }
 
 function markdownUnder(dir: string, ending: string): string[] {
@@ -189,7 +184,7 @@ export const COPILOTS_STEPS: Step[] = [
   {
     heading: 'Settings',
     paragraphs: [
-      'Run `context-central init --print-settings` and show the JSON, which names the marketplace and turns the plugin on. Ask where it goes: `.github/copilot/settings.json` (shared with everyone who uses the map) or `.github/copilot/settings.local.json` (this machine only, which git shows until the person has git leave it out). Either sits at the root of the repository sessions start in, or in the folder itself where that is no repository: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.',
+      'Run `context-central init --print-settings` and show the JSON, which names the marketplace and turns the plugin on. Ask where it goes: `.github/copilot/settings.json` (shared with everyone who uses the map) or `.github/copilot/settings.local.json` (this machine only, which git shows unless it is told to leave it out). Either sits at the root of the repository sessions start in, or in the folder itself where that is no repository: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.',
       "Then say what decides whether the plugin loads. Copilot reads a repository's settings only once its folder has been trusted, and then installs a plugin they turn on where it is missing and turns it on in that repository alone: in a run with nobody there, `copilot -p`, in a folder nobody has trusted, nothing of the repository loads, and `--trust-folder` trusts it for that run. For layout `root`, a session started inside a repo is not given the plugin by the estate root's settings. Offer the two ways round: install it for the person, with `copilot plugin marketplace add azamkhanuk/claude-plugins` where `copilot plugin marketplace list` has no `azamkhanuk` yet and then `copilot plugin install context-central@azamkhanuk`, or put the same JSON in each registered repo as well, written as above and asking for each whether shared or for this machine only. A copy installed for the person loads in every folder. A release reaches a copy by itself only where the person's own settings, `~/.copilot/settings.json`, give the marketplace's entry `\"autoUpdate\": true`, and a repository's settings do not count for that: say so, and leave that file to the person. Without it `copilot plugin update context-central@azamkhanuk` fetches a release. A launcher finds the copy Copilot installed, and with none `CONTEXT_CENTRAL_CLI` names the plugin's `bin/context-central` file.",
     ],
   },

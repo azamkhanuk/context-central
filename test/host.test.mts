@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, symlinkSync, truncateSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { ACME_CONFIG, ACME_FILES, SOLO_FILES, acme, acmeIndex, checkout, disposable, hook, makeTree, notOnWindows, solo, spawned, workTree } from './helpers.mts'
+import { ACME_CONFIG, ACME_FILES, SOLO_CONFIG, SOLO_FILES, acme, acmeIndex, checkout, disposable, hook, makeTree, notOnWindows, solo, spawned, workTree } from './helpers.mts'
 import type { Env, Result } from './helpers.mts'
 
 const tree = disposable()
@@ -114,6 +114,17 @@ test('in a work tree that holds its own copy of a hub the host loads, the hub is
   assert.equal(text.includes('\n\nHub ('), false)
 })
 
+test('in a work tree, a hub in a folder between the root of the work tree and the folder a session starts in is not given a second time, since the work tree holds its own copy there', () => {
+  const made = checkout({ ...SOLO_FILES, '.context-central/estate.json': { ...SOLO_CONFIG, hub: 'web/AGENTS.md' }, 'web/AGENTS.md': HUB, 'web/src/app.js': 'export {}\n' })
+  tree(made.base)
+  const inTree = workTree(made, join(made.base, 'tree'))
+
+  const text = context(start(join(inTree, 'web', 'src'), { ...made.env, ...COPILOT }))
+
+  assert.equal(text.includes('Context map'), true)
+  assert.equal(text.includes('\n\nHub ('), false)
+})
+
 test('in a work tree that holds no copy of a hub the host loads by its name, the hub is given from the main checkout', () => {
   const made = checkout({ ...SOLO_FILES, '.gitignore': '.context-central/\nCLAUDE.md\n' })
   tree(made.base)
@@ -191,7 +202,7 @@ test('a hub in a folder below the estate root, which the host loads where the se
   assert.equal(context(start(root, COPILOT)).endsWith(hubGiven(root, join('web', 'AGENTS.md'), HUB)), true)
 })
 
-test("a hub in a folder between the root of the repository and the folder a session starts in is not given a second time, where it is a file Copilot loads by its name from such a folder, and is given where it is a rule, which Copilot loads from the two ends alone", () => {
+test('a hub in a folder between the root of the repository and the folder a session starts in is not given a second time, where it is a file Copilot loads by its name from such a folder, and is given where it is a rule, which Copilot loads from the two ends alone', () => {
   const between = (hub: string) => {
     const root = tree(acme({ ...GIT_FOLDER, [`web/${hub}`]: HUB, 'web/src/app.js': 'export {}\n' }, { hub: `web/${hub}` }))
     return context(start(join(root, 'web', 'src'), COPILOT)).includes('\n\nHub (')

@@ -193,24 +193,38 @@ export function glossaryTemplate() {
   ].join('\n')
 }
 
-export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence, repos }: Settings) {
-  const keptWhole = ['.claude/', 'bin/', ...nodeDirs.map(dir => `${dir}/`)]
-  const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
-  const above = foldersAbove(hub, keptWhole, repos)
-  const lines = allowed.flatMap(path => (path === hub && above.length > 0 ? [...above.flatMap(folder => [`!/${asGitReadsIt(folder)}/`, `/${asGitReadsIt(folder)}/*`]), `!/${asGitReadsIt(hub)}`] : [`!/${path}`]))
-  return ['/*', ...lines, ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
+export interface TakenBack {
+  holdsACheckout: (folder: string) => boolean
+  hostsOwn: string[]
 }
 
-// Git does not take back a file whose folder it ignores, so each folder above a hub is taken back and what else it holds ignored again. A hub inside a checkout or a folder the map keeps whole is left as it was.
-function foldersAbove(hub: string, keptWhole: string[], repos: Repo[]) {
-  const parts = hub.split('/').slice(0, -1)
-  const folders = parts.map((_, index) => parts.slice(0, index + 1).join('/'))
-  const inACheckout = repos.some(repo => folders.includes(repo.path.replace(/^\.\//, '').replace(/\/+$/, '')))
-  return parts.some(part => part === '' || part === '.' || part === '..') || keptWhole.includes(`${folders[0]}/`) || inACheckout ? [] : folders
+export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings, { holdsACheckout, hostsOwn }: TakenBack) {
+  const keptWhole = ['.claude/', 'bin/', ...nodeDirs.map(dir => `${dir}/`)]
+  const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
+  const below = [...hubBelowAFolder(hub, keptWhole, holdsACheckout), ...hostsOwn]
+  return ['/*', ...allowed.map(path => `!/${path}`), ...takenBack(below), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
+}
+
+function hubBelowAFolder(hub: string, keptWhole: string[], holdsACheckout: (folder: string) => boolean) {
+  const parts = hub.split('/')
+  const named = parts.slice(parts.findIndex(part => part !== '.'))
+  const folders = named.slice(0, -1).map((_, index) => named.slice(0, index + 1).join('/'))
+  const asWritten = folders.length === 0 || named.some(part => part === '' || part === '.' || part === '..') || keptWhole.includes(`${folders[0]}/`) || folders.some(holdsACheckout)
+  return asWritten ? [] : [named.join('/')]
+}
+
+// Git does not take back a file whose folder it ignores.
+function takenBack(paths: string[]) {
+  const lines = paths.flatMap(path => {
+    const parts = path.replace(/\/$/, '').split('/')
+    const above = parts.slice(0, -1).map((_, index) => asGitReadsIt(parts.slice(0, index + 1).join('/')))
+    return [...above.flatMap(folder => [`!/${folder}/`, `/${folder}/*`]), `!/${asGitReadsIt(path)}`]
+  })
+  return lines.filter((line, index) => lines.indexOf(line) === index)
 }
 
 function asGitReadsIt(path: string) {
-  return path.replace(/[[\\*?]/g, '\\$&')
+  return path.replace(/[[\\*?]/g, '\\$&').replace(/ $/, '\\ ')
 }
 
 export function evidenceIgnoreRule(workDir: string) {

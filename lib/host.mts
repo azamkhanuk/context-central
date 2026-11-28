@@ -1,7 +1,7 @@
 import { closeSync, existsSync, openSync, readSync, realpathSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { CLAUDE_CODE, CLAUDE_CODES_STEPS } from './hosts/claude-code.mts'
-import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, foldersToTheStart } from './hosts/copilot.mts'
+import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_SHARED_SETTINGS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, foldersToTheStart } from './hosts/copilot.mts'
 import { pluginRoot } from './manifest.mts'
 import { hubPath } from './nodes.mts'
 import { holds, inTree } from './worktree.mts'
@@ -50,7 +50,7 @@ export function loadsHub(host: Host, estate: Estate, startDir: string, env: Env)
   const hub = hubPath(estate)
   const copies = [[estate.estateRoot, hub], ...(estate.workTree ? [[estate.workTree.root, inTree(estate.workTree, hub)]] : [])].filter(([, copy]) => existsSync(copy))
   const stands = copies.flatMap(places)
-  const added = foldersAddedToCopilot(env).map(folder => real(resolve(folder)))
+  const added = foldersAddedToCopilot(env).map(folder => real(resolve(startDir, folder)))
   return stands.some(place => folders.some(folder => copilotLoadsAtAStart(counted(folder, place), place, !ends.includes(folder))) || added.some(folder => copilotLoadsFromAnAddedFolder(counted(folder, place), place)))
 }
 
@@ -89,6 +89,11 @@ function startOf(estate: Estate, hub: string, limitChars: number) {
 
 export function hubAtARootOn(host: Host) {
   return host === 'copilot' ? COPILOTS_OWN_INSTRUCTIONS : null
+}
+
+// Claude Code's settings folder is kept whole by every map in git, and Copilot's shared settings by a map made on Copilot.
+export function sharedSettingsOn(host: Host) {
+  return host === 'copilot' ? [COPILOTS_SHARED_SETTINGS] : []
 }
 
 function real(path: string) {
