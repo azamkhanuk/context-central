@@ -191,6 +191,17 @@ test('a hub in a folder below the estate root, which the host loads where the se
   assert.equal(context(start(root, COPILOT)).endsWith(hubGiven(root, join('web', 'AGENTS.md'), HUB)), true)
 })
 
+test("a hub in a folder between the root of the repository and the folder a session starts in is not given a second time, where it is a file Copilot loads by its name from such a folder, and is given where it is a rule, which Copilot loads from the two ends alone", () => {
+  const between = (hub: string) => {
+    const root = tree(acme({ ...GIT_FOLDER, [`web/${hub}`]: HUB, 'web/src/app.js': 'export {}\n' }, { hub: `web/${hub}` }))
+    return context(start(join(root, 'web', 'src'), COPILOT)).includes('\n\nHub (')
+  }
+
+  assert.equal(between('AGENTS.md'), false)
+  assert.equal(between('.github/copilot-instructions.md'), false)
+  assert.equal(between('.claude/rules/estate.md'), true)
+})
+
 test('a hub of a name the host loads that is a link to another file of the estate is loaded by the host, and not given a second time', LINKS, () => {
   const root = tree(acme({ 'docs/hub.md': HUB }, { hub: 'AGENTS.md' }))
   symlinkSync(join(root, 'docs', 'hub.md'), join(root, 'AGENTS.md'))

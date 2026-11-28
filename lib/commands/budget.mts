@@ -4,10 +4,11 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError } from '../errors.mts'
 import { coverage, loadEstate } from '../estate.mts'
-import { copilotLoadsIn, hostFor, hubNotLoaded } from '../host.mts'
+import { copilotLoadsIn, hostFor } from '../host.mts'
 import { buildIndex } from '../index-text.mts'
 import { describeFile, expandImports } from '../instructions.mts'
 import { claudeConfigDir } from '../machine.mts'
+import { startText } from '../start-text.mts'
 import { formatBytes, parseFrontmatter, plural } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
 
@@ -30,7 +31,6 @@ export const summary = 'Show what a session started in a folder loads at launch 
 const CLAUDE_FILES = ['CLAUDE.md', join('.claude', 'CLAUDE.md'), 'CLAUDE.local.md']
 const FALLBACK_FILES = ['AGENTS.md']
 const DEFAULT_LINE_LIMIT = 200
-const HOOK_CHARS = 9500
 
 export function run(args: string[], io: Io) {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { json: { type: 'boolean' } } })
@@ -47,14 +47,15 @@ function measure(dir: string, env: Env) {
   const loaded = host === 'copilot' ? onCopilot(dir, env) : onClaudeCode(dir, env)
   const files = oncePerPath(loaded.files).map(file => sized(file, lineLimit))
   const bytes = files.reduce((sum, file) => sum + file.bytes, 0)
-  const hubGiven = estate && hubNotLoaded(host, estate, dir, env, HOOK_CHARS)
+  const index = estate ? buildIndex(estate, env, { absolute: true, startDir: dir }) : ''
+  const hubChars = estate ? startText(index, host, estate, dir, env).hubChars : null
   return {
     dir,
     files,
     lineLimit,
     total: { bytes, files: files.length, tokens: { low: nearestHundred(bytes / 4), high: nearestHundred(bytes / 2.7) } },
     notLoaded: { pathScopedRules: loaded.scoped },
-    plugin: estate ? { indexChars: buildIndex(estate, env, { absolute: true, startDir: dir }).length, ...(hubGiven ? { hubChars: hubGiven.text.length } : {}) } : null,
+    plugin: estate ? { indexChars: index.length, ...(hubChars === null ? {} : { hubChars }) } : null,
   }
 }
 

@@ -114,7 +114,6 @@ test('on Copilot a prompt that was handed to an agent, which comes with that age
 })
 
 const AGENTS = ['fetcher', 'reader', 'reviewer', 'sweeper', 'web-reader']
-const THE_READERS_SHELL = [['Bash is for that', 'The shell is for that']]
 
 function parted(text: string) {
   const [, head, brief] = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text) ?? []
@@ -129,13 +128,9 @@ test('Copilot has a file of its own for each agent Claude Code has, named as Git
   assert.deepEqual(readdirSync(join(REPO, 'agents')).sort(), AGENTS.map(name => `${name}.md`))
 })
 
-test("each of Copilot's agents is given the brief Claude Code's is given, word for word, but for the reader's shell, which each host calls by its own name", () => {
-  for (const name of AGENTS) {
-    const expected = (name === 'reader' ? THE_READERS_SHELL : []).reduce((brief, [theirs, ours]) => brief.replace(theirs, ours), claudes(name).brief)
-
-    assert.equal(copilots(name).brief, expected, name)
-  }
-  assert.ok(claudes('reader').brief.includes('Bash is for that'))
+test("each of Copilot's agents is given the brief Claude Code's is given, word for word", () => {
+  for (const name of AGENTS) assert.equal(copilots(name).brief, claudes(name).brief, name)
+  assert.ok(claudes('reader').brief.length > 500)
 })
 
 test("the head of each of Copilot's agents holds its name, Claude Code's description of it and the tools it may hold by Copilot's names for them, and no field that Copilot does not read", () => {

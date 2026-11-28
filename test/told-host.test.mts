@@ -8,7 +8,7 @@ const tree = disposable()
 
 const CLAUDE_CODE = { host: 'claude-code', title: 'Claude Code' }
 const COPILOT = { host: 'copilot', title: 'the Copilot command line' }
-const SETS_FOR_A_COMMAND = { claudeCode: { CLAUDECODE: '1' }, copilot: { COPILOT_CLI: '1', COPILOT_AGENT_SESSION_ID: 'bdf1d82f-2d82-4d88-b8b8-271e4fb9fdce' } }
+const SETS_FOR_A_COMMAND = { claudeCode: { CLAUDECODE: '1' }, copilot: { COPILOT_AGENT_SESSION_ID: 'bdf1d82f-2d82-4d88-b8b8-271e4fb9fdce' } }
 
 const homeWith = (installedPlugins: Json) => ({ HOME: tree(makeTree({ '.copilot/config.json': { installedPlugins } })), COPILOT_HOME: undefined })
 const noCopyOnCopilot = () => homeWith([])
@@ -25,8 +25,13 @@ test('a command a session of Claude Code runs is told its host by the mark Claud
   assert.deepEqual(told({ ...noCopyOnCopilot(), ...SETS_FOR_A_COMMAND.claudeCode }), CLAUDE_CODE)
 })
 
-test('a command a session of Copilot runs is told its host by the mark Copilot sets, though the copy that runs is not one Copilot installed', () => {
+test("a command a session of Copilot runs is told its host by the session's id, which Copilot sets for such a command alone, though the copy that runs is not one Copilot installed", () => {
   assert.deepEqual(told({ ...noCopyOnCopilot(), ...SETS_FOR_A_COMMAND.copilot }), COPILOT)
+})
+
+test('the mark Copilot sets for a hook as well as for a command tells a command nothing by itself, and the copy that runs decides', () => {
+  assert.deepEqual(told({ ...noCopyOnCopilot(), COPILOT_CLI: '1' }), CLAUDE_CODE)
+  assert.deepEqual(told({ ...thisCopyOnCopilot(), COPILOT_CLI: '1' }), COPILOT)
 })
 
 test('with the marks of both hosts, as in a session of one started inside a shell of the other, the host is the one that installed the copy that runs', () => {

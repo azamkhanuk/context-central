@@ -209,11 +209,12 @@ function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout, dir: string, 
   if (folder !== undefined) throw new PluginError(`"${hub}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub`)
 }
 
-// A folder that holds a hub file keeps it, and with none the hub is the one of the host the map is made on.
 function hubFound(dir: string, inCheckout: boolean, host: Host) {
   const anotherHosts = Boolean(entryAt(join(dir, ANOTHER_HOSTS_HUB))?.isFile())
   const hostsOwn = hubAtARootOn(host)
-  if (CLAUDES_OWN.some(name => existsSync(join(dir, name))) || (!anotherHosts && hostsOwn === null)) return inCheckout ? OWN_HUB : ROOT_HUB
+  // Claude Code's settings folder says nothing of a hub to a host that does not read it.
+  const claudes = hostsOwn === null ? CLAUDES_OWN : [ROOT_HUB, OWN_HUB]
+  if (claudes.some(name => existsSync(join(dir, name))) || (!anotherHosts && hostsOwn === null)) return inCheckout ? OWN_HUB : ROOT_HUB
   if (inCheckout) return `${INNER_DIR}/hub.md`
   return anotherHosts ? ANOTHER_HOSTS_HUB : (hostsOwn ?? ROOT_HUB)
 }

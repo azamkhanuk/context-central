@@ -193,11 +193,24 @@ export function glossaryTemplate() {
   ].join('\n')
 }
 
-export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings) {
-  // Git does not take back a file whose folder it ignores, so the folder a hub lies in is kept with it.
-  const hubsFolder = hub.includes('/') ? [`${hub.split('/')[0]}/`] : []
-  const allowed = ['estate.json', ...hubsFolder, hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
-  return ['/*', ...[...new Set(allowed)].map(path => `!/${path}`), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
+export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence, repos }: Settings) {
+  const keptWhole = ['.claude/', 'bin/', ...nodeDirs.map(dir => `${dir}/`)]
+  const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
+  const above = foldersAbove(hub, keptWhole, repos)
+  const lines = allowed.flatMap(path => (path === hub && above.length > 0 ? [...above.flatMap(folder => [`!/${asGitReadsIt(folder)}/`, `/${asGitReadsIt(folder)}/*`]), `!/${asGitReadsIt(hub)}`] : [`!/${path}`]))
+  return ['/*', ...lines, ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
+}
+
+// Git does not take back a file whose folder it ignores, so each folder above a hub is taken back and what else it holds ignored again. A hub inside a checkout or a folder the map keeps whole is left as it was.
+function foldersAbove(hub: string, keptWhole: string[], repos: Repo[]) {
+  const parts = hub.split('/').slice(0, -1)
+  const folders = parts.map((_, index) => parts.slice(0, index + 1).join('/'))
+  const inACheckout = repos.some(repo => folders.includes(repo.path.replace(/^\.\//, '').replace(/\/+$/, '')))
+  return parts.some(part => part === '' || part === '.' || part === '..') || keptWhole.includes(`${folders[0]}/`) || inACheckout ? [] : folders
+}
+
+function asGitReadsIt(path: string) {
+  return path.replace(/[[\\*?]/g, '\\$&')
 }
 
 export function evidenceIgnoreRule(workDir: string) {

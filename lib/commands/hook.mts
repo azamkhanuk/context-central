@@ -1,12 +1,13 @@
 import { readFileSync, realpathSync } from 'node:fs'
 import { ConfigError, messageOf } from '../errors.mts'
 import { coverage, estateAt, findEstate } from '../estate.mts'
-import { hostOf, hubNotLoaded } from '../host.mts'
+import { hostOf } from '../host.mts'
 import { buildIndex } from '../index-text.mts'
 import { findWorkItem } from '../nodes.mts'
 import { deliveredAs, formatPointers, formatUnanswered, isReferenceKey, resolveQuery, undelivered, unansweredIn } from '../resolve.mts'
 import { forgetDelivered, loadSession, resetSession, saveSession, touchSession } from '../session.mts'
-import { truncate, withoutBom } from '../text.mts'
+import { startText } from '../start-text.mts'
+import { withoutBom } from '../text.mts'
 import { linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Estate, MapLocation } from '../estate.mts'
@@ -35,8 +36,6 @@ export const summary = "Answer a host's hook: session-start or user-prompt-submi
 const EVENTS: Record<string, Handler> = { 'session-start': sessionStart, 'user-prompt-submit': userPromptSubmit }
 const STARTS_FROM_NOTHING: (string | undefined)[] = ['clear', 'new']
 const CARRIES_STATE: (string | undefined)[] = ['compact', 'resume']
-const CONTEXT_CHARS = 9500
-const CUT = '\n[cut here; the file holds the rest]'
 const HOST_TEXT = ['<task-notification>', '<agent-message']
 const PROOF_MS = 2000
 
@@ -102,12 +101,7 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
   const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
-  return { ...withContext(env, 'SessionStart', truncate(text + hubAfterIndex(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
-}
-
-function hubAfterIndex(estate: Estate, env: Env, startDir: string) {
-  const given = hubNotLoaded(hostOf(env), estate, startDir, env, CONTEXT_CHARS)
-  return given ? `\n\nHub (${given.hub}), which this host does not load by itself:\n${given.text}` : ''
+  return { ...withContext(env, 'SessionStart', startText(text, hostOf(env), estate, startDir, env).whole), ...resumeNotice(estate, input) }
 }
 
 function withState(estate: Estate, index: string, active: string | null) {

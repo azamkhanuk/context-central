@@ -9,7 +9,7 @@ const tree = disposable()
 
 type Told = { host: string, title: string, steps: { heading: string, text: string }[] }
 
-const ON_COPILOT = { COPILOT_CLI: '1', COPILOT_AGENT_SESSION_ID: 's1' }
+const ON_COPILOT = { COPILOT_AGENT_SESSION_ID: 's1' }
 const ON_CLAUDE_CODE = { CLAUDECODE: '1' }
 const SHARED_HEADINGS = ['Servers this session holds', 'Allowing a tool', 'Settings', "Settings a session at the map's root will not load"]
 const MARKETPLACES_REPOSITORY = 'azamkhanuk/claude-plugins'

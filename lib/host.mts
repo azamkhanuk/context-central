@@ -1,8 +1,7 @@
-import { existsSync, realpathSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readSync, realpathSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { CLAUDE_CODE, CLAUDE_CODES_STEPS } from './hosts/claude-code.mts'
-import { closeSync, openSync, readSync, statSync } from 'node:fs'
-import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, repositoryRoot } from './hosts/copilot.mts'
+import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, foldersToTheStart } from './hosts/copilot.mts'
 import { pluginRoot } from './manifest.mts'
 import { hubPath } from './nodes.mts'
 import { holds, inTree } from './worktree.mts'
@@ -46,13 +45,13 @@ function runsACopyOfCopilots(env: Env) {
 
 export function loadsHub(host: Host, estate: Estate, startDir: string, env: Env) {
   if (host !== 'copilot') return true
-  const start = real(resolve(startDir))
-  const roots = [start, repositoryRoot(start)].filter(root => root !== null)
+  const folders = foldersToTheStart(real(resolve(startDir)))
+  const ends = [folders[0], folders.at(-1)]
   const hub = hubPath(estate)
   const copies = [[estate.estateRoot, hub], ...(estate.workTree ? [[estate.workTree.root, inTree(estate.workTree, hub)]] : [])].filter(([, copy]) => existsSync(copy))
   const stands = copies.flatMap(places)
   const added = foldersAddedToCopilot(env).map(folder => real(resolve(folder)))
-  return stands.some(place => roots.some(root => copilotLoadsAtAStart(counted(root, place), place)) || added.some(folder => copilotLoadsFromAnAddedFolder(counted(folder, place), place)))
+  return stands.some(place => folders.some(folder => copilotLoadsAtAStart(counted(folder, place), place, !ends.includes(folder))) || added.some(folder => copilotLoadsFromAnAddedFolder(counted(folder, place), place)))
 }
 
 // The host loads a file by the name it is kept under, and a file a link of another name leads to by that file's own name.
@@ -88,7 +87,6 @@ function startOf(estate: Estate, hub: string, limitChars: number) {
   }
 }
 
-// A new map on Copilot is given the file Copilot's own init writes, where the folder holds no hub of either host.
 export function hubAtARootOn(host: Host) {
   return host === 'copilot' ? COPILOTS_OWN_INSTRUCTIONS : null
 }
