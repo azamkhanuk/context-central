@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "bash": "node \"$COPILOT_PLUGIN_ROOT/bin/context-central\" hook session-start", "powershell": "node (Join-Path $env:COPILOT_PLUGIN_ROOT 'bin/context-central') hook session-start; exit $LASTEXITCODE", "timeoutSec": 15 }
+    ],
+    "userPromptSubmitted": [
+      { "type": "command", "bash": "node \"$COPILOT_PLUGIN_ROOT/bin/context-central\" hook user-prompt-submit", "powershell": "node (Join-Path $env:COPILOT_PLUGIN_ROOT 'bin/context-central') hook user-prompt-submit; exit $LASTEXITCODE", "timeoutSec": 10 }
+    ]
+  }
+}

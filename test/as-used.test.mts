@@ -7,7 +7,8 @@ import type { Result } from './helpers.mts'
 
 const tree = disposable()
 
-type HooksManifest = { hooks: Record<string, { hooks: { command: string, args: string[], bash: string, powershell: string }[] }[]> }
+type HooksManifest = { hooks: Record<string, { hooks: { command: string, args: string[] }[] }[]> }
+type CopilotsHooks = { hooks: Record<string, { bash: string, powershell: string }[]> }
 
 const { contextCentral, ...ACME_ANSWERS } = ACME_CONFIG
 const PATH = [join(REPO, 'bin'), dirname(process.execPath), process.env.PATH].join(delimiter)
@@ -82,18 +83,18 @@ function declared(event: string, input: unknown) {
 const WINDOWS_POWERSHELL = join(process.env.SystemRoot ?? '', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
 const POWERSHELLS = [['Windows PowerShell 5.1', WINDOWS_POWERSHELL], ['PowerShell 7', 'pwsh']]
 
-const lineOf = (shell: 'bash' | 'powershell', event: string) => (JSON.parse(readFileSync(join(REPO, 'hooks', 'hooks.json'), 'utf8')) as HooksManifest).hooks[event][0].hooks[0][shell]
+const lineOf = (shell: 'bash' | 'powershell', event: string) => (JSON.parse(readFileSync(join(REPO, 'com.github.copilot', 'hooks', 'hooks.json'), 'utf8')) as CopilotsHooks).hooks[event][0][shell]
 const answered = (result: Result) => ({ code: result.code, stderr: result.stderr, context: contextIn(result.stdout) })
 
 function asBashLine(event: string, input: unknown, pluginRoot = REPO) {
-  const env = { PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), CLAUDE_PLUGIN_ROOT: pluginRoot, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) }
+  const env = { PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), COPILOT_PLUGIN_ROOT: pluginRoot, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) }
   return answered(spawned('bash', ['-c', lineOf('bash', event)], { input: JSON.stringify(input), timeout: 60000, env }))
 }
 
 // A host that is a Node program starts the line and writes the hook's input to it, which a run that hands the input over whole does not show.
 async function asPowershellLine(program: string, event: string, input: unknown, pluginRoot = REPO) {
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH'))
-  const env = () => ({ ...inherited, PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), CLAUDE_PLUGIN_ROOT: pluginRoot, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) })
+  const env = () => ({ ...inherited, PATH: [dirname(process.execPath), process.env.PATH].join(delimiter), COPILOT_PLUGIN_ROOT: pluginRoot, CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) })
   const args = ['-NoProfile', '-NoLogo', '-Command', lineOf('powershell', event)]
   const written = answered(await writtenTo(program, args, { input: JSON.stringify(input), env: env() }))
   const handedOver = answered(spawned(program, args, { input: JSON.stringify(input), timeout: 60000, env: env() }))
@@ -108,25 +109,27 @@ function contextIn(stdout: string) {
   }
 }
 
-const BASH_LINE = notOnWindows('a host runs the bash line of a hook on macOS and Linux, and the powershell line on Windows')
-const POWERSHELL_LINE = onlyOnWindows('a host runs the powershell line of a hook on Windows alone')
+const BASH_LINE = notOnWindows('Copilot runs the bash line of a hook on macOS and Linux, and the powershell line on Windows')
+const POWERSHELL_LINE = onlyOnWindows('Copilot runs the powershell line of a hook on Windows alone')
+const STARTED = 'sessionStart'
+const PROMPTED = 'userPromptSubmitted'
 
-test('the bash line of each hook, run as a host that runs a shell line runs it, answers as the program with its arguments does', BASH_LINE, () => {
+test("the bash line of each of Copilot's hooks, run as Copilot runs a shell line and given what Copilot gives its own hooks, answers with the live index and the pointers", BASH_LINE, () => {
   const root = tree(acme())
 
-  const started = asBashLine('SessionStart', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'new' })
-  const prompted = asBashLine('UserPromptSubmit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
+  const started = asBashLine(STARTED, { sessionId: 's1', timestamp: 1795880885326, cwd: root, source: 'new', initialPrompt: 'pick up PROJ-12 where we left it' })
+  const prompted = asBashLine(PROMPTED, { sessionId: 's1', timestamp: 1795880885332, cwd: root, prompt: 'pick up PROJ-12 where we left it' })
 
   assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
   assert.deepEqual(prompted, { code: 0, stderr: '', context: acmePointers(root) })
 })
 
-test('the bash line of a hook finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII', BASH_LINE, () => {
+test("the bash line of one of Copilot's hooks finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII", BASH_LINE, () => {
   const root = tree(acme())
   const linked = join(tree(makeTree({})), 'plug in! é')
   symlinkSync(REPO, linked)
 
-  const started = asBashLine('SessionStart', { session_id: 's1', cwd: root, source: 'new' }, linked)
+  const started = asBashLine(STARTED, { sessionId: 's1', cwd: root, source: 'new' }, linked)
 
   assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
 })
@@ -136,43 +139,43 @@ function estateUnder(folder: string) {
   return join(tree(makeTree(files)), folder)
 }
 
-test("the bash line of each hook hands on an input that holds a letter outside ASCII as it was written, in a folder's name and in a prompt", BASH_LINE, () => {
+test("the bash line of each of Copilot's hooks hands on an input that holds a letter outside ASCII as it was written, in a folder's name and in a prompt", BASH_LINE, () => {
   const root = estateUnder('Zoë')
 
-  const started = asBashLine('SessionStart', { session_id: 's1', cwd: root, source: 'new' })
-  const prompted = asBashLine('UserPromptSubmit', { session_id: 's1', cwd: root, prompt: 'pick up PROJ-12 for Zoë' })
+  const started = asBashLine(STARTED, { sessionId: 's1', cwd: root, source: 'new' })
+  const prompted = asBashLine(PROMPTED, { sessionId: 's1', cwd: root, prompt: 'pick up PROJ-12 for Zoë' })
 
   assert.deepEqual(started, { code: 0, stderr: '', context: acmeIndex(root) })
   assert.deepEqual(prompted, { code: 0, stderr: '', context: acmePointers(root) })
 })
 
 for (const [name, program] of POWERSHELLS) {
-  test(`the powershell line of each hook, started by ${name} and written to as a host writes to it, answers as the program with its arguments does`, POWERSHELL_LINE, async () => {
+  test(`the powershell line of each of Copilot's hooks, started by ${name} and written to as a host writes to it, answers with the live index and the pointers`, POWERSHELL_LINE, async () => {
     const root = tree(acme())
 
-    const started = await asPowershellLine(program, 'SessionStart', { session_id: 's1', cwd: root, hook_event_name: 'SessionStart', source: 'new' })
-    const prompted = await asPowershellLine(program, 'UserPromptSubmit', { session_id: 's1', cwd: root, hook_event_name: 'UserPromptSubmit', prompt: 'pick up PROJ-12 where we left it' })
+    const started = await asPowershellLine(program, STARTED, { sessionId: 's1', timestamp: 1795880885326, cwd: root, source: 'new', initialPrompt: 'pick up PROJ-12 where we left it' })
+    const prompted = await asPowershellLine(program, PROMPTED, { sessionId: 's1', timestamp: 1795880885332, cwd: root, prompt: 'pick up PROJ-12 where we left it' })
 
     for (const way of [started.written, started.handedOver]) assert.deepEqual(way, { code: 0, stderr: '', context: acmeIndex(root) })
     for (const way of [prompted.written, prompted.handedOver]) assert.deepEqual(way, { code: 0, stderr: '', context: acmePointers(root) })
   })
 
-  test(`the powershell line of each hook, started by ${name}, hands on an input that holds a letter outside ASCII as it was written, in a folder's name and in a prompt`, POWERSHELL_LINE, async () => {
+  test(`the powershell line of each of Copilot's hooks, started by ${name}, hands on an input that holds a letter outside ASCII as it was written, in a folder's name and in a prompt`, POWERSHELL_LINE, async () => {
     const root = estateUnder('Zoë')
 
-    const started = await asPowershellLine(program, 'SessionStart', { session_id: 's1', cwd: root, source: 'new' })
-    const prompted = await asPowershellLine(program, 'UserPromptSubmit', { session_id: 's1', cwd: root, prompt: 'pick up PROJ-12 for Zoë' })
+    const started = await asPowershellLine(program, STARTED, { sessionId: 's1', cwd: root, source: 'new' })
+    const prompted = await asPowershellLine(program, PROMPTED, { sessionId: 's1', cwd: root, prompt: 'pick up PROJ-12 for Zoë' })
 
     for (const way of [started.written, started.handedOver]) assert.deepEqual(way, { code: 0, stderr: '', context: acmeIndex(root) })
     for (const way of [prompted.written, prompted.handedOver]) assert.deepEqual(way, { code: 0, stderr: '', context: acmePointers(root) })
   })
 
-  test(`the powershell line of a hook, started by ${name}, finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII`, POWERSHELL_LINE, async () => {
+  test(`the powershell line of one of Copilot's hooks, started by ${name}, finds the plugin in a folder whose name holds a space, an exclamation mark and a letter outside ASCII`, POWERSHELL_LINE, async () => {
     const root = tree(acme())
     const linked = join(tree(makeTree({})), 'plug in! é')
     symlinkSync(REPO, linked, 'junction')
 
-    const started = await asPowershellLine(program, 'SessionStart', { session_id: 's1', cwd: root, source: 'new' }, linked)
+    const started = await asPowershellLine(program, STARTED, { sessionId: 's1', cwd: root, source: 'new' }, linked)
 
     for (const way of [started.written, started.handedOver]) assert.deepEqual(way, { code: 0, stderr: '', context: acmeIndex(root) })
   })
@@ -186,7 +189,6 @@ test('the session-start hook, started as the manifest declares it, answers with 
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
-    additionalContext: acmeIndex(root),
     hookSpecificOutput: {
       hookEventName: 'SessionStart',
       additionalContext: acmeIndex(root),
@@ -202,7 +204,6 @@ test('the prompt hook, started as the manifest declares it, answers a prompt nam
   assert.equal(result.stderr, '')
   assert.equal(result.code, 0)
   assert.deepEqual(JSON.parse(result.stdout) as unknown, {
-    additionalContext: acmePointers(root),
     hookSpecificOutput: {
       hookEventName: 'UserPromptSubmit',
       additionalContext: acmePointers(root),

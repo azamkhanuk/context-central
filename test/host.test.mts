@@ -14,7 +14,10 @@ const LINKS = notOnWindows('making a link needs a right that a Windows account m
 const STATE = 'work/PROJ-12/STATE.md'
 
 const start = (cwd: string, env: Env = {}) => hook('session-start', { session_id: 's1', cwd, source: 'new' }, { env: { CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})), ...env }, timeout: 20000 })
-const context = (result: Result) => (JSON.parse(result.stdout) as { additionalContext: string }).additionalContext
+const context = (result: Result) => {
+  const answer = JSON.parse(result.stdout) as { additionalContext?: string, hookSpecificOutput?: { additionalContext: string } }
+  return answer.additionalContext ?? answer.hookSpecificOutput?.additionalContext ?? ''
+}
 const withLocalHub = (text: string) => tree(acme({ 'CLAUDE.local.md': text }, { hub: 'CLAUDE.local.md' }))
 const indexNaming = (root: string, hub: string) => acmeIndex(root).replace(join(root, 'CLAUDE.md'), join(root, hub))
 const hubGiven = (root: string, hub: string, text: string) => `\n\nHub (${join(root, hub)}), which this host does not load by itself:\n${text.trimEnd()}`

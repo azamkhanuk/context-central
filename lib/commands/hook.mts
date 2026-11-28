@@ -14,6 +14,8 @@ import type { Estate, MapLocation } from '../estate.mts'
 interface HookInput {
   cwd?: string
   session_id?: unknown
+  sessionId?: unknown
+  agentId?: unknown
   source?: string
   prompt?: unknown
   context_tokens: number
@@ -28,7 +30,7 @@ interface HookAnswer {
 
 type Handler = (estate: Estate, input: HookInput, env: Env, startDir: string) => HookAnswer | null
 
-export const summary = 'Answer a Claude Code hook: session-start or user-prompt-submit'
+export const summary = "Answer a host's hook: session-start or user-prompt-submit"
 
 const EVENTS: Record<string, Handler> = { 'session-start': sessionStart, 'user-prompt-submit': userPromptSubmit }
 const STARTS_FROM_NOTHING: (string | undefined)[] = ['clear', 'new']
@@ -40,7 +42,7 @@ const PROOF_MS = 2000
 
 export async function run(args: string[], io: Io) {
   try {
-    const answer = respond(args[0], JSON.parse(withoutBom(await io.readStdin())) as HookInput, io.env)
+    const answer = respond(args[0], asTheHostGivesIt(JSON.parse(withoutBom(await io.readStdin())) as HookInput, io.env), io.env)
     if (answer) io.out(JSON.stringify(answer))
   } catch (error) {
     if (io.env.CONTEXT_CENTRAL_DEBUG) io.err(`context-central hook: ${(error as Error).stack ?? error}`)
@@ -84,9 +86,15 @@ function real(path: string) {
   }
 }
 
-// One host reads the context under the event's name and another at the top, and each takes it once.
-function withContext(hookEventName: string, additionalContext: string): HookAnswer {
-  return { additionalContext, hookSpecificOutput: { hookEventName, additionalContext } }
+// Copilot names a session to its own hooks as sessionId, and a prompt it hands to an agent comes with that agent's id.
+function asTheHostGivesIt(input: HookInput, env: Env): HookInput {
+  if (hostOf(env) !== 'copilot' || !input || typeof input !== 'object') return input
+  return { ...input, session_id: input.sessionId ?? input.session_id }
+}
+
+// Claude Code reads the context under the event's name and Copilot at the top, and each is answered in its one shape.
+function withContext(env: Env, hookEventName: string, additionalContext: string): HookAnswer {
+  return hostOf(env) === 'copilot' ? { additionalContext } : { hookSpecificOutput: { hookEventName, additionalContext } }
 }
 
 function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: string): HookAnswer {
@@ -94,7 +102,7 @@ function sessionStart(estate: Estate, input: HookInput, env: Env, startDir: stri
   if (input.source === 'compact') forgetDelivered(env, input.session_id, isReferenceKey)
   const index = buildIndex(estate, env, { absolute: true, startDir, until: performance.now() + PROOF_MS })
   const text = CARRIES_STATE.includes(input.source) ? withState(estate, index, loadSession(env, input.session_id).active) : index
-  return { ...withContext('SessionStart', truncate(text + hubNotLoaded(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
+  return { ...withContext(env, 'SessionStart', truncate(text + hubNotLoaded(estate, env, startDir), CONTEXT_CHARS, CUT)), ...resumeNotice(estate, input) }
 }
 
 function hubNotLoaded(estate: Estate, env: Env, startDir: string) {
@@ -137,7 +145,7 @@ function resumeNotice(estate: Estate, input: HookInput): HookAnswer {
 }
 
 function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswer | null {
-  if (typeof input.prompt !== 'string' || isHostText(input.prompt)) return null
+  if (typeof input.prompt !== 'string' || isHostText(input.prompt) || toAnAgent(input, env)) return null
   // A pasted log or diff matches notes and titles by chance, so only a short prompt is matched on its words.
   const short = input.prompt.length <= estate.config.budgets.hookTextChars
   const session = loadSession(env, input.session_id)
@@ -148,10 +156,14 @@ function userPromptSubmit(estate: Estate, input: HookInput, env: Env): HookAnswe
   if (resolution.length + unanswered.length === 0) return null
   saveSession(env, input.session_id, { delivered: [...session.delivered, ...resolution.flatMap(deliveredAs), ...unanswered.map(({ key }) => key)], active: resolution[0]?.item ?? session.active })
   const lines = [...resolution.map(given => formatPointers(given, { absolute: true })), ...unanswered.map(formatUnanswered)]
-  return withContext('UserPromptSubmit', lines.join('\n'))
+  return withContext(env, 'UserPromptSubmit', lines.join('\n'))
 }
 
 // Claude Code queues a background task's notification and an agent's report as prompts no person typed.
 function isHostText(prompt: string) {
   return HOST_TEXT.some(start => prompt.startsWith(start))
+}
+
+function toAnAgent(input: HookInput, env: Env) {
+  return hostOf(env) === 'copilot' && input.agentId !== undefined && input.agentId !== null
 }
