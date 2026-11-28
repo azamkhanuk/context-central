@@ -19,7 +19,7 @@ The plugin works on the GitHub Copilot command line as well, installed from the 
 - **`doctor` reads Copilot's record** in its check of copies: two copies that are on there are a `FIX`, with `copilot plugin uninstall` for the one to drop.
 - **Every skill says where the command is** on a host that does not put it on the `PATH`: the file `bin/context-central` of the plugin's folder, run with `node`, and only after a shell has answered that the command is not found. Five skills now say what their words were where the host filled in no placeholder, as research did, and the reader agent is told to read with its own tools where the command is not found.
 - **Research takes the plugin as loaded where the session can start `context-central:reader`**, as well as where the host filled in the plugin's folder.
-- **A map kept in git at an estate's root** now has git track a hub that lies in a folder: its `.gitignore` ends on lines that take back each folder above the hub and ignore what else that folder holds. Before, git went on ignoring such a hub. Where a folder above the hub holds a checkout, or the hub's first folder is one the map keeps whole, the file is written as it was. Made on Copilot, such a map has git track `.github/copilot/settings.json` the same way, the settings Copilot shares with everyone on a project.
+- **A map kept in git at an estate's root** is given the `.gitignore` it has always been given, on Copilot as on Claude Code. That file leaves the folder `.github/` out, so on Copilot onboard offers six lines for its end, which have git track the hub `.github/copilot-instructions.md` and the shared settings `.github/copilot/settings.json` and go on leaving out what else the folder holds. It adds them only on a yes.
 - **A release branch.** The release job's last step runs `scripts/release-branch.mts`, which moves the branch `release` to the commit the release's tag names and exits 1 where it cannot. The author's marketplace pins the plugin to that branch, since on Copilot any change of a plugin's files is an update whatever its version.
 - **The docs say the same:** the README, the pages on install, limits, commands, what the plugin runs, the launcher and research, and the terms in `CONTEXT.md`.
 
@@ -30,6 +30,7 @@ For a map that already exists:
 - A launcher saved by an earlier release does not look for Copilot's copy. `wrapper --write` says that it differs from the one this release writes: delete it and run the command again to renew it.
 - Where no copy is found, the launcher's second line now reads `On Copilot the same two commands start with copilot. Or set CONTEXT_CENTRAL_CLI to the path of its bin/context-central file.`
 - `doctor` says `FIX` on its row for copies where the Copilot command line holds two copies of the plugin that are on.
+- A map kept in git at an estate's root leaves the folder `.github/` out of git. To have git track Copilot's hub and shared settings there, add the six lines that `docs/install.md` gives under Setting a map up to the end of the map's `.gitignore`.
 - Nothing else changes: no file of the map is rewritten, and no setting is new.
 
 ## 0.21.0 - 2026-11-25

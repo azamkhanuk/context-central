@@ -83,6 +83,16 @@ test('a hub in a folder that the person has named to Copilot as one more to load
   assert.equal(named('CLAUDE.md'), true)
 })
 
+test('a folder added to Copilot by a relative name is counted from the folder the session starts in, and not from the one the hook was started in', () => {
+  const hub = 'shared/estate.instructions.md'
+  const root = tree(acme({ [hub]: HUB }, { hub }))
+  const elsewhere = tree(makeTree({ 'notes.txt': 'x\n' }))
+  const given = (startedIn: string) => context(hook('session-start', { sessionId: 's1', cwd: root, source: 'new' }, { cwd: startedIn, env: { ...COPILOT, COPILOT_CUSTOM_INSTRUCTIONS_DIRS: 'shared', CONTEXT_CENTRAL_STATE_DIR: tree(makeTree({})) }, timeout: 20000 })).includes('\n\nHub (')
+
+  assert.equal(given(elsewhere), false)
+  assert.equal(given(root), false)
+})
+
 test('a hub written with a leading dot and slash is the same file the host loads, and is not given a second time', () => {
   const root = tree(acme({}, { hub: './CLAUDE.md' }))
 

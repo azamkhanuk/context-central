@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { acme, checkout, disposable, hook, makeTree, run, spawned, workTree } from './helpers.mts'
+import { REPO, acme, checkout, disposable, hook, makeTree, notOnWindows, run, spawned, workTree } from './helpers.mts'
 import type { Env, TreeFiles } from './helpers.mts'
 
 const tree = disposable()
@@ -18,6 +18,7 @@ const MAP = '.context-central'
 const BLOCK = '<!-- context-central:start -->'
 const HUB = '# Acme estate\n\nA task about a screen goes to `web`.\n'
 const SCOPED = '---\napplyTo: "src/**/*.ts"\n---\n# Only for source\n'
+const LINKS = notOnWindows('making a link needs a right that a Windows account may not have')
 
 const home = (files: TreeFiles = {}) => tree(makeTree({ '.keep': '', ...files }))
 const FOLDS_CASE = (() => {
@@ -119,74 +120,50 @@ test("a plain map made on Claude Code is given the hub it has always been given,
 })
 
 const AS_MAIN_WRITES_IT = (hub: string) => ['/*', '!/estate.json', `!/${hub}`, '!/glossary.md', '!/.claude/', '!/bin/', '!/package.json', '!/.gitignore', '!/.gitattributes', '!/repos/', '!/areas/', '!/concepts/', '!/edges/', '!/decisions/', '!/docs/', '!/standards/', '!/log/', '!/work/']
-const ignoreFile = (config: Record<string, unknown>, files: TreeFiles = {}, env: Env = {}) => {
-  const dir = tree(makeTree({ 'answers.json': { layout: 'root', git: true, config: { name: 'acme', evidence: { commit: true }, ...config } }, ...files }))
+const keptInGit = (config: Record<string, unknown>, env: Env) => {
+  const dir = tree(makeTree({ 'answers.json': { layout: 'root', git: true, config: { name: 'acme', evidence: { commit: true }, ...config } } }))
   const made = run(['init', '--from', 'answers.json'], { cwd: dir, env: { HOME: home(), ...env } })
   assert.equal(made.code, 0, made.stderr)
   spawned('git', ['init', '-q', '.'], { cwd: dir })
-  const lines = readFileSync(join(dir, '.gitignore'), 'utf8').split('\n')
-  return { lines, added: lines.slice(AS_MAIN_WRITES_IT('x').length, -1), ignored: (path: string) => spawned('git', ['check-ignore', '-q', path], { cwd: dir }).code === 0 }
+  return { dir, lines: readFileSync(join(dir, '.gitignore'), 'utf8').split('\n'), ignored: (path: string) => spawned('git', ['check-ignore', '-q', path], { cwd: dir }).code === 0 }
+}
+const givenForGitOn = (env: Env) => {
+  const { steps } = JSON.parse(run(['host', '--json'], { env: { HOME: home(), ...env } }).stdout) as { steps: { heading: string, text: string }[] }
+  const paragraph = (steps.find(step => step.heading === 'Settings')?.text ?? '').split('\n\n').find(text => text.includes('`.gitignore`')) ?? ''
+  return [...paragraph.matchAll(/`(!?\/\.github[^`]*)`/g)].map(([, line]) => line)
 }
 
-test("a map kept in git at an estate's root takes back each folder its hub lies in and ignores what else that folder holds, so git tracks a hub in Copilot's own folder and nothing beside it", () => {
-  const { lines, added, ignored } = ignoreFile({ hub: COPILOTS_OWN })
-
-  assert.deepEqual(lines.slice(0, AS_MAIN_WRITES_IT('x').length), AS_MAIN_WRITES_IT(COPILOTS_OWN))
-  assert.deepEqual(added, ['!/.github/', '/.github/*', `!/${COPILOTS_OWN}`])
-  assert.equal(ignored(COPILOTS_OWN), false)
-  assert.equal(ignored('.github/workflows/checks.yml'), true)
-  assert.equal(ignored('.github/copilot/settings.json'), true)
-})
-
-test("a map made on Copilot and kept in git also has git track the settings Copilot shares with everyone on a project, and not the ones it keeps to one machine, wherever the hub is", () => {
-  const atTheRoot = ignoreFile({ hub: 'AGENTS.md' }, {}, ON_COPILOT)
-  const inCopilotsFolder = ignoreFile({ hub: COPILOTS_OWN }, {}, ON_COPILOT)
-
-  assert.deepEqual(atTheRoot.added, ['!/.github/', '/.github/*', '!/.github/copilot/', '/.github/copilot/*', '!/.github/copilot/settings.json'])
-  assert.deepEqual(inCopilotsFolder.added, ['!/.github/', '/.github/*', `!/${COPILOTS_OWN}`, '!/.github/copilot/', '/.github/copilot/*', '!/.github/copilot/settings.json'])
-  for (const { ignored } of [atTheRoot, inCopilotsFolder]) {
-    assert.equal(ignored('.github/copilot/settings.json'), false)
-    assert.equal(ignored('.github/copilot/settings.local.json'), true)
-    assert.equal(ignored('.github/workflows/checks.yml'), true)
+test('a map kept in git is given the git ignore file it has always been given, on Copilot as on Claude Code, wherever its hub lies', () => {
+  for (const env of [ON_CLAUDE_CODE, ON_COPILOT]) {
+    for (const hub of ['CLAUDE.md', COPILOTS_OWN, 'shared/notes/hub.md', 'docs/hub.md', 'Docs/hub.md']) assert.deepEqual(keptInGit({ hub }, env).lines, [...AS_MAIN_WRITES_IT(hub), ''], hub)
   }
-  assert.equal(inCopilotsFolder.ignored(COPILOTS_OWN), false)
 })
 
-test('the same holds for a hub two folders down, for one written with a leading dot and slash, and for a folder whose name git would read as a pattern', () => {
-  const deep = ignoreFile({ hub: 'shared/notes/hub.md' })
-  const dotted = ignoreFile({ hub: './shared/hub.md' })
-  const odd = ignoreFile({ hub: 'no[te]s/hub.md' })
+test("the lines Copilot's part on settings gives for a map kept in git, added at the end of its git ignore file, have git track Copilot's hub and the settings Copilot shares, and go on ignoring what else that folder and the estate hold", () => {
+  const { dir, ignored } = keptInGit({ hub: COPILOTS_OWN, evidence: { commit: false } }, ON_COPILOT)
+  const asMade = { hub: ignored(COPILOTS_OWN), shared: ignored('.github/copilot/settings.json') }
 
-  assert.deepEqual(deep.added, ['!/shared/', '/shared/*', '!/shared/notes/', '/shared/notes/*', '!/shared/notes/hub.md'])
-  assert.equal(deep.ignored('shared/notes/hub.md'), false)
-  assert.equal(deep.ignored('shared/other.md'), true)
-  assert.equal(deep.ignored('shared/notes/other.md'), true)
-  assert.equal(dotted.ignored('shared/hub.md'), false)
-  assert.equal(dotted.ignored('shared/other.md'), true)
-  assert.equal(odd.ignored('no[te]s/hub.md'), false)
-  assert.equal(odd.ignored('notes/hub.md'), true)
+  appendFileSync(join(dir, '.gitignore'), `${givenForGitOn(ON_COPILOT).join('\n')}\n`)
+
+  assert.deepEqual(asMade, { hub: true, shared: true })
+  assert.equal(ignored(COPILOTS_OWN), false)
+  assert.equal(ignored('.github/copilot/settings.json'), false)
+  assert.equal(ignored('.github/copilot/settings.local.json'), true)
+  assert.equal(ignored('.github/workflows/checks.yml'), true)
+  assert.equal(ignored('web/src/app.js'), true)
+  assert.equal(ignored('work/PROJ-12/evidence/shot.png'), true)
+  assert.equal(ignored('work/PROJ-12/STATE.md'), false)
+  assert.deepEqual(givenForGitOn(ON_CLAUDE_CODE), [])
 })
 
-test('a hub with a checkout in a folder above it, however the settings spell that repo, one in a folder the map keeps whole and one at the root leave the file as it has always been written, so no checkout is taken back from what git ignores', () => {
-  const checkedOut = { 'web/.git/HEAD': 'ref: refs/heads/main\n', 'apps/web/.git/HEAD': 'ref: refs/heads/main\n' }
-  const registered = ignoreFile({ hub: 'web/AGENTS.md', repos: [{ name: 'web', path: 'web' }] }, checkedOut)
-  const speltAnotherWay = ignoreFile({ hub: 'web/AGENTS.md', repos: [{ name: 'web', path: '././web' }] }, checkedOut)
-  const notRegistered = ignoreFile({ hub: 'apps/web/docs/AGENTS.md' }, checkedOut)
-  const inANodeFolder = ignoreFile({ hub: 'docs/hub.md' })
-  const atTheRoot = ignoreFile({})
+test("the install page gives a map that is there already each line that Copilot's part on settings gives, in the same order", () => {
+  const page = readFileSync(join(REPO, 'docs', 'install.md'), 'utf8')
+  const given = givenForGitOn(ON_COPILOT)
+  const placed = given.map(line => page.indexOf(`\`${line}\``))
 
-  assert.deepEqual(registered.lines, [...AS_MAIN_WRITES_IT('web/AGENTS.md'), ''])
-  assert.deepEqual(speltAnotherWay.lines, [...AS_MAIN_WRITES_IT('web/AGENTS.md'), ''])
-  assert.deepEqual(notRegistered.lines, [...AS_MAIN_WRITES_IT('apps/web/docs/AGENTS.md'), ''])
-  assert.deepEqual(inANodeFolder.lines, [...AS_MAIN_WRITES_IT('docs/hub.md'), ''])
-  assert.deepEqual(atTheRoot.lines, [...AS_MAIN_WRITES_IT('CLAUDE.md'), ''])
-  assert.equal(registered.ignored('web/src/app.js'), true)
-})
-
-test('on a disk that takes a name under both cases of its letters as one, a hub in a checkout spelt in another case leaves the file as it has always been written', FOLDS_CASE, () => {
-  const { lines } = ignoreFile({ hub: 'Web/AGENTS.md', repos: [{ name: 'web', path: 'web' }] }, { 'web/.git/HEAD': 'ref: refs/heads/main\n' })
-
-  assert.deepEqual(lines, [...AS_MAIN_WRITES_IT('Web/AGENTS.md'), ''])
+  assert.equal(given.length, 6)
+  assert.equal(placed.every(at => at >= 0), true)
+  assert.deepEqual(placed, [...placed].sort((a, b) => a - b))
 })
 
 test("a plain map made on Copilot in a folder that holds Claude Code's settings folder and no hub file is given Copilot's own hub, since that folder says nothing of a hub to Copilot", () => {
@@ -298,6 +275,35 @@ test('on Copilot budget counts a file once where a folder added to Copilot is th
   assert.deepEqual(counted(repo), once)
   assert.deepEqual(counted(`${repo},${repo}`), once)
   assert.deepEqual(counted('.'), once)
+})
+
+test('on Copilot budget counts a file once where a folder added to Copilot is named through a link that leads to the repository', LINKS, () => {
+  const root = tree(makeTree({ 'repo/.git/HEAD': 'ref: refs/heads/main\n', 'repo/.github/instructions/all.instructions.md': '# All\n', 'repo/.github/instructions/source.instructions.md': SCOPED }))
+  const repo = join(root, 'repo')
+  symlinkSync(repo, join(root, 'linked'), 'dir')
+
+  const report = budget(repo, { HOME: home(), COPILOT_CUSTOM_INSTRUCTIONS_DIRS: join(root, 'linked'), ...ON_COPILOT })
+
+  assert.deepEqual(sources(report), [[join(repo, '.github/instructions/all.instructions.md'), 'repository instructions']])
+  assert.deepEqual(report.notLoaded, { pathScopedRules: 1 })
+})
+
+test('on a disk that takes a name under both cases of its letters as one, budget on Copilot counts a file once where a folder added to Copilot is the repository spelt in another case', FOLDS_CASE, () => {
+  const root = tree(makeTree({ 'repo/.git/HEAD': 'ref: refs/heads/main\n', 'repo/.github/instructions/all.instructions.md': '# All\n', 'repo/.github/instructions/source.instructions.md': SCOPED }))
+  const repo = join(root, 'repo')
+
+  const report = budget(repo, { HOME: home(), COPILOT_CUSTOM_INSTRUCTIONS_DIRS: join(root, 'REPO'), ...ON_COPILOT })
+
+  assert.deepEqual(sources(report), [[join(repo, '.github/instructions/all.instructions.md'), 'repository instructions']])
+  assert.deepEqual(report.notLoaded, { pathScopedRules: 1 })
+})
+
+test('on Copilot budget asked about another folder than the one it runs in counts a folder added to Copilot by a relative name from the folder asked about', () => {
+  const root = tree(makeTree({ 'plain/shared/team.instructions.md': '# Team\n', 'elsewhere/shared/other.instructions.md': '# Not this one\n' }))
+
+  const report = JSON.parse(run(['budget', '--json', join(root, 'plain')], { cwd: join(root, 'elsewhere'), env: { HOME: home(), COPILOT_CUSTOM_INSTRUCTIONS_DIRS: 'shared', ...ON_COPILOT } }).stdout) as BudgetReport
+
+  assert.deepEqual(sources(report), [[join(root, 'plain/shared/team.instructions.md'), 'added folder instructions']])
 })
 
 test('on Copilot budget run from a linked work tree counts the instructions files of a folder added to Copilot, each once', () => {

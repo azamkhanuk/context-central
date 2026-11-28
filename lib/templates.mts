@@ -193,38 +193,9 @@ export function glossaryTemplate() {
   ].join('\n')
 }
 
-export interface TakenBack {
-  holdsACheckout: (folder: string) => boolean
-  hostsOwn: string[]
-}
-
-export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings, { holdsACheckout, hostsOwn }: TakenBack) {
-  const keptWhole = ['.claude/', 'bin/', ...nodeDirs.map(dir => `${dir}/`)]
+export function gitignoreTemplate({ hub, nodeDirs, workDir, evidence }: Settings) {
   const allowed = ['estate.json', hub, 'glossary.md', '.claude/', 'bin/', 'package.json', '.gitignore', '.gitattributes', ...nodeDirs.map(dir => `${dir}/`)]
-  const below = [...hubBelowAFolder(hub, keptWhole, holdsACheckout), ...hostsOwn]
-  return ['/*', ...allowed.map(path => `!/${path}`), ...takenBack(below), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
-}
-
-function hubBelowAFolder(hub: string, keptWhole: string[], holdsACheckout: (folder: string) => boolean) {
-  const parts = hub.split('/')
-  const named = parts.slice(parts.findIndex(part => part !== '.'))
-  const folders = named.slice(0, -1).map((_, index) => named.slice(0, index + 1).join('/'))
-  const asWritten = folders.length === 0 || named.some(part => part === '' || part === '.' || part === '..') || keptWhole.includes(`${folders[0]}/`) || folders.some(holdsACheckout)
-  return asWritten ? [] : [named.join('/')]
-}
-
-// Git does not take back a file whose folder it ignores.
-function takenBack(paths: string[]) {
-  const lines = paths.flatMap(path => {
-    const parts = path.replace(/\/$/, '').split('/')
-    const above = parts.slice(0, -1).map((_, index) => asGitReadsIt(parts.slice(0, index + 1).join('/')))
-    return [...above.flatMap(folder => [`!/${folder}/`, `/${folder}/*`]), `!/${asGitReadsIt(path)}`]
-  })
-  return lines.filter((line, index) => lines.indexOf(line) === index)
-}
-
-function asGitReadsIt(path: string) {
-  return path.replace(/[[\\*?]/g, '\\$&').replace(/ $/, '\\ ')
+  return ['/*', ...allowed.map(path => `!/${path}`), ...(evidence.commit ? [] : [evidenceIgnoreRule(workDir)]), ''].join('\n')
 }
 
 export function evidenceIgnoreRule(workDir: string) {

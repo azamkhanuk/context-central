@@ -1,7 +1,7 @@
 import { closeSync, existsSync, openSync, readSync, realpathSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { CLAUDE_CODE, CLAUDE_CODES_STEPS } from './hosts/claude-code.mts'
-import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_SHARED_SETTINGS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, foldersToTheStart } from './hosts/copilot.mts'
+import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, foldersToTheStart } from './hosts/copilot.mts'
 import { pluginRoot } from './manifest.mts'
 import { hubPath } from './nodes.mts'
 import { holds, inTree } from './worktree.mts'
@@ -89,11 +89,6 @@ function startOf(estate: Estate, hub: string, limitChars: number) {
 
 export function hubAtARootOn(host: Host) {
   return host === 'copilot' ? COPILOTS_OWN_INSTRUCTIONS : null
-}
-
-// Claude Code's settings folder is kept whole by every map in git, and Copilot's shared settings by a map made on Copilot.
-export function sharedSettingsOn(host: Host) {
-  return host === 'copilot' ? [COPILOTS_SHARED_SETTINGS] : []
 }
 
 function real(path: string) {
