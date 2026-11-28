@@ -11,7 +11,7 @@ Where that line still shows a placeholder, the directory is the one the person t
 
 ## 1. Detect
 
-The plugin's command is `context-central`. Where a shell answers that it is not found, the host has not put it on the PATH: run the file `bin/context-central` of the plugin's folder with `node` in its place, with the same words after it. The plugin's folder is two folders above this skill's own, which the host names when it loads the skill. Run `context-central detect --json` (add the directory when one was named).
+The plugin's command is `context-central`. Run it as these steps write it, with nothing in front of it and no test of whether it is there. A shell that answers that `context-central` is not found shows that the host has not put it on the PATH: only after that answer, run the file `bin/context-central` of the plugin's folder with `node` in its place, with the same words after it. The plugin's folder is two folders above this skill's own, which the host names when it loads the skill. Run `context-central detect --json` (add the directory when one was named).
 
 If `existingMap` is set, a map already covers this place: say where it is, run `context-central doctor`, and stop unless the person asks to set it up again.
 
