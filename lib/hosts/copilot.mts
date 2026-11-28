@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { withoutBom } from '../text.mts'
 import type { Env } from '../cli.mts'
+import type { Step } from './claude-code.mts'
 
 export interface CopilotInstall {
   id: string
@@ -153,3 +154,38 @@ function recordIn(file: string): { installedPlugins?: unknown } {
     return {}
   }
 }
+
+// What differs by host in setting a map up, as the onboard skill shows it.
+export const COPILOTS_STEPS: Step[] = [
+  {
+    heading: "Servers this session holds",
+    paragraphs: [
+      "Run `copilot mcp list`, which prints the MCP servers Copilot is set up with, grouped by where each comes from. In this session's own tool list a server's tool is named `<server>-<tool>`, so a tool whose name starts with a server's name and a dash belongs to that server.",
+    ],
+  },
+  {
+    heading: "The hub",
+    paragraphs: [
+      "Add `\"hub\"` to the draft's config, since the hub a config names none for is a file of another host. Where the map sits at an estate root or is kept in git, the hub is `.github/copilot-instructions.md`, the file Copilot's own `init` writes and loads at a session's start: where it is there already, `init` adds the map's block to it and changes nothing else in it. Where the map sits inside a repo and is kept out of git, the hub is `.context-central/hub.md`, which Copilot does not load, so the plugin's session-start hook gives its text. Where the estate already keeps its routing in `AGENTS.md`, name that file instead.",
+    ],
+  },
+  {
+    heading: "Allowing a tool",
+    paragraphs: [
+      "Copilot keeps no file of rules for a person to write, so write none. Say the two ways it stops asking before one of the read tools just used runs. The first is to answer its prompt with \"Yes, and don't ask again\", which it saves for this repository in the person's own Copilot folder. The second is to start it with `--allow-tool`, once for each rule: a server's tool is written `<server>(<tool>)`, and a command `shell(<command>:*)`. For the plugin's own command the rule is `shell(context-central:*)` where the command is on the PATH, and where a skill runs it by its file, `shell(node:*)` with `--add-dir` and the plugin's folder.",
+    ],
+  },
+  {
+    heading: "Settings",
+    paragraphs: [
+      "Run `context-central init --print-settings` and show the JSON, which names the marketplace and turns the plugin on. Ask where it goes: `.github/copilot/settings.json` (shared with everyone who uses the map) or `.github/copilot/settings.local.json` (this machine only, which git shows until the person has git leave it out). Either sits at the root of the repository sessions start in, or in the folder itself where that is no repository: the estate root or, for layout `inner`, the repo that holds `.context-central/`. Write it only on a yes, merging into the keys already in that file.",
+      "Then say what decides whether the plugin loads. Copilot reads a repository's settings only once its folder has been trusted, and then installs a plugin they turn on where it is missing and turns it on in that repository alone: in a run with nobody there, `copilot -p`, in a folder nobody has trusted, nothing of the repository loads, and `--trust-folder` trusts it for that run. For layout `root`, a session started inside a repo is not given the plugin by the estate root's settings. Offer the two ways round: install it for the person, with `copilot plugin marketplace add azamkhanuk/claude-plugins` where `copilot plugin marketplace list` has no `azamkhanuk` yet and then `copilot plugin install context-central@azamkhanuk`, or put the same JSON in each registered repo as well, written as above and asking for each whether shared or for this machine only. A copy installed for the person loads in every folder. A release reaches a copy by itself only where the person's own settings, `~/.copilot/settings.json`, give the marketplace's entry `\"autoUpdate\": true`, and a repository's settings do not count for that: say so, and leave that file to the person. Without it `copilot plugin update context-central@azamkhanuk` fetches a release. A launcher finds the copy Copilot installed, and with none `CONTEXT_CENTRAL_CLI` names the plugin's `bin/context-central` file.",
+    ],
+  },
+  {
+    heading: "Settings a session at the map's root will not load",
+    paragraphs: [
+      "Layout `root` only. A session started at the estate root loads none of the repos' own settings. Read each registered repo's `.github/copilot/settings.json`, `.github/copilot/settings.local.json`, `.mcp.json` and `.github/mcp.json`, and list every setting and every MCP server name found, by repo. Offer to copy them up into the estate root's `.github/copilot/settings.json` and `.mcp.json`; copy only what the person picks.",
+    ],
+  },
+]

@@ -1,8 +1,8 @@
 import { existsSync, realpathSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
-import { CLAUDE_CODE } from './hosts/claude-code.mts'
+import { CLAUDE_CODE, CLAUDE_CODES_STEPS } from './hosts/claude-code.mts'
 import { closeSync, openSync, readSync, statSync } from 'node:fs'
-import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, repositoryRoot } from './hosts/copilot.mts'
+import { COPILOT, COPILOTS_OWN_INSTRUCTIONS, COPILOTS_STEPS, copilotInstalls, copilotLoadsAtAStart, copilotLoadsFromAnAddedFolder, foldersAddedToCopilot, repositoryRoot } from './hosts/copilot.mts'
 import { pluginRoot } from './manifest.mts'
 import { hubPath } from './nodes.mts'
 import { holds, inTree } from './worktree.mts'
@@ -11,6 +11,7 @@ import type { Estate } from './estate.mts'
 
 export { COPILOTS_OWN_INSTRUCTIONS, COPILOTS_OWN_SERVERS, copilotHome, copilotInstalls, copilotLoadsIn } from './hosts/copilot.mts'
 export type { CopilotInstall, CopilotLoads } from './hosts/copilot.mts'
+export type { Step } from './hosts/claude-code.mts'
 
 export type Host = 'claude-code' | 'copilot'
 
@@ -18,6 +19,10 @@ const TITLES: Record<Host, string> = { 'claude-code': CLAUDE_CODE.title, copilot
 
 export function titleOf(host: Host) {
   return TITLES[host]
+}
+
+export function stepsOf(host: Host) {
+  return host === 'copilot' ? COPILOTS_STEPS : CLAUDE_CODES_STEPS
 }
 
 // Copilot names a plugin's folder to the plugin's own hooks, in a variable Claude Code does not set.
