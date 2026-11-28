@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { REPO, acme, acmeIndex, acmePointers, disposable, hook, makeTree } from './helpers.mts'
@@ -111,4 +111,39 @@ test('on Copilot a prompt that was handed to an agent, which comes with that age
 
   assert.deepEqual(toAnAgent, { code: 0, stdout: '', stderr: '' })
   assert.deepEqual(answer(byThePerson.stdout), { additionalContext: acmePointers(root) })
+})
+
+const AGENTS = ['fetcher', 'reader', 'reviewer', 'sweeper', 'web-reader']
+const THE_READERS_SHELL = [['Bash is for that', 'The shell is for that']]
+
+function parted(text: string) {
+  const [, head, brief] = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text) ?? []
+  return { head: Object.fromEntries(head.split('\n').map(line => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()])), brief }
+}
+
+const claudes = (name: string) => parted(readFileSync(join(REPO, 'agents', `${name}.md`), 'utf8'))
+const copilots = (name: string) => parted(readFileSync(join(REPO, COPILOTS_OWN, 'agents', `${name}.agent.md`), 'utf8'))
+
+test('Copilot has a file of its own for each agent Claude Code has, named as GitHub asks an agent of a plugin to be named', () => {
+  assert.deepEqual(readdirSync(join(REPO, COPILOTS_OWN, 'agents')).sort(), AGENTS.map(name => `${name}.agent.md`))
+  assert.deepEqual(readdirSync(join(REPO, 'agents')).sort(), AGENTS.map(name => `${name}.md`))
+})
+
+test("each of Copilot's agents is given the brief Claude Code's is given, word for word, but for the reader's shell, which each host calls by its own name", () => {
+  for (const name of AGENTS) {
+    const expected = (name === 'reader' ? THE_READERS_SHELL : []).reduce((brief, [theirs, ours]) => brief.replace(theirs, ours), claudes(name).brief)
+
+    assert.equal(copilots(name).brief, expected, name)
+  }
+  assert.ok(claudes('reader').brief.includes('Bash is for that'))
+})
+
+test("the head of each of Copilot's agents holds its name, Claude Code's description of it and the tools it may hold by Copilot's names for them, and no field that Copilot does not read", () => {
+  const head = (name: string, tools?: string) => ({ name, description: claudes(name).head.description, ...(tools === undefined ? {} : { tools }) })
+
+  assert.deepEqual(copilots('reader').head, head('reader', '["read", "search", "execute"]'))
+  assert.deepEqual(copilots('reviewer').head, head('reviewer', '["read", "search", "execute"]'))
+  assert.deepEqual(copilots('web-reader').head, head('web-reader', '["web"]'))
+  assert.deepEqual(copilots('fetcher').head, head('fetcher'))
+  assert.deepEqual(copilots('sweeper').head, head('sweeper'))
 })
