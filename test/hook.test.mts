@@ -277,6 +277,26 @@ test('after a clear the session starts from nothing', () => {
   assert.equal(context(again), acmePointers(root))
 })
 
+test("a hook's input that opens with a byte-order mark, as Windows PowerShell puts one before text it pipes to a program, is read as if it had none", () => {
+  const root = tree(acme())
+  const marked = (event: string, input: unknown) => run(['hook', event], { stdin: `\uFEFF${JSON.stringify(input)}`, env: { CONTEXT_CENTRAL_STATE_DIR: stateDir() } })
+
+  assert.equal(context(marked('session-start', { session_id: 's1', cwd: root, source: 'new' })), acmeIndex(root))
+  assert.equal(context(marked('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' })), acmePointers(root))
+})
+
+test('a start the host calls new starts from nothing, as one after a clear does', () => {
+  const root = tree(acme())
+  const env = { CONTEXT_CENTRAL_STATE_DIR: stateDir() }
+  fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  const started = fire('session-start', { session_id: 's1', cwd: root, source: 'new' }, env)
+  const again = fire('user-prompt-submit', { session_id: 's1', cwd: root, prompt: 'PROJ-12' }, env)
+
+  assert.equal(context(started), acmeIndex(root))
+  assert.equal(context(again), acmePointers(root))
+})
+
 for (const source of ['compact', 'resume']) {
   test(`after a ${source} the state file of the active item follows the index`, () => {
     const root = tree(acme())

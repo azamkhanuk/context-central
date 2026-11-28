@@ -1,6 +1,6 @@
 # context-central
 
-A Claude Code plugin that gives all the context behind your work one central place: a map of plain Markdown notes about your repositories and the work in flight.
+A plugin for Claude Code and the GitHub Copilot command line that gives all the context behind your work one central place: a map of plain Markdown notes about your repositories and the work in flight.
 
 It is for people whose work runs across several repositories, or across many sessions on one, and who are tired of telling each new session where things stand.
 
@@ -9,8 +9,8 @@ It is for people whose work runs across several repositories, or across many ses
 ## What it does
 
 - **Keeps a map.** A folder of plain Markdown notes about your repositories and the work you have in flight.
-- **Shows Claude the work in flight.** Every session starts with a short index, one line for each piece of work.
-- **Points Claude at the right notes.** Name a piece of work, a pull request or a repository in your prompt, and Claude gets a short list of the notes behind it.
+- **Shows each session the work in flight.** Every session starts with a short index, one line for each piece of work.
+- **Points a session at the right notes.** Name a piece of work, a pull request or a repository in your prompt, and the session gets a short list of the notes behind it.
 - **Keeps each piece of work in a small state file.** It says where the work stands, what is done and what is next.
 - **Saves long text in full.** Tickets, pull requests and threads are kept whole behind the short files, and read only on request.
 - **Keeps what research found.** A research is a folder of numbered facts, each with every source that says it saved beside it, which later runs add to, check against the code, a spec, a design or a diff, and copy out for another planner. A run writes its brief first, waits once for your yes and gathers in rounds, the first sweeping every connection it can search. It can be left to run with nobody there, and the research skill installs by itself, with no plugin.
@@ -30,9 +30,9 @@ It is for people whose work runs across several repositories, or across many ses
 
 ## The core idea
 
-Load little, and point to the rest. A map has three tiers, and the tier decides when Claude sees a file.
+Load little, and point to the rest. A map has three tiers, and the tier decides when a session sees a file.
 
-| Tier | What is in it | When Claude sees it |
+| Tier | What is in it | When a session sees it |
 |---|---|---|
 | Always loaded | the hub (where each task goes, and the standing rules) and the live index (the work in flight, one line each) | at the start of every session |
 | Read when named | a work item's state file, and the notes behind it | when your prompt names the work |
@@ -49,14 +49,14 @@ Two rules keep it honest:
 
 1. **Set it up once.** Install the plugin and run `/context-central:onboard`. It reads what it can from disk, asks what is left, and writes the map. Or start with the work: where there is no map yet, research, prep, design and implement offer to make a plain one on the spot, which git does not show.
 2. **Say how each repo is built, when you want to.** `/context-central:standards <repo>` drafts that repo's standards and its checks from what the repo itself declares, and you approve them. Run it again later and it refreshes the note against the code as it now is. Skip it and the rest works as it did.
-3. **Start a session.** Claude already has the list of work in flight.
-4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. Claude is pointed at its state file and the notes behind it.
+3. **Start a session.** It already has the list of work in flight.
+4. **Name the work** in your prompt, by its ticket in any spelling or by its plain name. The session is pointed at its state file and the notes behind it.
 5. **Do the work with the skills.** `/context-central:research` finds out from primary sources, keeps what it found as a research folder in the map, writes no code and names the step that comes next, `/context-central:prep` writes the spec, `/context-central:design` settles how it will be built when the work needs that, and `/context-central:implement` builds it one slice at a time. From the spec onwards each step can start in a fresh session, because the hand-over is the files of the work item.
 6. **Write it back.** `/context-central:checkpoint` updates the state file, so the next session starts from there.
 
 ## What it runs
 
-- **Two hooks.** Claude Code starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once, and at a session's start it asks `git` whether the proof of each item in flight is whole, for two seconds at most.
+- **Two hooks.** The host starts Node at every session start and at every prompt, for 15 and 10 seconds at most. A hook reads the map and its own small record of the session, and nothing else. In a git work tree it may start `git` once, and at a session's start it asks `git` whether the proof of each item in flight is whole, for two seconds at most.
 - **Its commands.** `context-central` runs when a session or you type it. Some commands start `git` to read what it tracks and ignores, which commit a recorded check ran on, and whether a line a standards note cites still reads as it did. `fetch`, `doctor`, `connections` and `detect` start the tool of a connection's preset, such as GitHub's, under your own sign-in.
 - **Nothing is sent.** The plugin itself opens no network connection, downloads nothing and has no dependencies. Its own commands never post anywhere. Research reads the web through the host's own tools and a connection through the server, command or skill your estate names for it. The skill asks it to post nothing, and only its agents' briefs hold them to that.
 
@@ -86,7 +86,30 @@ Then start a session in the folder that holds your checkouts and run:
 
 Start a fresh session afterwards so the hub loads: `/clear` in the terminal, or **+ New session** in the desktop app.
 
-[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
+### On the GitHub Copilot command line
+
+From 0.22.0 the plugin works on the Copilot command line too, installed from the same marketplace, and there it follows Copilot's own ways:
+
+```sh
+copilot plugin marketplace add azamkhanuk/claude-plugins
+copilot plugin install context-central@azamkhanuk
+```
+
+The first command writes the marketplace into `~/.copilot/settings.json`. Give that entry `"autoUpdate": true`, once, so that it reads as below and a release reaches you by itself:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "azamkhanuk": { "source": { "source": "github", "repo": "azamkhanuk/claude-plugins" }, "autoUpdate": true }
+  }
+}
+```
+
+Copilot loads a side of the plugin made for it, a manifest, a hooks file and agents of its own, beside the skills both hosts share. `/context-central:onboard` sets a map up Copilot's way there: `.github/copilot-instructions.md` as the hub, the plugin shared through `.github/copilot/settings.json`, and a tool allowed the way Copilot allows one.
+
+Less has been shown there than on Claude Code. On Copilot 1.0.116 the install, an update by itself, both hooks, the command, the loading of a skill and all five agents were each run, the sessions against a stand-in model, and no skill has been run to its end there with any model: of the seven only `checkpoint` was loaded, and none with one of GitHub's models. [On the Copilot command line](docs/install.md#on-the-copilot-command-line) says what Copilot asks you to allow, what works only in a session with you in it, and what each run showed.
+
+[Install, update and turn off](docs/install.md) has the rest: installing from inside a session or from a local clone, on the Copilot command line, updating, [what decides whether the plugin loads](docs/install.md#what-decides-whether-it-loads), [what the first run does](docs/install.md#first-run), [two accounts on one machine](docs/install.md#two-accounts-on-one-machine), [turning it off](docs/install.md#turning-it-off) and [what stays put before 1.0](docs/install.md#what-stays-put-before-10).
 
 On Windows it has been tried only on GitHub's Windows machines, not in a live Claude Code session. [On Windows](docs/terminal.md#on-windows) lists what was shown there, and [What it does not do](docs/limits.md) lists what was not.
 
@@ -112,7 +135,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 
 | Part | What its file covers |
 |---|---|
-| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
+| [Install, update and turn off](docs/install.md) | What it needs, installing from a session or a local clone, the Copilot command line, updating, what decides whether the plugin loads, the first run, two accounts on one machine, turning it off, and what stays put before 1.0 |
 | [What it runs, what it writes and how to remove it](docs/what-it-runs.md) | Every program the plugin starts, every place it writes outside the map, and how to remove all of it |
 | [A piece of work, step by step](docs/step-by-step.md) | What each of the five steps needs, asks and writes, the settings the build follows, how every step ends, and what the item's folder holds afterwards |
 | [Research](docs/research.md) | A research's folder of facts and sources, a run with its brief, rounds, stop and closing answer, adding to a research, checking it and handing it over, leaving it to run, the settings an estate extends it by, research taken alone with no plugin, where a host cannot hold it, and what the runs of 0.21.0 showed |
@@ -133,7 +156,7 @@ The README is the short version. Each part has a file of its own under `docs/`:
 - It carries no coding standards of its own, for any language. A repo's standards are what the estate wrote in its standards note, and its checks are the commands the estate recorded.
 - It does not judge whether a note is true, and it never runs a check. `lint` and `graph` check size and links, and `lint` also checks that a claim marked `verified` names a source, that the proof of what was built is whole and that a line a standards note cites still reads as it did. They say what they find and hold nothing back.
 - On Windows it has not been tried in a live Claude Code session.
-- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code. The research skill alone is in the open skill format, and has been run only on Claude Code, where taken alone it named no step but swept its connection in one run of three and gave no subagent its brief whole, as [the changelog](CHANGELOG.md) has it.
+- It ships a `bin/` folder, so claude.ai and Cowork do not install it. It is for Claude Code, and from 0.22.0 for the Copilot command line, where no skill has yet been run to its end with any model, and the six skills you type cannot be started in a run with nobody there. VS Code is not covered. The research skill alone is in the open skill format, and has been run only on Claude Code, where taken alone it named no step but swept its connection in one run of three and gave no subagent its brief whole, as [the changelog](CHANGELOG.md) has it.
 
 The full list is in [What it does not do](docs/limits.md).
 

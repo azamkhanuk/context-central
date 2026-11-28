@@ -68,3 +68,6 @@ jobs:
             exit 0
           fi
           gh release upload "$tag" "$RUNNER_TEMP/$file"
+      - name: Move the release branch to the commit the release's tag names, which is where a marketplace pinned to that branch takes the plugin from
+        shell: bash
+        run: node scripts/release-branch.mts

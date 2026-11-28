@@ -21,7 +21,7 @@ With the plugin, the next step is the earliest that any fact calls for, read aga
 - The step the state file's Next names, in a fresh session, where the item's files already hold what was found.
 - None, where no fact calls for a step and either there is no item, every slice of it is built, or its state file's Next names no step: then the next things the person could do, in plain words, and no skill.
 
-Taken alone, there is no step to choose. The skill was taken alone where its line "The plugin's folder" ends at its colon or still shows a placeholder. Then the next things the person could do are given in plain words, such as handing the research's folder to whoever plans the work, and no skill is named.
+Taken alone, there is no step to choose. The skill was taken alone where its line "The plugin's folder" ends at its colon or still shows a placeholder, and the session cannot start an agent named `context-central:reader`. Then the next things the person could do are given in plain words, such as handing the research's folder to whoever plans the work, and no skill is named.
 
 The step is named in the closing answer and, with an item, in its state file's Next. It is named in no file of the research: where a point of the reading would name a step, as its fix or as what could show it, the reading says in plain words what is to be done.
 

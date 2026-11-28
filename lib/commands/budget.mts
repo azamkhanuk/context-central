@@ -4,9 +4,11 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError } from '../errors.mts'
 import { coverage, loadEstate } from '../estate.mts'
+import { copilotLoadsIn, hostFor } from '../host.mts'
 import { buildIndex } from '../index-text.mts'
 import { describeFile, expandImports } from '../instructions.mts'
 import { claudeConfigDir } from '../machine.mts'
+import { startText } from '../start-text.mts'
 import { formatBytes, parseFrontmatter, plural } from '../text.mts'
 import type { Env, Io } from '../cli.mts'
 
@@ -39,26 +41,42 @@ export function run(args: string[], io: Io) {
 }
 
 function measure(dir: string, env: Env) {
-  const configDir = claudeConfigDir(env)
+  const host = hostFor(env)
   const estate = coveringEstate(dir, env)
   const lineLimit = estate?.config.budgets.hubLines ?? DEFAULT_LINE_LIMIT
-  const userRules = rules(join(configDir, 'rules'))
-  const projectRules = rules(join(dir, '.claude', 'rules'))
-  const files = oncePerPath([
-    ...withImports(present([join(configDir, 'CLAUDE.md')]), 'user', env),
-    ...userRules.atLaunch.map(path => ({ path, source: 'user rule' })),
-    ...withImports(ancestorFiles(dir), 'ancestor', env),
-    ...projectRules.atLaunch.map(path => ({ path, source: 'project rule' })),
-  ]).map(file => sized(file, lineLimit))
+  const loaded = host === 'copilot' ? onCopilot(dir, env) : onClaudeCode(dir, env)
+  const files = oncePerPath(loaded.files).map(file => sized(file, lineLimit))
   const bytes = files.reduce((sum, file) => sum + file.bytes, 0)
+  const index = estate ? buildIndex(estate, env, { absolute: true, startDir: dir }) : ''
+  const hubChars = estate ? startText(index, host, estate, dir, env).hubChars : null
   return {
     dir,
     files,
     lineLimit,
     total: { bytes, files: files.length, tokens: { low: nearestHundred(bytes / 4), high: nearestHundred(bytes / 2.7) } },
-    notLoaded: { pathScopedRules: userRules.scoped + projectRules.scoped },
-    plugin: estate ? { indexChars: buildIndex(estate, env, { absolute: true, startDir: dir }).length } : null,
+    notLoaded: { pathScopedRules: loaded.scoped },
+    plugin: estate ? { indexChars: index.length, ...(hubChars === null ? {} : { hubChars }) } : null,
   }
+}
+
+function onClaudeCode(dir: string, env: Env) {
+  const configDir = claudeConfigDir(env)
+  const userRules = rules(join(configDir, 'rules'))
+  const projectRules = rules(join(dir, '.claude', 'rules'))
+  return {
+    files: [
+      ...withImports(present([join(configDir, 'CLAUDE.md')]), 'user', env),
+      ...userRules.atLaunch.map(path => ({ path, source: 'user rule' })),
+      ...withImports(ancestorFiles(dir), 'ancestor', env),
+      ...projectRules.atLaunch.map(path => ({ path, source: 'project rule' })),
+    ],
+    scoped: userRules.scoped + projectRules.scoped,
+  }
+}
+
+function onCopilot(dir: string, env: Env) {
+  const { files, scoped } = copilotLoadsIn(dir, env)
+  return { files: files.flatMap(({ path, source, bringsFilesIn }) => (bringsFilesIn ? withImports([path], source, env) : [{ path, source }])), scoped }
 }
 
 function sized({ path, ...rest }: Loaded, lineLimit: number): Measured {
@@ -129,7 +147,7 @@ function describe(report: Report, home: string) {
   const { bytes, files, tokens } = report.total
   lines.push(`Total: ${formatBytes(bytes)} in ${plural(files, 'file')}, about ${grouped(tokens.low)} to ${grouped(tokens.high)} tokens`)
   if (report.notLoaded.pathScopedRules > 0) lines.push(`Not loaded until used: ${plural(report.notLoaded.pathScopedRules, 'path-scoped rule')}`)
-  if (report.plugin) lines.push(`Plugin hooks add: index ${grouped(report.plugin.indexChars)} characters at session start`)
+  if (report.plugin) lines.push(`Plugin hooks add: index ${grouped(report.plugin.indexChars)} characters at session start${report.plugin.hubChars === undefined ? '' : `, and the hub's text, ${grouped(report.plugin.hubChars)} characters, which this host does not load by itself`}`)
   return lines
 }
 

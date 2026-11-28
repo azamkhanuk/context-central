@@ -44,6 +44,74 @@ The marketplace is the list of its author's plugins, kept in a repository of its
 
 The research skill can be installed by itself, with no plugin, from a clone of the repository or with the package each release carries from 0.21.0. [Research taken alone](research.md#research-taken-alone) has the commands, and what it leaves out.
 
+## On the Copilot command line
+
+From 0.22.0 the plugin works on the GitHub Copilot command line, and there it follows Copilot's own ways. The folder holds a side for each host over one shared core. The core is the command and the seven skills. Claude Code's side is its manifest, its hooks file and its agents, as they were. Copilot's side is a manifest of its own, `plugin.json` at the folder's root in the Agent Plugins form, and a folder `com.github.copilot/` with a hooks file in Copilot's own form and the five agents with heads in Copilot's words. Copilot loads its own side and the skills, and nothing of Claude Code's.
+
+**What it needs.** The Copilot command line 1.0.116 or later, the version everything below was shown on, and Node 22.18 or later as `node` on the `PATH` Copilot starts with. It has been run there on macOS alone.
+
+**Install.** From a shell:
+
+```sh
+copilot plugin marketplace add azamkhanuk/claude-plugins
+copilot plugin install context-central@azamkhanuk
+```
+
+Copilot keeps the copy in `~/.copilot/installed-plugins/azamkhanuk/context-central/`, or under `COPILOT_HOME` where that is set. A [launcher](terminal.md) finds it there where Claude Code has no copy on record.
+
+**Updating.** Copilot updates a plugin from a marketplace you added yourself only where your own settings turn that on. The first command above wrote the marketplace into `~/.copilot/settings.json`. Give that entry `"autoUpdate": true`, once, so that it reads:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "azamkhanuk": { "source": { "source": "github", "repo": "azamkhanuk/claude-plugins" }, "autoUpdate": true }
+  }
+}
+```
+
+Copilot then updates the plugin as a session starts in a folder you have trusted, and in a folder nobody has trusted it updates nothing. Without the entry, `copilot plugin update context-central@azamkhanuk` fetches a release by hand. Copilot takes any change of a plugin's files as an update, whatever its version, so the marketplace names the plugin's `release` branch, which only a release moves: a merge that is not a release reaches nobody.
+
+**What Copilot asks you to allow.** Copilot does not put a plugin's command on the `PATH`, so there a skill runs `node` with the file `bin/context-central` of the plugin's folder. Copilot asks before it runs a shell command it does not know as read-only, and before it uses a path outside the working folder, and a skill's `allowed-tools` grants neither there. In a session with you in it, its prompt before a command run through `node` offers yes or no and nothing more, with the plugin's folder added or not, so each of the plugin's commands asks. Either put the command on your `PATH`, as below, or start Copilot with both allowed:
+
+```sh
+copilot --add-dir ~/.copilot/installed-plugins/azamkhanuk/context-central --allow-tool='shell(node:*)'
+```
+
+That rule allows every `node` command for the run. With the command on your own `PATH`, as a [launcher](terminal.md) with its folder on the `PATH` or [the package each release carries](research.md#research-taken-alone) puts it, a skill finds it by its bare name. Copilot's prompt then offers "Yes, and don't ask again for `context-central` in this directory": it saves that answer for the folder in `permissions-config.json` in its own folder, and runs the plugin's later commands there without asking. The rule to give at a start is `--allow-tool='shell(context-central:*)'`, which was not run.
+
+**Trust.** A plugin's hooks run only in a folder you have trusted. A session with you in it asks at its start whether to trust the folder, and offers yes for that session, yes with the folder remembered, and no. A run with nobody there, `copilot -p`, runs no hook in a folder nobody has trusted, and `--trust-folder` trusts it for that run.
+
+**The skills.** In a session with you in it, a skill is typed as `/context-central:<skill>` with your words after it. Typing `/context-central` lists all seven, and a skill typed there reaches the model with its text, its folder named and your words filled in where the skill takes them, which was shown for `onboard` and `research` against the stand-in model. No skill was run to its end there with any model. In a `-p` run the six skills you type cannot be started: Copilot hands the slash name to the model as typed, and refuses the model a skill that is kept to the person. `checkpoint`, which the model may start, loads there.
+
+**Setting a map up.** `/context-central:onboard` follows the host it runs on. On Copilot the hub of a new map is `.github/copilot-instructions.md`, the file Copilot's own `init` writes and GitHub's best practices name, or `.context-central/hub.md` where the map sits in a repository and is kept out of git, since Copilot loads no instruction file that one checkout keeps to itself. The entry that shares the plugin with everyone who uses the map goes into the repository's `.github/copilot/settings.json`, or into `.github/copilot/settings.local.json` for one machine, and `context-central init --print-settings` prints it for the host it runs under. A map kept in git at an estate's root has a `.gitignore` that leaves the folder `.github/` out, so git tracks neither a hub there nor the shared settings: onboard offers the lines that mend it, and for a map that is there already they are `!/.github/`, `/.github/*`, `!/.github/copilot-instructions.md`, `!/.github/copilot/`, `/.github/copilot/*` and `!/.github/copilot/settings.json`, added at the end of that file in that order. Copilot keeps no file of rules for you to write: it stops asking before a tool runs once you answer its prompt with "Yes, and don't ask again", or where you start it with `--allow-tool`. The servers onboard lists are the ones `copilot mcp list` prints. `context-central host` prints all of this for the host it runs under, which is where the onboard skill takes it from, and `context-central budget` there counts the files Copilot loads at a start. `context-central init --plain`, which the other skills offer in a folder no map covers, gives a new map the same hub.
+
+**The agents.** Each starts under its name, `context-central:<agent>`, from a file of Copilot's own whose head lists the tools the agent may hold by Copilot's names for them. Copilot holds the reader and the reviewer to that list: neither is given a tool that writes a file, and each holds a shell, as on Claude Code. Copilot has no way to deny a tool, so the sweeper holds every tool there, as the fetcher does on both hosts, and only its brief keeps it from writing. No agent names a model there: each runs on the session's model, and `/subagents` sets another for one. Each brief is the one Claude Code's agent is given.
+
+**The hub.** Copilot puts `CLAUDE.md`, `.claude/CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`, the rules under `.claude/rules/` and an instructions file under `.github/instructions/` that applies to every file before the model at a session's start, from the folder the session starts in and from the root of its repository, with the named files from the folders between the two as well, and no `CLAUDE.local.md`: its help lists them, and a run showed which arrive. Where it does not load the hub, the session-start hook gives the hub's text after the live index, for a hub that lies inside the estate. The hook takes a hub as loaded by the name it is kept under, counted from any of those folders, and a hub that is a link by the name of the file the link leads to as well. Whether Copilot reads a file through a link was not seen. An instructions file that names the files it applies to arrives only once one of them is worked on, so the hook gives a hub kept as one. In a folder that `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` names, the hook takes an instructions file that applies to every file as loaded, and gives any other hub.
+
+**Turning it off.** `copilot plugin disable context-central@azamkhanuk` turns it off and `copilot plugin enable context-central@azamkhanuk` turns it on again. `copilot plugin uninstall context-central@azamkhanuk` removes the copy, and `copilot plugin marketplace remove azamkhanuk` the marketplace.
+
+**What was shown, and how.** The monthly quota of the account these runs were made on was spent, so each session below that reached a model ran on Copilot 1.0.116 against a stand-in model: a small server on the same machine that answers from a script and writes down what Copilot sends it. That shows what Copilot does with the plugin. It shows nothing of how one of GitHub's models follows a skill. One session was started signed in, against GitHub's own service, in a folder with a plain map: both hooks ran, Copilot loaded the hub once and listed `checkpoint` to the model, and each of the six models then asked answered that the quota was spent.
+
+| What | Shown |
+|---|---|
+| The marketplace added and the plugin installed from it, as 0.21.0, in a Copilot home of its own | yes |
+| A marketplace entry pinned to a branch: an install takes that branch, on Copilot and on Claude Code, and an update moves when it moves and not when `main` does | yes: the install with this plugin from a branch of its own repository, the update with a throwaway plugin |
+| With `autoUpdate` on the marketplace's entry, a session that starts in a trusted folder updates the plugin by itself | yes, with a throwaway plugin |
+| Copilot loads its own side of the plugin and the skills, and nothing of Claude Code's side, and Claude Code the other way round | yes, with a throwaway plugin laid out as this one is, and with this plugin installed from a marketplace on disk |
+| Both hooks start from Copilot's own hooks file, and the live index is before the model at a start and the pointers at a prompt, each once | yes |
+| The hub's text after the index, in a plain map | yes |
+| Which instruction files are before the model at a start | yes: each kind named under The hub above, once |
+| A skill loads with its folder named, and the command answers when run by its file | yes, for `checkpoint`, with the plugin's folder added |
+| Inside a session the command says its host is the Copilot command line, and prints Copilot's settings and steps | yes: `host`, `init --print-settings` and `budget`, each run by its file |
+| Each of the five agents starts from Copilot's own file with no warning, and the tools each holds | yes, but for the web reader's tools, the network being off |
+| A launcher finds the copy Copilot installed | yes |
+| A session with a person in it asks whether to trust the folder, and once trusted runs both hooks | yes, signed in and against the stand-in model |
+| A skill typed by its slash name in such a session reaches the model with its text and the words typed after it | yes, for `onboard` and `research` |
+| The prompt before a command offers to stop asking for one run by its name, saves that for the folder, and offers no such answer for one run through `node` | yes |
+| With a launcher on the `PATH`, the bare command answers inside a session and says its host is the Copilot command line | yes |
+| Any skill run with one of GitHub's models, any skill run to its end, the `powershell` line of a hook, Linux, Windows, VS Code | no |
+
 ## What decides whether it loads
 
 There are three ways to have the plugin. They differ in when it loads, how a release reaches it and whether a [launcher](terminal.md) finds it.

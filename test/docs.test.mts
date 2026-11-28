@@ -45,6 +45,23 @@ test('the README and the install doc give the two commands the launcher gives, s
   assert.ok(run(['wrapper']).stdout.includes(`${add}, then: ${install}`))
 })
 
+test("the README and the install doc give the same two commands for Copilot, and the entry for a person's own settings that names the marketplace the launcher names", () => {
+  const lines = [
+    'copilot plugin marketplace add azamkhanuk/claude-plugins',
+    'copilot plugin install context-central@azamkhanuk',
+    '    "azamkhanuk": { "source": { "source": "github", "repo": "azamkhanuk/claude-plugins" }, "autoUpdate": true }',
+  ]
+  const missing = ['README.md', 'docs/install.md'].flatMap(page => {
+    const written = readFileSync(join(REPO, page), 'utf8').split(/\r?\n/)
+    return lines.filter(line => !written.includes(line)).map(line => `${page}: ${line}`)
+  })
+  const { extraKnownMarketplaces } = JSON.parse(run(['init', '--print-settings']).stdout) as { extraKnownMarketplaces: unknown }
+
+  assert.deepEqual(missing, [])
+  assert.deepEqual(extraKnownMarketplaces, { azamkhanuk: { source: { source: 'github', repo: 'azamkhanuk/claude-plugins' }, autoUpdate: true } })
+  assert.ok(run(['wrapper']).stdout.includes('On Copilot the same two commands start with copilot.'))
+})
+
 test('the commands doc has a row for every command, for help and for --version, naming every flag each command takes', () => {
   const missing = commandNames().flatMap(name => {
     const rows = rowsFor(name)

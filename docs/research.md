@@ -123,7 +123,7 @@ The command can also come from the package each release carries from 0.21.0, a f
 
 Taken alone, the skill asks that it work as it does with the plugin, save for two things. It names no step at the end, and gives the next things to do in plain words, such as handing the folder to whoever plans the work. And it holds none of the plugin's agents: each kind of reading is to go to a subagent of the host, whose prompt holds the agent's brief from the skill's `references/` folder, whole. In the three runs of release 0.21.0 taken alone on Claude Code, each named no step, but one swept its connection and no prompt held a brief whole; [the changelog](../CHANGELOG.md) has each run.
 
-Other hosts read the open skill format, and research has not been run on one. Its folder holds `agents/openai.yaml`, the file one such host reads to keep a skill to the person who types it.
+Other hosts read the open skill format, and research has not been run on one. On the Copilot command line the whole plugin loads from 0.22.0, and research is to take the plugin as loaded where the session can start `context-central:reader`, since Copilot fills in no folder. Research itself has not been started there: [On the Copilot command line](install.md#on-the-copilot-command-line) has what was shown. Its folder holds `agents/openai.yaml`, the file one such host reads to keep a skill to the person who types it.
 
 ## Where a host cannot hold it
 

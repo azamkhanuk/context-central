@@ -8,6 +8,10 @@ allowed-tools: Bash(context-central *)
 
 The work item: $ARGUMENTS
 
+Where that line still shows a placeholder, the work item is what the person typed after this skill's name, or their last message.
+
+The plugin's command is `context-central`. Run it as these steps write it, with nothing in front of it and no test of whether it is there. A shell that answers that `context-central` is not found shows that the host has not put it on the PATH: only after that answer, run the file `bin/context-central` of the plugin's folder with `node` in its place, with the same words after it. The plugin's folder is two folders above this skill's own, which the host names when it loads the skill.
+
 Run `context-central draft <path>...` before a file of the map is read, edited, written or handed to an agent. A path is counted from the map's folder, or is an absolute path the plugin printed. For each it prints the absolute path of the file to use: the map's own, or in a git work tree whose map is in the main checkout a draft in the work tree, which starts as a copy of the map's file where the map has one. A file is in the work tree only once it has been drafted: where one is not there, draft it before saying that the map lacks it. `context-central take` puts the drafts into the map and removes them from the work tree: run it where a step says so and before a command that reads those files from the map, and after it run `context-central draft` on a file again before it is read or edited. It prints `took <path>` for each draft it took and `kept <path>: <why>` for one it left. A `kept` line that names a file to compare with means the map's file is not the one the draft was made from: read that file where it stands, with no draft of it, bring into the draft what it has and the draft lacks, then run `context-central take --over <path>`. A closing answer names a file by its place in the map, never by a draft's path, and a draft still kept goes under Needs a fix with its reason.
 
 ## 1. Load the item

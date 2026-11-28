@@ -4,12 +4,14 @@ import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { PluginError } from '../errors.mts'
 import { DEFAULT_NODE_DIRS, findEstate } from '../estate.mts'
+import { COPILOTS_OWN_INSTRUCTIONS, COPILOTS_OWN_SERVERS, copilotHome, hostFor } from '../host.mts'
 import { describeFile } from '../instructions.mts'
 import { accountsOf, claudeConfigDir, onPath } from '../machine.mts'
 import { PRESETS } from '../presets.mts'
 import { formatBytes, plural } from '../text.mts'
 import { linkedWorkTree } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
+import type { Host } from '../host.mts'
 import type { Entry, Preset } from '../presets.mts'
 import type { WorkTree } from '../worktree.mts'
 
@@ -43,6 +45,7 @@ export function run(args: string[], io: Io) {
 
 function detect(dir: string, env: Env) {
   const places = [{ rel: '', abs: dir, names: namesIn(dir) }, ...subfolders(dir)]
+  const host = hostFor(env)
   const ask = git(env)
   const workTree = linkedWorkTree(dir)
   const checkouts = places.filter(place => place.names.includes('.git') && !(place.rel && linkedWorkTree(place.abs)))
@@ -53,14 +56,14 @@ function detect(dir: string, env: Env) {
     existingMap: existingMap(dir, env),
     workTree,
     repos,
-    instructionFiles: places.flatMap(place => filesNamed(place, name => INSTRUCTION_FILES.includes(name), INSTRUCTION_FILES)).map(sized),
+    instructionFiles: places.flatMap(place => [...filesNamed(place, name => INSTRUCTION_FILES.includes(name), INSTRUCTION_FILES), ...(host === 'copilot' ? fileAt(place, COPILOTS_OWN_INSTRUCTIONS) : [])]).map(sized),
     nodeDirs: DEFAULT_NODE_DIRS.filter(name => isFolder(join(dir, name))).sort(),
     keyCandidates: keyCandidates([...workNames(dir), ...checkouts.flatMap(place => branchNames(place, ask))]),
-    mcpServers: places.flatMap(mcpServers),
+    mcpServers: places.flatMap(place => mcpServers(place, host)),
     tools,
     accounts: Object.fromEntries(PRESETS.filter(preset => preset.accounts).map(preset => [preset.name, accountsOf(preset, env)])),
     connectionCandidates: PRESETS.flatMap(preset => candidatesOf(preset, repos, tools)),
-    configDir: claudeConfigDir(env),
+    configDir: host === 'copilot' ? copilotHome(env) : claudeConfigDir(env),
     glossaryCandidates: places.flatMap(place => filesNamed(place, isGlossaryName)).map(file => file.rel),
   }
 }
@@ -186,8 +189,14 @@ function keyCandidates(names: string[]) {
     .sort((a, b) => b.seen - a.seen || a.pattern.localeCompare(b.pattern))
 }
 
-function mcpServers(place: Place) {
-  return filesNamed(place, name => name === '.mcp.json').flatMap(file => {
+function fileAt(place: Place, rel: string) {
+  return [{ rel: place.rel ? `${place.rel}/${rel}` : rel, abs: join(place.abs, ...rel.split('/')) }].filter(file => isFile(file.abs))
+}
+
+// Copilot passes over its own file of servers in a folder that holds the one any host reads.
+function mcpServers(place: Place, host: Host) {
+  const anyHosts = filesNamed(place, name => name === '.mcp.json')
+  return [...anyHosts, ...(host === 'copilot' && anyHosts.length === 0 ? fileAt(place, COPILOTS_OWN_SERVERS) : [])].flatMap(file => {
     try {
       return [{ file: file.rel, names: Object.keys((JSON.parse(readFileSync(file.abs, 'utf8')) as { mcpServers?: Record<string, unknown> }).mcpServers ?? {}) }]
     } catch {

@@ -3,12 +3,14 @@ import { basename, dirname, join, posix, relative, resolve, sep } from 'node:pat
 import { parseArgs } from 'node:util'
 import { PluginError, UsageError } from '../errors.mts'
 import { CONFIG_FILE, CONFIG_MARKER, INNER_DIR, estateAt, findEstate, validateConfig } from '../estate.mts'
+import { hostFor, hubAtARootOn } from '../host.mts'
 import { LOCK, locked, readThere, readWhole, standsAt, writeWhole } from '../lock.mts'
 import { evidenceIgnoreRule, gitattributesTemplate, gitignoreTemplate, glossaryTemplate, hubTemplate, mapBlock, BLOCK_START, settingsTemplate } from '../templates.mts'
 import { withoutBom } from '../text.mts'
 import { checkoutAround, checkoutsUnder, foldsCase, holds, inGitsOwnFolder, trackedThere } from '../worktree.mts'
 import type { Env, Io } from '../cli.mts'
 import type { Layout, Settings } from '../estate.mts'
+import type { Host } from '../host.mts'
 import type { InMap } from '../templates.mts'
 
 interface Answers {
@@ -50,7 +52,7 @@ export function run(args: string[], io: Io) {
     allowPositionals: true,
     options: { from: { type: 'string' }, plain: { type: 'boolean' }, hub: { type: 'string' }, 'dry-run': { type: 'boolean' }, 'print-settings': { type: 'boolean' } },
   })
-  if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(), null, 2))
+  if (values['print-settings']) return void io.out(JSON.stringify(settingsTemplate(hostFor(io.env)), null, 2))
   if (Boolean(values.plain) === Boolean(values.from)) throw new UsageError('expected --from <answers.json> or --plain, one and not both, or --print-settings')
   if (values.hub !== undefined && !values.plain) throw new UsageError('--hub names the hub of a plain map, so it goes with --plain')
   const given = resolve(io.cwd, positionals[0] ?? '.')
@@ -82,7 +84,7 @@ function plain(given: string, env: Env, asked: string | undefined): Plan {
   if (found && found.configPath !== ours) throw new PluginError(`a map already covers this folder: ${found.configPath}`)
   const held = found ? estateAt(found).config.hub : null
   if (held !== null && asked !== undefined && asked !== held) throw new PluginError(`this folder's map has its hub at ${held} already, and init --plain does not move it: --hub "${asked}" names another`)
-  const hub = held ?? asked ?? hubFound(dir, around !== null)
+  const hub = held ?? asked ?? hubFound(dir, around !== null, hostFor(env))
   const landing = landingOf(dir, hub)
   if (!found) outOfGit(dir, landing, around !== null, env)
   if (!around) return { dir, answers: { layout: 'root', config: { name, ...(hub === ROOT_HUB ? {} : { hub }), repos: checkoutsUnder(dir), connections: {} } }, first: [], fresh: !found }
@@ -207,10 +209,14 @@ function refuseAHubTheMapLaysDown(planned: Step[], layout: Layout, dir: string, 
   if (folder !== undefined) throw new PluginError(`"${hub}" lies in ${folder}, which init lays down for the map itself, so it cannot be the hub`)
 }
 
-function hubFound(dir: string, inCheckout: boolean) {
-  const anotherHostsAlone = Boolean(entryAt(join(dir, ANOTHER_HOSTS_HUB))?.isFile()) && !CLAUDES_OWN.some(name => existsSync(join(dir, name)))
-  if (!anotherHostsAlone) return inCheckout ? OWN_HUB : ROOT_HUB
-  return inCheckout ? `${INNER_DIR}/hub.md` : ANOTHER_HOSTS_HUB
+function hubFound(dir: string, inCheckout: boolean, host: Host) {
+  const anotherHosts = Boolean(entryAt(join(dir, ANOTHER_HOSTS_HUB))?.isFile())
+  const hostsOwn = hubAtARootOn(host)
+  // Claude Code's settings folder says nothing of a hub to a host that does not read it.
+  const claudes = hostsOwn === null ? CLAUDES_OWN : [ROOT_HUB, OWN_HUB]
+  if (claudes.some(name => existsSync(join(dir, name))) || (!anotherHosts && hostsOwn === null)) return inCheckout ? OWN_HUB : ROOT_HUB
+  if (inCheckout) return `${INNER_DIR}/hub.md`
+  return anotherHosts ? ANOTHER_HOSTS_HUB : (hostsOwn ?? ROOT_HUB)
 }
 
 function readAnswers(path: string) {

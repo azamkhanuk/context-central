@@ -284,6 +284,136 @@ test('an installed list without this plugin counts as nothing installed', () => 
   assert.match(result.stderr, /the plugin was not found/)
 })
 
+type OtherHostInstall = { name?: unknown, marketplace?: unknown, cache_path?: unknown, enabled?: unknown }
+
+const RECORD_HEAD = '// User settings belong in settings.json.\n// This file is managed automatically.\n'
+const fromAuthor = (root: string, extra: OtherHostInstall = {}) => ({ name: 'context-central', marketplace: 'azamkhanuk', version: '0.22.0', cache_path: join(root, 'installed/context-central'), enabled: true, ...extra })
+
+function installOnOtherHost(home: string, installedPlugins: unknown, head = RECORD_HEAD) {
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, 'config.json'), `${head}${JSON.stringify({ firstLaunchAt: '2026-01-15T12:00:00Z', installedPlugins }, null, 2)}\n`)
+}
+
+test('with no copy on record for Claude Code, the launcher runs the copy another host installed, though that host opens its record with comment lines', () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [{ name: 'other-plugin', marketplace: 'some-market', cache_path: join(root, 'installed/other-plugin'), enabled: true }, fromAuthor(root)])
+
+  const result = launch(root, ['resolve', 'PROJ-12'], {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['resolve', 'PROJ-12'] })
+})
+
+test("the launcher reads the other host's record in the folder that host's own variable names", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'kept elsewhere'), [fromAuthor(root)], '')
+
+  const result = launch(root, ['index'], { COPILOT_HOME: join(root, 'kept elsewhere') })
+
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("a copy on record for Claude Code is run before the other host's", () => {
+  const root = machine()
+  install(root, join(root, 'home/.claude'))
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, { cache_path: join(root, 'elsewhere') })])
+
+  const result = launch(root, ['index'], {})
+
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("of two copies the other host holds, the launcher runs the one from its author's marketplace, though the other is recorded first", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, { marketplace: 'context-central', cache_path: join(root, 'elsewhere') }), fromAuthor(root)])
+
+  const result = launch(root, ['index'], {})
+
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("a copy on the other host's record that does not say whether it is on is taken, and so is one on a record that opens with a byte-order mark", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [{ name: 'context-central', marketplace: 'azamkhanuk', cache_path: join(root, 'installed/context-central') }])
+  const marked = machine()
+  installOnOtherHost(join(marked, 'home/.copilot'), [fromAuthor(marked)], '\uFEFF')
+
+  assert.deepEqual(JSON.parse(launch(root, ['index'], {}).stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(launch(marked, ['index'], {}).stdout) as unknown, { cli: join(marked, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("another plugin of the same marketplace, recorded first on the other host's record, is not taken for this one", () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [{ name: 'other-plugin', marketplace: 'azamkhanuk', cache_path: join(root, 'installed/other-plugin'), enabled: true }, fromAuthor(root)])
+
+  const result = launch(root, ['index'], {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test("a copy recorded first on the other host's record with no folder, or with a folder that is not text, is passed over for the copy that has one", () => {
+  for (const broken of [{ cache_path: undefined }, { cache_path: 7 }]) {
+    const root = machine()
+    installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, broken), fromAuthor(root)])
+
+    const result = launch(root, ['index'], {})
+
+    assert.equal(result.stderr, '')
+    assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  }
+})
+
+test('where the record for Claude Code names a folder that is gone, the copy the other host installed is run', () => {
+  const root = machine()
+  install(root, join(root, 'home/.claude'), join(root, 'gone'))
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root)])
+
+  const result = launch(root, ['index'], {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test('a copy the other host has turned off is passed over, and one whose folder is gone counts as nothing installed', () => {
+  const root = machine()
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root, { enabled: false }), fromAuthor(root, { marketplace: 'context-central', cache_path: join(root, 'elsewhere') })])
+  const gone = machine()
+  installOnOtherHost(join(gone, 'home/.copilot'), [fromAuthor(gone, { cache_path: join(gone, 'never-there') })])
+
+  assert.deepEqual(JSON.parse(launch(root, ['index'], {}).stdout) as unknown, { cli: join(root, 'elsewhere/bin/context-central'), args: ['index'] })
+  assert.match(launch(gone, ['index'], {}).stderr, /the plugin was not found/)
+})
+
+test("a record of the other host's that is not JSON, lists nothing, or lists a copy with no folder counts as nothing installed", () => {
+  const records = ['not json\n', '{}\n', '{ "installedPlugins": "context-central" }\n', '{ "installedPlugins": [null, 7, { "name": "context-central" }, { "name": "context-central", "cache_path": 7 }] }\n']
+
+  for (const record of records) {
+    const root = machine()
+    mkdirSync(join(root, 'home/.copilot'), { recursive: true })
+    writeFileSync(join(root, 'home/.copilot/config.json'), record)
+
+    const result = launch(root, ['index'], {})
+
+    assert.equal(result.code, 1, record)
+    assert.match(result.stderr, /the plugin was not found/, record)
+  }
+})
+
+test('with nothing installed on either host the launcher says in two lines how to install on each, or to name the bin script', () => {
+  const root = machine()
+
+  const result = launch(root, ['index'], {})
+
+  assert.deepEqual(result, {
+    code: 1,
+    stdout: '',
+    stderr:
+      'context-central: the plugin was not found. Add its marketplace with claude plugin marketplace add azamkhanuk/claude-plugins, then: claude plugin install context-central@azamkhanuk\n' +
+      'On Copilot the same two commands start with copilot. Or set CONTEXT_CENTRAL_CLI to the path of its bin/context-central file.\n',
+  })
+})
+
 type Install = { scope: string, installPath: string, projectPath?: string }
 
 function estateMachine(records: (root: string) => Install[]) {
@@ -364,7 +494,7 @@ const CMD = onlyOnWindows('only Windows has cmd and PowerShell to run the cmd la
 const SYSTEM32 = join(process.env.SystemRoot ?? '', 'System32')
 const NOT_FOUND =
   'context-central: the plugin was not found. Add its marketplace with claude plugin marketplace add azamkhanuk/claude-plugins, then: claude plugin install context-central@azamkhanuk\r\n' +
-  'Or set CONTEXT_CENTRAL_CLI to the path of its bin/context-central file.\r\n'
+  'On Copilot the same two commands start with copilot. Or set CONTEXT_CENTRAL_CLI to the path of its bin/context-central file.\r\n'
 
 function cmdMachine() {
   const root = machine()
@@ -472,6 +602,31 @@ test('with nothing installed the cmd launcher prints the same two lines and exit
   const result = cmd(root, `${cmdLauncher(root)} index`, {})
 
   assert.deepEqual(result, { code: 1, stdout: '', stderr: NOT_FOUND })
+})
+
+test('the cmd launcher runs the copy another host installed where Claude Code has none on record, from the profile folder or the folder that host names', CMD, () => {
+  const root = cmdMachine()
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root)])
+  const named = cmdMachine()
+  installOnOtherHost(join(named, 'kept elsewhere'), [fromAuthor(named)])
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, {})
+  const fromNamed = cmd(named, `${cmdLauncher(named)} index`, { COPILOT_HOME: join(named, 'kept elsewhere') })
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
+  assert.deepEqual(JSON.parse(fromNamed.stdout) as unknown, { cli: join(named, 'installed/context-central/bin/context-central'), args: ['index'] })
+})
+
+test('where the record for Claude Code names a folder that is gone, the cmd launcher runs the copy the other host installed', CMD, () => {
+  const root = cmdMachine()
+  install(root, join(root, 'home/.claude'), join(root, 'gone'))
+  installOnOtherHost(join(root, 'home/.copilot'), [fromAuthor(root)])
+
+  const result = cmd(root, `${cmdLauncher(root)} index`, {})
+
+  assert.equal(result.stderr, '')
+  assert.deepEqual(JSON.parse(result.stdout) as unknown, { cli: join(root, 'installed/context-central/bin/context-central'), args: ['index'] })
 })
 
 test('the cmd launcher counts an install record it cannot use as nothing installed', CMD, () => {

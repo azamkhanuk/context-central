@@ -1,5 +1,6 @@
 import { EVIDENCE_DIR } from './nodes.mts'
 import type { Repo, Settings, WriteRules } from './estate.mts'
+import type { Host } from './host.mts'
 
 export type InMap = (rel: string) => string
 
@@ -205,9 +206,12 @@ export function gitattributesTemplate() {
   return 'log/*.md merge=union\n'
 }
 
-export function settingsTemplate() {
+// Copilot takes a marketplace's auto-update from a person's own settings alone, and a rule that allows a command from no settings file.
+export function settingsTemplate(host: Host) {
+  const marketplace = { source: { source: 'github', repo: MARKETPLACE_REPO } }
+  if (host === 'copilot') return { extraKnownMarketplaces: { [MARKETPLACE]: marketplace }, enabledPlugins: { [PLUGIN_ID]: true } }
   return {
-    extraKnownMarketplaces: { [MARKETPLACE]: { source: { source: 'github', repo: MARKETPLACE_REPO }, autoUpdate: true } },
+    extraKnownMarketplaces: { [MARKETPLACE]: { ...marketplace, autoUpdate: true } },
     enabledPlugins: { [PLUGIN_ID]: true },
     permissions: { allow: [`Bash(${PLUGIN} *)`] },
   }
@@ -227,6 +231,16 @@ if [ -z "$cli" ]; then
       ${CHOOSE_INSTALL}
       console.log(choose(process.argv[1], process.argv[2]))
     ' "$installed" "$0" 2>/dev/null)
+    if [ -n "$root" ] && [ -f "$root/bin/${PLUGIN}" ]; then cli="$root/bin/${PLUGIN}"; fi
+  fi
+fi
+if [ -z "$cli" ]; then
+  record="\${COPILOT_HOME:-$HOME/.copilot}/config.json"
+  if [ -f "$record" ]; then
+    root=$(node -e '
+      ${CHOOSE_OTHER_HOST}
+      console.log(chooseOtherHost(process.argv[1]))
+    ' "$record" 2>/dev/null)
     if [ -n "$root" ]; then cli="$root/bin/${PLUGIN}"; fi
   fi
 fi
@@ -242,7 +256,7 @@ exec node "$cli" "$@"
 const NO_NODE = `${PLUGIN}: node was not found on the PATH. Install Node 22.18 or later.`
 const NO_PLUGIN = [
   `${PLUGIN}: the plugin was not found. Add its marketplace with claude plugin marketplace add ${MARKETPLACE_REPO}, then: claude plugin install ${PLUGIN}@${MARKETPLACE}`,
-  `Or set CONTEXT_CENTRAL_CLI to the path of its bin/${PLUGIN} file.`,
+  `On Copilot the same two commands start with copilot. Or set CONTEXT_CENTRAL_CLI to the path of its bin/${PLUGIN} file.`,
 ]
 // One text for both launchers: sh wraps it in single quotes and cmd in double, so every string in it is in backticks and it holds no percent sign.
 const CHOOSE_INSTALL = [
@@ -256,13 +270,23 @@ const CHOOSE_INSTALL = [
   'while (dir && path.dirname(dir) !== dir) { dir = path.dirname(dir); const own = projects.find(([folder]) => folder === dir); if (own) return own[1] }',
   'return person ? person.installPath : `` }',
 ].join('; ')
+// The other host keeps one copy for the person, on a record that opens with comment lines. The text obeys the rule above.
+const CHOOSE_OTHER_HOST = [
+  'const chooseOtherHost = record => { const fs = require(`fs`)',
+  'const read = () => { try { const text = fs.readFileSync(record, `utf8`); const installs = JSON.parse((text.charCodeAt(0) === 65279 ? text.slice(1) : text).split(`\\n`).filter(line => !line.trim().startsWith(`//`)).join(`\\n`)).installedPlugins; return Array.isArray(installs) ? installs : [] } catch (error) { return [] } }',
+  `const ours = read().filter(install => install && install.name === \`${PLUGIN}\` && install.enabled !== false && typeof install.cache_path === \`string\`).sort((a, b) => Number(b.marketplace === \`${MARKETPLACE}\`) - Number(a.marketplace === \`${MARKETPLACE}\`))`,
+  'return ours.length ? ours[0].cache_path : `` }',
+].join('; ')
 // cmd reads what a program prints in the console code page, which garbles a path outside ASCII, so node finds the bin script and runs it.
 const RUN_BIN_SCRIPT = [
   "const fs = require('fs')",
   "const [record, launcher, ...args] = process.argv.slice(1)",
   CHOOSE_INSTALL,
-  `const installed = () => { const root = choose(record, launcher); return root ? require('path').join(root, 'bin', '${PLUGIN}') : '' }`,
+  CHOOSE_OTHER_HOST,
+  "const otherHost = () => require('path').join(process.env.COPILOT_HOME || require('path').join(require('os').homedir(), '.copilot'), 'config.json')",
   'const isFile = file => { try { return fs.statSync(file).isFile() } catch { return false } }',
+  `const binOf = root => (root ? require('path').join(root, 'bin', '${PLUGIN}') : '')`,
+  "const installed = () => [binOf(choose(record, launcher)), binOf(chooseOtherHost(otherHost()))].find(isFile) || ''",
   'const cli = process.env.CONTEXT_CENTRAL_CLI || installed()',
   "if (cli && isFile(cli)) process.exit(require('child_process').spawnSync(process.execPath, [cli, ...args], { stdio: 'inherit' }).status ?? 1)",
   `process.stderr.write('${NO_PLUGIN.map(line => `${line}\\r\\n`).join('')}')`,

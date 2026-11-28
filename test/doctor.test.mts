@@ -441,6 +441,92 @@ test('a copy whose project folder is gone, or is not written as text, does not l
   assert.equal(copiesLine(doctor(root, at(42))), 'ok   copies')
 })
 
+const OTHER_HOST_HEAD = '// User settings belong in settings.json.\n// This file is managed automatically.\n'
+const otherHostCopy = (id: string, extra: { [key: string]: Json } = {}) => ({ name: id.split('@')[0], marketplace: id.split('@')[1], version: '0.22.0', cache_path: `/plugins/${id}`, enabled: true, ...extra })
+const otherHostRecord = (installedPlugins: Json) => `${OTHER_HOST_HEAD}${JSON.stringify({ firstLaunchAt: '2026-01-15T12:00:00Z', installedPlugins }, null, 2)}\n`
+const onOtherHost = (installedPlugins: Json, more: TreeFiles = {}) => sandbox({}, { '.copilot/config.json': otherHostRecord(installedPlugins), ...more })
+const TWO_ON_OTHER_HOST = `the plugin loads on Copilot as ${CURRENT} and ${OLDER}, so each hook runs twice there; keep the copy you use and uninstall the other, so to keep ${CURRENT}: copilot plugin uninstall ${OLDER}`
+
+test('two copies of the plugin that Copilot holds and has on are a fix that gives its own command for the one to drop, though its record opens with comment lines', () => {
+  const root = tree(acme())
+
+  const result = doctor(root, onOtherHost([otherHostCopy('other-plugin@some-market'), otherHostCopy(OLDER), otherHostCopy(CURRENT)]))
+
+  assert.equal(copiesLine(result), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+  assert.equal(result.code, 1)
+})
+
+test('one copy on each host is no fault, and neither is a second copy that Copilot has turned off', () => {
+  const root = tree(acme())
+  const oneEach = onOtherHost([otherHostCopy(CURRENT)], { '.claude/plugins/installed_plugins.json': { version: 2, plugins: { [CURRENT]: [forPerson('0.22.0')] } }, '.claude/settings.json': { enabledPlugins: { [CURRENT]: true } } })
+
+  assert.equal(copiesLine(doctor(root, oneEach)), 'ok   copies')
+  assert.equal(copiesLine(doctor(root, onOtherHost([otherHostCopy(OLDER, { enabled: false }), otherHostCopy(CURRENT)]))), 'ok   copies')
+})
+
+test('two copies on each host are one fix that says both, each with its own host command', () => {
+  const root = tree(acme())
+  const env = onOtherHost([otherHostCopy(CURRENT), otherHostCopy(OLDER)], { '.claude/plugins/installed_plugins.json': { version: 2, plugins: BOTH_FOR_PERSON }, '.claude/settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } })
+
+  assert.equal(copiesLine(doctor(root, env)), `${twoCopies('user')}. And ${TWO_ON_OTHER_HOST}`)
+})
+
+test("Copilot's record is read from the folder its own variable names when one is set", () => {
+  const home = tree(makeTree({ 'config.json': otherHostRecord([otherHostCopy(OLDER), otherHostCopy(CURRENT)]) }))
+
+  assert.equal(copiesLine(doctor(tree(acme()), { ...sandbox(), COPILOT_HOME: home })), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+})
+
+test("a record of Copilot's that is not JSON, holds no list, or lists a copy with no name or no folder holds no copy", () => {
+  const root = tree(acme())
+  const nameless: Json[] = [{ marketplace: 'elsewhere', cache_path: '/plugins/a', enabled: true }, { cache_path: '/plugins/b', enabled: true }, { name: 'context-central', marketplace: 'elsewhere' }, { name: 'context-central', marketplace: 'another', cache_path: '' }, null, 7, otherHostCopy(CURRENT)]
+
+  for (const record of ['{ not json', '{}\n', otherHostRecord('context-central'), otherHostRecord(nameless)]) {
+    assert.equal(copiesLine(doctor(root, sandbox({}, { '.copilot/config.json': record }))), 'ok   copies', record)
+  }
+})
+
+test("a copy on Copilot's record that does not say whether it is on counts as on", () => {
+  const unsaid = (id: string) => ({ name: id.split('@')[0], marketplace: id.split('@')[1], cache_path: `/plugins/${id}` })
+
+  assert.equal(copiesLine(doctor(tree(acme()), onOtherHost([unsaid(OLDER), unsaid(CURRENT)]))), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+})
+
+test("a record of Copilot's that opens with a byte-order mark is read as if it had none", () => {
+  const record = `\uFEFF${JSON.stringify({ installedPlugins: [otherHostCopy(OLDER), otherHostCopy(CURRENT)] })}\n`
+
+  assert.equal(copiesLine(doctor(tree(acme()), sandbox({}, { '.copilot/config.json': record }))), `FIX  copies: ${TWO_ON_OTHER_HOST}`)
+})
+
+test('one copy that Copilot recorded twice is one copy, and no fix', () => {
+  assert.equal(copiesLine(doctor(tree(acme()), onOtherHost([otherHostCopy(CURRENT), otherHostCopy(CURRENT)]))), 'ok   copies')
+})
+
+test("a copy on Copilot's record under no marketplace counts beside one from a marketplace, and is dropped by its bare name", () => {
+  const bare = { name: 'context-central', cache_path: '/plugins/direct', enabled: true }
+
+  assert.equal(
+    copiesLine(doctor(tree(acme()), onOtherHost([bare, otherHostCopy(CURRENT)]))),
+    `FIX  copies: the plugin loads on Copilot as ${CURRENT} and context-central, so each hook runs twice there; keep the copy you use and uninstall the other, so to keep ${CURRENT}: copilot plugin uninstall context-central`,
+  )
+})
+
+test("a marketplace's name that holds a line break is no part of a copy's id, so the row for copies stays one line", () => {
+  const result = doctor(tree(acme()), onOtherHost([otherHostCopy(CURRENT, { marketplace: 'two\nlines' }), otherHostCopy(CURRENT)]))
+
+  assert.equal(result.stdout.split('\n').filter(line => line.includes('lines')).length, 0)
+  assert.equal(copiesLine(result), `FIX  copies: the plugin loads on Copilot as ${CURRENT} and context-central, so each hook runs twice there; keep the copy you use and uninstall the other, so to keep ${CURRENT}: copilot plugin uninstall context-central`)
+})
+
+test('three copies on Copilot are each named, with how often each hook runs and an uninstall for every copy but the kept one', () => {
+  const FORK = 'context-central@globex'
+
+  assert.equal(
+    copiesLine(doctor(tree(acme()), onOtherHost([otherHostCopy(FORK), otherHostCopy(OLDER), otherHostCopy(CURRENT)]))),
+    `FIX  copies: the plugin loads on Copilot as ${CURRENT}, ${OLDER} and ${FORK}, so each hook runs 3 times there; keep the copy you use and uninstall the others, so to keep ${CURRENT}: copilot plugin uninstall ${OLDER}, then copilot plugin uninstall ${FORK}`,
+  )
+})
+
 test('the install record is read from the Claude config folder when one is set', () => {
   const configDir = tree(makeTree({ 'plugins/installed_plugins.json': { version: 2, plugins: BOTH_FOR_PERSON }, 'settings.json': { enabledPlugins: { [OLDER]: true, [CURRENT]: true } } }))
 
